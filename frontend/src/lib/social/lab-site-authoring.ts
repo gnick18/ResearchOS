@@ -114,9 +114,14 @@ export interface UpsertPageBody {
   bodyMd: string;
 }
 
-/** A validated publish-page request body. */
+/** A validated publish-page request body. `snapshots` is the OPTIONAL baked-block
+ *  bundle the author baked client-side (canvas), carried through as an unknown so
+ *  the route validates it with parseSnapshotBundle (lab-site-snapshots.ts), the
+ *  single defensive boundary for the untrusted snapshot shape. Absent for a
+ *  text-only page or a client that did not bake. */
 export interface PublishPageBody {
   path: string;
+  snapshots?: unknown;
 }
 
 function asRecord(body: unknown): Record<string, unknown> | null {
@@ -159,10 +164,16 @@ export function parseUpsertPageBody(body: unknown): UpsertPageBody | null {
   return { path: b.path, title: b.title, bodyMd: b.bodyMd };
 }
 
-/** Validates the publish-page body (just a path, which may be ""). */
+/** Validates the publish-page body (a path, which may be "", plus an optional
+ *  raw snapshots bundle). The snapshots shape is NOT validated here, it is passed
+ *  through untouched so the route runs it through parseSnapshotBundle, which is
+ *  the one place the untrusted BakedEmbed shape is sanitized. A wrong path type
+ *  still rejects the whole body (400). */
 export function parsePublishPageBody(body: unknown): PublishPageBody | null {
   const b = asRecord(body);
   if (!b) return null;
   if (typeof b.path !== "string") return null;
-  return { path: b.path };
+  const out: PublishPageBody = { path: b.path };
+  if ("snapshots" in b) out.snapshots = b.snapshots;
+  return out;
 }

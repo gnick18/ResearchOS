@@ -64,6 +64,16 @@ export interface LabSitePageRow {
   status: PageStatus;
   version: number;
   updatedAt: string;
+  /**
+   * The frozen baked-block snapshots for this page version, as the raw JSON text
+   * stored in the snapshots_json column, or null when none were baked (a
+   * text-only page or a page published before Phase 3b). The public render parses
+   * this through parseSnapshotBundle (lab-site-snapshots.ts) and resolves each
+   * embed to a frozen BakedEmbed instead of a live embed. Phase 3b: baking runs
+   * CLIENT-SIDE (canvas), so the author sends the bundle and this layer just
+   * stores it.
+   */
+  snapshotsJson: string | null;
 }
 
 /**
@@ -109,6 +119,14 @@ export async function ensureLabSiteSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_lab_site_pages_owner
       ON lab_site_pages(lab_owner_key)
   `;
+  // Phase 3b: the frozen baked-block snapshots for the published page version.
+  // Added as a nullable column via IF NOT EXISTS so the schema-ensure stays
+  // idempotent and a pre-3b deployment migrates forward in place (no data move,
+  // existing rows keep snapshots_json = NULL = "no baked blocks").
+  await sql`
+    ALTER TABLE lab_site_pages
+      ADD COLUMN IF NOT EXISTS snapshots_json text
+  `;
 }
 
 function rowToSite(r: {
@@ -123,7 +141,8 @@ function rowToSite(r: {
   };
 }
 
-function rowToPage(r: {
+/** The raw shape of a lab_site_pages SELECT, including the Phase 3b column. */
+interface RawPageRow {
   lab_owner_key: string;
   path: string;
   title: string;
@@ -131,7 +150,10 @@ function rowToPage(r: {
   status: string;
   version: string | number;
   updated_at: string;
-}): LabSitePageRow {
+  snapshots_json?: string | null;
+}
+
+function rowToPage(r: RawPageRow): LabSitePageRow {
   return {
     labOwnerKey: r.lab_owner_key,
     path: r.path,
@@ -140,6 +162,7 @@ function rowToPage(r: {
     status: r.status === "published" ? "published" : "draft",
     version: Number(r.version),
     updatedAt: r.updated_at,
+    snapshotsJson: r.snapshots_json ?? null,
   };
 }
 
@@ -213,23 +236,18 @@ export async function getPage(
   const p = normalizePagePath(path);
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, path, title, body_md, status, version, updated_at
+    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json
     FROM lab_site_pages
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
     LIMIT 1
-  `) as Array<{
-    lab_owner_key: string;
-    path: string;
-    title: string;
-    body_md: string;
-    status: string;
-    version: string | number;
-    updated_at: string;
-  }>;
+  `) as RawPageRow[];
   return rows[0] ? rowToPage(rows[0]) : null;
 }
 
-/** Lists all pages for a lab (any status), newest-updated first. */
+/** Lists all pages for a lab (any status), newest-updated first. The list does
+ *  not carry snapshots_json bodies (the dashboard does not need them); rowToPage
+ *  reads the column when present, but the SELECT here omits it to keep the list
+ *  query light. snapshotsJson is therefore null on listed rows. */
 export async function listPages(
   labOwnerKey: string,
 ): Promise<LabSitePageRow[]> {
@@ -240,15 +258,7 @@ export async function listPages(
     FROM lab_site_pages
     WHERE lab_owner_key = ${labOwnerKey}
     ORDER BY updated_at DESC
-  `) as Array<{
-    lab_owner_key: string;
-    path: string;
-    title: string;
-    body_md: string;
-    status: string;
-    version: string | number;
-    updated_at: string;
-  }>;
+  `) as RawPageRow[];
   return rows.map(rowToPage);
 }
 
@@ -268,43 +278,53 @@ export async function upsertPage(input: {
   await ensureLabSiteSchema();
   const p = normalizePagePath(input.path);
   const sql = getSql();
+  // A draft edit clears any stored snapshots: the body may have changed, so the
+  // previous bake is stale and must never resurface on the public page. The next
+  // publish re-bakes from the new body. (snapshots_json = NULL = "no baked
+  // blocks", the public render then shows the calm unavailable card per embed.)
   await sql`
-    INSERT INTO lab_site_pages (lab_owner_key, path, title, body_md, status, updated_at)
-    VALUES (${input.labOwnerKey}, ${p}, ${input.title}, ${input.bodyMd}, 'draft', now())
+    INSERT INTO lab_site_pages (lab_owner_key, path, title, body_md, status, snapshots_json, updated_at)
+    VALUES (${input.labOwnerKey}, ${p}, ${input.title}, ${input.bodyMd}, 'draft', NULL, now())
     ON CONFLICT (lab_owner_key, path) DO UPDATE SET
       title = EXCLUDED.title,
       body_md = EXCLUDED.body_md,
       status = 'draft',
+      snapshots_json = NULL,
       updated_at = now()
   `;
   return getPage(input.labOwnerKey, p);
 }
 
 /**
- * Publishes a page: flips status to published and increments version. Returns
- * the updated row, or null if the page does not exist (publish only acts on an
- * already-created draft). The page must be created via upsertPage first.
+ * Publishes a page: flips status to published, increments version, and stores the
+ * frozen baked-block snapshots (Phase 3b). Returns the updated row, or null if
+ * the page does not exist (publish only acts on an already-created draft). The
+ * page must be created via upsertPage first.
+ *
+ * `snapshotsJson` is the already-validated, already-serialized snapshot bundle
+ * (the author baked the embeds CLIENT-SIDE, the route validated the bundle via
+ * parseSnapshotBundle, then serialized it). Pass null for a text-only page or
+ * when no embeds were baked, which stores NULL and the public render shows the
+ * calm unavailable card for any embed it cannot resolve. The column is always
+ * written (set to the value or NULL) so a re-publish never leaves a previous
+ * bundle behind a newer body.
  */
 export async function publishPage(
   labOwnerKey: string,
   path: string,
+  snapshotsJson: string | null = null,
 ): Promise<LabSitePageRow | null> {
   await ensureLabSiteSchema();
   const p = normalizePagePath(path);
   const sql = getSql();
   const rows = (await sql`
     UPDATE lab_site_pages
-    SET status = 'published', version = version + 1, updated_at = now()
+    SET status = 'published',
+        version = version + 1,
+        snapshots_json = ${snapshotsJson},
+        updated_at = now()
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
-    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at
-  `) as Array<{
-    lab_owner_key: string;
-    path: string;
-    title: string;
-    body_md: string;
-    status: string;
-    version: string | number;
-    updated_at: string;
-  }>;
+    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json
+  `) as RawPageRow[];
   return rows[0] ? rowToPage(rows[0]) : null;
 }

@@ -37,6 +37,10 @@ import {
 } from "@/lib/social/lab-site-db";
 import { resolveCallerOwnerKey } from "@/lib/social/lab-site-session";
 import { isLabSitesEnabled } from "@/lib/social/config";
+import {
+  parseSnapshotBundle,
+  serializeSnapshotBundle,
+} from "@/lib/social/lab-site-snapshots";
 
 export const runtime = "nodejs";
 
@@ -144,9 +148,22 @@ export async function PUT(request: Request): Promise<Response> {
   }
   if (!site) return json(409, { error: "no site" });
 
+  // Bake-on-publish (Phase 3b): the author baked every block embed CLIENT-SIDE
+  // (svgToPngDataUrl needs a real canvas, so this can never run here) and sent
+  // the frozen bundle. parseSnapshotBundle is the single defensive boundary for
+  // the untrusted BakedEmbed shape, it drops anything malformed and caps the
+  // count, so a buggy or malicious client can never store unbounded or unsafe
+  // data. A bundle that serializes over the byte cap stores no snapshots (the
+  // public page then shows the calm unavailable card per embed, never a crash).
+  const bundle = parseSnapshotBundle(parsed.snapshots);
+  const snapshotsJson =
+    Object.keys(bundle.snapshots).length > 0
+      ? serializeSnapshotBundle(bundle)
+      : null;
+
   let page;
   try {
-    page = await publishPage(ownerKey, parsed.path);
+    page = await publishPage(ownerKey, parsed.path, snapshotsJson);
   } catch {
     return json(503, { error: "store unavailable" });
   }

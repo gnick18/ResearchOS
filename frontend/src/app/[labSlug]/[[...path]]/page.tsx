@@ -5,6 +5,7 @@ import LabSitePageView from "@/components/social/LabSitePageView";
 import { isLabSitesEnabled } from "@/lib/social/config";
 import { getPage, getSiteBySlug } from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
+import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { normalizeSlug } from "@/lib/social/slug-registry";
 import { getSlug } from "@/lib/social/slug-registry-db";
 
@@ -90,5 +91,17 @@ export default async function LabSitePublicPage({
   const { labSlug, path } = await params;
   const { decision, slug, page } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
-  return <LabSitePageView slug={slug} title={page.title} bodyMd={page.bodyMd} />;
+  // Resolve the frozen baked-block snapshots (Phase 3b). The public reader has no
+  // local workspace, so the page renders these FROZEN snapshots instead of live
+  // embeds. parseSnapshotBundle is defensive, a null / malformed column yields an
+  // empty bundle and each embed then shows the calm unavailable card.
+  const bundle = parseSnapshotBundle(page.snapshotsJson);
+  return (
+    <LabSitePageView
+      slug={slug}
+      title={page.title}
+      bodyMd={page.bodyMd}
+      snapshots={bundle.snapshots}
+    />
+  );
 }

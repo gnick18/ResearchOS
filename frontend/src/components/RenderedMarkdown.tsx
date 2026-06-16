@@ -16,6 +16,8 @@ import { parseObjectDeepLink, parseObjectEmbed, type EmbedDescriptor } from "@/l
 import { parseExternalEmbed, type ExternalEmbedDescriptor } from "@/lib/embeds/external-embeds";
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
+import BakedEmbedView from "@/components/embeds/BakedEmbedView";
+import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import { Icon } from "@/components/icons/Icon";
 import { parsePhoneNoteCallout } from "@/lib/mobile-relay/phone-note-callout";
 import { lazy, Suspense } from "react";
@@ -71,7 +73,7 @@ function hastText(node: HastNode | undefined): string {
  *  paragraph rule, an embed link mid-sentence stays an inline chip. */
 function loneEmbedFromParagraph(
   node: HastNode | undefined,
-): { descriptor: EmbedDescriptor; caption: string } | { external: ExternalEmbedDescriptor; caption: string } | null {
+): { descriptor: EmbedDescriptor; caption: string; href: string } | { external: ExternalEmbedDescriptor; caption: string } | null {
   if (!node || !Array.isArray(node.children)) return null;
   const meaningful = node.children.filter(
     (c) => !(c.type === "text" && /^\s*$/.test(c.value ?? "")),
@@ -84,7 +86,9 @@ function loneEmbedFromParagraph(
 
   // Internal object embed (existing path, byte-unchanged when no external match).
   const descriptor = parseObjectEmbed(hrefStr);
-  if (descriptor?.isEmbed) return { descriptor, caption: hastText(el).trim() };
+  if (descriptor?.isEmbed) {
+    return { descriptor, caption: hastText(el).trim(), href: hrefStr ?? "" };
+  }
 
   // External embed (DOI, PMID, PubChem, bare URL with #ros= fragment).
   // Only render as a block embed when the `#ros=` fragment is present (same
@@ -332,6 +336,19 @@ interface RenderedMarkdownProps {
    *  callers are byte-for-byte unchanged. */
   embedPinSidecar?: string;
   /**
+   * Frozen baked-block snapshots keyed by embed link href (lab-domains Phase 3b,
+   * the public companion-site render). When provided, a lone object-embed link
+   * renders its FROZEN BakedEmbed snapshot via BakedEmbedView instead of the live
+   * ObjectEmbed, because a public reader has no account or local workspace so a
+   * live embed (which reads the author's local data) can never render for them.
+   * An embed with no snapshot in this map renders the calm "content unavailable"
+   * card (the BakedEmbedView "missing" fallback), never a crash and never a live
+   * embed. Absent on every other caller, so they are byte-for-byte unchanged and
+   * keep rendering live embeds. Mutually exclusive in spirit with the live path:
+   * when this prop is present the live ObjectEmbed / pin path is not taken.
+   */
+  bakedEmbeds?: Map<string, BakedEmbed>;
+  /**
    * When provided, rendered images become clickable and this callback fires
    * with the image details. LiveMarkdownEditor uses this to open the resize
    * popover from Preview mode. Absent on all other read-only callers, so
@@ -362,6 +379,7 @@ export default function RenderedMarkdown({
   className,
   enableSyntaxHighlight = false,
   embedPinSidecar,
+  bakedEmbeds,
   onImageClick,
   onFileLinkClick,
 }: RenderedMarkdownProps) {
@@ -450,6 +468,35 @@ export default function RenderedMarkdown({
               const figureLabel = figurePlan.enabled
                 ? figurePlan.labelAt(figureIndexRef.current++)
                 : undefined;
+              // Public companion-site render (Phase 3b): when a baked-snapshot map
+              // is supplied, render the FROZEN snapshot, never the live embed (a
+              // public reader has no local workspace). A href with no snapshot
+              // renders the calm "content unavailable" card via the missing
+              // fallback, never a crash. This branch is only taken when bakedEmbeds
+              // is provided, so every other caller keeps the live ObjectEmbed path.
+              if (bakedEmbeds) {
+                const snapshot = bakedEmbeds.get(lone.href);
+                if (snapshot) {
+                  return (
+                    <BakedEmbedView
+                      snapshot={snapshot}
+                      caption={lone.caption}
+                      descriptor={lone.descriptor}
+                    />
+                  );
+                }
+                return (
+                  <BakedEmbedView
+                    snapshot={{
+                      kind: "missing",
+                      name: lone.caption || lone.descriptor.id,
+                      label: null,
+                    }}
+                    caption={lone.caption}
+                    descriptor={lone.descriptor}
+                  />
+                );
+              }
               return (
                 <ObjectEmbed
                   descriptor={lone.descriptor}

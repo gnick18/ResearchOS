@@ -16,12 +16,16 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import { Icon } from "@/components/icons";
+import ReferencePicker from "@/components/references/ReferencePicker";
+import { isBlockEmbedMarkdown } from "@/lib/references";
+import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
+import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 
 interface SiteSummary {
   slug: string;
@@ -61,6 +65,10 @@ export default function LabSiteDashboard() {
   const [editorBody, setEditorBody] = useState("");
   const [editorBusy, setEditorBusy] = useState(false);
   const [editorMsg, setEditorMsg] = useState<string | null>(null);
+  // The "/" insert picker (reused from the note/method editors). Inserts the
+  // picked reference markdown at the cursor in the body textarea.
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const bodyRef = useRef<HTMLTextAreaElement>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -147,6 +155,37 @@ export default function LabSiteDashboard() {
     setEditorMsg(null);
   }, []);
 
+  // Insert picked reference markdown at the cursor. A BLOCK embed must sit alone
+  // on its own line (the lone-paragraph rule in RenderedMarkdown), so it is padded
+  // with surrounding blank lines; an inline mention is inserted as-is. After the
+  // insert the textarea is refocused with the caret placed after the inserted text.
+  const insertReference = useCallback(
+    (markdown: string) => {
+      const el = bodyRef.current;
+      const isBlock = isBlockEmbedMarkdown(markdown);
+      setEditorBody((prev) => {
+        const start = el ? el.selectionStart : prev.length;
+        const end = el ? el.selectionEnd : prev.length;
+        const before = prev.slice(0, start);
+        const after = prev.slice(end);
+        const insert = isBlock
+          ? `${before.endsWith("\n") || before === "" ? "" : "\n"}\n${markdown}\n\n`
+          : markdown;
+        const next = before + insert + after;
+        // Restore focus + caret after React commits the new value.
+        const caret = before.length + insert.length;
+        requestAnimationFrame(() => {
+          if (el) {
+            el.focus();
+            el.setSelectionRange(caret, caret);
+          }
+        });
+        return next;
+      });
+    },
+    [],
+  );
+
   const saveDraft = useCallback(
     async (then?: "publish") => {
       if (editorPath === null) return;
@@ -172,10 +211,31 @@ export default function LabSiteDashboard() {
         setEditorPath(savedPath);
 
         if (then === "publish") {
+          // Bake-on-publish (Phase 3b): block embeds read the author's LOCAL data,
+          // and svgToPngDataUrl needs a real canvas, so baking MUST run here in the
+          // browser (never on the server). The frozen snapshots are sent with the
+          // publish request and stored with the page version; the public page
+          // renders these frozen, since a public reader has no local workspace.
+          let snapshots: Record<string, unknown> | undefined;
+          try {
+            const baked = await bakeAllEmbeds([editorBody]);
+            if (baked.size > 0) {
+              const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
+              // serialized is null only when over the byte cap; then publish with
+              // no snapshots and the public page shows the unavailable card.
+              if (serialized) snapshots = JSON.parse(serialized);
+            }
+          } catch {
+            // Baking is best-effort: a bake failure must not block publishing the
+            // text. The page still publishes; unbaked embeds show the calm card.
+            snapshots = undefined;
+          }
           const pub = await fetch("/api/social/lab-site/page", {
             method: "PUT",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ path: savedPath }),
+            body: JSON.stringify(
+              snapshots ? { path: savedPath, snapshots } : { path: savedPath },
+            ),
           });
           if (!pub.ok) {
             setEditorMsg("Saved the draft, but could not publish.");
@@ -358,16 +418,30 @@ export default function LabSiteDashboard() {
                   className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
                   placeholder="Welcome to the Smith Lab"
                 />
-                <label className="mb-1 block text-xs text-muted-foreground">
-                  Body (markdown)
-                </label>
+                <div className="mb-1 flex items-center justify-between">
+                  <label className="block text-xs text-muted-foreground">
+                    Body (markdown)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setPickerOpen(true)}
+                    className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs"
+                  >
+                    <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
+                  </button>
+                </div>
                 <textarea
+                  ref={bodyRef}
                   value={editorBody}
                   onChange={(e) => setEditorBody(e.target.value)}
                   rows={12}
-                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
+                  className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
                   placeholder="# Our research\n\nWrite your page in markdown."
                 />
+                <p className="mb-4 text-[11px] text-muted-foreground">
+                  Inserted figures and tables are frozen (baked) when you publish,
+                  so visitors see exactly what you published.
+                </p>
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
@@ -399,6 +473,13 @@ export default function LabSiteDashboard() {
                     </span>
                   )}
                 </div>
+
+                {pickerOpen && (
+                  <ReferencePicker
+                    onPick={(markdown) => insertReference(markdown)}
+                    onClose={() => setPickerOpen(false)}
+                  />
+                )}
               </section>
             )}
           </section>

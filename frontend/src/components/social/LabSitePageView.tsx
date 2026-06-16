@@ -16,23 +16,42 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
+import { useMemo } from "react";
 import Link from "next/link";
 
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
+import type { BakedEmbed } from "@/lib/export/bake-embeds";
 
 export default function LabSitePageView({
   slug,
   title,
   bodyMd,
+  snapshots,
 }: {
   slug: string;
   title: string;
   bodyMd: string;
+  /**
+   * Frozen baked-block snapshots keyed by embed link href (Phase 3b). Passed from
+   * the server route as a plain record (serializable across the server/client
+   * boundary); rebuilt into the Map RenderedMarkdown expects. Absent / empty means
+   * a text-only page or a page published before Phase 3b, and any block embed then
+   * renders the calm unavailable card. A public reader has no local workspace, so
+   * blocks render FROZEN, never live.
+   */
+  snapshots?: Record<string, BakedEmbed>;
 }) {
   const heading = title?.trim() || slug;
+  // Rebuild the Map from the serialized record once per snapshots object. An
+  // empty / absent record yields an empty Map, which still routes every block
+  // embed through the frozen path (each shows the unavailable card), never live.
+  const bakedEmbeds = useMemo(
+    () => new Map<string, BakedEmbed>(Object.entries(snapshots ?? {})),
+    [snapshots],
+  );
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
@@ -55,6 +74,7 @@ export default function LabSitePageView({
           <RenderedMarkdown
             content={bodyMd ?? ""}
             className="prose prose-gray mt-8 max-w-none dark:prose-invert"
+            bakedEmbeds={bakedEmbeds}
           />
         </div>
       </section>
