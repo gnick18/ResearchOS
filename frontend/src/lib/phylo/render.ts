@@ -651,6 +651,9 @@ function renderFromPanels(
     padding: 16,
     phylogram: spec.phylogram,
     circularRingRoom: isCircular(spec.layout) ? room + 4 : 0,
+    // Reserve only the label room the figure draws (labelRoom is ~8 when labels are
+    // off), so a label-less circular tree gets that radius back for the tree.
+    circularLabelRoom: isCircular(spec.layout) ? labelRoom : undefined,
     sweepDegrees: sweepFor(spec.layout),
   };
 

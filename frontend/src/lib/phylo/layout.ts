@@ -75,6 +75,14 @@ export interface LayoutOptions {
    */
   circularRingRoom?: number;
   /**
+   * Radial room (px) reserved OUTSIDE the rings for tip labels in a circular tree.
+   * The renderer passes the actual longest-label width, or ~8 when labels are off,
+   * so a label-less annotated tree gets that radius back for the tree instead of
+   * reserving room for labels it never draws. Defaults to 56 when omitted (the old
+   * flat reserve) so any caller that does not set it is unchanged.
+   */
+  circularLabelRoom?: number;
+  /**
    * Angular spread (degrees) for a circular / fan layout. The default 330 leaves
    * a small open gap (the rooted-fan look); a smaller value (e.g. 180) makes an
    * open fan. Ignored by the rectangular layout.
@@ -189,9 +197,13 @@ export function layoutCircular(
   // Leave room for tip labels outside the circle, plus any ring tracks the
   // renderer draws between the tips and the labels (Phase 0 bar / heat rings).
   const ringRoom = Math.max(0, opts.circularRingRoom ?? 0);
+  // Reserve only the label room the figure actually uses (the renderer passes ~8
+  // when labels are off), so a label-less annotated tree keeps that radius for the
+  // tree instead of wasting it on labels it never draws. Omitted = the old flat 56.
+  const labelRoom = Math.max(0, opts.circularLabelRoom ?? 56);
   const radius = Math.max(
     20,
-    Math.min(width, height) / 2 - opts.padding - 56 - ringRoom - TOP_ROOM,
+    Math.min(width, height) / 2 - opts.padding - labelRoom - ringRoom - TOP_ROOM,
   );
   const innerR = 18;
 
