@@ -74,6 +74,7 @@ import { summarizeNotesTool } from "./summarize-notes";
 import { summarizeProjectsTool } from "./summarize-projects";
 import { summarizeInventoryTool } from "./summarize-inventory";
 import { summarizeSequencesTool } from "./summarize-sequences";
+import { summarizeMethodsTool } from "./summarize-methods";
 import { labDigestTool } from "./lab-digest";
 import { listLabMembersTool } from "./lab-members";
 import { searchLiteratureTool } from "./search-literature";
@@ -298,6 +299,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // length distribution, longest + recently added). Per-user namespaced, so it
   // scopes to the caller's own library by default and only folds in named members.
   summarizeSequencesTool,
+  // summarize_methods aggregates the protocol library deterministically (count,
+  // structured / compound / forked / imported / shared counts, by-type / owner /
+  // tag, and recently edited). Methods carry a real owner + ACL, so it scopes to
+  // the whole lab (own plus shared) by default like the experiment / inventory ones.
+  summarizeMethodsTool,
   labDigestTool,
   // Lab roster, so the summary wizard's whose-step can offer real member names
   // and resolve a typed name to a real owner. Read-only.

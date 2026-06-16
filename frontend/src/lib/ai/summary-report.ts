@@ -30,6 +30,7 @@ import type { NoteSummary } from "@/lib/ai/tools/summarize-notes";
 import type { ProjectsSummary } from "@/lib/ai/tools/summarize-projects";
 import type { InventorySummary } from "@/lib/ai/tools/summarize-inventory";
 import type { SequenceSummary } from "@/lib/ai/tools/summarize-sequences";
+import type { MethodSummary } from "@/lib/ai/tools/summarize-methods";
 import type { LabDigest } from "@/lib/ai/tools/lab-digest";
 
 /** Semantic tone for a stat tile or a bar. Maps to a color in the widget; it is a
@@ -344,6 +345,50 @@ export function sequenceSummaryReport(s: SequenceSummary): SummaryReport {
     ],
     barGroups,
     histogram,
+  };
+}
+
+/** Map a MethodSummary aggregate to the normalized report (the protocol-library
+ *  card). Every number is lifted verbatim from the tool's aggregate. Pure. */
+export function methodSummaryReport(s: MethodSummary): SummaryReport {
+  const scope: string[] = [
+    s.filter.owners && s.filter.owners.length > 0 ? s.filter.owners.join(", ") : "whole lab",
+  ];
+  if (s.filter.keywords?.trim()) scope.push(`"${s.filter.keywords.trim()}"`);
+
+  const typeRows: SummaryBarRow[] = s.byType.map((b) => ({
+    label: b.label,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const ownerRows: SummaryBarRow[] = s.byOwner.map((b) => ({
+    label: b.owner,
+    value: b.count,
+    tone: "accent" as const,
+  }));
+  const tagRows: SummaryBarRow[] = s.byTag.map((b) => ({
+    label: b.tag,
+    value: b.count,
+    tone: "neutral" as const,
+  }));
+
+  const barGroups: SummaryBarGroup[] = [];
+  if (typeRows.length > 0) barGroups.push({ title: "By type", rows: typeRows });
+  if (ownerRows.length > 1) barGroups.push({ title: "By owner", rows: ownerRows });
+  if (tagRows.length > 0) barGroups.push({ title: "By tag", rows: tagRows });
+
+  return {
+    kind: "summarize_methods",
+    heading: "Methods",
+    scope,
+    stats: [
+      { label: "methods", value: String(s.count), emphasis: true },
+      { label: "structured", value: String(s.structuredCount), tone: "accent" },
+      { label: "shared with you", value: String(s.sharedWithMeCount), tone: "neutral" },
+      { label: "imported", value: String(s.importedCount), tone: "neutral" },
+    ],
+    barGroups,
+    histogram: null,
   };
 }
 
