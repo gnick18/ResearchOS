@@ -61,6 +61,11 @@ export interface OnboardingTutorProps {
    *  initialState at the first deep demo. Omit (dev preview) to build the reel
    *  inline and play on the stand-in stage with no reload. */
   onBeginShow?: (marker: { role: Role; goals: GoalKey[]; beatIndex: number }) => void;
+  /** Called on EVERY machine-state change (and once on mount) so the host can
+   *  persist the full resumable state, and clear it when the run finishes. This
+   *  is what lets the walkthrough reopen to exactly where the user was after any
+   *  refresh / reconnect / close-and-reopen. Omit (dev preview) to not persist. */
+  onProgress?: (state: TutorState) => void;
   /** Resume straight into a `playing` state (build plan §2): after the tour set
    *  the demo sticky and reloaded, TourHost rebuilds this from the persisted
    *  marker so the reel picks back up at the live-demo beat instead of replaying
@@ -75,6 +80,7 @@ export default function OnboardingTutor({
   forceEnabled = false,
   live = false,
   onBeginShow,
+  onProgress,
   initialState,
 }: OnboardingTutorProps) {
   const tokenMeter = meter ?? newMeter();
@@ -86,6 +92,13 @@ export default function OnboardingTutor({
   useEffect(() => {
     if (isFinished(state)) onComplete();
   }, [state, onComplete]);
+
+  // Persist the full resumable state on every change (and on mount), so the host
+  // can durably remember exactly where the user is. The host decides storage and
+  // clears it when the run finishes.
+  useEffect(() => {
+    onProgress?.(state);
+  }, [state, onProgress]);
 
   if (!ONBOARDING_TUTOR_ENABLED && !forceEnabled) return null;
   if (isFinished(state)) return null;

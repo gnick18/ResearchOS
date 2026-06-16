@@ -22,19 +22,24 @@ import OnboardingTutor from "./OnboardingTutor";
 import {
   shouldRunOnboardingTutor,
   markOnboardingTutorDone,
-  markOnboardingTutorStarted,
-  isOnboardingTutorInProgress,
 } from "@/lib/onboarding/tour-gate";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
 import {
-  readTourResume,
   clearTourResume,
   saveTourResume,
   beginTourDemoSession,
   endTourDemoSession,
   type TourResumeState,
 } from "@/lib/onboarding/tour-demo-session";
-import { resumeTutorState } from "@/lib/onboarding/tutor-machine";
+import {
+  readTourProgress,
+  saveTourProgress,
+  clearTourProgress,
+  progressFromState,
+  stateFromProgress,
+  type TourProgress,
+} from "@/lib/onboarding/tour-progress";
+import type { TutorState } from "@/lib/onboarding/tutor-machine";
 import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
 import { clearDemoMode, getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
@@ -74,44 +79,26 @@ export default function TourHost({ username }: TourHostProps) {
     };
   }, [username]);
 
-  // A resume marker from a pre-reload run (the demo-entry reload, build plan §2).
-  // When present the tour was mid-run and re-entered demo mode, so it resumes at
-  // the live-demo beat instead of replaying welcome/picker. Also the path a
-  // mid-tour refresh takes. Read once on mount (synchronous, sessionStorage).
-  const [resume] = useState<TourResumeState | null>(() => readTourResume());
+  // The durable, full-state progress (localStorage), read once on mount. This is
+  // the single source of truth for "reopen exactly where the user was": it holds
+  // the phase + picks + beat and survives any refresh, folder reconnect, or tab
+  // close-and-reopen-later. Present (and never cleared until done/skip) means the
+  // run is in flight, so the walkthrough reopens regardless of the freshness
+  // re-check (which can flip false on reconnect) instead of dropping the user home.
+  const [progress] = useState<TourProgress | null>(() => readTourProgress());
 
-  // Whether a run is already mid-flight (started, not yet done). Read once on
-  // mount. This is what makes the walkthrough survive a reload or a folder
-  // reconnect during the welcome/picker phase: those phases have no resume
-  // marker, and the freshness signal can flip to false (folder briefly
-  // disconnected, or now carries a footprint), so without this the tour would
-  // silently not reopen and the user would land on the homepage.
-  const [inProgress] = useState<boolean>(() => isOnboardingTutorInProgress());
-
-  // Decide whether to run once the signal resolves. The gate also checks the
-  // flag, so this is false in prod until ONBOARDING_TUTOR_ENABLED is on. A live
-  // resume marker forces it active regardless of the fresh-account read, so a
-  // post-reload (or refreshed) tour always picks back up rather than evaluating
-  // freshness against the now-demo footprint.
+  // Decide whether to run. A persisted progress always resumes; otherwise the
+  // gate (flag + fresh account + not-done) makes the first-time decision. The gate
+  // is false in prod until ONBOARDING_TUTOR_ENABLED is on.
   const [active, setActive] = useState(false);
   useEffect(() => {
-    if (resume) {
-      setActive(true);
-      return;
-    }
-    // A run already in flight reopens regardless of the freshness re-check, so a
-    // reload or folder reconnect during welcome/picker resumes the walkthrough.
-    if (inProgress) {
+    if (progress) {
       setActive(true);
       return;
     }
     if (fresh === null) return;
-    const run = shouldRunOnboardingTutor({ freshAccount: fresh });
-    setActive(run);
-    // Persist that the run began, so the next mount takes the inProgress path
-    // above instead of re-deciding freshness.
-    if (run) markOnboardingTutorStarted();
-  }, [fresh, resume, inProgress]);
+    setActive(shouldRunOnboardingTutor({ freshAccount: fresh }));
+  }, [fresh, progress]);
 
   // The "Setting the stage" handoff: the picker's start hands us the marker, we
   // paint an opaque cover, then (next frame, so the cover is visible) persist the
@@ -132,11 +119,52 @@ export default function TourHost({ username }: TourHostProps) {
   }, [staging]);
 
   const handleBeginShow = useCallback((marker: TourMarker) => {
+    // Persist the durable progress as PLAYING at the first deep-demo beat BEFORE
+    // the reload, so the post-reload mount resumes straight into the deep demos
+    // (the sessionStorage demo marker only survives the same-session reload; the
+    // durable progress is what carries the resume across everything).
+    saveTourProgress({
+      phase: "playing",
+      role: marker.role,
+      goals: marker.goals,
+      beatIndex: marker.beatIndex,
+    });
     setStaging({ ...marker, fixtureFlavor: DEMO_FIXTURE_FLAVOR });
+  }, []);
+
+  // Persist the full machine state on every change (OnboardingTutor calls this on
+  // mount and every transition); clear it the moment the run goes terminal so a
+  // later reload does not reopen a finished tour.
+  const handleProgress = useCallback((state: TutorState) => {
+    const p = progressFromState(state);
+    if (p) saveTourProgress(p);
+    else clearTourProgress();
+  }, []);
+
+  // Cross-session resume of a deep-demo beat: demo mode is sessionStorage-backed,
+  // so closing the tab drops it. If a persisted PLAYING run reopens while NOT in
+  // demo, re-enter demo (same staging + reload) so the deep demos have their
+  // fixture data again. A same-session reload that is still in demo skips this and
+  // resumes directly. A playing record with no role cannot rebuild a reel, so it
+  // falls back to the picker (handled by stateFromProgress) and is not re-entered.
+  useEffect(() => {
+    if (progress?.phase === "playing" && progress.role && !getDemoMode()) {
+      setStaging({
+        role: progress.role,
+        goals: progress.goals,
+        beatIndex: progress.beatIndex,
+        fixtureFlavor: DEMO_FIXTURE_FLAVOR,
+      });
+    }
+    // Run once on mount against the initial progress read.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleComplete = useCallback(() => {
     markOnboardingTutorDone();
+    // The run is over (finished or skipped): drop the durable progress so it never
+    // reopens. This is the ONLY thing that ends the walkthrough.
+    clearTourProgress();
     if (getDemoMode()) {
       // We are in tour-scoped demo mode: restore the real folder, clear the demo
       // sticky + resume marker, then HARD-reload back to where the tour started,
@@ -175,25 +203,17 @@ export default function TourHost({ username }: TourHostProps) {
     );
   }
 
-  // When a resume marker is present (post-reload or refresh, build plan §2),
-  // rebuild the playing machine state from it so the reel re-enters at the
-  // live-demo beat, skipping welcome/picker. The marker's role/goals are stored
-  // as strings (decoupled storage); cast to the reel-director unions here (they
-  // were written from valid machine state). TODO(live): the begin-show reload
-  // that WRITES this marker + the demo enter/exit are the browser-coupled half
-  // of increment 2 (verify in checkpoint A).
-  const initialState = resume
-    ? resumeTutorState({
-        role: resume.role as Role,
-        goals: resume.goals as GoalKey[],
-        beatIndex: resume.beatIndex,
-      })
-    : undefined;
+  // Rebuild the EXACT machine state from the durable progress, so the run reopens
+  // where the user left it: welcome and picker keep their picks, a playing beat
+  // rebuilds the same reel and resumes at that beat (stateFromProgress). Absent
+  // for a brand-new run, which starts at welcome.
+  const initialState = progress ? stateFromProgress(progress) : undefined;
 
   return (
     <OnboardingTutor
       live
       onBeginShow={handleBeginShow}
+      onProgress={handleProgress}
       onComplete={handleComplete}
       onRememberFact={handleRememberFact}
       initialState={initialState}

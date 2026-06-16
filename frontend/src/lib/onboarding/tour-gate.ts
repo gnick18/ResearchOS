@@ -13,13 +13,6 @@
 import { ONBOARDING_TUTOR_ENABLED } from "./config";
 
 const DONE_KEY = "ros.onboardingTutor.done.v1";
-// Set the moment the tutor first mounts for a fresh user, cleared only on
-// done/skip (or an explicit replay reset). It makes the run survive a reload or
-// a folder reconnect during the welcome/picker phase (which has no resume
-// marker of its own): a remount sees "started but not done" and reopens the
-// walkthrough instead of re-deciding freshness against a now-connected or
-// now-footprinted folder, which would wrongly drop the user on the homepage.
-const STARTED_KEY = "ros.onboardingTutor.started.v1";
 
 export interface TourGateStorage {
   getItem(key: string): string | null;
@@ -58,53 +51,29 @@ export function shouldRunOnboardingTutor({
   return storage.getItem(DONE_KEY) !== "1";
 }
 
-/** Record that the tutor finished or was skipped, so it does not replay. Also
- *  clears the in-progress marker, so a reload after completion does not reopen
- *  the walkthrough. */
+/** Record that the tutor finished or was skipped, so it does not replay. The
+ *  resumable run state lives separately in tour-progress (cleared alongside this
+ *  by the caller on done/skip); this marker is the permanent "do not auto-show
+ *  again" gate for a user who stays fresh. */
 export function markOnboardingTutorDone(
   storage: TourGateStorage | null = defaultStorage(),
 ): void {
   if (!storage) return;
   try {
     storage.setItem(DONE_KEY, "1");
-    storage.setItem(STARTED_KEY, "0");
   } catch {
     // best effort; a private-mode storage failure just means it may replay
   }
 }
 
-/** Record that the tutor has begun for this fresh user, so a reload or folder
- *  reconnect during the welcome/picker phase reopens it (see isOnboardingTutorInProgress). */
-export function markOnboardingTutorStarted(
-  storage: TourGateStorage | null = defaultStorage(),
-): void {
-  if (!storage) return;
-  try {
-    storage.setItem(STARTED_KEY, "1");
-  } catch {
-    // best effort; if it fails the run simply will not survive a mid-tour reload
-  }
-}
-
-/** Whether a run is mid-flight: started but not finished/skipped. TourHost shows
- *  the walkthrough on this alone, bypassing the freshness re-check, so a reload
- *  or folder reconnect resumes the tour instead of dropping the user home. */
-export function isOnboardingTutorInProgress(
-  storage: TourGateStorage | null = defaultStorage(),
-): boolean {
-  if (!storage) return false;
-  return storage.getItem(STARTED_KEY) === "1" && storage.getItem(DONE_KEY) !== "1";
-}
-
-/** Clear the markers so the user can replay from the Help menu. Resets both the
- *  done and in-progress flags so a fresh run can start clean. */
+/** Clear the done marker so the user can replay from the Help menu. (The caller
+ *  also clears tour-progress so the replay starts clean at welcome.) */
 export function resetOnboardingTutor(
   storage: TourGateStorage | null = defaultStorage(),
 ): void {
   if (!storage) return;
   try {
     storage.setItem(DONE_KEY, "0");
-    storage.setItem(STARTED_KEY, "0");
   } catch {
     // best effort
   }
