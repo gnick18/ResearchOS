@@ -73,6 +73,7 @@ export default function RoomMapScreen() {
   );
 
   const nodes: StorageNode[] = snapshot?.storageNodes ?? [];
+  const externalNodes = nodes.filter((n) => n.isExternal);
   const pins: LabMapPin[] = snapshot?.labMap?.pins ?? [];
   const tracked: TrackedStock[] = snapshot?.trackedStocks ?? [];
   const aspect = snapshot?.labMap?.aspect ?? 1.5;
@@ -341,6 +342,28 @@ export default function RoomMapScreen() {
             )}
           </>
         )}
+
+        {pairing && externalNodes.length > 0 ? (
+          <View style={styles.extSection}>
+            <ThemedText style={[styles.extLabel, { color: surface.muted }]}>
+              EXTERNAL STORAGE
+            </ThemedText>
+            <ThemedText style={[styles.extHint, { color: surface.muted }]}>
+              Off the room map (a closet, cold room, or shared facility).
+            </ThemedText>
+            {externalNodes.map((n, i) => (
+              <View
+                key={n.id ?? `ext-${i}`}
+                style={[styles.extRow, { borderColor: surface.border, backgroundColor: surface.surface }]}
+              >
+                <Ionicons name="open-outline" size={15} color={surface.muted} />
+                <ThemedText style={[styles.extName, { color: surface.text }]} numberOfLines={1}>
+                  {n.name ?? 'External location'}
+                </ThemedText>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
     </ScreenFrame>
   );
@@ -348,6 +371,19 @@ export default function RoomMapScreen() {
 
 const styles = StyleSheet.create({
   center: { paddingVertical: 40, alignItems: 'center' },
+  extSection: { marginTop: 8, gap: 6 },
+  extLabel: { fontSize: 11, letterSpacing: 0.6, fontFamily: fonts.bold, fontWeight: '700' },
+  extHint: { fontSize: 12, lineHeight: 16, marginBottom: 2 },
+  extRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    minHeight: 44,
+  },
+  extName: { flex: 1, fontSize: 14, fontFamily: fonts.semibold, fontWeight: '600' },
   note: { fontSize: 14, lineHeight: 20 },
   banner: {
     flexDirection: 'row',

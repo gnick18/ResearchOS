@@ -166,6 +166,42 @@ describe("buildInventorySnapshot — trackedStocks", () => {
     const snap = await buildInventorySnapshot();
     expect(snap.trackedStocks).toHaveLength(1);
     expect(snap.trackedStocks[0].locationPath).toBe("-80 #2 > Box: Q5 - A1");
+    expect(snap.trackedStocks[0].locationExternal).toBe(false);
+  });
+
+  it("flags a stock as external when an ancestor location is marked external", async () => {
+    const room = await storageNodesApi.create({
+      name: "Cold room",
+      kind: "room",
+      is_external: true,
+    });
+    const freezer = await storageNodesApi.create({
+      name: "-20 #3",
+      kind: "freezer",
+      parent_id: room.id,
+    });
+    const item = await inventoryItemsApi.create({
+      name: "FBS",
+      product_barcode: "555000777666",
+    });
+    await inventoryStocksApi.create({
+      item_id: item.id,
+      units_per_scan: 1,
+      units_remaining: 4,
+      location_node_id: freezer.id,
+      container_count: 1,
+    });
+
+    const snap = await buildInventorySnapshot();
+    expect(snap.trackedStocks[0].locationExternal).toBe(true);
+    // The tree the picker reads carries the external flag too.
+    expect(snap.storageNodes.find((n) => n.name === "Cold room")?.isExternal).toBe(
+      true,
+    );
+    // External-by-inheritance: the child freezer is itself external via its parent.
+    expect(
+      snap.trackedStocks[0].locationPath?.startsWith("Cold room"),
+    ).toBe(true);
   });
 
   it("publishes the storage tree for the phone's location picker (Phase B write half)", async () => {

@@ -165,7 +165,9 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
       unitLabel: 'bottle',
       lowAtCount: 2,
       totalUnits: 4,
-      location: '-20 freezer, door rack',
+      locationPath: 'Cold room (down the hall) > -20 #3',
+      locationNodeId: 7,
+      locationExternal: true,
     },
     {
       stockId: 'demo-stock-3',
@@ -221,6 +223,10 @@ export const DEMO_INVENTORY_SNAPSHOT: InventorySnapshot = {
     { id: 3, name: 'Box: Selection antibiotics', kind: 'box', parentId: 2, boxRows: 9, boxCols: 9 },
     { id: 4, name: '4 C fridge', kind: 'fridge', parentId: null },
     { id: 5, name: 'Shelf 2', kind: 'shelf', parentId: 4 },
+    // An external (off-map) location: a cold room down the hall, not on the
+    // scanned room map. Items here show under "External storage".
+    { id: 6, name: 'Cold room (down the hall)', kind: 'room', parentId: null, isExternal: true },
+    { id: 7, name: '-20 #3', kind: 'freezer', parentId: 6, isExternal: true },
   ],
   // A small room map so the phone viewer + "find on map" are demoable: the -80
   // and the fridge pinned on the floor plan.

@@ -439,7 +439,19 @@ function TrackedStockRow({
           {unitsText}
         </ThemedText>
         {location ? (
-          stock.locationNodeId != null && onFindOnMap ? (
+          stock.locationExternal ? (
+            // External (off-map) location: no find-on-map link, just a labelled
+            // "stored externally" line.
+            <View style={styles.locationRow}>
+              <Ionicons name="open-outline" size={12} color={surface.muted} />
+              <ThemedText
+                style={[styles.locationText, { color: surface.muted }]}
+                numberOfLines={1}
+              >
+                External · {location}
+              </ThemedText>
+            </View>
+          ) : stock.locationNodeId != null && onFindOnMap ? (
             <Pressable
               onPress={() => onFindOnMap(stock.locationNodeId as number)}
               style={styles.locationRow}
