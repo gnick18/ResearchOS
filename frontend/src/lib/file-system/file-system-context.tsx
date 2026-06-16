@@ -27,6 +27,7 @@ import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./u
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
+import { isDirectoryHandleMissing } from "./handle-liveness";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
 import { useAppStore, readLegacyLocalStorageSettings } from "../store";
 import { getWikiCaptureVariant, getDemoMode, markDemoMode, installWikiCaptureFixture, resolveFixtureUser, resolveDemoViewAsUser, clearAllStickyDemoFlags } from "./wiki-capture-mock";
@@ -64,6 +65,16 @@ interface FileSystemState {
   mainUser: string | null;
   availableUsers: string[];
   needsInitialization: boolean;
+  /**
+   * The NAME of a previously connected folder whose handle is now stale because
+   * the folder was moved, renamed, or deleted on disk (folder-missing detection,
+   * 2026-06-16). A persisted handle keeps reporting its name + permission, so a
+   * reconnect otherwise lands on the misleading "Initialize New Folder" prompt
+   * and a failed init. When set, the gate shows a clear "folder is gone, locate
+   * or pick another" path instead. Null in the normal case. Only the name is
+   * available (the File System Access API hides the absolute path).
+   */
+  folderMissing: string | null;
   lastConnectedFolder: string | null;
   /**
    * True when a `?wikiCapture=…` install was REFUSED because a real,
@@ -243,6 +254,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     mainUser: null,
     availableUsers: [],
     needsInitialization: false,
+    folderMissing: null,
     lastConnectedFolder: null,
     captureRefused: false,
     rememberedFolders: [],
@@ -349,7 +361,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       try {
         fileService.setDirectoryHandle(handle);
 
-        setState((prev) => ({ ...prev, loadingStage: "verifying-permission" }));
+        setState((prev) => ({
+          ...prev,
+          loadingStage: "verifying-permission",
+          // Clear any prior "folder is gone" banner now that a fresh attempt is
+          // underway (covers connect / reconnect / drop, which all funnel here).
+          folderMissing: null,
+        }));
         const hasPermission = await fileService.verifyPermission(true);
         if (!hasPermission) {
           fileService.clearDirectoryHandle();
@@ -365,6 +383,26 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         setState((prev) => ({ ...prev, loadingStage: "validating-folder" }));
         const isValid = await validateResearchFolder(handle);
         if (!isValid) {
+          // A folder can fail validation for two very different reasons: it is a
+          // present-but-empty folder that just needs initializing, OR its handle
+          // is stale because the folder was moved/renamed/deleted on disk. Probe
+          // the handle to tell them apart, so a vanished folder shows a clear
+          // "locate or pick another" path instead of the misleading init prompt
+          // (whose write would then fail against the missing directory anyway).
+          const missing = await isDirectoryHandleMissing(handle);
+          if (missing) {
+            fileService.clearDirectoryHandle();
+            setState((prev) => ({
+              ...prev,
+              isLoading: false,
+              loadingStage: null,
+              error: null,
+              directoryName: null,
+              needsInitialization: false,
+              folderMissing: handle.name,
+            }));
+            return false;
+          }
           setState((prev) => ({
             ...prev,
             isLoading: false,
@@ -372,6 +410,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
             error: null,
             directoryName: handle.name,
             needsInitialization: true,
+            folderMissing: null,
           }));
           return false;
         }
@@ -1068,6 +1107,26 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     try {
       const success = await ensureFolderStructure();
       if (!success) {
+        // The write can fail because the folder vanished between connect and
+        // this click (moved/renamed/deleted). Distinguish that from a real write
+        // error so the user gets the clear "folder is gone" path, not a dead-end
+        // "try again" against a directory that no longer exists.
+        const initHandle = fileService.getDirectoryHandle();
+        const missing = initHandle
+          ? await isDirectoryHandleMissing(initHandle)
+          : false;
+        if (missing) {
+          const goneName = initHandle?.name ?? null;
+          fileService.clearDirectoryHandle();
+          setState((prev) => ({
+            ...prev,
+            isLoading: false,
+            error: null,
+            needsInitialization: false,
+            folderMissing: goneName,
+          }));
+          return false;
+        }
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -1388,6 +1447,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       mainUser: null,
       availableUsers: [],
       needsInitialization: false,
+      folderMissing: null,
       lastConnectedFolder: null,
       captureRefused: false,
       rememberedFolders: survivingFolders,

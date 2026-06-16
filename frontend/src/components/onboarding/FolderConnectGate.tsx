@@ -88,6 +88,7 @@ export default function FolderConnectGate({
     isLoading,
     error,
     needsInitialization,
+    folderMissing,
     initializeFolder,
     directoryName,
     rememberedFolders,
@@ -187,6 +188,87 @@ export default function FolderConnectGate({
 
   if (!isFileSystemAccessSupported()) {
     return <BrowserNotSupported />;
+  }
+
+  // Folder-is-gone prompt. A remembered folder's handle stayed valid-looking
+  // (name + permission cached) but the folder was moved, renamed, or deleted on
+  // disk, so finishConnect's liveness probe flagged it. We show a clear path
+  // (locate it again or pick another) instead of the misleading "initialize"
+  // prompt, whose write would just fail against the missing directory. Only the
+  // name is available; the File System Access API hides the absolute path.
+  if (folderMissing) {
+    return (
+      <div className="light-scope fixed inset-0 z-[100] flex items-center justify-center bg-white">
+        <BackdropTexture />
+        <div className="relative z-10 w-full max-w-lg mx-4">
+          <BrandHeader subtitle="Reconnect your folder" />
+
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
+            <div className="p-6">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15">
+                <Icon name="folder" className="h-6 w-6 text-amber-500" />
+              </div>
+              <h2 className="text-heading font-bold text-foreground mb-3 text-center">
+                Can&apos;t find your &quot;{folderMissing}&quot; folder
+              </h2>
+              <p className="text-foreground-muted mb-2 text-center">
+                ResearchOS was connected to{" "}
+                <span className="font-semibold">{folderMissing}</span>, but it is
+                no longer where it was. It was most likely moved, renamed, or
+                deleted.
+              </p>
+              <p className="text-meta text-foreground-muted mb-6 text-center">
+                Your browser only shares a folder&apos;s name, not its full path,
+                so we can&apos;t point to exactly where it went. Locate it at its
+                new spot, or connect a different folder to continue.
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConnect}
+                  disabled={isLoading}
+                  data-testid="gate-folder-missing-locate"
+                  className="flex-1 py-3 btn-brand text-white font-medium rounded-lg transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isLoading ? (
+                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white" />
+                  ) : (
+                    "Locate or choose a folder"
+                  )}
+                </button>
+                <button
+                  onClick={async () => {
+                    await disconnect();
+                    onBack();
+                  }}
+                  disabled={isLoading}
+                  data-testid="gate-folder-missing-back"
+                  className="ros-btn-neutral px-4 py-3 font-medium disabled:opacity-50"
+                >
+                  Back
+                </button>
+              </div>
+
+              {error && (
+                <div className="mt-4 p-3 bg-red-50 dark:bg-red-500/15 border border-red-200 dark:border-red-500/30 rounded-lg">
+                  <p className="text-body text-red-700 dark:text-red-300">
+                    {error}
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <GateFooter onBugReport={openBugReport} />
+        </div>
+
+        <FeedbackModal
+          isOpen={showBugReport}
+          onClose={closeBugReport}
+          prefilledError={currentError}
+        />
+      </div>
+    );
   }
 
   // Initialize-an-empty-folder prompt. After connect() on a folder that lacks
