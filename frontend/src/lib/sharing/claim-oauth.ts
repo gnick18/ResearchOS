@@ -13,10 +13,16 @@
 import { signIn } from "next-auth/react";
 
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
+import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 
 export function startSharingClaimOAuth(provider: SharingProvider): void {
   if (typeof window === "undefined") return;
+  const devMock = resolveDevMockSignInOptions(provider);
+  if (devMock === null) return; // dev-mock email prompt cancelled
   const url = new URL(window.location.href);
   url.searchParams.set("sharingClaim", "1");
-  void signIn(provider, { callbackUrl: url.pathname + url.search + url.hash });
+  void signIn(provider, {
+    callbackUrl: url.pathname + url.search + url.hash,
+    ...devMock,
+  });
 }

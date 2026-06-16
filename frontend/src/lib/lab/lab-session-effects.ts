@@ -49,6 +49,7 @@ import {
   getSessionIdentity,
 } from "@/lib/sharing/identity/session-key";
 import { restoreSessionFromStore } from "@/lib/sharing/identity/storage";
+import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 import { getLabRemote, resyncLabRemote } from "./lab-do-client";
 import type { GetLabResult } from "./lab-do-client";
 import { readPendingGenesis } from "./lab-genesis-pending";
@@ -137,7 +138,16 @@ export function createLabSessionEffects(params: {
       // it resolves with a result object we can ignore here (the session is
       // what matters, not the result).
       if (provider === "devmock") {
-        await signIn("devmock", { redirect: false });
+        // DEV-ONLY: let the tester pick which email this lab session authenticates
+        // as, so a window that reaches the lab before publishing a profile still
+        // gets a DISTINCT account (e.g. PI vs member for the C2 re-admit verify)
+        // instead of the one fixed AUTH_DEV_MOCK_EMAIL. {} (or {email}) merges in;
+        // null means the tester cancelled the prompt.
+        const devMock = resolveDevMockSignInOptions("devmock");
+        if (devMock === null) {
+          throw new Error("lab session: dev-mock sign-in cancelled");
+        }
+        await signIn("devmock", { redirect: false, ...devMock });
         const s2 = await getSession();
         if (s2?.user?.email) {
           return { email: s2.user.email };
