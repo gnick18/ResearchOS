@@ -161,7 +161,7 @@ describe("multi-panel legend polish", () => {
       },
       columns: {},
       width: 700,
-      height: 96, // tiny canvas, so 4 legends cannot stack in one column
+      height: 220, // short canvas, so the 4 legends columnize rather than stack
       metadata: META,
       panels: strips,
     };
@@ -169,7 +169,9 @@ describe("multi-panel legend polish", () => {
 
   it("renders all four legend titles without overflowing the canvas height", () => {
     const svg = renderTreeSvg(TREE, manyLegendSpec());
-    // All four panel titles appear (the legends columnize to fit, none dropped).
+    // All four legend keys appear (the legends columnize to fit, none dropped). With
+    // 4 colored columns the rectangular headers are numbered badges (not text), so
+    // the column names live in the LEGEND, which must therefore show every key.
     for (const c of ["c1", "c2", "c3", "c4"]) expect(svg).toContain(c);
     // No legend text is placed below the 220px canvas (a y past the height would
     // be off-canvas). We assert the legend x positions span more than one column

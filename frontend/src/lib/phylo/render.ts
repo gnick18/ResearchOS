@@ -656,6 +656,23 @@ function renderFromPanels(
     : 0;
   const layoutHeight = spec.height - legendStripH;
 
+  // Numbered column headers (Grant 2026-06-16): when 2+ colored columns sit in a
+  // RECTANGULAR figure, their text titles collide above the narrow columns ("CLADE"
+  // overdrawing "FCZ +2"). Replace those titles with a small numbered badge over each
+  // column and prefix the matching legend key with the SAME badge, so each column
+  // self-identifies through the legend instead of a cramped header. Circular layouts
+  // pull names into gutter callouts instead, so this is rectangular-only. The number
+  // is the column's position in the legend key order (the badge and the legend entry
+  // share it, so they always agree).
+  const numberedHeaders =
+    !isCircular(spec.layout) && legendOn && legendItems.length >= 2;
+  const legendNumber = new Map<string, number>();
+  legendItems.forEach((e, i) => {
+    if (!legendNumber.has(e.title)) legendNumber.set(e.title, i + 1);
+  });
+  const numberFor = (title?: string): number | undefined =>
+    title ? legendNumber.get(title) : undefined;
+
   // Per-figure overlay-column gap (the advisor's spacing lever); absent = default.
   const columnGap = spec.columnGap ?? PANEL_GAP;
   const room = alignedRoom(aligned, columnGap);
@@ -763,6 +780,8 @@ function renderFromPanels(
       const drawn = renderDatahubPanel(panel, localAxis, spec);
       if (drawn) {
         if (gutter) recordCallout(panel, cursor, drawn.thickness);
+        else if (numberedHeaders)
+          parts.push(rectColumnBadges(panel, localAxis, spec, drawn.thickness, numberFor));
         else parts.push(panelTitle(panel, localAxis, spec, root, meta));
         parts.push(drawn.svg);
         if (wantManifest)
@@ -795,6 +814,8 @@ function renderFromPanels(
     const r = renderPanel(panel, localAxis, values, scales);
     if (r.thickness > 0) {
       if (gutter) recordCallout(panel, cursor, r.thickness);
+      else if (numberedHeaders)
+        parts.push(rectColumnBadges(panel, localAxis, spec, r.thickness, numberFor));
       else parts.push(panelTitle(panel, localAxis, spec, root, meta));
       parts.push(r.svg);
       if (wantManifest)
@@ -856,8 +877,20 @@ function renderFromPanels(
     legendItems.length === 0
       ? ""
       : legendBottom
-        ? renderPanelLegendRow(legendItems, spec.width, layoutHeight, legendStripH)
-        : renderPanelLegendColumn(legendItems, plotWidth, spec.height, legendCols);
+        ? renderPanelLegendRow(
+            legendItems,
+            spec.width,
+            layoutHeight,
+            legendStripH,
+            numberedHeaders,
+          )
+        : renderPanelLegendColumn(
+            legendItems,
+            plotWidth,
+            spec.height,
+            legendCols,
+            numberedHeaders,
+          );
   if (wantManifest && legendItems.length > 0)
     outManifest!.push({
       id: "legend",
@@ -922,6 +955,58 @@ function panelTitle(
   const lx = localAxis.cx;
   const ly = localAxis.cy - r - 4;
   return `<text x="${lx}" y="${ly}" font-size="8.5" font-weight="600" fill="${MUTED}" text-anchor="middle">${esc(truncate(title, 18))}</text>`;
+}
+
+/** A small numbered marker: a white disc with a black ring + the number, used to tie
+ *  a column header to its legend key (Grant's "1 surrounded in black"). */
+function numberBadge(cx: number, cy: number, n: number): string {
+  const r = 6.5;
+  return (
+    `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="#ffffff" stroke="#111111" stroke-width="1.3"/>` +
+    `<text x="${cx.toFixed(1)}" y="${(cy + 2.7).toFixed(1)}" font-size="8.5" font-weight="700" fill="#111111" text-anchor="middle">${n}</text>`
+  );
+}
+
+/**
+ * Rectangular column headers as numbered badges (the multi-column readability fix):
+ * one badge centered over each column (a multi-column heat panel gets one per
+ * sub-column), keyed to the matching legend entry by number. Columns with no legend
+ * key (so no number) draw nothing. Replaces the crowding text titles when 2+ columns
+ * share the header band.
+ */
+function rectColumnBadges(
+  panel: AlignedPanel,
+  localAxis: TipAxis,
+  spec: RenderSpec,
+  thickness: number,
+  numberFor: (title?: string) => number | undefined,
+): string {
+  const x0 = localAxis.panelStartX;
+  const top = localAxis.tips.length
+    ? Math.min(...localAxis.tips.map((t) => t.y))
+    : 0;
+  const cy = top - localAxis.bandHeight / 2 - 6;
+  const out: string[] = [];
+  const badgeAt = (frac: number, title?: string) => {
+    const n = numberFor(title);
+    if (n) out.push(numberBadge(x0 + frac * thickness, cy, n));
+  };
+  if (panel.kind === "heat" && panel.columns && panel.columns.length > 0) {
+    const cols = panel.columns;
+    cols.forEach((col, i) => badgeAt((i + 0.5) / cols.length, col));
+  } else if (panel.kind === "msa") {
+    if (spec.msaTrack) badgeAt(0.5, "Alignment");
+  } else {
+    badgeAt(
+      0.5,
+      panel.column ??
+        panel.columns?.[0] ??
+        (typeof panel.options?.title === "string"
+          ? panel.options.title
+          : undefined),
+    );
+  }
+  return out.join("");
 }
 
 /**
@@ -1765,24 +1850,30 @@ function renderOneLegend(
   x: number,
   y: number,
   maxY: number,
+  num?: number,
 ): { svg: string; height: number } {
-  if (entry.residue) {
-    return renderMsaLegend(entry.title, entry.residue, x, y, maxY);
-  }
-  if (entry.valueScale) {
-    return renderValueScaleLegend(
-      entry.title,
-      entry.valueScale.lo,
-      entry.valueScale.hi,
-      x,
-      y,
-      maxY,
-    );
-  }
-  if (entry.scale) {
-    return renderPanelLegend(entry.title, entry.scale, x, y, maxY);
-  }
-  return { svg: "", height: 0 };
+  // When numbered (rectangular numbered headers), draw the matching badge to the
+  // left of the key and shift the key right so the title clears it. The badge sits
+  // on the title baseline (the title is the first line each sub-renderer draws at y).
+  const badgeW = num ? 18 : 0;
+  const badge = num ? numberBadge(x + 6.5, y - 3.5, num) : "";
+  const ex = x + badgeW;
+  const inner = entry.residue
+    ? renderMsaLegend(entry.title, entry.residue, ex, y, maxY)
+    : entry.valueScale
+      ? renderValueScaleLegend(
+          entry.title,
+          entry.valueScale.lo,
+          entry.valueScale.hi,
+          ex,
+          y,
+          maxY,
+        )
+      : entry.scale
+        ? renderPanelLegend(entry.title, entry.scale, ex, y, maxY)
+        : { svg: "", height: 0 };
+  if (inner.height === 0) return inner;
+  return { svg: badge + inner.svg, height: inner.height };
 }
 
 /** A cheap height estimate for one legend entry, used both to decide how many
@@ -1838,6 +1929,7 @@ function renderPanelLegendColumn(
   plotWidth: number,
   height: number,
   cols: number,
+  numbered = false,
 ): string {
   const startX = plotWidth + 12;
   const topY = 22;
@@ -1845,7 +1937,8 @@ function renderPanelLegendColumn(
   const parts: string[] = [];
   let col = 0;
   let y = topY;
-  for (const entry of entries) {
+  for (let i = 0; i < entries.length; i++) {
+    const entry = entries[i];
     const h = estimateLegendHeight(entry);
     if (y > topY && y + h > maxY) {
       if (col < cols - 1) {
@@ -1856,7 +1949,7 @@ function renderPanelLegendColumn(
       }
     }
     const x = startX + col * LEGEND_COL_WIDTH;
-    const r = renderOneLegend(entry, x, y, maxY);
+    const r = renderOneLegend(entry, x, y, maxY, numbered ? i + 1 : undefined);
     if (r.height === 0) continue;
     parts.push(r.svg);
     y += r.height;
@@ -1897,6 +1990,7 @@ function renderPanelLegendRow(
   width: number,
   stripTop: number,
   stripH: number,
+  numbered = false,
 ): string {
   const perRow = legendPerRow(width);
   const rows = Math.max(1, Math.ceil(entries.length / perRow));
@@ -1906,7 +2000,7 @@ function renderPanelLegendRow(
   entries.forEach((entry, i) => {
     const x = 12 + (i % perRow) * LEGEND_COL_WIDTH;
     const y = stripTop + 6 + Math.floor(i / perRow) * rowH;
-    const r = renderOneLegend(entry, x, y, maxY);
+    const r = renderOneLegend(entry, x, y, maxY, numbered ? i + 1 : undefined);
     if (r.height > 0) parts.push(r.svg);
   });
   return parts.join("");
