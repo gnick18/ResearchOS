@@ -816,6 +816,19 @@ describe("plot-spec: grouped bar modes", () => {
     expect(geo.yMax).toBe(20);
     expect(geo.ticks.map((t) => t.value)).toEqual([0, 5, 10, 15, 20]);
   });
+
+  it("legendPlacement 'right' reserves a gutter, shrinking the plot width", () => {
+    const base = { ...defaultPlotStyle(), kind: "groupedBar" as const };
+    const overlay = layoutGroupedBar(groupedContent(), base);
+    const right = layoutGroupedBar(groupedContent(), {
+      ...base,
+      legendPlacement: "right" as const,
+    });
+    // The right-placed legend pushes the plot's right edge in (bars stop short),
+    // so it sits clear of them; the overlay default leaves x1 untouched.
+    expect(right.x1).toBeLessThan(overlay.x1);
+    expect(right.x1).toBeGreaterThan(right.x0);
+  });
 });
 
 describe("plot-spec: tip-aligned grouped bar (phylo Phase 4 seam)", () => {

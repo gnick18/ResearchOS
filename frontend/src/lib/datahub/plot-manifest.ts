@@ -19,6 +19,7 @@
 import {
   renderPlot,
   GROUPED_LEGEND,
+  groupedLegendSwatchX,
   estimateLabelWidth,
   type PlotStyle,
 } from "./plot-spec";
@@ -87,10 +88,13 @@ export function plotLayoutManifest(
         (m, item) => Math.max(m, estimateLabelWidth(item.name, tickFont)),
         0,
       );
+      // The legend box sits where the serializer draws it: inside top-right for
+      // "overlay", or in the reserved gutter past the (shrunk) plot edge for
+      // "right" (which is what clears it off the bars).
       boxes.push({
         id: "legend",
         kind: "legend",
-        x: geo.x1 - GROUPED_LEGEND.swatchInsetFromX1,
+        x: groupedLegendSwatchX(geo.x1, style.legendPlacement ?? "overlay"),
         y: geo.y1 + GROUPED_LEGEND.topPad,
         w:
           GROUPED_LEGEND.swatchInsetFromX1 -
