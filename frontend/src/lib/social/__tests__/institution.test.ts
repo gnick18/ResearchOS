@@ -27,6 +27,14 @@ describe("humanizeInstitutionSlug", () => {
     expect(humanizeInstitutionSlug("")).toBe("");
     expect(humanizeInstitutionSlug("--ox--")).toBe("Ox");
   });
+  it("keeps minor words lowercase except as the first word", () => {
+    expect(humanizeInstitutionSlug("university-of-wisconsin-madison")).toBe(
+      "University of Wisconsin Madison",
+    );
+    expect(humanizeInstitutionSlug("the-university-of-the-arts")).toBe(
+      "The University of the Arts",
+    );
+  });
 });
 
 describe("fetchPublicInstitution", () => {

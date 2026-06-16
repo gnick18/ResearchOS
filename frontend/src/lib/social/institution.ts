@@ -41,11 +41,28 @@ export class DirectoryUnavailable extends Error {
  * The real, correctly-cased name comes from the endpoint, so this never
  * overwrites a resolved name.
  */
+const LOWERCASE_WORDS = new Set([
+  "of",
+  "and",
+  "the",
+  "for",
+  "at",
+  "in",
+  "on",
+  "a",
+  "an",
+  "to",
+]);
+
 export function humanizeInstitutionSlug(slug: string): string {
   return slug
     .split(/[-_]+/)
     .filter(Boolean)
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .map((w, i) =>
+      i > 0 && LOWERCASE_WORDS.has(w.toLowerCase())
+        ? w.toLowerCase()
+        : w.charAt(0).toUpperCase() + w.slice(1),
+    )
     .join(" ");
 }
 
