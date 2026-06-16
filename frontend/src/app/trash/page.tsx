@@ -38,27 +38,12 @@ import {
   pruneSelection,
   selectedEntries,
 } from "./trash-selection";
+import { SECTION_ORDER } from "./trash-sections";
 
 const SORT_OPTIONS: Array<{ value: TrashSort; label: string }> = [
   { value: "newest", label: "Newest first" },
   { value: "oldest", label: "Oldest first" },
   { value: "expiring", label: "Expiring soon" },
-];
-
-/** Order in which entity-type sections render. Notes first (most-used),
- *  then the rest roughly by familiarity. */
-const SECTION_ORDER: Array<{ key: TrashEntityType; label: string }> = [
-  { key: "note", label: "Notes" },
-  { key: "task", label: "Tasks" },
-  { key: "project", label: "Projects" },
-  { key: "method", label: "Methods" },
-  { key: "purchase_item", label: "Purchase items" },
-  { key: "high_level_goal", label: "High-level goals" },
-  { key: "lab_link", label: "Lab links" },
-  { key: "mass_spec_protocol", label: "Mass spec protocols" },
-  { key: "sequence", label: "Sequences" },
-  { key: "inventory_item", label: "Inventory items" },
-  { key: "inventory_stock", label: "Inventory stocks" },
 ];
 
 export default function TrashPage() {
@@ -400,7 +385,7 @@ export default function TrashPage() {
                 type="button"
                 onClick={handleBulkRestore}
                 disabled={bulkBusy}
-                className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ros-btn-neutral ros-btn-raise px-3 py-1.5 text-body disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {bulkBusy ? "Working…" : `Restore ${selectedCount}`}
               </button>
@@ -408,7 +393,7 @@ export default function TrashPage() {
                 type="button"
                 onClick={() => setConfirmBulkDelete(true)}
                 disabled={bulkBusy}
-                className="px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ros-btn-raise px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-200 border border-red-200 dark:border-red-400/40 bg-red-50 dark:bg-red-500/25 hover:bg-red-100 dark:hover:bg-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Permanent delete {selectedCount}
               </button>
@@ -510,14 +495,14 @@ function BulkDeleteConfirm({ count, onCancel, onConfirm }: BulkDeleteConfirmProp
           <button
             type="button"
             onClick={onCancel}
-            className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken"
+            className="ros-btn-neutral ros-btn-raise px-3 py-1.5 text-body"
           >
             Cancel
           </button>
           <button
             type="button"
             onClick={onConfirm}
-            className="px-3 py-1.5 text-body rounded-md text-white bg-red-600 hover:bg-red-700"
+            className="ros-btn-raise px-3 py-1.5 text-body rounded-md text-white bg-red-600 hover:bg-red-700"
           >
             Permanently delete
           </button>
@@ -682,7 +667,7 @@ function TrashRow({
             type="button"
             onClick={onRestore}
             disabled={busy}
-            className="px-3 py-1.5 text-body rounded-md border border-border bg-surface-raised hover:bg-surface-sunken disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ros-btn-neutral ros-btn-raise px-3 py-1.5 text-body disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Restore
           </button>
@@ -692,7 +677,7 @@ function TrashRow({
             type="button"
             onClick={onPermanentDelete}
             disabled={busy}
-            className="px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-300 border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/15 hover:bg-red-100 dark:hover:bg-red-500/20 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="ros-btn-raise px-3 py-1.5 text-body rounded-md text-red-700 dark:text-red-200 border border-red-200 dark:border-red-400/40 bg-red-50 dark:bg-red-500/25 hover:bg-red-100 dark:hover:bg-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Permanent delete
           </button>
