@@ -2337,6 +2337,22 @@ export function layoutGroupedBar(
   return { width, height, x0, x1, y0, y1, yMax, ticks, clusters, legend };
 }
 
+/**
+ * Layout literals for the grouped-bar legend (top-right INSIDE the plot area).
+ * Shared by renderGroupedBarSvg (the ink) and the collision advisor's manifest
+ * (plot-manifest.ts), so the advisor measures the exact box that is drawn. Per
+ * row: a 9px swatch at x1-92 then the series name; rows step down by 13 from
+ * y1+4. The legend sitting inside the data band is the "legend over the bars"
+ * collision the advisor flags.
+ */
+export const GROUPED_LEGEND = {
+  swatchInsetFromX1: 92, // swatch left x = geo.x1 - 92
+  textInsetFromX1: 79, // series-name left x = geo.x1 - 79
+  rowH: 13,
+  topPad: 4, // first row top y = geo.y1 + 4
+  swatch: 9,
+} as const;
+
 /** Serialize a grouped bar figure into a standalone SVG string. */
 export function renderGroupedBarSvg(
   geo: GroupedBarGeometry,
@@ -2404,14 +2420,16 @@ export function renderGroupedBarSvg(
   }
 
   // Legend (top-right inside the plot area). The swatch carries data-series so a
-  // direct edit on the plot can recolor a whole group from its legend entry.
-  let ly = geo.y1 + 4;
+  // direct edit on the plot can recolor a whole group from its legend entry. The
+  // layout literals live in GROUPED_LEGEND so the collision advisor's manifest can
+  // measure the EXACT box this draws (one source of truth, no drift).
+  let ly = geo.y1 + GROUPED_LEGEND.topPad;
   geo.legend.forEach((item, i) => {
     parts.push(
-      `<rect data-series="${i}" x="${geo.x1 - 92}" y="${ly}" width="9" height="9" fill="${item.color}" opacity="0.85"/>` +
-        `<text x="${geo.x1 - 79}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
+      `<rect data-series="${i}" x="${geo.x1 - GROUPED_LEGEND.swatchInsetFromX1}" y="${ly}" width="${GROUPED_LEGEND.swatch}" height="${GROUPED_LEGEND.swatch}" fill="${item.color}" opacity="0.85"/>` +
+        `<text x="${geo.x1 - GROUPED_LEGEND.textInsetFromX1}" y="${ly + 8}" font-size="${tickFont}" fill="${LABEL_TEXT}">${esc(item.name)}</text>`,
     );
-    ly += 13;
+    ly += GROUPED_LEGEND.rowH;
   });
 
   if (style.xTitle.trim() !== "") {

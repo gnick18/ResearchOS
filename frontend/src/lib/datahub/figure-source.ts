@@ -17,6 +17,7 @@ import {
   readPlotSource,
   withStyle,
 } from "@/lib/datahub/plot-spec";
+import { plotLayoutManifest } from "@/lib/datahub/plot-manifest";
 import { PALETTES } from "@/lib/datahub/palettes";
 import {
   registerFigureSource,
@@ -24,8 +25,13 @@ import {
   type FigureSource,
   type FigureRef,
   type RenderedFigure,
+  type RenderOpts,
   type StyleOption,
 } from "@/lib/figure/figure-source";
+import type { LayoutManifest } from "@/lib/figure/layout-manifest";
+
+type DataHubContent = NonNullable<Awaited<ReturnType<typeof dataHubApi.getContent>>>;
+type DataHubPlot = NonNullable<DataHubContent["plots"]>[number];
 
 const DEFAULT_ASPECT = 430 / 340; // the Data Hub FIG default (w / h)
 
@@ -59,6 +65,34 @@ function kindLabel(spec: Parameters<typeof readPlotStyle>[0]): string {
     stackedBar: "stacked bar",
   };
   return map[k] ?? k;
+}
+
+/**
+ * Size a plot to the panel's real-inch box and resolve its table content +
+ * analysis, exactly as render() does, so render() (draws the SVG) and
+ * getLayoutManifest() (measures the bboxes) feed renderPlot the identical inputs
+ * and the advisor reasons about the geometry the panel actually draws.
+ */
+function sizePlot(
+  content: DataHubContent,
+  plot: DataHubPlot,
+  opts: RenderOpts,
+): { sized: DataHubPlot; analysis: Parameters<typeof renderPlot>[2] } {
+  const palette = opts.style?.options?.palette;
+  const sized = withStyle(plot, {
+    width: opts.widthIn,
+    height: opts.heightIn,
+    sizeUnit: "in",
+    // A composed panel hides the plot's own title by default (the figure's panel
+    // letter + caption carry it); an empty title hides it in renderPlot.
+    ...(opts.overrides?.hideTitle ? { title: "" } : {}),
+    ...(typeof palette === "string" && palette ? { palette } : {}),
+  }) as DataHubPlot;
+  const source = readPlotSource(sized);
+  const analysis = source.analysisId
+    ? content.analyses?.find((a) => a.id === source.analysisId) ?? null
+    : null;
+  return { sized, analysis };
 }
 
 export const dataHubFigureSource: FigureSource = {
@@ -100,24 +134,22 @@ export const dataHubFigureSource: FigureSource = {
     const aspect = plotNaturalAspect(plot);
     // Size the figure to the panel's real-inch box, then render with the SAME
     // path the editor uses (so the panel matches the figure exactly).
-    // A per-panel palette override (composer Style inspector) recolors the whole
-    // figure without mutating the saved plot. Absent = the plot's stored palette.
-    const palette = opts.style?.options?.palette;
-    const sized = withStyle(plot, {
-      width: opts.widthIn,
-      height: opts.heightIn,
-      sizeUnit: "in",
-      // A composed panel hides the plot's own title by default (the figure's
-      // panel letter + caption carry it); an empty title hides it in renderPlot.
-      ...(opts.overrides?.hideTitle ? { title: "" } : {}),
-      ...(typeof palette === "string" && palette ? { palette } : {}),
-    });
-    const source = readPlotSource(sized);
-    const analysis = source.analysisId
-      ? content.analyses?.find((a) => a.id === source.analysisId) ?? null
-      : null;
+    const { sized, analysis } = sizePlot(content, plot, opts);
     const { svg } = renderPlot(sized, content, analysis);
     return { svg, naturalAspect: aspect };
+  },
+
+  async getLayoutManifest(id, opts): Promise<LayoutManifest | null> {
+    const { docId, plotId } = splitFigureId(id);
+    const content = await dataHubApi.getContent(docId);
+    const plot = content?.plots?.find((p) => p.id === plotId);
+    if (!content || !plot) return null;
+    // Same sizing + renderPlot inputs as render(), so the manifest measures the
+    // exact geometry the panel draws. plotLayoutManifest turns the laid-out
+    // geometry into the shared collision-advisor manifest.
+    const { sized, analysis } = sizePlot(content, plot, opts);
+    const { geometry, style } = renderPlot(sized, content, analysis);
+    return plotLayoutManifest(geometry, style);
   },
 
   styleSchema(): StyleOption[] {
