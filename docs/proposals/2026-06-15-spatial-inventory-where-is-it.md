@@ -78,9 +78,18 @@ Grant asked specifically whether we can steal from the real-estate space or buil
 
 ## Key open questions
 - Capture friction: will researchers actually record location at scan-in? (Phase A must be near-zero-tap or it dies.)
-- iOS/Android parity: LiDAR room scan is iPhone-Pro-only; what is the Android story, and do we accept an asymmetric feature?
+- ~~iOS/Android parity: LiDAR room scan is iPhone-Pro-only; do we accept an asymmetric feature?~~ **RESOLVED 2026-06-16 (Grant): yes — capture is a one-person lab-setup task (see Product direction above); the shared map benefits everyone cross-platform.**
 - Storage + E2E: room scans are large binaries; how do they ride our local-first, end-to-end-encrypted data model?
 - Where does the value plateau — is Phase A+B+C enough, with D/E as "wow" extras?
+
+## Product direction (Grant, 2026-06-16) — capture is a one-person lab-setup task
+Grant's reframe collapses the iOS/Android parity worry: **the map is a shared lab asset, so the scan only has to be done ONCE by ONE person.** As long as a single lab member has a LiDAR iPhone/iPad Pro, they map the whole space and everyone else benefits on any device. So:
+- **iOS-Pro-only CAPTURE is acceptable.** The parity asymmetry only touches authoring, which is rare and one-time-ish; daily "where is it" lookup + pin reading stays cross-platform.
+- **It is a lab-setup action, not a tab.** Trigger the scan from the **laptop (Lab settings)** or the app's **Settings**, not a primary nav surface. Re-scan only when the lab is physically rearranged. Low frequency by design.
+- **This elevates RoomPlan from "garnish" to the PREFERRED capture path** wherever a Pro device exists (one scan << everyone hand-drawing a plan). Manual 2D-draw drops to the **fallback** for labs with no LiDAR device.
+- **Unchanged:** the 2D pin model `{plan, zones, pins}` stays the canonical data structure; RoomPlan flattens into it (its 2D plan is free + on-device, per research 2), so capture method is interchangeable and consume stays uniform.
+
+This resolves open question #2 below (we accept the asymmetric, one-author feature).
 
 ## Recommendation (post-research)
 1. **Make the 2D pin model the canonical data structure** now: `{ plan, zones, pins: {itemId, x, y, zoneLabel} }`, local + E2E. Every capture method (free-text, structured location, drawn/imported plan, and later a RoomPlan flatten) feeds this one model. This is the architectural decision that keeps us cross-platform and out of the research swamp.
