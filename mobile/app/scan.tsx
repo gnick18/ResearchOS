@@ -1068,14 +1068,8 @@ function StorageLocationPicker({
   const isBox = focusNode?.kind === 'box';
   const children = childrenOf(focus);
 
-  const cells: string[] = [];
-  if (isBox && focusNode) {
-    const rows = focusNode.boxRows ?? 9;
-    const cols = focusNode.boxCols ?? 9;
-    for (let r = 0; r < rows; r += 1)
-      for (let c = 0; c < cols; c += 1)
-        cells.push(`${String.fromCharCode(65 + r)}${c + 1}`);
-  }
+  const boxRows = isBox && focusNode ? focusNode.boxRows ?? 9 : 0;
+  const boxCols = isBox && focusNode ? focusNode.boxCols ?? 9 : 0;
 
   const selectedLabel =
     nodeId != null
@@ -1130,29 +1124,53 @@ function StorageLocationPicker({
       </View>
 
       {isBox ? (
-        <View style={styles.cellGrid}>
-          {cells.map((cell) => {
-            const on = nodeId === focus && position === cell;
-            return (
-              <Pressable
-                key={cell}
-                onPress={() => onChange(focus, cell)}
-                style={[
-                  styles.cell,
-                  {
-                    backgroundColor: on ? palette.sky : surface.surface2,
-                    borderColor: on ? palette.sky : surface.border,
-                  },
-                ]}
-              >
-                <ThemedText
-                  style={[styles.cellText, { color: on ? palette.white : surface.muted }]}
-                >
-                  {cell}
+        <View style={styles.grid}>
+          {/* Column header (1..cols) above an empty corner the width of the row labels. */}
+          <View style={styles.gridRow}>
+            <View style={styles.rowLabelCell} />
+            {Array.from({ length: boxCols }).map((_, c) => (
+              <View key={`h${c}`} style={styles.headerCell}>
+                <ThemedText style={[styles.axisText, { color: surface.muted }]}>
+                  {c + 1}
                 </ThemedText>
-              </Pressable>
-            );
-          })}
+              </View>
+            ))}
+          </View>
+          {Array.from({ length: boxRows }).map((_, r) => (
+            <View key={`r${r}`} style={styles.gridRow}>
+              <View style={styles.rowLabelCell}>
+                <ThemedText style={[styles.axisText, { color: surface.muted }]}>
+                  {String.fromCharCode(65 + r)}
+                </ThemedText>
+              </View>
+              {Array.from({ length: boxCols }).map((_, c) => {
+                const cell = `${String.fromCharCode(65 + r)}${c + 1}`;
+                const on = nodeId === focus && position === cell;
+                return (
+                  <Pressable
+                    key={cell}
+                    onPress={() => onChange(focus, cell)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Place in ${cell}`}
+                    style={[
+                      styles.cell,
+                      {
+                        backgroundColor: on ? palette.sky : surface.surface2,
+                        borderColor: on ? palette.sky : surface.border,
+                      },
+                    ]}
+                  >
+                    <ThemedText
+                      style={[styles.cellText, { color: on ? palette.white : surface.muted }]}
+                      numberOfLines={1}
+                    >
+                      {c + 1}
+                    </ThemedText>
+                  </Pressable>
+                );
+              })}
+            </View>
+          ))}
         </View>
       ) : children.length > 0 ? (
         <View style={{ gap: 6 }}>
@@ -1494,14 +1512,21 @@ const styles = StyleSheet.create({
   nodeRowName: { flex: 1, fontSize: 15 },
   placeHere: { paddingHorizontal: 8, paddingVertical: 6 },
   placeHereText: { fontSize: 13, fontFamily: fonts.semibold, fontWeight: '600' },
-  cellGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  // A true fixed-column coordinate grid: A-I row labels down the left, 1-N column
+  // numbers across the top, square cells that fill the width evenly (no ragged
+  // wrap). Each cell is the full square tap target.
+  grid: { gap: 4 },
+  gridRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  rowLabelCell: { width: 18, alignItems: 'center', justifyContent: 'center' },
+  headerCell: { flex: 1, alignItems: 'center', paddingBottom: 2 },
+  axisText: { fontSize: 11, fontFamily: fonts.semibold, fontWeight: '600' },
   cell: {
+    flex: 1,
+    aspectRatio: 1,
     borderWidth: 1,
     borderRadius: 6,
-    minWidth: 38,
-    paddingVertical: 8,
-    paddingHorizontal: 6,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   cellText: { fontSize: 12 },
 

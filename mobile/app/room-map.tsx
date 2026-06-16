@@ -14,10 +14,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SvgXml } from 'react-native-svg';
-import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
+import { ScreenHeader } from '@/components/ui/ScreenHeader';
+import { EmptyState } from '@/components/ui/EmptyState';
 import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
@@ -25,7 +27,6 @@ import { fetchSnapshot } from '@/lib/snapshots';
 import type { InventorySnapshot, LabMapPin, StorageNode, TrackedStock } from '@/lib/scan';
 
 export default function RoomMapScreen() {
-  const router = useRouter();
   const { surface, spacing } = useTheme();
   const params = useLocalSearchParams<{ node?: string }>();
   const focusNodeId = params.node ? Number(params.node) : null;
@@ -116,27 +117,23 @@ export default function RoomMapScreen() {
 
   return (
     <ScreenFrame edges={['top']}>
-      <View style={styles.head}>
-        <Pressable onPress={() => router.back()} hitSlop={10} style={styles.back}>
-          <Ionicons name="chevron-back" size={26} color={palette.sky} />
-        </Pressable>
-        <ThemedText type="title">Room map</ThemedText>
-      </View>
+      <ScreenHeader title="Room map" />
 
       <ScrollView contentContainerStyle={{ padding: spacing.lg, gap: spacing.md }}>
         {!pairing ? (
-          <ThemedText style={[styles.note, { color: surface.muted }]}>
-            Pair this phone with your laptop to see the lab map.
-          </ThemedText>
+          <EmptyState
+            icon="phone-portrait-outline"
+            text="Pair this phone with your laptop to see the lab map."
+          />
         ) : loading && !snapshot ? (
           <View style={styles.center}>
             <ActivityIndicator color={palette.sky} />
           </View>
         ) : pins.length === 0 ? (
-          <ThemedText style={[styles.note, { color: surface.muted }]}>
-            No room map yet. Build one on your laptop (Inventory, Room map) by
-            pinning your freezers and benches on the floor plan.
-          </ThemedText>
+          <EmptyState
+            icon="map-outline"
+            text="No room map yet. Build one on your laptop under Inventory, Room map by pinning your freezers and benches on the floor plan."
+          />
         ) : (
           <>
             {couldNotPlace ? (
@@ -229,15 +226,6 @@ export default function RoomMapScreen() {
 }
 
 const styles = StyleSheet.create({
-  head: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  back: { padding: 2 },
   center: { paddingVertical: 40, alignItems: 'center' },
   note: { fontSize: 14, lineHeight: 20 },
   banner: {

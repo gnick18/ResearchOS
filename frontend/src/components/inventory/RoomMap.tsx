@@ -261,7 +261,9 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
             </button>
           )}
           <span className="text-meta text-foreground-subtle">
-            Upload a .svg floor plan, or use the sample. Pins sit on top.
+            Place each freezer or bench where it physically sits in the room (the
+            Storage map handles which box). Upload a .svg floor plan or use the
+            sample; pins sit on top.
           </span>
         </div>
         <div
@@ -290,8 +292,14 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
           ) : null}
 
           {pins.length === 0 ? (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center px-6 text-center">
-              <p className="text-meta text-foreground-muted">
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+                <Icon name="storageNested" className="h-6 w-6" />
+              </div>
+              <h3 className="text-title font-semibold text-foreground">
+                Map where your storage lives
+              </h3>
+              <p className="mt-1.5 max-w-sm text-body text-foreground-muted">
                 Pick a location on the right to drop a pin, then drag it where it
                 sits in the room.
               </p>
@@ -361,10 +369,15 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
           Place a location
         </p>
         {nodes.length === 0 ? (
-          <p className="text-meta text-foreground-muted">
-            No storage locations yet. Add freezers and shelves in the Storage map,
-            then pin them here.
-          </p>
+          <div className="flex flex-col items-center rounded-lg border border-border bg-surface-raised px-4 py-6 text-center">
+            <div className="mb-2.5 flex h-10 w-10 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+              <Icon name="storageNested" className="h-5 w-5" />
+            </div>
+            <p className="text-meta text-foreground-muted">
+              No storage locations yet. Add freezers and shelves in the Storage
+              map, then pin them here.
+            </p>
+          </div>
         ) : unpinned.length === 0 ? (
           <p className="text-meta text-foreground-muted">
             Every location is on the map.
