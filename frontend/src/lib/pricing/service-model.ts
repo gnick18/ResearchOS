@@ -145,30 +145,24 @@ export function serviceMargin(
 }
 
 /**
- * Average monthly cost to us of one FREE user under Path A.
+ * Recurring MONTHLY cost to us of one FREE user under Path A.
  *
- * Free users get NO cloud produce feature, so they generate ~0 recurring relay
- * writes: the local notebook is on their disk, shared-folder workspaces sync
- * through their own cloud, receiving a share is sender-paid, and reads have no
- * R2 egress fee. The only real free-user cost is the ONE-TIME AI sign-up grant
- * (~$0.25, Grant 2026-06-16). We amortize that grant over an assumed free-user
- * lifetime so the monthly number reflects steady-state re-acquisition (churn
- * replacement). freeRelayWritesM defaults to 0 in the dashboard and exists only
- * to stress-test "what if free users turn out chattier than expected." When
- * freeLifetimeMonths is 0 the grant is not amortized (relay-only).
+ * Free users get NO cloud produce feature, so they generate ~0 recurring cost:
+ * the local notebook is on their disk, shared-folder workspaces sync through
+ * their own cloud, receiving a share is sender-paid, and reads have no R2 egress
+ * fee. So the recurring monthly cost is just the relay footprint, which is 0 by
+ * default; the dial exists only to stress-test "what if free users turn out
+ * chattier than expected." The one-time $0.25 AI sign-up grant is NOT amortized
+ * in here (Grant 2026-06-16) -- it is a one-time acquisition cost reported
+ * separately via freeBaseAcquisitionOneTime, never folded into the monthly P&L.
  */
-export function avgFreeUserCostPathA(
-  freeRelayWritesM: number,
-  freeLifetimeMonths = 0,
-): number {
-  const relay = relayCost(freeRelayWritesM);
-  const grantAmortized =
-    freeLifetimeMonths > 0 ? AI_SIGNUP_GRANT_USD / freeLifetimeMonths : 0;
-  return relay + grantAmortized;
+export function avgFreeUserCostPathA(freeRelayWritesM: number): number {
+  return relayCost(freeRelayWritesM);
 }
 
-/** One-time cost to acquire a free base of `freeUsers`, the AI sign-up grant
- *  paid once per account. Context alongside the recurring monthly view. */
+/** One-time cost to acquire a free base of `freeUsers`, the $0.25 AI sign-up
+ *  grant paid once per account. Reported separately from the recurring monthly
+ *  net, never amortized into it. */
 export function freeBaseAcquisitionOneTime(freeUsers: number): number {
   return freeUsers * AI_SIGNUP_GRANT_USD;
 }
@@ -196,9 +190,6 @@ export interface AdoptionMix {
   /** Relay write footprint of one free user, millions per month. ~0 under Path A
    *  (no cloud produce feature); exists only to stress-test a chattier free user. */
   freeRelayWritesM: number;
-  /** Assumed free-user lifetime in months, used to amortize the one-time AI
-   *  sign-up grant into a steady-state monthly cost. */
-  freeUserLifetimeMonths: number;
   /** Average AI tokens a PAYING user spends per month, in millions. Drives the
    *  AI margin on the paid side (dept users at the 2x org rate). */
   aiTokensPerPaidM: number;
@@ -277,20 +268,22 @@ export interface ScalePoint {
   gov: number;
   /** sub + ai + gov, the positive side of the P&L. */
   revenue: number;
-  /** Free-user recurring relay cost (~0 under Path A). */
-  freeRelayCost: number;
-  /** Free-user AI sign-up grant, amortized over the assumed lifetime. */
-  freeAcqCost: number;
-  /** freeRelayCost + freeAcqCost, the whole free base support cost. */
+  /** Free-user recurring relay cost (~0 under Path A). This IS the whole
+   *  recurring free-base cost; the AI grant is one-time, reported separately. */
   freeCost: number;
   /** Fixed infra floor. */
   fixed: number;
-  /** freeCost + fixed. */
+  /** freeCost + fixed, the recurring monthly expense. */
   expense: number;
+  /** revenue - expense, the recurring monthly net. */
   net: number;
+  /** One-time $0.25 AI grant to acquire the current free base. NOT in net. */
+  freeAcqOneTime: number;
 }
 
-/** Profit vs expense at a given total user count, broken into revenue sources. */
+/** Profit vs expense at a given total user count, broken into revenue sources.
+ *  The free base costs ~$0/mo recurring; acquiring it is a one-time cost tracked
+ *  in freeAcqOneTime and deliberately kept out of the monthly net. */
 export function projectAtScale(
   users: number,
   tiers: ServiceTiers,
@@ -302,12 +295,7 @@ export function projectAtScale(
   const ai = paid * blendedAiMargin(tiers, mix);
   const gov = paid * blendedGovPerPaid(tiers, mix);
   const revenue = sub + ai + gov;
-  const freeRelayCost = free * relayCost(mix.freeRelayWritesM);
-  const freeAcqCost =
-    mix.freeUserLifetimeMonths > 0
-      ? free * (AI_SIGNUP_GRANT_USD / mix.freeUserLifetimeMonths)
-      : 0;
-  const freeCost = freeRelayCost + freeAcqCost;
+  const freeCost = free * relayCost(mix.freeRelayWritesM);
   const fixed = FIXED_BASE_MONTHLY;
   const expense = freeCost + fixed;
   return {
@@ -316,12 +304,11 @@ export function projectAtScale(
     ai,
     gov,
     revenue,
-    freeRelayCost,
-    freeAcqCost,
     freeCost,
     fixed,
     expense,
     net: revenue - expense,
+    freeAcqOneTime: freeBaseAcquisitionOneTime(free),
   };
 }
 
@@ -335,7 +322,7 @@ export function breakEvenConversion(
   tiers: ServiceTiers,
   mix: AdoptionMix,
 ): number {
-  const F = avgFreeUserCostPathA(mix.freeRelayWritesM, mix.freeUserLifetimeMonths);
+  const F = avgFreeUserCostPathA(mix.freeRelayWritesM);
   const R = blendedPaidNet(tiers, mix);
   if (R + F <= 0) return 1;
   return Math.min(1, Math.max(0, F / (R + F)));
@@ -345,7 +332,7 @@ export function breakEvenConversion(
  *  intuition for the same number). Infinity when free users are effectively free
  *  (relay 0 and grant not amortized), which is Path A in the limit. */
 export function freeUsersPerPayer(tiers: ServiceTiers, mix: AdoptionMix): number {
-  const F = avgFreeUserCostPathA(mix.freeRelayWritesM, mix.freeUserLifetimeMonths);
+  const F = avgFreeUserCostPathA(mix.freeRelayWritesM);
   if (F <= 0) return Number.POSITIVE_INFINITY;
   return blendedPaidNet(tiers, mix) / F;
 }

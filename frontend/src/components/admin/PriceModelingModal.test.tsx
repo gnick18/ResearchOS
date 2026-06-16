@@ -23,11 +23,11 @@ describe("FinalizeTab (Path-A service dashboard)", () => {
     has(/Where the money comes from/i); // outcome plot 3
     has(/AI margin/i); // composition row
     has(/Governance fees/i); // composition row
-    // Free users are near-free: ~0 recurring cloud cost, only the amortized grant.
+    // Free users are ~$0/mo recurring; the grant is a separate one-time line.
     has(/None of that writes to us/i);
-    has(/Free-user lifetime/i); // the amortization knob
-    has(/Free AI grant \(amortized\)/i); // split cost line
-    has(/Fixed infra floor/i); // split cost line
+    has(/Acquiring this free base/i); // one-time acquisition line
+    has(/Free relay \(recurring\)/i); // recurring cost line
+    has(/Fixed infra floor/i); // recurring cost line
     cleanup();
   });
 

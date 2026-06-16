@@ -67,13 +67,13 @@ Sells governance, not charity. Storage at parity with a standalone lab (no surch
 
 Free users have no cloud produce feature, and the honest consequence (Grant 2026-06-16) is that **a free user does nothing that writes to us**: the local notebook is on their disk, shared-folder workspaces sync through their own cloud, receiving a share is sender-paid, reads have no R2 egress fee, and the public surfaces are cached. So the free-user recurring relay cost is **~$0**.
 
-The only real free-user cost is the **one-time $0.25 AI sign-up grant**, modeled as an acquisition cost amortized over the free-user lifetime (default 24 months) = about **$0.01/mo** per free user, versus ~$0.46/mo under the old GB model. So:
+The only real free-user cost is the **one-time $0.25 AI sign-up grant**, which is a pure acquisition cost (Grant 2026-06-16): it is reported **separately as a one-time line** ("$0.25 x N free users"), never amortized into the monthly net. So the recurring monthly free-user cost is **~$0**, versus ~$0.46/mo under the old GB model. So:
 
-- One paying user carries on the order of **hundreds of free users**.
-- **Break-even conversion lands well under 1%** (was ~15% at a 1M free write cap).
+- A paying user carries **unlimited** free users on a recurring basis (free users cost ~$0/mo).
+- **Recurring break-even is just the flat infra floor** (the free base adds no recurring cost); the only thing to "earn back" on the free base is the one-time $0.25/account.
 - The seed tiers are net-positive at 50k users even at conservative conversion.
 
-This makes the free base essentially a fixed acquisition cost plus a flat infra floor, not a per-user recurring drain. The model keeps a free-relay dial (default 0) only to stress-test "what if free users turn out chattier than expected."
+This makes the free base a fixed one-time acquisition cost plus a flat infra floor, not a per-user recurring drain. The model keeps a free-relay dial (default 0) only to stress-test "what if free users turn out chattier than expected" (which is the only thing that would make recurring break-even nonzero).
 
 ## The model + dashboard
 

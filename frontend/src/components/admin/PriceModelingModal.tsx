@@ -1059,7 +1059,6 @@ const MIX_PRESETS = [
 export function FinalizeTab() {
   const [rows, setRows] = useState<ServiceRow[]>(DEFAULT_SERVICE_ROWS);
   const [freeRelayM, setFreeRelayM] = useState(0);
-  const [freeLifetimeMo, setFreeLifetimeMo] = useState(24);
   const [aiTokensM, setAiTokensM] = useState(3);
   const [conversion, setConversion] = useState(0.05);
   const [soloShare, setSoloShare] = useState(0.4);
@@ -1094,11 +1093,10 @@ export function FinalizeTab() {
     deptShare,
     membersPerLab,
     freeRelayWritesM: freeRelayM,
-    freeUserLifetimeMonths: freeLifetimeMo,
     aiTokensPerPaidM: aiTokensM,
   };
 
-  const avgFree = avgFreeUserCostPathA(freeRelayM, freeLifetimeMo);
+  const avgFree = avgFreeUserCostPathA(freeRelayM);
   const breakEven = breakEvenConversion(tiers, mix);
   const perPayer = freeUsersPerPayer(tiers, mix);
   const storagePerGB = storageRetailPerGB();
@@ -1177,7 +1175,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, freeLifetimeMo, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1188,15 +1186,7 @@ export function FinalizeTab() {
       <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_480px]">
         <div className="min-w-0 space-y-6">
           <Panel title="Assumptions">
-            <div className="grid gap-5 lg:grid-cols-2">
-              <Slider
-                label={`Free-user lifetime: ${freeLifetimeMo} mo (amortizes the ${fmt(AI_SIGNUP_GRANT_USD)} grant)`}
-                min={6}
-                max={60}
-                step={3}
-                value={freeLifetimeMo}
-                onChange={setFreeLifetimeMo}
-              />
+            <div className="grid gap-5 lg:grid-cols-3">
               <Slider
                 label={`AI per paid user: ${aiTokensM.toFixed(1)}M tok/mo`}
                 min={0}
@@ -1409,8 +1399,9 @@ export function FinalizeTab() {
                 </span>
               </div>
               <p className="mt-1 text-meta text-foreground-muted">
-                One paying user carries ~{Math.round(perPayer)} free users. You are
-                at {(conversion * 100).toFixed(1)}%.
+                {Number.isFinite(perPayer)
+                  ? `One paying user carries ~${Math.round(perPayer)} free users. You are at ${(conversion * 100).toFixed(1)}%.`
+                  : `Free users cost ~$0/mo, so a paying user carries unlimited free users. Break-even is just the fixed infra floor. You are at ${(conversion * 100).toFixed(1)}%.`}
               </p>
             </div>
           </Panel>
@@ -1482,10 +1473,24 @@ export function FinalizeTab() {
               <Kv k="Subscriptions" v={`${fmt0(comp.sub)} (${Math.round((comp.sub / posTotal) * 100)}%)`} />
               <Kv k="AI margin" v={`${fmt0(comp.ai)} (${Math.round((comp.ai / posTotal) * 100)}%)`} />
               <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
-              <Kv k="Free AI grant (amortized)" v={`-${fmt0(comp.freeAcqCost)}`} tone="bad" />
-              <Kv k="Free relay" v={`-${fmt0(comp.freeRelayCost)}`} tone="bad" />
+              <Kv k="Free relay (recurring)" v={`-${fmt0(comp.freeCost)}`} tone="bad" />
               <Kv k="Fixed infra floor" v={`-${fmt0(comp.fixed)}`} tone="bad" />
               <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
+            </div>
+            <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-meta text-foreground">
+              <div className="flex justify-between">
+                <span className="text-foreground-muted">
+                  Acquiring this free base ({fmt0(comp.users * (1 - conversion))} free
+                  users x {fmt(AI_SIGNUP_GRANT_USD)})
+                </span>
+                <span className="font-semibold tabular-nums">
+                  {fmt0(comp.freeAcqOneTime)}
+                </span>
+              </div>
+              <p className="mt-1 text-foreground-muted">
+                One-time AI sign-up grant, paid once per account. Not in the monthly
+                net above.
+              </p>
             </div>
           </Panel>
         </div>
@@ -1513,10 +1518,10 @@ export function FinalizeTab() {
             <b>receive</b> shares (the sender bears the relay cost), in-app receipt
             notes, accept invites, public library/wiki/demo. No send, no live collab,
             no phone capture, no push. <b>None of that writes to us</b>, so a free
-            user generates ~0 recurring cloud cost. The only real cost is the{" "}
-            <b>one-time {fmt(AI_SIGNUP_GRANT_USD)} AI sign-up grant</b>, amortized
-            over a {freeLifetimeMo}-month lifetime = <b>{fmt(avgFree)}/mo</b> per free
-            user.
+            user costs <b>~$0/mo recurring</b>. The only cost is a{" "}
+            <b>one-time {fmt(AI_SIGNUP_GRANT_USD)} AI sign-up grant</b> to acquire
+            the account, tracked separately from the monthly net (see the
+            composition panel).
           </div>
         </Panel>
 
@@ -1541,8 +1546,9 @@ export function FinalizeTab() {
               rides on top at cost and is in neither.
             </li>
             <li>
-              Free users do nothing that writes to us, so their cost is just the
-              one-time AI grant amortized over their lifetime. The free-relay dial
+              Free users do nothing that writes to us, so their recurring monthly
+              cost is ~$0. The $0.25 AI sign-up grant is a one-time acquisition cost,
+              shown separately and kept out of the monthly net. The free-relay dial
               stays at 0 by default and is only there to stress-test a chattier free
               user.
             </li>

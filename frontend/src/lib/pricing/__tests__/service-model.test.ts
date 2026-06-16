@@ -38,7 +38,6 @@ const MIX: AdoptionMix = {
   deptShare: 0.2,
   membersPerLab: 6,
   freeRelayWritesM: 0, // Path A: free users do nothing that writes to us
-  freeUserLifetimeMonths: 24,
   aiTokensPerPaidM: 1,
 };
 
@@ -102,24 +101,18 @@ describe("AI billing (locked rates)", () => {
   });
 });
 
-describe("free users are near-free under Path A", () => {
-  it("relay-only cost when no lifetime is given (stress-test path)", () => {
+describe("free users cost ~$0/mo recurring under Path A", () => {
+  it("recurring monthly cost is just the relay footprint", () => {
     expect(avgFreeUserCostPathA(0.05)).toBeCloseTo(relayCost(0.05), 9);
   });
 
-  it("with zero relay, the only cost is the amortized AI sign-up grant", () => {
-    expect(avgFreeUserCostPathA(0, 24)).toBeCloseTo(AI_SIGNUP_GRANT_USD / 24, 9);
+  it("is exactly zero at the default zero relay footprint", () => {
+    expect(avgFreeUserCostPathA(0)).toBe(0);
   });
 
-  it("the grant is about 25 cents one-time per account", () => {
+  it("the AI grant is a separate one-time 25 cents per account, not monthly", () => {
     expect(AI_SIGNUP_GRANT_USD).toBeCloseTo(0.25, 2);
     expect(freeBaseAcquisitionOneTime(10000)).toBeCloseTo(10000 * AI_SIGNUP_GRANT_USD, 6);
-  });
-
-  it("a free user costs pennies a month versus dollars of paid net", () => {
-    const free = avgFreeUserCostPathA(MIX.freeRelayWritesM, MIX.freeUserLifetimeMonths);
-    expect(free).toBeLessThan(0.02);
-    expect(blendedPaidNet(TIERS, MIX)).toBeGreaterThan(free * 100);
   });
 });
 
@@ -157,17 +150,20 @@ describe("projectAtScale", () => {
     expect(p.revenue).toBeCloseTo(10000 * 0.05 * blendedPaidNet(TIERS, MIX), 6);
   });
 
-  it("expense splits into free relay, amortized AI grant, and the fixed floor", () => {
+  it("recurring expense is just free relay plus the fixed floor (grant is one-time)", () => {
     const p = projectAtScale(10000, TIERS, MIX);
     const free = 10000 * (1 - MIX.conversion);
-    expect(p.freeRelayCost).toBeCloseTo(free * relayCost(MIX.freeRelayWritesM), 6);
-    expect(p.freeAcqCost).toBeCloseTo(
-      free * (AI_SIGNUP_GRANT_USD / MIX.freeUserLifetimeMonths),
-      6,
-    );
-    expect(p.freeCost).toBeCloseTo(p.freeRelayCost + p.freeAcqCost, 9);
+    expect(p.freeCost).toBeCloseTo(free * relayCost(MIX.freeRelayWritesM), 6);
     expect(p.expense).toBeCloseTo(p.freeCost + p.fixed, 9);
     expect(p.fixed).toBe(FIXED_BASE_MONTHLY);
+  });
+
+  it("reports the one-time acquisition cost separately, not in the monthly net", () => {
+    const p = projectAtScale(10000, TIERS, MIX);
+    const free = 10000 * (1 - MIX.conversion);
+    expect(p.freeAcqOneTime).toBeCloseTo(free * AI_SIGNUP_GRANT_USD, 6);
+    // net is revenue minus the recurring expense only; the one-time cost is excluded.
+    expect(p.net).toBeCloseTo(p.revenue - p.expense, 9);
   });
 
   it("is net positive at scale for the seed tiers (Path A is sustainable)", () => {
@@ -176,18 +172,17 @@ describe("projectAtScale", () => {
 });
 
 describe("breakEvenConversion", () => {
-  it("is freeCost / (paidNet + freeCost)", () => {
-    const F = avgFreeUserCostPathA(MIX.freeRelayWritesM, MIX.freeUserLifetimeMonths);
-    const R = blendedPaidNet(TIERS, MIX);
-    expect(breakEvenConversion(TIERS, MIX)).toBeCloseTo(F / (R + F), 9);
+  it("is zero at the default zero relay (free users cost nothing recurring)", () => {
+    expect(breakEvenConversion(TIERS, MIX)).toBe(0);
+    expect(freeUsersPerPayer(TIERS, MIX)).toBe(Number.POSITIVE_INFINITY);
   });
 
-  it("is well under 1% because free users are near-free", () => {
-    expect(breakEvenConversion(TIERS, MIX)).toBeLessThan(0.01);
-  });
-
-  it("freeUsersPerPayer is the inverse intuition", () => {
-    const be = breakEvenConversion(TIERS, MIX);
-    expect(freeUsersPerPayer(TIERS, MIX)).toBeCloseTo((1 - be) / be, 6);
+  it("becomes positive only under the stress-test relay dial", () => {
+    const stressed = { ...MIX, freeRelayWritesM: 0.05 };
+    const F = avgFreeUserCostPathA(0.05);
+    const R = blendedPaidNet(TIERS, stressed);
+    expect(breakEvenConversion(TIERS, stressed)).toBeCloseTo(F / (R + F), 9);
+    expect(breakEvenConversion(TIERS, stressed)).toBeGreaterThan(0);
+    expect(breakEvenConversion(TIERS, stressed)).toBeLessThan(0.03);
   });
 });
