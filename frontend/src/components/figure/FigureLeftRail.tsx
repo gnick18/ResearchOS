@@ -551,9 +551,41 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
             No assets available yet.
           </p>
         ) : results.length === 0 ? (
-          <p className="p-4 text-center text-meta text-foreground-faint">
-            Nothing here. Try another category or search.
-          </p>
+          <div className="space-y-2 p-4 text-center">
+            <p className="text-meta text-foreground-faint">
+              {debouncedQuery.trim()
+                ? `No icons match "${debouncedQuery.trim()}".`
+                : "Nothing here yet."}
+            </p>
+            <div className="flex flex-col items-center gap-1.5">
+              {category && (
+                <button
+                  type="button"
+                  onClick={() => selectCategory(null)}
+                  className="text-[11px] font-semibold text-brand-action hover:underline"
+                >
+                  Search all categories
+                </button>
+              )}
+              {ASSET_SMART_SEARCH_ENABLED && !smart && debouncedQuery.trim() && (
+                <button
+                  type="button"
+                  onClick={enableSmart}
+                  className="text-[11px] font-semibold text-brand-action hover:underline"
+                >
+                  Try Smart search (finds icons by meaning)
+                </button>
+              )}
+              <a
+                href="/library"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-semibold text-foreground-muted hover:underline"
+              >
+                Browse the full library ↗
+              </a>
+            </div>
+          </div>
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {results.map((a) => {
