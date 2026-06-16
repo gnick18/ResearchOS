@@ -81,7 +81,12 @@ export default function ExperimentDetailScreen() {
     ...(snapshot?.overdueTasks ?? []),
     ...(snapshot?.upcomingTasks ?? []),
   ];
-  const task = taskId ? allTasks.find((t) => t.id === taskId) : undefined;
+  // The laptop emits Task.id as a NUMBER, but taskId arrives as a string from the
+  // route params, so a raw === never matched (number === string) and the screen
+  // fell to its empty state. Compare both coerced to strings.
+  const task = taskId
+    ? allTasks.find((t) => String(t.id) === String(taskId))
+    : undefined;
 
   // Prefer the full per-task method list; fall back to the single-method glance
   // fields so older snapshots (no linkedMethods array) still render one row.

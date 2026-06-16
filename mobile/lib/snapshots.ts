@@ -4,8 +4,24 @@
 // locally, and parses the JSON. The relay only ever holds opaque bytes. House
 // style: no em-dashes, no emojis, no mid-sentence colons.
 import { unsealSnapshot } from '@/lib/device-identity';
-import { recordSnapshotGeneratedAt } from '@/lib/connection-status';
+import {
+  recordSnapshotGeneratedAt,
+  recordSyncRevoked,
+} from '@/lib/connection-status';
 import type { Pairing } from '@/lib/pairing';
+
+/** Thrown when an authenticated snapshot fetch is rejected because this phone's
+ *  device key is no longer registered with the relay (HTTP 403 "device not
+ *  bound"), which is what happens when the laptop unpairs/removes this device.
+ *  Distinct from a transient failure so callers can show a "re-pair" state
+ *  instead of a generic "could not sync". A 404 is NOT revocation (it means the
+ *  laptop has not published this snapshot yet) and never raises this. */
+export class PairingRevokedError extends Error {
+  constructor() {
+    super('This phone is no longer paired with the laptop.');
+    this.name = 'PairingRevokedError';
+  }
+}
 
 import {
   DEMO_TODAY_SNAPSHOT,
@@ -384,6 +400,14 @@ export async function fetchSnapshot(
 
   const res = await fetch(url);
   if (res.status === 404) return null;
+  // 403 from snapshot/get means the relay no longer has this device bound to the
+  // user (the laptop unpaired/removed it). Record the revoked state so the UI can
+  // prompt a re-pair, then raise a distinguishable error. We do NOT touch the
+  // local pairing here; the user chooses to re-pair.
+  if (res.status === 403) {
+    recordSyncRevoked();
+    throw new PairingRevokedError();
+  }
   if (!res.ok) {
     throw new Error(`snapshot fetch failed (status ${res.status})`);
   }

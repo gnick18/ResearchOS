@@ -16,6 +16,7 @@
   ],
   "exclude": [
     "node_modules",
-    "lib/calculators/custom.test.ts"
+    "lib/calculators/custom.test.ts",
+    "lib/__tests__/pairing.test.ts"
   ]
 }

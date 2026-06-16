@@ -98,8 +98,11 @@ export function TodayPanel({
   // an experiment has one consistent home, even with a single method.
   const openTaskMethod = (task: SnapshotTask) => {
     onClose();
-    if (task.id) {
-      router.push(`/experiment-detail?taskId=${encodeURIComponent(task.id)}`);
+    // task.id is a NUMBER at runtime (the laptop's Task.id); stringify it before
+    // encoding so the hub resolves the right task, falling back to the method view
+    // only when there is no id.
+    if (task.id != null && String(task.id).length > 0) {
+      router.push(`/experiment-detail?taskId=${encodeURIComponent(String(task.id))}`);
     } else {
       router.push('/method-detail');
     }
