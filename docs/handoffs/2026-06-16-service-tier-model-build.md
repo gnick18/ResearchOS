@@ -56,4 +56,14 @@ NOTE: `capacity-shared.ts` (the 2nd-domain commit) is a SHARED file; the change 
 3. **At lock**: copy settled numbers into `lib/billing/plans.ts` + `lib/pricing/assumptions.ts` (the single sources, never hardcode), write the master pricing bible (supersedes `BILLING_FACTS.md` + `billing-copy-facts.md`), reconcile the "Free 5GB" copy → unlimited-local + 0.5GB cloud pool, then **delete the dev page** `frontend/src/app/dev/pricing-finalize/page.tsx`.
 4. Real subscription/ceiling numbers live in the operator console (`calc.ts` RecurringSubscriptions + InfraCostPanel) — pull them when finalizing.
 
+## Cross-lane contracts (owed by this lane, not yet built)
+
+**Lab vanity domains / companion sites** (INJEST/social lane owns slug registry + public rendering + builder + R2 GC; spec `docs/proposals/2026-06-16-lab-domains-companion-sites.md`). Billing owes, when Grant greenlights:
+1. **Publish entitlement hook** — wrap `getSubscription(labOwnerKey)` (`lib/billing/db.ts`, returns `{status, planId, labBilling}`) into a clean `isLabPublishEntitled(labOwnerKey)` (active + lab tier) the social lane calls before publish/edit.
+2. **Separate metered hosted-assets storage line** — do NOT fold companion-site data into `collab_doc_sizes` (the lab's private workspace pool); use a separate owner-keyed byte tally (`lab_hosted_assets` or a `source` tag) reusing the same mechanism, billed **pass-through**. Reconcile "100% pass-through / no margin" = R2 cost + payment-processing recovery (~the existing 1.15x is fee recovery, NOT profit) so we don't subsidize Stripe; the prepaid archive SKU can run near-raw-cost.
+3. **30-day reclaim signal** — emit "lab lapsed >30d → GC its hosted data assets" off the subscription status flip + lapse timestamp; social does the R2 GC. Pages stay live read-only forever (social's side).
+4. **"Permanent archive" prepay SKU + `archived` flag** — one-time prepaid line that exempts a dataset from the 30-day GC; social checks the flag and skips GC.
+
+Shared keys (both lanes): owner-key hash (`lib/billing/owner.ts`), ROR id (institution), `collab_doc_sizes`/`collab_owner_writes` tally mechanism. Dept/inst boundary settled earlier: ROR = institution identity, owner-key hash = person identity, billing references social never reverse.
+
 Related: `docs/proposals/2026-06-16-service-tier-structure.md`, `[[project-pricing-finalize-2026-06]]`, `[[project-dept-inst-governance-tier]]`.
