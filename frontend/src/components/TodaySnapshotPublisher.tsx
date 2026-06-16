@@ -29,6 +29,11 @@ import {
   publishLibrarySnapshot,
 } from "@/lib/mobile-relay/library-snapshot";
 import { publishMethodToAllDevices } from "@/lib/mobile-relay/method-snapshot";
+import {
+  buildExperimentNotesSnapshot,
+  experimentNotesVersion,
+  publishExperimentNotesSnapshot,
+} from "@/lib/mobile-relay/experiment-notes-snapshot";
 import { fetchAllTasks } from "@/lib/local-api";
 import { publishTimersToAllDevices } from "@/lib/mobile-relay/timers-snapshot";
 import { publishNotificationsToAllDevices } from "@/lib/mobile-relay/notifications-snapshot";
@@ -65,6 +70,12 @@ let lastLibraryVersion: string | null = null;
 const METHOD_PASS_EVERY = 5; // ~ every 5 minutes, staggered 1 pass after library
 // Module-scoped so it survives effect re-runs within one tab session.
 let lastMethodKey: string | null = null;
+// The focused experiment's lab notes + results (phone-notes P1, read) ride the
+// SAME focused-experiment pass as the method snapshot. Content-gated by the
+// notes/results markdown hash (NOT just taskId:owner) so an edit to the notes
+// republishes while an unchanged experiment is a cheap no-op. Module-scoped so
+// it survives effect re-runs within one tab session.
+let lastNotesVersion: string | null = null;
 
 export default function TodaySnapshotPublisher() {
   const { currentUser, isConnected } = useFileSystem();
@@ -231,6 +242,38 @@ export default function TodaySnapshotPublisher() {
                       `[method-publisher] published to ${meth.published} device(s), skipped ${meth.skipped} (task ${focused.id})`,
                     );
                   }
+                }
+                // Experiment notes + results (phone-notes P1, read): publish the
+                // focused experiment's notes.md + results.md so the phone hub can
+                // render them read-only. Content-gated by the markdown hash so an
+                // edit republishes while an unchanged experiment is a no-op.
+                try {
+                  const notesSnap = await buildExperimentNotesSnapshot(
+                    focused.id as number,
+                    focused.owner as string,
+                  );
+                  if (notesSnap && !cancelled) {
+                    const notesVersion = experimentNotesVersion(notesSnap);
+                    if (notesVersion !== lastNotesVersion) {
+                      const notesPub = await publishExperimentNotesSnapshot(
+                        keys,
+                        notesSnap,
+                      );
+                      lastNotesVersion = notesVersion;
+                      if (notesPub.published > 0 || notesPub.skipped > 0) {
+                        console.info(
+                          `[experiment-notes-publisher] published to ${notesPub.published} device(s), skipped ${notesPub.skipped} (task ${focused.id})`,
+                        );
+                      }
+                    }
+                  }
+                } catch (err) {
+                  // Non-fatal: a missed notes publish only means the phone hub
+                  // shows stale notes until the next slow-cadence pass.
+                  console.warn(
+                    "[experiment-notes-publisher] publish failed (will retry)",
+                    err,
+                  );
                 }
               }
             }

@@ -63,6 +63,10 @@ export const NAV_ICON_BY_HREF: Record<string, IconName> = {
   // browsable catalog of reusable items) — the same meaning the method template
   // library uses it for, so no glyph-per-meaning collision.
   "/library": "library",
+  // /network (the public researcher-network hub) uses "users" (a group of
+  // people), the meaning the People/roster surfaces use; no collision with the
+  // workspace-route glyphs. Only present in NAV_ITEMS when SOCIAL_LAYER_ENABLED.
+  "/network": "users",
   "/purchases": "download",
   "/calendar": "history",
   "/inventory": "vial",

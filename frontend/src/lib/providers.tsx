@@ -48,6 +48,7 @@ import OnboardingWizard, {
   type WizardSelection,
 } from "@/components/onboarding/wizard/OnboardingWizard";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import {
   readOnboardingWizardReturn,
   clearOnboardingWizardReturn,
@@ -430,7 +431,15 @@ function AppContent({ children }: { children: ReactNode }) {
     // review) are public, carry their own MarketingNav + footer, and need no
     // folder, so they bypass the folder-connect gate like the other marketing
     // pages.
-    pathname?.startsWith("/library");
+    pathname?.startsWith("/library") ||
+    // Social layer (Phase A): the public researcher-network hub and the
+    // shareable fingerprint profile carry their own marketing chrome and need
+    // no folder. The shareable profile is matched as "/researchers/" WITH a
+    // trailing slash so the in-app /researchers search (exact "/researchers")
+    // stays AppShell + folder gated. Flag-gated so flag-off is byte-identical.
+    (SOCIAL_LAYER_ENABLED &&
+      (pathname?.startsWith("/network") ||
+        pathname?.startsWith("/researchers/")));
 
   // Folderless, session-authenticated routes: the org admin portals + their
   // accept pages, the account home, and public @handle profiles. These run off
