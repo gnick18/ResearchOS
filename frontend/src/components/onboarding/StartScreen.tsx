@@ -35,7 +35,7 @@ export interface StartScreenProps {
   /**
    * When provided, a bouncing "What is ResearchOS?" scroll-down affordance is
    * shown at the bottom; clicking it snaps down to the welcome section. Supplied
-   * by EntrySnapSurface; omitted when the StartScreen renders standalone.
+   * by OAuthFirstLanding; omitted when the StartScreen renders standalone.
    */
   onScrollDown?: () => void;
 }

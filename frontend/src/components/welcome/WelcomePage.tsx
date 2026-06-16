@@ -33,7 +33,7 @@
  *  14. Final CTA + sponsors + footer
  *
  * Sign-in / open-folder live in the connect chooser ABOVE this page
- * (EntrySnapSurface embeds WelcomePage one scroll down), so there are NO sign-in
+ * (OAuthFirstLanding embeds WelcomePage one scroll down), so there are NO sign-in
  * cards on this sales page. Every "get started" CTA routes UP to that chooser:
  * embedded, it scrolls the snap container back to the top; standalone (/welcome)
  * it links to "/". When embedded, the nav AND the entire hero are hidden so the
@@ -640,7 +640,7 @@ export default function WelcomePage({
   }, []);
 
   // "Get started" routes UP to the connect chooser, which now lives ABOVE this
-  // page. When this component is embedded in EntrySnapSurface, the chooser is
+  // page. When this component is embedded in OAuthFirstLanding, the chooser is
   // the previous scroll-snap section, so scrolling the surrounding scroll
   // container to the top lands on it. When the page is standalone (/welcome),
   // there is no chooser above, so we navigate to "/" where folder setup lives.
@@ -657,7 +657,7 @@ export default function WelcomePage({
     }
     markLandingSeen();
     // Walk up from the page root to find the nearest scrollable ancestor (the
-    // EntrySnapSurface snap container). If found, this page is embedded one
+    // OAuthFirstLanding snap container). If found, this page is embedded one
     // scroll below the chooser, so scroll that container to the top.
     let node: HTMLElement | null = rootRef.current?.parentElement ?? null;
     let scroller: HTMLElement | null = null;

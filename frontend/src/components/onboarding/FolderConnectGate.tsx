@@ -16,7 +16,7 @@
 //   - when an empty folder needs initializing.
 //
 // The demo entry + the fake yeast-lab starter folder live on the welcome page
-// (the scroll-down section of EntrySnapSurface), not here, so they are not
+// (the scroll-down section of OAuthFirstLanding), not here, so they are not
 // duplicated. The Chrome-blocks-system-folders guidance is shown only in the
 // post-abort recovery modal (Grant 2026-06-10: do not pre-warn, surface it when
 // they actually hit the block), since Chrome owns the picker and reports both a

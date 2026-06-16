@@ -48,9 +48,6 @@ vi.mock("@/lib/sharing/oauth-availability", () => ({
   isDevMockAuth: () => false,
   isMicrosoftAuthEnabled: () => false,
 }));
-vi.mock("@/lib/sharing/oauth-first-login", () => ({
-  isOAuthFirstLoginEnabled: () => false,
-}));
 vi.mock("@/lib/sharing/oauth-first-signin", () => ({
   startOAuthFirstSignIn: vi.fn(),
 }));

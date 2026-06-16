@@ -27,9 +27,7 @@ import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
-import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
-import { markLandingSeen } from "@/lib/landing/landing-gate";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 
@@ -646,41 +644,25 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   // redirect only after a folder + user are connected. The OFF branch is
   // byte-for-byte the previous behavior.
   function handleFreeProvider(provider: SharingProvider) {
-    if (isOAuthFirstLoginEnabled()) {
-      // Go-live: carry the onbWizard marker so the return resumes the Free track
-      // wizard at the handle step (no FolderConnectGate bounce). Flag off keeps
-      // the bare keypair-mint callback, byte for byte the current behavior.
-      startOAuthFirstSignIn(
-        provider,
-        ONBOARDING_WIZARD_ENABLED ? { onboardingWizard: "free" } : {},
-      );
-      return;
-    }
-    markLandingSeen();
-    router.push("/?connect=1&signIn=" + provider);
+    // Sign in immediately, carrying the onbWizard marker so the return resumes
+    // the Free track wizard at the handle step (no FolderConnectGate bounce).
+    startOAuthFirstSignIn(
+      provider,
+      ONBOARDING_WIZARD_ENABLED ? { onboardingWizard: "free" } : {},
+    );
   }
 
   // -- Lab Create flow: provider sub-step -> set marker -> navigate --
   function handleLabCreateProvider(provider: SharingProvider) {
-    if (isOAuthFirstLoginEnabled()) {
-      // Go-live: keep the lab-create marker (LabCreateResume provisions the lab
-      // on return) and add the onbWizard marker so the return resumes the PI/lab
-      // wizard at the handle step instead of FolderConnectGate.
-      startOAuthFirstSignIn(
-        provider,
-        ONBOARDING_WIZARD_ENABLED
-          ? { labCreate: true, onboardingWizard: "lab" }
-          : { labCreate: true },
-      );
-      return;
-    }
-    markLandingSeen();
-    try {
-      sessionStorage.setItem("researchos:lab-create", "1");
-    } catch {
-      // sessionStorage unavailable (private mode); the navigation still fires
-    }
-    router.push("/?connect=1&signIn=" + provider);
+    // Keep the lab-create marker (LabCreateResume provisions the lab on return)
+    // and add the onbWizard marker so the return resumes the PI/lab wizard at the
+    // handle step instead of FolderConnectGate.
+    startOAuthFirstSignIn(
+      provider,
+      ONBOARDING_WIZARD_ENABLED
+        ? { labCreate: true, onboardingWizard: "lab" }
+        : { labCreate: true },
+    );
   }
 
   // ---- Step: tiles ----

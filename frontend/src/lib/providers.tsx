@@ -35,10 +35,8 @@ import WikiCaptureRefusedBanner from "@/components/WikiCaptureRefusedBanner";
 import SceneTriggerHost from "@/components/SceneTriggerHost";
 import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import { Splash } from "@/components/onboarding/Splash";
-import { EntrySnapSurface } from "@/components/onboarding/EntrySnapSurface";
 import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
 import { WelcomeBackSignIn } from "@/components/onboarding/oauth-first/WelcomeBackSignIn";
-import { isOAuthFirstLoginEnabled } from "@/lib/sharing/oauth-first-login";
 import SyncPausedIndicator from "@/components/SyncPausedIndicator";
 import {
   AccountTierChooser,
@@ -383,7 +381,7 @@ let chosenTierThisLoad: AccountTier | null = null;
 // The start-screen action a not-auto-reconnected visitor picked this load:
 // "open" -> connect/reconnect a folder (FolderConnectGate); "create" ->
 // the new-account chooser; "signin" -> the OAuth-first Welcome-back re-login
-// screen (only reachable when NEXT_PUBLIC_OAUTH_FIRST_LOGIN is on). Module-scoped
+// screen (only reachable for a not-yet-signed-in visitor). Module-scoped
 // so a remount during setup does not bounce the user back to the start screen.
 // null = show the landing.
 type EntryAction = "open" | "create" | "signin";
@@ -399,8 +397,8 @@ function AppContent({ children }: { children: ReactNode }) {
   const isWikiRoute = pathname?.startsWith("/wiki");
 
   // The standalone `/welcome` route was retired 2026-06-11 (Grant). The marketing
-  // content lives only as the slide-down of the entry surface now (EntrySnapSurface
-  // / the OAuth-first landing both embed `<WelcomePage>`); there is one front door.
+  // content lives only as the slide-down of the entry surface now (the OAuth-first
+  // landing embeds `<WelcomePage>`); there is one front door.
 
   // Operator surfaces (/admin, /business and anything beneath) are standalone
   // operator tools served from the Neon API and gated by their OWN third-party
@@ -480,7 +478,7 @@ function AppContent({ children }: { children: ReactNode }) {
   // OAuth-first: did we just return from a provider with ?sharingClaim=1 and no
   // folder yet? Drives the "Save your account on your disk" folder framing.
   const sharingClaimReturn = useSharingClaimReturn();
-  const accountSaveFraming = isOAuthFirstLoginEnabled() && sharingClaimReturn;
+  const accountSaveFraming = sharingClaimReturn;
   // Org-wizard post-OAuth return (flag on): re-mount the folderless org wizard at
   // the name step (sign-in already happened). Null when absent or flag off. The
   // hook is always called (rules of hooks); the flag gates the value.
@@ -534,17 +532,16 @@ function AppContent({ children }: { children: ReactNode }) {
   }, [currentUser, queryClient]);
 
   // No forced first-visit redirect to /welcome (removed 2026-06-10, Grant). A
-  // fresh visitor now lands on the connect chooser (EntrySnapSurface) directly,
-  // which already embeds the full welcome/sell page one scroll down, so the old
-  // bounce through /welcome was a redundant detour. /welcome stays reachable as
-  // a standalone marketing page (Settings revisit link, dev button, direct
-  // URL); it just is not the forced default anymore.
+  // fresh visitor now lands on the OAuth-first landing directly, which already
+  // embeds the full welcome/sell page one scroll down, so the old bounce through
+  // /welcome was a redundant detour. /welcome stays reachable as a standalone
+  // marketing page (Settings revisit link, dev button, direct URL); it just is
+  // not the forced default anymore.
 
-  // Dev-only login preview. The OAuth-first entry screens (the new landing and
-  // the Welcome-back sign-in) are normally double-gated, the flag has to be on
-  // AND there can be no live session, so a logged-in developer cannot reach them
-  // by typing a URL. This escape renders them on demand without signing out or
-  // flipping NEXT_PUBLIC_OAUTH_FIRST_LOGIN. Type `?previewLogin=1` for the
+  // Dev-only login preview. The OAuth-first entry screens (the landing and the
+  // Welcome-back sign-in) are normally gated on there being no live session, so a
+  // logged-in developer cannot reach them by typing a URL. This escape renders
+  // them on demand without signing out. Type `?previewLogin=1` for the
   // landing or `?previewLogin=signin` for the sign-in screen, on any page;
   // `?previewLogin=off` (or the Exit button) leaves it.
   //
@@ -883,7 +880,6 @@ function AppContent({ children }: { children: ReactNode }) {
   // plus an "Open a folder, no account" escape that triggers the OS picker
   // directly (the same direct connect the landing's Create -> Local path uses).
   if (
-    isOAuthFirstLoginEnabled() &&
     entryAction === "signin" &&
     !isConnected &&
     !currentUser &&
@@ -925,50 +921,20 @@ function AppContent({ children }: { children: ReactNode }) {
     // where connecting a folder lets SharingClaimResume / LabCreateResume finish.
     !sharingClaimReturn
   ) {
-    // OAuth-first landing (entry-flow redesign change 1). One light deck-style
-    // intro replaces the start-chooser. Create account opens the existing
-    // three-tier chooser; Sign in opens the Welcome-back screen. Gated on the
-    // flag so the OFF path renders the unchanged EntrySnapSurface below.
-    if (isOAuthFirstLoginEnabled()) {
-      return (
-        <QueryClientProvider client={queryClient}>
-          <OAuthFirstLanding
-            onCreateAccount={() => {
-              entryActionThisLoad = "create";
-              setEntryAction("create");
-            }}
-            onSignIn={() => {
-              entryActionThisLoad = "signin";
-              setEntryAction("signin");
-            }}
-          />
-        </QueryClientProvider>
-      );
-    }
+    // OAuth-first landing (entry-flow redesign). One light deck-style intro is
+    // the only entry path now: Create account opens the three-tier chooser, Sign
+    // in opens the Welcome-back screen. (The legacy EntrySnapSurface start-chooser
+    // and its NEXT_PUBLIC_OAUTH_FIRST_LOGIN gate were removed 2026-06-16.)
     return (
       <QueryClientProvider client={queryClient}>
-        <EntrySnapSurface
-          returning={!!lastConnectedFolder || availableUsers.length > 0}
-          onOpenFolder={() => {
-            entryActionThisLoad = "open";
-            setEntryAction("open");
-            // Trigger the folder connect straight from this click. The click is
-            // a live user gesture, so the OS picker opens immediately, no
-            // redundant intermediate "Link a folder" page (onboarding
-            // redundancy removal, 2026-06-10). connect() flips into the loading
-            // screen, so the FolderConnectGate connect surface only shows if the
-            // user cancels (a retry / recovery surface). For a returning visitor
-            // with a remembered folder, re-attach via the stored handle (no OS
-            // picker needed); if that fails the gate is the fallback.
-            if (lastConnectedFolder) {
-              void reconnectWithStoredHandle();
-            } else {
-              void connect();
-            }
-          }}
+        <OAuthFirstLanding
           onCreateAccount={() => {
             entryActionThisLoad = "create";
             setEntryAction("create");
+          }}
+          onSignIn={() => {
+            entryActionThisLoad = "signin";
+            setEntryAction("signin");
           }}
         />
       </QueryClientProvider>
