@@ -8,8 +8,16 @@ import {
   searchFullTextTool,
   noteBodyText,
   experimentBodyText,
+  purchaseBodyText,
+  inventoryBodyText,
 } from "../tools/search-full-text";
-import type { Note, Method, Task } from "@/lib/types";
+import type { Note, Method, Task, PurchaseItem, InventoryItem } from "@/lib/types";
+
+const purchase = (id: number, name: string, notes: string) =>
+  ({ id, item_name: name, notes }) as PurchaseItem;
+
+const invItem = (id: number, name: string, notes: string | null = null, hazard: string | null = null) =>
+  ({ id, name, notes, hazard_note: hazard }) as InventoryItem;
 
 const note = (id: number, title: string, content: string, entryTitle = "Day 1") =>
   ({
@@ -145,5 +153,41 @@ describe("search_full_text over experiments", () => {
     const taskSpy = vi.spyOn(searchFullTextDeps, "listTasks").mockResolvedValue([]);
     await searchFullTextTool.execute({ query: "no band", types: ["note"] });
     expect(taskSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("purchaseBodyText + inventoryBodyText", () => {
+  it("joins purchase item name + notes", () => {
+    expect(purchaseBodyText(purchase(1, "P1000 tips", "backordered until July"))).toContain("backordered");
+  });
+  it("joins inventory name + notes + hazard note", () => {
+    const body = inventoryBodyText(invItem(1, "Acetone", "near-empty", "Flammable"));
+    expect(body).toContain("near-empty");
+    expect(body).toContain("Flammable");
+  });
+});
+
+describe("search_full_text over purchases + inventory", () => {
+  it("matches purchase notes and inventory notes", async () => {
+    vi.spyOn(searchFullTextDeps, "listNotes").mockResolvedValue([]);
+    vi.spyOn(searchFullTextDeps, "listMethods").mockResolvedValue([]);
+    vi.spyOn(searchFullTextDeps, "listTasks").mockResolvedValue([]);
+    vi.spyOn(searchFullTextDeps, "listPurchases").mockResolvedValue([
+      purchase(20, "P1000 tips", "backordered until July"),
+      purchase(21, "Q5 polymerase", "fresh lot"),
+    ]);
+    vi.spyOn(searchFullTextDeps, "listInventoryItems").mockResolvedValue([
+      invItem(30, "Acetone", "running low, backordered"),
+    ]);
+
+    const r = (await searchFullTextTool.execute({ query: "backordered" })) as {
+      ok: boolean; count: number; results: Array<{ type: string; id: number; deepLink: string }>;
+    };
+    expect(r.ok).toBe(true);
+    expect(r.count).toBe(2); // one purchase + one inventory item
+    const types = r.results.map((x) => x.type).sort();
+    expect(types).toEqual(["inventory", "purchase"]);
+    expect(r.results.find((x) => x.type === "purchase")?.deepLink).toBe("/purchases");
+    expect(r.results.find((x) => x.type === "inventory")?.deepLink).toBe("/inventory");
   });
 });

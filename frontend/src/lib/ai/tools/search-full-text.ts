@@ -22,16 +22,24 @@ import {
   fetchAllNotesIncludingShared,
   fetchAllMethodsIncludingShared,
   fetchAllTasksIncludingShared,
+  fetchAllInventoryItemsIncludingShared,
+  purchasesApi,
   filesApi,
 } from "@/lib/local-api";
 import { taskResultsBase } from "@/lib/tasks/results-paths";
+import { getCurrentUserCached } from "@/lib/storage/json-store";
 import { objectDeepLink, methodRefId, type ObjectRefType } from "@/lib/references";
 import { countMatches, findFirst, snippetAround } from "@/lib/ai/deep-text";
-import { attachRecordSetIfBig, RECORD_SET_UI_CAP, type RecordSetRow } from "@/lib/ai/record-set";
-import type { Note, Method, Task } from "@/lib/types";
+import {
+  attachRecordSetIfBig,
+  RECORD_SET_UI_CAP,
+  type RecordSetRow,
+  type RecordSetRowType,
+} from "@/lib/ai/record-set";
+import type { Note, Method, Task, PurchaseItem, InventoryItem } from "@/lib/types";
 import type { AiTool } from "./types";
 
-export type SearchableType = "note" | "method" | "experiment";
+export type SearchableType = "note" | "method" | "experiment" | "purchase" | "inventory";
 
 export type SearchFullTextDeps = {
   listNotes: () => Promise<Array<Note & { owner?: string }>>;
@@ -39,6 +47,8 @@ export type SearchFullTextDeps = {
   /** Experiments to deep-search (all tasks; the tool filters to task_type
    *  "experiment"). */
   listTasks: () => Promise<Task[]>;
+  listPurchases: () => Promise<PurchaseItem[]>;
+  listInventoryItems: () => Promise<InventoryItem[]>;
   /** Read a method's markdown body file. Returns "" when missing/unreadable, so a
    *  single bad file never aborts the whole scan. */
   readMethodBody: (path: string) => Promise<string>;
@@ -50,6 +60,8 @@ export const searchFullTextDeps: SearchFullTextDeps = {
   listNotes: () => fetchAllNotesIncludingShared(),
   listMethods: () => fetchAllMethodsIncludingShared(),
   listTasks: () => fetchAllTasksIncludingShared(),
+  listPurchases: async () => purchasesApi.listAllIncludingShared(await getCurrentUserCached()),
+  listInventoryItems: () => fetchAllInventoryItemsIncludingShared(),
   readMethodBody: async (path) => {
     try {
       return (await filesApi.readFile(path)).content ?? "";
@@ -101,13 +113,31 @@ export function experimentBodyText(task: Task, resultsBody: string): string {
   return parts.join("\n");
 }
 
+/** The searchable body text of a purchase: item name + the free-text notes. Pure. */
+export function purchaseBodyText(item: PurchaseItem): string {
+  const parts: string[] = [];
+  if (item.item_name) parts.push(item.item_name);
+  if (item.notes) parts.push(item.notes);
+  return parts.join("\n");
+}
+
+/** The searchable body text of an inventory item: name + notes + the hazard note.
+ *  Stocks carry no free text, so the item is the searchable surface. Pure. */
+export function inventoryBodyText(item: InventoryItem): string {
+  const parts: string[] = [];
+  if (item.name) parts.push(item.name);
+  if (item.notes) parts.push(item.notes);
+  if (item.hazard_note) parts.push(item.hazard_note);
+  return parts.join("\n");
+}
+
 const MAX_HITS = 25;
-const ALL_TYPES: SearchableType[] = ["note", "method", "experiment"];
+const ALL_TYPES: SearchableType[] = ["note", "method", "experiment", "purchase", "inventory"];
 
 export const searchFullTextTool: AiTool = {
   name: "search_full_text",
   description:
-    "DEEP-search the full BODY text of the user's notes, method protocols, AND experiment writeups (the results.md content plus the deviation log) for a string or a regular expression, and return the records that match with a short snippet and a per-record match count, plus an accurate TOTAL count across everything searched. Use this when the user wants to find records by what is written INSIDE them (for example \"which PCR experiments mention no band\", \"notes that mention cyp51A anywhere\", \"which protocol talks about the miniprep\", \"how many records mention Sigma\"), because the normal search and the summary keyword filter match only titles, headings, tags, and descriptions, NOT the deep body. This scan is broader and slower than a normal search (method bodies are read from disk). CONFIRM FIRST, before you call this, confirm the exact search term (or regex) with the user using ask_user, so you scan for the right string, never guess it. Read-only. Returns { count, totalMatches, results } where each result has type, id, title, deepLink, snippet, matches, and (for notes) entryTitle. NO INTERPRETATION, you locate the matching records and relay their own snippets, you never summarize a finding.",
+    "DEEP-search the full BODY text of the user's notes, method protocols, experiment writeups (the results.md content plus the deviation log), purchase notes, AND inventory notes for a string or a regular expression, and return the records that match with a short snippet and a per-record match count, plus an accurate TOTAL count across everything searched. Use this when the user wants to find records by what is written INSIDE them (for example \"which PCR experiments mention no band\", \"notes that mention cyp51A anywhere\", \"which protocol talks about the miniprep\", \"which orders mention backordered\", \"how many records mention Sigma\"), because the normal search and the summary keyword filter match only titles, headings, tags, and descriptions, NOT the deep body. This scan is broader and slower than a normal search (method bodies are read from disk). CONFIRM FIRST, before you call this, confirm the exact search term (or regex) with the user using ask_user, so you scan for the right string, never guess it. Read-only. Returns { count, totalMatches, results } where each result has type, id, title, deepLink, snippet, matches, and (for notes) entryTitle. NO INTERPRETATION, you locate the matching records and relay their own snippets, you never summarize a finding.",
   parameters: {
     type: "object",
     properties: {
@@ -121,8 +151,8 @@ export const searchFullTextTool: AiTool = {
       },
       types: {
         type: "array",
-        items: { type: "string", enum: ["note", "method", "experiment"] },
-        description: "Which object bodies to search. Default all [\"note\", \"method\", \"experiment\"]. An experiment body is its results.md writeup plus its deviation log. Narrow to a subset when the user names a type.",
+        items: { type: "string", enum: ["note", "method", "experiment", "purchase", "inventory"] },
+        description: "Which object bodies to search. Default all five. An experiment body is its results.md writeup plus its deviation log; a purchase or inventory body is its notes. Narrow to a subset when the user names a type.",
       },
     },
     required: ["query"],
@@ -146,8 +176,8 @@ export const searchFullTextTool: AiTool = {
     }
 
     const requested = Array.isArray(args.types)
-      ? args.types.filter(
-          (t): t is SearchableType => t === "note" || t === "method" || t === "experiment",
+      ? args.types.filter((t): t is SearchableType =>
+          (["note", "method", "experiment", "purchase", "inventory"] as const).includes(t as SearchableType),
         )
       : ALL_TYPES;
     const types = requested.length > 0 ? requested : ALL_TYPES;
@@ -248,12 +278,60 @@ export const searchFullTextTool: AiTool = {
       }
     }
 
+    // Purchases: the free-text notes (item name + notes) are in memory.
+    if (types.includes("purchase")) {
+      let purchases: PurchaseItem[] = [];
+      try {
+        purchases = await searchFullTextDeps.listPurchases();
+      } catch {
+        purchases = [];
+      }
+      for (const item of purchases) {
+        const body = purchaseBodyText(item);
+        if (!body) continue;
+        const found = findFirst(body, query, isRegex);
+        if (!found) continue;
+        pushHit({
+          type: "purchase",
+          id: item.id,
+          title: item.item_name || "Untitled purchase",
+          deepLink: "/purchases",
+          snippet: snippetAround(body, found.index, found.length),
+          matches: countMatches(body, query, isRegex),
+        });
+      }
+    }
+
+    // Inventory items: the name + notes + hazard note are in memory.
+    if (types.includes("inventory")) {
+      let items: InventoryItem[] = [];
+      try {
+        items = await searchFullTextDeps.listInventoryItems();
+      } catch {
+        items = [];
+      }
+      for (const item of items) {
+        const body = inventoryBodyText(item);
+        if (!body) continue;
+        const found = findFirst(body, query, isRegex);
+        if (!found) continue;
+        pushHit({
+          type: "inventory",
+          id: item.id,
+          title: item.name || "Untitled item",
+          deepLink: "/inventory",
+          snippet: snippetAround(body, found.index, found.length),
+          matches: countMatches(body, query, isRegex),
+        });
+      }
+    }
+
     // One widget row per matching RECORD (not per occurrence). attachRecordSetIfBig
     // gates the widget on the ">4" rule: 4 or fewer matching records stay as inline
     // chips, 5 or more render the master-detail browser.
     const rows = uiHits.map(
       (hit): RecordSetRow => ({
-        type: hit.type as ObjectRefType,
+        type: hit.type as RecordSetRowType,
         id: String(hit.id),
         title: hit.title,
         ...(hit.entryTitle ? { subtitle: hit.entryTitle } : {}),
