@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 import { getOrCreateLabMap, labMapsApi } from "@/lib/local-api";
 import type {
   InventoryStock,
@@ -202,6 +203,8 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   // ── Drag a pin ──────────────────────────────────────────────────────────────
   const onPinPointerDown = (e: React.PointerEvent, pin: LabMapPin) => {
     e.preventDefault();
+    // Keep the pan/zoom viewport from also starting a pan on this press.
+    e.stopPropagation();
     (e.target as HTMLElement).setPointerCapture?.(e.pointerId);
     dragRef.current = { pinId: pin.id, moved: false };
   };
@@ -238,6 +241,13 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   const selectedNode = selected != null ? nodesById.get(selected) ?? null : null;
   const selectedPin =
     selected != null ? pins.find((p) => p.nodeId === selected) ?? null : null;
+
+  // The map renders into a fixed content coordinate space that ZoomPanCanvas fits
+  // to the viewport (matching the plan's aspect). Pins are positioned by % within
+  // it, so pin-drag maps the pointer through the content rect (post-transform).
+  const aspect = plan?.aspect ?? loadedMap?.plan?.aspect ?? 1.5;
+  const CONTENT_W = 1200;
+  const CONTENT_H = Math.round(CONTENT_W / aspect);
 
   return (
     <div className="flex flex-col gap-4 lg:flex-row">
@@ -288,22 +298,29 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
             sample; pins sit on top.
           </span>
         </div>
-        <div
-          ref={canvasRef}
-          className={`ros-room-canvas relative w-full overflow-hidden rounded-xl border border-border ${
-            plan?.imageData ? "bg-white" : "bg-surface-sunken"
-          }`}
-          style={{
-            aspectRatio: "3 / 2",
-            ...(plan?.imageData
-              ? {}
-              : {
-                  backgroundImage:
-                    "linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
-                  backgroundSize: "32px 32px",
-                }),
-          }}
-        >
+        <div className="relative w-full" style={{ aspectRatio: String(aspect) }}>
+          <ZoomPanCanvas
+            contentWidth={CONTENT_W}
+            contentHeight={CONTENT_H}
+            className="ros-room-canvas rounded-xl border border-border"
+          >
+            <div
+              ref={canvasRef}
+              className={`relative ${
+                plan?.imageData ? "bg-white" : "bg-surface-sunken"
+              }`}
+              style={{
+                width: CONTENT_W,
+                height: CONTENT_H,
+                ...(plan?.imageData
+                  ? {}
+                  : {
+                      backgroundImage:
+                        "linear-gradient(to right, var(--color-border) 1px, transparent 1px), linear-gradient(to bottom, var(--color-border) 1px, transparent 1px)",
+                      backgroundSize: "48px 48px",
+                    }),
+              }}
+            >
           {plan?.imageData ? (
             <div
               className="pointer-events-none absolute inset-0 [&>svg]:h-full [&>svg]:w-full"
@@ -311,21 +328,6 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
               // .svg), rendered as the backdrop. Not user-pasted HTML.
               dangerouslySetInnerHTML={{ __html: plan.imageData }}
             />
-          ) : null}
-
-          {pins.length === 0 ? (
-            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
-              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
-                <Icon name="storageNested" className="h-6 w-6" />
-              </div>
-              <h3 className="text-title font-semibold text-foreground">
-                Map where your storage lives
-              </h3>
-              <p className="mt-1.5 max-w-sm text-body text-foreground-muted">
-                Pick a location on the right to drop a pin, then drag it where it
-                sits in the room.
-              </p>
-            </div>
           ) : null}
 
           {pins.map((pin) => {
@@ -358,6 +360,22 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
               </button>
             );
           })}
+            </div>
+          </ZoomPanCanvas>
+          {pins.length === 0 ? (
+            <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center px-6 text-center">
+              <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-surface-sunken text-foreground-muted">
+                <Icon name="storageNested" className="h-6 w-6" />
+              </div>
+              <h3 className="text-title font-semibold text-foreground">
+                Map where your storage lives
+              </h3>
+              <p className="mt-1.5 max-w-sm text-body text-foreground-muted">
+                Pick a location on the right to drop a pin, then drag it where it
+                sits in the room.
+              </p>
+            </div>
+          ) : null}
         </div>
 
         {selectedNode ? (
