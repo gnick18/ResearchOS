@@ -89,7 +89,8 @@ export default function WelcomeTakeover({
           className="mt-1 text-4xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-5xl"
           style={{ fontFamily: "var(--font-ai)" }}
         >
-          Hi, I'm Beaker.
+          Hi, I'm Beaker{" "}
+          <span className="text-[var(--brand,#1d9e75)]">(AI)</span>
         </h1>
         <p
           className="mt-3 max-w-md text-lg leading-relaxed text-[var(--muted,#6b716a)]"
