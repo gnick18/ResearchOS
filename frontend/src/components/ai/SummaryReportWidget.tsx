@@ -92,9 +92,11 @@ function StatTile({
 }
 
 function BarGroup({ group }: { group: SummaryBarGroup }) {
-  // Scale widths to the largest value in THIS group (display-only). Guard a zero
-  // max so an all-zero group still renders flat bars rather than NaN widths.
-  const max = group.rows.reduce((m, r) => Math.max(m, r.value), 0) || 1;
+  // Scale widths to the largest value in THIS group (display-only). Number-coerce
+  // every value so one stray non-numeric never turns max into NaN (NaN || 1 => 1,
+  // which would make every width > 100% and overflow-clip them all to full width).
+  const max =
+    group.rows.reduce((m, r) => Math.max(m, Number(r.value) || 0), 0) || 1;
   return (
     <div className="mb-3">
       <div className="px-0.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
@@ -109,7 +111,9 @@ function BarGroup({ group }: { group: SummaryBarGroup }) {
             <span className="h-2 flex-1 overflow-hidden rounded-full bg-surface-sunken">
               <span
                 className={`block h-full rounded-full ${row.tone ? TONE_FILL[row.tone] : TONE_FILL.accent}`}
-                style={{ width: `${Math.round((row.value / max) * 100)}%` }}
+                style={{
+                  width: `${Math.min(100, Math.max(0, Math.round((Number(row.value) / max) * 100)))}%`,
+                }}
               />
             </span>
             <span className="w-14 shrink-0 text-right text-[11px] text-foreground-muted">
@@ -125,8 +129,11 @@ function BarGroup({ group }: { group: SummaryBarGroup }) {
 export default function SummaryReportWidget({ report }: { report: SummaryReport }) {
   const header = KIND_HEADER[report.kind] ?? { icon: "chart" as IconName, tint: "neutral" as WidgetTint };
   const histMax = report.histogram
-    ? report.histogram.bars.reduce((m, b) => Math.max(m, b.value), 0) || 1
+    ? report.histogram.bars.reduce((m, b) => Math.max(m, Number(b.value) || 0), 0) || 1
     : 1;
+  // The plot area height in px. Percentage heights on flex items do not resolve
+  // reliably (the bars came out invisible), so scale to a fixed pixel height.
+  const HIST_PX = 56;
 
   return (
     <div className={`${widgetCardClass(true)} mt-2`}>
@@ -174,13 +181,15 @@ export default function SummaryReportWidget({ report }: { report: SummaryReport 
             <div className="px-0.5 pb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
               {report.histogram.title}
             </div>
-            <div className="flex h-16 items-end gap-1">
+            <div className="flex items-end gap-1" style={{ height: HIST_PX }}>
               {report.histogram.bars.map((b, i) => (
                 <span
                   key={`${b.label}-${i}`}
                   title={`${b.label}: ${b.value}`}
                   className="flex-1 rounded-t bg-brand/70"
-                  style={{ height: `${Math.max(4, Math.round((b.value / histMax) * 100))}%` }}
+                  style={{
+                    height: `${Math.max(3, Math.round((Number(b.value) / histMax) * HIST_PX))}px`,
+                  }}
                 />
               ))}
             </div>

@@ -320,9 +320,9 @@ function FullRecordSet({ set }: { set: RecordSet }) {
           </p>
         ) : (
           <div className="flex flex-col gap-0.5">
-            {filtered.map((row) => (
+            {filtered.map((row, idx) => (
               <RowButton
-                key={`${row.type}:${row.id}`}
+                key={`${row.type}:${row.id}:${idx}`}
                 row={row}
                 selected={row.id === effectiveRow?.id}
                 onSelect={() => selectRow(row.id)}
@@ -420,11 +420,11 @@ function CompactRecordSet({ set }: { set: RecordSet }) {
         </span>
       </div>
       <div className="flex flex-wrap gap-1.5 px-3 pt-2.5">
-        {set.items.map((row) => {
+        {set.items.map((row, idx) => {
           const on = row.id === selected?.id;
           return (
             <button
-              key={`${row.type}:${row.id}`}
+              key={`${row.type}:${row.id}:${idx}`}
               type="button"
               onClick={() => setSelectedId(row.id)}
               aria-selected={on}
