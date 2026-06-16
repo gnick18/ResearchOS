@@ -32,6 +32,8 @@ import {
   breakEvenConversion,
   breakEvenUsers,
   freeUsersPerPayer,
+  taxOnProfit,
+  DEFAULT_TAX_RATE,
   type ServiceTiers,
   type AdoptionMix,
 } from "../service-model";
@@ -264,6 +266,47 @@ describe("projectAtScale", () => {
 
   it("is net positive at scale for the seed tiers (Path A is sustainable)", () => {
     expect(projectAtScale(50000, TIERS, MIX).net).toBeGreaterThan(0);
+  });
+});
+
+describe("owner taxes (single-member LLC pass-through)", () => {
+  it("default rate is a plausible blended SE + federal + state estimate", () => {
+    expect(DEFAULT_TAX_RATE).toBeGreaterThan(0.2);
+    expect(DEFAULT_TAX_RATE).toBeLessThan(0.5);
+  });
+
+  it("taxOnProfit charges the rate on positive profit, nothing on a loss", () => {
+    expect(taxOnProfit(1000, 0.35)).toBeCloseTo(350, 9);
+    expect(taxOnProfit(0, 0.35)).toBe(0);
+    expect(taxOnProfit(-500, 0.35)).toBe(0);
+  });
+
+  it("taxRate defaults to 0 so net == take-home (pre-tax model unchanged)", () => {
+    const p = projectAtScale(50000, TIERS, MIX);
+    expect(p.tax).toBe(0);
+    expect(p.takeHome).toBeCloseTo(p.net, 9);
+  });
+
+  it("at scale (profit) tax is rate x net and take-home is the remainder", () => {
+    const p = projectAtScale(50000, TIERS, MIX, 300, DEFAULT_SCALING_SERVICES, 0.35);
+    expect(p.net).toBeGreaterThan(0);
+    expect(p.tax).toBeCloseTo(p.net * 0.35, 6);
+    expect(p.takeHome).toBeCloseTo(p.net * 0.65, 6);
+  });
+
+  it("at a loss there is no tax and take-home equals the (negative) net", () => {
+    const p = projectAtScale(100, TIERS, MIX, 300, DEFAULT_SCALING_SERVICES, 0.35);
+    expect(p.net).toBeLessThan(0);
+    expect(p.tax).toBe(0);
+    expect(p.takeHome).toBeCloseTo(p.net, 9);
+  });
+
+  it("taxes do not move break-even (profit is zero there, so tax is zero)", () => {
+    const taxed = breakEvenUsers(TIERS, MIX, 196);
+    // breakEvenUsers is pre-tax by construction; confirm net at that point is ~0
+    // so applying any tax rate leaves it unchanged.
+    const at = projectAtScale(taxed, TIERS, MIX, 196, DEFAULT_SCALING_SERVICES, 0.35);
+    expect(at.tax).toBeLessThan(1); // negligible: profit is ~0 at break-even
   });
 });
 

@@ -77,7 +77,10 @@ export const DEFAULT_OPERATING_COSTS: FixedCostItem[] = [
   // Apple $99/yr + WI report $25/yr + both domains are in the sourced infra
   // floor above, not here.
   { label: "Tello (LLC phone, pay-per-use)", amount: 15, cadence: "yearly" },
-  { label: "Accounting / legal / filing", amount: 40, cadence: "monthly" },
+  // Grant self-files with tax software, no paid accountant (Grant 2026-06-16).
+  // Also confirmed $0: he is his own registered agent (no service fee) and
+  // carries no business insurance, so neither has a line here.
+  { label: "Tax software (DIY filing)", amount: 40, cadence: "yearly" },
   { label: "Misc software + monitoring", amount: 20, cadence: "monthly" },
 ];
 
@@ -184,6 +187,21 @@ export function totalFixedMonthly(
   operating: FixedCostItem[] = DEFAULT_OPERATING_COSTS,
 ): number {
   return INFRA_FIXED_MONTHLY + monthlyOf(operating);
+}
+
+// ── Owner taxes (Grant 2026-06-16) ──────────────────────────────────────────
+// The LLC is a single-member pass-through, so operating profit flows to Grant's
+// personal return: self-employment tax (~15.3%) plus federal marginal plus WI
+// state income tax. We model that as ONE editable effective rate applied to
+// POSITIVE profit only. Taxes never apply at a loss, so this does NOT move the
+// break-even point, it only shrinks take-home above it. Default 0.35 is a
+// reasonable blended SE + federal + WI estimate; the operator tunes it.
+export const DEFAULT_TAX_RATE = 0.35;
+
+/** Owner tax on a month's operating profit. Zero at or below break-even (taxes
+ *  apply to profit only, so a loss owes nothing). */
+export function taxOnProfit(net: number, taxRate: number): number {
+  return net > 0 ? net * taxRate : 0;
 }
 
 // ── AI billing, LOCKED rates (ai-config.ts, Grant 2026-06-14) ───────────────
@@ -421,8 +439,13 @@ export interface ScalePoint {
   fixed: number;
   /** freeCost + fixed, the recurring monthly expense. */
   expense: number;
-  /** revenue - expense, the recurring monthly net. */
+  /** revenue - expense, the recurring monthly net (PRE-TAX operating profit). */
   net: number;
+  /** Owner tax on positive profit (single-member LLC pass-through: SE + federal
+   *  + WI state). Zero at or below break-even. */
+  tax: number;
+  /** net - tax, what actually reaches Grant after taxes. Equals net at a loss. */
+  takeHome: number;
   /** One-time $0.25 AI grant to acquire the current free base. NOT in net. */
   freeAcqOneTime: number;
 }
@@ -438,6 +461,7 @@ export function projectAtScale(
   mix: AdoptionMix,
   fixedMonthly: number = totalFixedMonthly(),
   scalingServices: ScalingService[] = DEFAULT_SCALING_SERVICES,
+  taxRate: number = 0,
 ): ScalePoint {
   const free = users * (1 - mix.conversion);
   const paid = users * mix.conversion;
@@ -450,6 +474,8 @@ export function projectAtScale(
   // each provider service crosses its own free tier at its own user count.
   const fixed = fixedMonthly + scalingInfraCost(scalingServices, users);
   const expense = freeCost + fixed;
+  const net = revenue - expense;
+  const tax = taxOnProfit(net, taxRate);
   return {
     users,
     sub,
@@ -459,7 +485,9 @@ export function projectAtScale(
     freeCost,
     fixed,
     expense,
-    net: revenue - expense,
+    net,
+    tax,
+    takeHome: net - tax,
     freeAcqOneTime: freeBaseAcquisitionOneTime(free),
   };
 }

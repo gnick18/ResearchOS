@@ -56,6 +56,7 @@ import {
   INFRA_FIXED_MONTHLY,
   DEFAULT_OPERATING_COSTS,
   DEFAULT_SCALING_SERVICES,
+  DEFAULT_TAX_RATE,
   scalingInfraCost,
   serviceMonthlyCost,
   serviceCrossUsers,
@@ -1080,6 +1081,7 @@ export function FinalizeTab() {
   const [labShare, setLabShare] = useState(0.4);
   const [deptShare, setDeptShare] = useState(0.2);
   const [membersPerLab, setMembersPerLab] = useState(6);
+  const [taxRate, setTaxRate] = useState(DEFAULT_TAX_RATE);
   const chartRef = useRef<HTMLCanvasElement | null>(null);
 
   function update(key: ServiceRow["key"], patch: Partial<ServiceRow>) {
@@ -1119,7 +1121,7 @@ export function FinalizeTab() {
   const opMonthly = monthlyOf(opCosts);
   const fixedMonthly = INFRA_FIXED_MONTHLY + opMonthly;
   const project = (users: number) =>
-    projectAtScale(users, tiers, mix, fixedMonthly, scalingSvcs);
+    projectAtScale(users, tiers, mix, fixedMonthly, scalingSvcs, taxRate);
   const beUsers = breakEvenUsers(tiers, mix, fixedMonthly, scalingSvcs);
   const deptLabMonthly = membersPerLab * dept.price + govFee;
 
@@ -1256,7 +1258,7 @@ export function FinalizeTab() {
       window.removeEventListener("resize", drawProjection);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, scalingSvcs, conversion, soloShare, labShare, deptShare, membersPerLab]);
+  }, [rows, freeRelayM, aiTokensM, aiAdoption, opCosts, scalingSvcs, taxRate, conversion, soloShare, labShare, deptShare, membersPerLab]);
 
   const inputCls =
     "w-16 rounded border border-border bg-surface-sunken px-1.5 py-1 text-meta tabular-nums";
@@ -1300,7 +1302,20 @@ export function FinalizeTab() {
                 value={freeRelayM}
                 onChange={setFreeRelayM}
               />
+              <Slider
+                label={`Owner tax on profit: ${Math.round(taxRate * 100)}% (SE + fed + WI)`}
+                min={0}
+                max={50}
+                step={1}
+                value={taxRate * 100}
+                onChange={(v) => setTaxRate(v / 100)}
+              />
             </div>
+            <p className="mt-2 text-meta text-foreground-muted">
+              Single-member LLC pass-through, so profit hits Grant&apos;s personal
+              return (self-employment ~15.3% + federal + WI). Applied to positive
+              profit only, so it does not move break-even, just take-home above it.
+            </p>
           </Panel>
 
           <Panel title="Service tiers (price buys services, not GB)">
@@ -1760,7 +1775,9 @@ export function FinalizeTab() {
               <Kv k="Governance fees" v={`${fmt0(comp.gov)} (${Math.round((comp.gov / posTotal) * 100)}%)`} />
               <Kv k="Free relay (recurring)" v={`-${fmt0(comp.freeCost)}`} tone="bad" />
               <Kv k="Fixed business costs" v={`-${fmt0(comp.fixed)}`} tone="bad" />
-              <Kv k="Net per month" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
+              <Kv k="Net per month (pre-tax)" v={fmt0(comp.net)} bold tone={comp.net < 0 ? "bad" : "good"} />
+              <Kv k={`Owner tax (${Math.round(taxRate * 100)}% on profit)`} v={`-${fmt0(comp.tax)}`} tone="bad" />
+              <Kv k="Take-home (after tax)" v={fmt0(comp.takeHome)} bold tone={comp.takeHome < 0 ? "bad" : "good"} />
             </div>
             <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-meta text-foreground">
               <div className="flex justify-between">
