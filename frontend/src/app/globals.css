@@ -613,6 +613,19 @@
   box-shadow: 0 2px 5px rgba(190, 205, 235, 0.28), 0 6px 14px -2px rgba(190, 205, 235, 0.3);
 }
 
+/* Dark-mode text inputs get a touch-LIGHTER fill so they don't blend into the
+ * dark surface (Grant 2026-06-16: border-only or sunken inputs were vanishing —
+ * the same color as the panel behind them). Light mode is left alone (inputs
+ * read fine there). Excludes checkbox/radio/range/color/file/button-type inputs.
+ * The :not() chain's specificity intentionally wins over component bg utilities
+ * so it reaches EVERY text field app-wide without touching each component. */
+[data-theme="dark"]
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]):not([type="submit"]):not([type="button"]):not([type="image"]),
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background-color: #28344c;
+}
+
 /* .ros-kbd: keyboard-shortcut chips read as little raised KEYCAPS, not flat
  * boxes — a crisp 1px bottom edge (the key's depth) + a soft drop. Dark recolors
  * to bluish-white (black is invisible on the dark room). Pair with the existing
