@@ -47,8 +47,8 @@ export default function InterestPicker({
         Skip for now
       </button>
       <div className="w-full max-w-md">
-        <div className="mb-4 flex items-start gap-2">
-          <div className="h-8 w-8 flex-none">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-40 w-40 flex-none">
             <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </div>
           <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
