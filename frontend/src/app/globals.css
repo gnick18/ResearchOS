@@ -459,11 +459,17 @@
  * re-asserting the dark tokens for the popup subtree (it is otherwise
  * .light-scope = white paper + dark text, which would vanish on the dark room). */
 [data-theme="dark"] .ros-calm-surface {
-  /* Exact dark tokens from the approved Writing-Room mockup. */
   color-scheme: dark;
-  --editor-room-top: #10182a;
-  --editor-room-bot: #0a1120;
-  --background: #0a1120;
+  /* The popup must LIFT off the dark page, the same way the warm sand lifts off
+     the light page. The room gradient used to bottom out at #0a1120 ~ the page
+     --background (#0a0e1a), so the calm popup vanished into the room. Grant picked
+     the "barely there" lift (#131c30): a quiet slate, just above the page, paired
+     with the bluish-white .ros-popup-card-shadow edge to do the heavy separation.
+     The radial keeps a faint lighter halo at the top for the calm "room" feel;
+     the body settles to the picked tone. */
+  --editor-room-top: #18233c;
+  --editor-room-bot: #131c30;
+  --background: #131c30;
   --foreground: #eaf2fb;
   --surface: #0a0e1a;
   --surface-raised: #16233c;
@@ -867,22 +873,22 @@
   );
 }
 [data-theme="dark"] .ros-helper-rail {
-  background: linear-gradient(
-    to bottom,
-    transparent 0,
-    color-mix(in srgb, #ffffff 5%, transparent) 28px,
-    color-mix(in srgb, #ffffff 5%, transparent) calc(100% - 28px),
-    transparent 100%
-  );
+  /* NO fill tint in dark. A light wash on the dark popup surface reads as a
+     visible lighter "hue band" (Grant flagged it), whereas the light-mode dark
+     tint on warm sand is imperceptible. So in dark the rail is the SAME surface
+     as its surroundings, defined by its shadow border alone, matching light. */
+  background: transparent;
 }
 [data-theme="dark"] .ros-helper-rail::after {
-  /* Dark room: a black shadow is invisible, so the seam reads as a soft
-   * bluish-white edge glow instead (matching the dark card shadow). */
+  /* The rail now sits on the LIFTED calm-popup surface (not the near-black room),
+   * so a real dark shadow registers there and reads as a clean shadow border,
+   * NOT an inner glow. Mirror the light-mode seam (dark shadow) rather than the
+   * bluish-white glow, which made the rail look lit-from-within. */
   background: linear-gradient(
     to left,
     transparent 0%,
-    rgba(190, 205, 235, 0.05) 55%,
-    rgba(190, 205, 235, 0.16) 100%
+    rgba(0, 0, 0, 0.10) 55%,
+    rgba(0, 0, 0, 0.32) 100%
   );
 }
 /* Top + bottom edge glows so the rail reads as a fully boxed floating panel
@@ -919,18 +925,19 @@
   );
 }
 [data-theme="dark"] .ros-helper-rail-topglow {
+  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::after). */
   background: linear-gradient(
     to top,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }
 [data-theme="dark"] .ros-helper-rail-botglow {
   background: linear-gradient(
     to bottom,
-    rgba(190, 205, 235, 0.13) 0%,
-    rgba(190, 205, 235, 0.04) 50%,
+    rgba(0, 0, 0, 0.28) 0%,
+    rgba(0, 0, 0, 0.08) 50%,
     transparent 100%
   );
 }

@@ -42,6 +42,37 @@ const ANIM_MS = 340;
 // Apple-ish ease: quick out, soft settle.
 const EASE = "cubic-bezier(0.32, 0.72, 0, 1)";
 
+// Body-scroll lock, REF-COUNTED across all open popups.
+//
+// The old per-popup save/restore (`const prev = body.style.overflow; set hidden;
+// cleanup: restore prev`) LEAKED with stacked or sequential popups: a second
+// popup captured prev="hidden" (set by the first) and "restored" the lock on
+// close, so the page stayed unscrollable forever (Grant hit this reviewing two
+// popups in a row). A single shared counter fixes it: the FIRST popup saves the
+// page's real overflow and locks; nested popups just increment; the LAST to close
+// restores the saved value. Each returned releaser is idempotent so a double
+// cleanup (e.g. React StrictMode in dev) cannot under-count.
+let scrollLockCount = 0;
+let scrollLockPrevOverflow = "";
+
+function lockBodyScroll(): () => void {
+  if (typeof document === "undefined") return () => {};
+  if (scrollLockCount === 0) {
+    scrollLockPrevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+  }
+  scrollLockCount += 1;
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    scrollLockCount = Math.max(0, scrollLockCount - 1);
+    if (scrollLockCount === 0) {
+      document.body.style.overflow = scrollLockPrevOverflow;
+    }
+  };
+}
+
 function CloseIcon({ className }: { className?: string }) {
   return (
     <svg
@@ -220,16 +251,13 @@ export default function LivingPopup({
 
   // Lock background scroll while the popup is mounted, so a trackpad scroll over
   // the popup (e.g. the chemistry editor canvas) does not chain through to the
-  // page behind the scrim. Save-then-restore the prior value so stacked popups
-  // nest correctly (the last to unmount restores the original). On macOS overlay
-  // scrollbars there is no width to compensate, so no layout shift.
+  // page behind the scrim. Ref-counted (lockBodyScroll) so stacked / sequential
+  // popups nest correctly and the LAST to unmount restores the page's original
+  // overflow. On macOS overlay scrollbars there is no width to compensate, so no
+  // layout shift.
   useEffect(() => {
     if (!mounted) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.body.style.overflow = prev;
-    };
+    return lockBodyScroll();
   }, [mounted]);
 
   // Focus trap (a11y, WCAG 2.4.3): keep Tab / Shift+Tab cycling within the popup
