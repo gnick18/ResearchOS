@@ -14,6 +14,7 @@
 import type { SeqDocument, EditFeature } from "./edit-model";
 import { resolveFeatureColor } from "./feature-colors";
 import { featureKey, type SequenceMapStyle } from "./figure-style";
+import type { LayoutManifest, PlacedBox } from "@/lib/figure/layout-manifest";
 
 // Re-export so existing importers (the adapter) keep importing from map-render.
 export { featureKey, type SequenceMapStyle };
@@ -202,14 +203,48 @@ function circularMap(
   return parts.join("");
 }
 
-function linearMap(
+/** One feature placed in the linear map: its arrow span + row, and (if shown) its
+ *  label. Computed once and consumed by BOTH the SVG draw and the layout manifest,
+ *  so the advisor's boxes are the exact numbers the map was drawn from. */
+interface LinearFeaturePlacement {
+  key: string;
+  name: string;
+  fx0: number;
+  fx1: number;
+  fy: number;
+  fh: number;
+  forward: boolean;
+  color: string;
+  hasLabel: boolean;
+  labelX: number;
+  labelY: number;
+  labelFont: number;
+  labelW: number;
+}
+
+interface LinearMapLayout {
+  W: number;
+  H: number;
+  x0: number;
+  x1: number;
+  baseY: number;
+  fontPx: number;
+  showTicks: boolean;
+  showLabels: boolean;
+  title: { x: number; y: number; fontSize: number; text: string };
+  ticks: { pos: number; tx: number }[];
+  features: LinearFeaturePlacement[];
+}
+
+/** The pure linear-map layout: the same lane-packing the draw uses, lifted out so
+ *  the manifest can read the identical positions (no drift). */
+function linearMapLayout(
   doc: SeqDocument,
   W: number,
   H: number,
   seqLen: number,
   style: SequenceMapStyle,
-): string {
-  const parts: string[] = [];
+): LinearMapLayout {
   const margin = Math.max(10, W * 0.06);
   const x0 = margin;
   const x1 = W - margin;
@@ -220,30 +255,19 @@ function linearMap(
   const showLabels = style.showLabels !== false;
   const xOf = (pos: number) => x0 + (pos / seqLen) * usableW;
 
-  parts.push(
-    `<text x="${x0.toFixed(1)}" y="${(fontPx * 1.6).toFixed(1)}" font-size="${(fontPx * 1.1).toFixed(1)}" fill="${INK}" font-weight="600">${esc(truncate(doc.name, 30))}</text>`,
-  );
-  parts.push(
-    `<line x1="${x0.toFixed(1)}" y1="${baseY.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${baseY.toFixed(1)}" stroke="${BACKBONE}" stroke-width="1.5"/>`,
-  );
-
+  const ticks: { pos: number; tx: number }[] = [];
   if (showTicks) {
-    const ticks = 4;
-    for (let i = 0; i <= ticks; i++) {
-      const pos = Math.round((seqLen * i) / ticks);
-      const tx = xOf(pos);
-      parts.push(
-        `<line x1="${tx.toFixed(1)}" y1="${baseY.toFixed(1)}" x2="${tx.toFixed(1)}" y2="${(baseY + 4).toFixed(1)}" stroke="${BACKBONE}" stroke-width="1"/>`,
-      );
-      parts.push(
-        `<text x="${tx.toFixed(1)}" y="${(baseY + 4 + fontPx).toFixed(1)}" font-size="${(fontPx * 0.8).toFixed(1)}" fill="${MUTED}" text-anchor="middle">${pos}</text>`,
-      );
+    const n = 4;
+    for (let i = 0; i <= n; i++) {
+      const pos = Math.round((seqLen * i) / n);
+      ticks.push({ pos, tx: xOf(pos) });
     }
   }
 
   const fh = Math.max(6, fontPx * 1.1 * (style.featureScale ?? 1));
   const rowH = fh + fontPx * 0.7;
   const rowEnds: number[] = [];
+  const features: LinearFeaturePlacement[] = [];
   for (const f of visibleFeatures(doc, style)) {
     let s = Math.min(f.start, f.end);
     let e = Math.max(f.start, f.end);
@@ -257,14 +281,126 @@ function linearMap(
     while (row < rowEnds.length && rowEnds[row] > fx0 - 4) row++;
     rowEnds[row] = fx1 + (showLabels ? truncate(f.name, 20).length * fontPx * 0.55 + 6 : 0);
     const fy = baseY - 12 - row * rowH - fh;
-    parts.push(featureArrow(fx0, fx1, fy, fh, f.forward !== false, colorOf(f, style)));
-    if (showLabels) {
+    const labelFont = fontPx * 0.85;
+    features.push({
+      key: featureKey(f),
+      name: truncate(f.name, 20),
+      fx0,
+      fx1,
+      fy,
+      fh,
+      forward: f.forward !== false,
+      color: colorOf(f, style),
+      hasLabel: showLabels,
+      labelX: fx1 + 3,
+      labelY: fy + fh * 0.78,
+      labelFont,
+      labelW: truncate(f.name, 20).length * labelFont * 0.6,
+    });
+  }
+
+  return {
+    W,
+    H,
+    x0,
+    x1,
+    baseY,
+    fontPx,
+    showTicks,
+    showLabels,
+    title: { x: x0, y: fontPx * 1.6, fontSize: fontPx * 1.1, text: truncate(doc.name, 30) },
+    ticks,
+    features,
+  };
+}
+
+function linearMap(
+  doc: SeqDocument,
+  W: number,
+  H: number,
+  seqLen: number,
+  style: SequenceMapStyle,
+): string {
+  const L = linearMapLayout(doc, W, H, seqLen, style);
+  const parts: string[] = [];
+  parts.push(
+    `<text x="${L.title.x.toFixed(1)}" y="${L.title.y.toFixed(1)}" font-size="${L.title.fontSize.toFixed(1)}" fill="${INK}" font-weight="600">${esc(L.title.text)}</text>`,
+  );
+  parts.push(
+    `<line x1="${L.x0.toFixed(1)}" y1="${L.baseY.toFixed(1)}" x2="${L.x1.toFixed(1)}" y2="${L.baseY.toFixed(1)}" stroke="${BACKBONE}" stroke-width="1.5"/>`,
+  );
+  for (const t of L.ticks) {
+    parts.push(
+      `<line x1="${t.tx.toFixed(1)}" y1="${L.baseY.toFixed(1)}" x2="${t.tx.toFixed(1)}" y2="${(L.baseY + 4).toFixed(1)}" stroke="${BACKBONE}" stroke-width="1"/>`,
+    );
+    parts.push(
+      `<text x="${t.tx.toFixed(1)}" y="${(L.baseY + 4 + L.fontPx).toFixed(1)}" font-size="${(L.fontPx * 0.8).toFixed(1)}" fill="${MUTED}" text-anchor="middle">${t.pos}</text>`,
+    );
+  }
+  for (const f of L.features) {
+    parts.push(featureArrow(f.fx0, f.fx1, f.fy, f.fh, f.forward, f.color));
+    if (f.hasLabel) {
       parts.push(
-        `<text x="${(fx1 + 3).toFixed(1)}" y="${(fy + fh * 0.78).toFixed(1)}" font-size="${(fontPx * 0.85).toFixed(1)}" fill="${INK}">${esc(truncate(f.name, 20))}</text>`,
+        `<text x="${f.labelX.toFixed(1)}" y="${f.labelY.toFixed(1)}" font-size="${f.labelFont.toFixed(1)}" fill="${INK}">${esc(f.name)}</text>`,
       );
     }
   }
   return parts.join("");
+}
+
+/**
+ * The layout manifest for a LINEAR sequence map (the collision advisor seam). Emits
+ * each feature arrow as a `mark` and its label as a crowdable `tipLabel`, plus the
+ * ruler numbers as `axisLabel`, at the EXACT positions the map drew them (shared
+ * linearMapLayout). The key signal on a busy plasmid is content-overflow: features
+ * lane-pack upward, so a dense map stacks rows off the TOP of the canvas (fy < 0).
+ * Circular maps are not covered yet (their labels self-de-collide differently), so
+ * the source returns null for those.
+ */
+export function buildLinearMapManifest(
+  doc: SeqDocument,
+  size: MapSize,
+  style: SequenceMapStyle,
+): LayoutManifest {
+  const W = Math.max(1, Math.round(size.width));
+  const H = Math.max(1, Math.round(size.height));
+  const seqLen = Math.max(1, doc.seq.length);
+  const L = linearMapLayout(doc, W, H, seqLen, style);
+  const boxes: PlacedBox[] = [];
+  for (const f of L.features) {
+    boxes.push({
+      id: `feature:${f.key}`,
+      kind: "mark",
+      x: f.fx0,
+      y: f.fy,
+      w: Math.max(1, f.fx1 - f.fx0),
+      h: f.fh,
+      label: f.name,
+    });
+    if (f.hasLabel) {
+      boxes.push({
+        id: `featureLabel:${f.key}`,
+        kind: "tipLabel",
+        x: f.labelX,
+        y: f.labelY - f.labelFont * 0.8,
+        w: f.labelW,
+        h: f.labelFont,
+        label: f.name,
+      });
+    }
+  }
+  for (const t of L.ticks) {
+    boxes.push({
+      id: `ruler:${t.pos}`,
+      kind: "axisLabel",
+      x: t.tx - L.fontPx,
+      y: L.baseY + 4,
+      w: L.fontPx * 2,
+      h: L.fontPx * 0.8,
+      label: String(t.pos),
+    });
+  }
+  return { width: W, height: H, plotRight: L.x1, boxes };
 }
 
 /** A strand-aware feature arrow (a rect with a directional tip). */

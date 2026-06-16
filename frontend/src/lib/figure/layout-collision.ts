@@ -24,7 +24,10 @@ export type CollisionKind =
   | "legend-overflow" // the legend block is taller than the figure (runs off-canvas)
   | "label-crowding" // adjacent labels overlap (vertically or horizontally)
   | "panel-overlap" // two overlay columns overlap horizontally
-  | "duplicate-overlay"; // one column bound to two overlay panels
+  | "duplicate-overlay" // one column bound to two overlay panels
+  | "content-overflow"; // content stacked off the TOP of the canvas (a lane / tier
+// stack that ran out of vertical room, e.g. a dense sequence map whose feature rows
+// stack upward until they clip off the figure)
 
 export interface Collision {
   kind: CollisionKind;
@@ -166,6 +169,24 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
     }
   }
 
+  // 5. Content overflow: an element stacked off the TOP of the canvas (negative y).
+  // A lane / tier stack ran out of vertical room and clipped (a dense sequence map
+  // packs feature rows upward until the top rows fall off the figure). Nothing
+  // legitimately renders above y=0, so a box meaningfully above the top edge is an
+  // unambiguous overflow. The legend is handled by legend-overflow above. Aggregated
+  // into one collision listing the clipped element ids.
+  const OVER = 4;
+  const clipped = boxes.filter((b) => b.kind !== "legend" && b.y < -OVER);
+  if (clipped.length > 0) {
+    const worst = Math.max(...clipped.map((b) => -b.y));
+    out.push({
+      kind: "content-overflow",
+      boxIds: clipped.map((b) => b.id),
+      severity: Math.min(1, worst / 60),
+      message: `${clipped.length} element${clipped.length > 1 ? "s" : ""} run off the top of the figure.`,
+    });
+  }
+
   return out;
 }
 
@@ -235,6 +256,20 @@ export function suggestFixes(collisions: Collision[]): FixSuggestion[] {
       id: "increase-column-gap",
       title: "Increase the spacing between overlay columns",
       rationale: "A wider gap separates the columns.",
+      available: true,
+    });
+  }
+  if (kinds.has("content-overflow")) {
+    add({
+      id: "shrink-label-font",
+      title: "Shrink the figure contents to fit",
+      rationale: "Smaller elements stack into less height and stop clipping.",
+      available: true,
+    });
+    add({
+      id: "increase-canvas-height",
+      title: "Make the figure taller",
+      rationale: "More height lets the stacked rows fit.",
       available: true,
     });
   }
