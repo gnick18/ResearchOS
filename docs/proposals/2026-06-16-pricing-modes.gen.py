@@ -77,7 +77,9 @@ def line_be(m, color, w=620, h=240):
     def X(pd): return padL+W*pd/paid_max
     def Y(v): return padT+Hh*(1-(v-ymin)/(ymax-ymin))
     be=break_even(m); be_paid=be*conv
+    aid=f"ra-{m['key']}"
     s=[f'<svg viewBox="0 0 {w} {h}" width="100%" style="max-width:{w}px">']
+    s.append(f'<defs><marker id="{aid}" markerWidth="9" markerHeight="9" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#E24B4A"/></marker></defs>')
     # zero line
     zy=Y(0); s.append(f'<line x1="{padL}" y1="{zy:.1f}" x2="{w-padR}" y2="{zy:.1f}" stroke="{BX}" stroke-dasharray="3 3"/>')
     # profit zone shade (right of break-even, above zero)
@@ -86,6 +88,12 @@ def line_be(m, color, w=620, h=240):
     # net curve
     d="M "+" L ".join(f"{X(pd):.1f} {Y(v):.1f}" for pd,v in pts)
     s.append(f'<path d="{d}" fill="none" stroke="{color}" stroke-width="2.5"/>')
+    # red annotation: that dip is a provider-tier cost step-up (so Emile knows)
+    ap=1250; av=net(m, ap/conv); ax=X(ap); ay=Y(av)
+    s.append(f'<circle cx="{ax:.1f}" cy="{ay:.1f}" r="3" fill="#E24B4A"/>')
+    s.append(f'<line x1="{ax:.1f}" y1="{ay-30:.1f}" x2="{ax:.1f}" y2="{ay-6:.1f}" stroke="#E24B4A" stroke-width="1.5" marker-end="url(#{aid})"/>')
+    s.append(f'<text x="{ax:.1f}" y="{ay-46:.1f}" font-size="11" fill="#A32D2D" font-weight="500" text-anchor="middle">infra cost steps up here</text>')
+    s.append(f'<text x="{ax:.1f}" y="{ay-34:.1f}" font-size="10.5" fill="#A32D2D" text-anchor="middle">(we cross a provider free tier)</text>')
     # break-even marker
     s.append(f'<line x1="{bx:.1f}" y1="{padT}" x2="{bx:.1f}" y2="{h-padB}" stroke="{color}" stroke-width="1.5" stroke-dasharray="4 3"/>')
     s.append(f'<text x="{bx+6:.1f}" y="{padT+14}" font-size="12" fill="{DK}" font-weight="500">break even ~{int(round(be_paid/10)*10):,} paid</text>')
@@ -201,7 +209,7 @@ for m in MODES:
     # Plot 2: break-even
     parts.append('<h3>2 &nbsp;·&nbsp; Profit vs. number of paid customers</h3>')
     parts.append(line_be(m, m["color"]))
-    parts.append(f'<p class="note">Crosses into profit at ~{int(round(be*conv/10)*10):,} paid customers (~{int(round(be/1000.0)*1000):,} signups at 5%). Everything to the right of the dashed line is profit that funds the labs.</p>')
+    parts.append(f'<p class="note">Crosses into profit at ~{int(round(be*conv/10)*10):,} paid customers (~{int(round(be/1000.0)*1000):,} signups at 5%). Everything to the right of the dashed line is profit that funds the labs. The small red dip is where our infra cost steps up as we cross a provider free tier (Vercel/Resend/Upstash); it is tiny and the line keeps climbing right through it.</p>')
     # Plot 3: composition
     parts.append('<h3>3 &nbsp;·&nbsp; Where the revenue comes from (at 2,500 paid customers)</h3>')
     parts.append(comp_bar(m))
