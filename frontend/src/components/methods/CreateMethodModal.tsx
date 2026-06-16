@@ -796,7 +796,7 @@ export function CreateMethodModal({
       card={false}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-4xl w-full mx-4 max-h-[90vh] flex flex-col"
         data-tour-target="methods-create-form"
       >
         {/* Header */}

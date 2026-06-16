@@ -249,7 +249,7 @@ export function MoleculeEditorPopup({
       card={false}
       fillHeight
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full h-full max-h-[88vh] flex flex-col overflow-hidden">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full h-full max-h-[88vh] flex flex-col overflow-hidden">
         {/* header */}
         <div className="px-4 py-3 border-b border-border bg-surface-sunken flex items-center gap-3">
           <span className="text-meta font-semibold text-foreground-muted">
