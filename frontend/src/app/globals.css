@@ -583,6 +583,30 @@
   filter: brightness(1.2);
 }
 
+/* .ros-btn-raise: SHADOW-ONLY raised-box for buttons that already OWN their fill —
+ * solid brand/destructive buttons and colored pills (e.g. a red bg-red-600
+ * "Permanently delete", a soft red-50 delete pill) — AND, layered on a
+ * .ros-btn-neutral, the unifier so a neutral and a colored button read as the
+ * SAME raised box. Deliberately a touch STRONGER than .ros-btn-neutral's resting
+ * shadow: a faint drop vanishes under a saturated fill and on the dark room where
+ * a button's surface matches its panel, so this carries a clearly visible box.
+ * Touches ONLY box-shadow — never background/border/text/radius. Bluish-white in
+ * dark (a black drop is invisible there), and dark runs HOTTER so the lift reads
+ * against same-color surfaces. */
+.ros-btn-raise {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.12), 0 3px 8px -1px rgba(15, 23, 42, 0.2);
+  transition: box-shadow 0.15s ease;
+}
+.ros-btn-raise:hover {
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.16), 0 6px 14px -2px rgba(15, 23, 42, 0.24);
+}
+[data-theme="dark"] .ros-btn-raise {
+  box-shadow: 0 1px 2px rgba(190, 205, 235, 0.22), 0 3px 8px -1px rgba(190, 205, 235, 0.26);
+}
+[data-theme="dark"] .ros-btn-raise:hover {
+  box-shadow: 0 2px 5px rgba(190, 205, 235, 0.28), 0 6px 14px -2px rgba(190, 205, 235, 0.3);
+}
+
 /* .ros-kbd: keyboard-shortcut chips read as little raised KEYCAPS, not flat
  * boxes — a crisp 1px bottom edge (the key's depth) + a soft drop. Dark recolors
  * to bluish-white (black is invisible on the dark room). Pair with the existing
