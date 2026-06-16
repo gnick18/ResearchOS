@@ -35,7 +35,6 @@ import {
   bareCost,
   modelTiers,
   netMargin,
-  orgPerLabRate,
   priceStorageOnly,
   priceWithActivity,
   stripeOn,
@@ -1047,9 +1046,10 @@ export function FinalizeTab() {
   }
 
   const labPlus = rows.find((r) => r.key === "lab_plus")?.price ?? 0;
-  const orgRate = orgPerLabRate(sustain, freeGb);
-  const recovery = orgRate - sustain;
-  const orderingOk = orgRate > labPlus;
+  // Dept labs pay the SAME storage rate as standalone labs (the Lab tier), plus a
+  // flat per-lab governance fee. That fee, not a per-GB surcharge, is the dept
+  // margin that funds the free tier. sustain is now that governance fee.
+  const orgRate = labPlus + sustain;
 
   // Volume pricing: $/GB should decline down the ladder, the small tiers pay the
   // most per GB and Pro the least.
@@ -1103,7 +1103,7 @@ export function FinalizeTab() {
     const revenue =
       solo * netOf("plus") +
       standaloneLabs * netOf("lab_plus") +
-      orgLabs * orgRate;
+      orgLabs * (netOf("lab_plus") + sustain);
     const expense = free * avgFree + FIXED_BASE_MONTHLY;
     return { revenue, expense, net: revenue - expense };
   };
@@ -1176,8 +1176,8 @@ export function FinalizeTab() {
       <div className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta leading-relaxed text-foreground-muted">
         <b className="text-foreground">Locked.</b> Solo and lab bill 6/12-month
         only. Storage dept/inst is a flat dollar-per-lab sustain, AI keeps its
-        1.4x/2x markup. Solo and lab target a modest ~3x margin, and dept/inst
-        must cost more per lab than standalone. Cost basis,{" "}
+        1.4x/2x markup. Solo and lab target a modest ~3x margin, and dept labs
+        pay the standalone Lab rate plus a flat governance fee. Cost basis,{" "}
         {`$${BLENDED_PER_GB_MO.toFixed(4)}/GB, ${fmt(ACTIVITY_PER_M_WRITES)}/M writes, Stripe ${(STRIPE_PCT * 100).toFixed(1)}% + ${fmt(STRIPE_FIXED)}, ${Math.round(FILL * 100)}% assumed fill.`}
       </div>
 
@@ -1196,7 +1196,7 @@ export function FinalizeTab() {
             />
           </div>
           <Slider
-            label={`Dept/inst sustain: ${fmt0(sustain)} / active lab`}
+            label={`Dept governance fee: ${fmt0(sustain)} / lab`}
             min={0}
             max={40}
             step={1}
@@ -1288,25 +1288,14 @@ export function FinalizeTab() {
         </p>
       </Panel>
 
-      <Panel title="Ordering check: dept/inst must cost more per lab than standalone">
-        <div
-          className={`rounded-xl border p-4 text-meta leading-relaxed ${
-            orderingOk ? "border-emerald-200 bg-emerald-50" : "border-rose-200 bg-rose-50"
-          }`}
-        >
-          A representative lab ({MEMBERS_PER_LAB} members,{" "}
-          {MEMBERS_PER_LAB * PER_MEMBER_GB} GB) inside a dept/inst pays{" "}
-          <b>{fmt(orgRate)}/mo</b> ({fmt(recovery)} recovery + {fmt0(sustain)}{" "}
-          sustain) versus the standalone Lab Plus at <b>{fmt0(labPlus)}/mo</b>.{" "}
-          {orderingOk ? (
-            <b className="text-emerald-700">
-              Coherent, org pays {fmt(orgRate - labPlus)}/lab more.
-            </b>
-          ) : (
-            <b className="text-rose-700">
-              Inverted, raise sustain above {fmt(labPlus - recovery)}.
-            </b>
-          )}
+      <Panel title="Dept economics: storage at parity, the fee is the value">
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-meta leading-relaxed">
+          A dept lab pays the standalone Lab Plus rate (<b>{fmt0(labPlus)}/mo</b>)
+          plus a flat <b>{fmt0(sustain)}/lab</b> governance fee, so{" "}
+          <b>{fmt0(orgRate)}/mo</b> per lab. Storage is at parity with a standalone
+          lab, there is no per-GB surcharge. The governance fee is the dept value
+          (the Commons, compliance, central admin) and is the margin that funds the
+          free tier.
         </div>
       </Panel>
       </div>
