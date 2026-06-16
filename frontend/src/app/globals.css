@@ -783,8 +783,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -26px;
-  width: 26px;
+  left: -16px;
+  width: 16px;
   pointer-events: none;
   /* Concentrate the shadow near the seam (right edge) so it reads as dense as
    * the box-shadow it replaces, not a thin wash. */
@@ -820,15 +820,14 @@
   background: transparent;
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-panel::before {
-  /* The panel sits on the LIFTED calm-popup surface (not the near-black room),
-   * so a real dark shadow registers and reads as a clean shadow border, NOT an
-   * inner glow. Mirror the light-mode seam (dark shadow) rather than the
-   * bluish-white glow, which made the panel look lit-from-within. */
+  /* Grant 2026-06-16: the version panel reads as a FLOATING element lifting off
+   * the diff column, so its left edge uses the signature bluish-white raised glow
+   * (NOT the clean-dark seam shadow — that is for truly co-planar regions). */
   background: linear-gradient(
     to right,
     transparent 0%,
-    rgba(0, 0, 0, 0.10) 55%,
-    rgba(0, 0, 0, 0.32) 100%
+    rgba(190, 205, 235, 0.10) 55%,
+    rgba(190, 205, 235, 0.26) 100%
   );
 }
 /* Matching top-edge shadow, cast UPWARD into the header gap so the panel reads
@@ -855,11 +854,12 @@
   mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-topglow {
-  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::before). */
+  /* Signature bluish-white glow at the same 0.26 peak as the left-edge ::before,
+     so the FLOATING panel is boxed on all sides in dark like it is in light. */
   background: linear-gradient(
     to top,
-    rgba(0, 0, 0, 0.28) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
+    rgba(190, 205, 235, 0.26) 0%,
+    rgba(190, 205, 235, 0.08) 50%,
     transparent 100%
   );
 }
@@ -884,11 +884,12 @@
   mask-image: linear-gradient(to right, transparent 0, #000 14px, #000 100%);
 }
 [data-theme="dark"] .ros-calm-surface .ros-history-botglow {
-  /* Dark shadow on the lifted popup surface, not a bluish glow (see ::before). */
+  /* Signature bluish-white glow at the same 0.26 peak as the left-edge ::before,
+     so the FLOATING panel is boxed on all sides in dark like it is in light. */
   background: linear-gradient(
     to bottom,
-    rgba(0, 0, 0, 0.28) 0%,
-    rgba(0, 0, 0, 0.08) 50%,
+    rgba(190, 205, 235, 0.26) 0%,
+    rgba(190, 205, 235, 0.08) 50%,
     transparent 100%
   );
 }
