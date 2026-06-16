@@ -3,10 +3,12 @@ import {
   initialTutorState,
   tutorReducer,
   resumeTutorState,
+  tourResumeMarkerFor,
   currentBeat,
   isFinished,
   type TutorState,
 } from "./tutor-machine";
+import { buildReel } from "./reel-director";
 
 // Drive the reducer through a list of actions from a starting state.
 function run(
@@ -157,6 +159,44 @@ describe("tutor-machine — resumeTutorState (post-reload demo resume)", () => {
   it("clamps an out-of-range beat to the last beat rather than stranding", () => {
     const resumed = resumeTutorState({ role: "pi", goals: ["analyze"], beatIndex: 9999 });
     expect(resumed.beatIndex).toBe((resumed.reel?.beats.length ?? 1) - 1);
+    expect(currentBeat(resumed)).not.toBeNull();
+  });
+});
+
+describe("tourResumeMarkerFor, the live demo-entry marker", () => {
+  // The first playable beat is the first one that is neither welcome nor the
+  // interest picker (the reel always opens welcome, interest_picker, then the
+  // playable beats), so the post-reload resume skips straight to it.
+  function firstPlayable(role: Parameters<typeof tourResumeMarkerFor>[0]["role"], goals: Parameters<typeof tourResumeMarkerFor>[0]["goals"]) {
+    const reel = buildReel({ role, pickedGoals: goals });
+    return reel.beats.findIndex((b) => b.kind !== "welcome" && b.kind !== "interest_picker");
+  }
+
+  it("echoes the role and goals verbatim", () => {
+    const m = tourResumeMarkerFor({ role: "pi", goals: ["analyze", "trees", "lab"] });
+    expect(m.role).toBe("pi");
+    expect(m.goals).toEqual(["analyze", "trees", "lab"]);
+  });
+
+  it("points beatIndex at the first playable beat (skips welcome + picker)", () => {
+    const m = tourResumeMarkerFor({ role: "pi", goals: ["analyze", "trees", "lab"] });
+    expect(m.beatIndex).toBe(firstPlayable("pi", ["analyze", "trees", "lab"]));
+    expect(m.beatIndex).toBeGreaterThanOrEqual(2);
+  });
+
+  it("produces a marker that resumeTutorState rebuilds into a live playing beat", () => {
+    const m = tourResumeMarkerFor({ role: "grad", goals: ["track"] });
+    const resumed = resumeTutorState(m);
+    expect(resumed.phase).toBe("playing");
+    expect(currentBeat(resumed)).not.toBeNull();
+    // The resumed beat is the same first-playable beat the marker pointed at.
+    expect(resumed.beatIndex).toBe(m.beatIndex);
+  });
+
+  it("still yields a valid first-playable beat when no goals are picked", () => {
+    const m = tourResumeMarkerFor({ role: "undergrad", goals: [] });
+    expect(m.beatIndex).toBe(firstPlayable("undergrad", []));
+    const resumed = resumeTutorState(m);
     expect(currentBeat(resumed)).not.toBeNull();
   });
 });

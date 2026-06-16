@@ -146,6 +146,23 @@ export function resumeTutorState(opts: {
   };
 }
 
+/**
+ * Build the persisted resume marker from the picker's role + goals (the live
+ * coupled pass): when the real mount enters tour-scoped demo mode it HARD-reloads
+ * into /demo, tearing down this machine, so before the reload we persist exactly
+ * what resumeTutorState needs to rebuild the SAME reel and jump straight to the
+ * first playable (deep-demo) beat. The beatIndex is the first playable index so
+ * the post-reload resume skips the already-shown welcome + picker. Pure, so it
+ * unit-tests without a component or the browser.
+ */
+export function tourResumeMarkerFor(opts: {
+  role: Role;
+  goals: GoalKey[];
+}): { role: Role; goals: GoalKey[]; beatIndex: number } {
+  const reel = buildReel({ role: opts.role, pickedGoals: opts.goals });
+  return { role: opts.role, goals: opts.goals, beatIndex: firstPlayableIndex(reel) };
+}
+
 /** The beat currently on screen while playing, or null otherwise. */
 export function currentBeat(state: TutorState): Beat | null {
   if (state.phase !== "playing" || !state.reel) return null;

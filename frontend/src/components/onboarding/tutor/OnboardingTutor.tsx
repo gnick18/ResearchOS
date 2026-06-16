@@ -19,13 +19,16 @@ import {
   initialTutorState,
   currentBeat,
   isFinished,
+  tourResumeMarkerFor,
   type TutorState,
 } from "@/lib/onboarding/tutor-machine";
+import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
 import { summarize } from "@/lib/onboarding/tutor-summary";
 import { newMeter, type OnboardingMeter } from "@/lib/onboarding/onboarding-meter";
 import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
 import ShowcaseStage from "./ShowcaseStage";
+import LiveCursorLayer from "./LiveCursorLayer";
 import AiDemoBeat from "./AiDemoBeat";
 import MontageBeat from "./MontageBeat";
 import MemoryProposeBeat from "./MemoryProposeBeat";
@@ -45,6 +48,19 @@ export interface OnboardingTutorProps {
   /** Mount regardless of the feature flag. Dev preview only, never set in the
    *  real after-account mount (that path respects ONBOARDING_TUTOR_ENABLED). */
   forceEnabled?: boolean;
+  /** LIVE coupled pass: when true the deep demos render the transparent
+   *  LiveCursorLayer over the REAL surface (the real-page presenter cursor + soft
+   *  ring), and the picker's start hands off to onBeginShow instead of building
+   *  the reel inline. The real TourHost mount sets this; the dev preview leaves it
+   *  false so it keeps using the self-contained ShowcaseStage stand-in (it mounts
+   *  over a mock page with no real [data-tutor-target] controls to point at). */
+  live?: boolean;
+  /** LIVE only: called when the user starts the tour from the picker, with the
+   *  resume marker (role + goals + first-playable beatIndex). The host persists it
+   *  and HARD-reloads into tour-scoped demo mode, after which the tour resumes via
+   *  initialState at the first deep demo. Omit (dev preview) to build the reel
+   *  inline and play on the stand-in stage with no reload. */
+  onBeginShow?: (marker: { role: Role; goals: GoalKey[]; beatIndex: number }) => void;
   /** Resume straight into a `playing` state (build plan §2): after the tour set
    *  the demo sticky and reloaded, TourHost rebuilds this from the persisted
    *  marker so the reel picks back up at the live-demo beat instead of replaying
@@ -57,6 +73,8 @@ export default function OnboardingTutor({
   onRememberFact,
   meter,
   forceEnabled = false,
+  live = false,
+  onBeginShow,
   initialState,
 }: OnboardingTutorProps) {
   const tokenMeter = meter ?? newMeter();
@@ -90,7 +108,17 @@ export default function OnboardingTutor({
         goals={state.goals}
         onSetRole={(role) => dispatch({ type: "setRole", role })}
         onToggleGoal={(goal) => dispatch({ type: "toggleGoal", goal })}
-        onStart={() => dispatch({ type: "beginReel" })}
+        onStart={() => {
+          // LIVE: hand off to the host to enter demo mode + reload, so the deep
+          // demos play over the real page. The host persists the resume marker
+          // first, so the post-reload mount resumes at the first deep demo.
+          // PREVIEW: build the reel inline and play on the stand-in stage.
+          if (live && onBeginShow && state.role) {
+            onBeginShow(tourResumeMarkerFor({ role: state.role, goals: state.goals }));
+          } else {
+            dispatch({ type: "beginReel" });
+          }
+        }}
         onSkip={() => dispatch({ type: "skip" })}
         onBack={() => dispatch({ type: "back" })}
       />
@@ -111,7 +139,15 @@ export default function OnboardingTutor({
 
   let body: ReactNode = null;
   if (beat?.kind === "deep_demo" && beat.surface) {
-    body = (
+    // LIVE: the transparent real-page overlay (cursor + soft ring over the real
+    // [data-tutor-target] control). PREVIEW: the self-contained stand-in stage.
+    body = live ? (
+      <LiveCursorLayer
+        key={`${beat.surface}-${state.beatIndex}`}
+        surface={beat.surface}
+        onDone={next}
+      />
+    ) : (
       <ShowcaseStage
         key={`${beat.surface}-${state.beatIndex}`}
         surface={beat.surface}

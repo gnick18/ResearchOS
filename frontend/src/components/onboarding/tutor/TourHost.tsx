@@ -27,10 +27,28 @@ import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
 import {
   readTourResume,
   clearTourResume,
+  saveTourResume,
+  beginTourDemoSession,
+  endTourDemoSession,
   type TourResumeState,
 } from "@/lib/onboarding/tour-demo-session";
 import { resumeTutorState } from "@/lib/onboarding/tutor-machine";
 import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
+import { clearDemoMode, getDemoMode } from "@/lib/file-system/wiki-capture-mock";
+import { restorePreDemoStateOrClear } from "@/lib/file-system/indexeddb-store";
+import {
+  storePreDemoRoute,
+  consumePreDemoRoute,
+} from "@/lib/file-system/pre-demo-route";
+
+/** The marker the picker hands to onBeginShow (machine-level: role + goals +
+ *  resume beat). TourHost adds the demo fixtureFlavor before persisting it. */
+type TourMarker = { role: Role; goals: GoalKey[]; beatIndex: number };
+
+/** Which demo fixture set the tour seeds. The /demo route currently installs one
+ *  fixture set (the demo lab), so this is constant; when field-personalized
+ *  fixtures land it can be derived from role + goals. */
+const DEMO_FIXTURE_FLAVOR = "default";
 
 export interface TourHostProps {
   /** The connected user, from providers. Null while none is connected. */
@@ -75,14 +93,49 @@ export default function TourHost({ username }: TourHostProps) {
     setActive(shouldRunOnboardingTutor({ freshAccount: fresh }));
   }, [fresh, resume]);
 
+  // The "Setting the stage" handoff: the picker's start hands us the marker, we
+  // paint an opaque cover, then (next frame, so the cover is visible) persist the
+  // marker + HARD-reload into /demo. Keeping the nav in an effect off the rendered
+  // cover guarantees the reload flash is hidden.
+  const [staging, setStaging] = useState<TourResumeState | null>(null);
+  useEffect(() => {
+    if (!staging) return;
+    const id = window.setTimeout(() => {
+      beginTourDemoSession(staging, {
+        saveMarker: saveTourResume,
+        storePreDemoRoute,
+        currentRoute: () => window.location.pathname + window.location.search,
+        navigate: (url) => window.location.assign(url),
+      });
+    }, 60);
+    return () => window.clearTimeout(id);
+  }, [staging]);
+
+  const handleBeginShow = useCallback((marker: TourMarker) => {
+    setStaging({ ...marker, fixtureFlavor: DEMO_FIXTURE_FLAVOR });
+  }, []);
+
   const handleComplete = useCallback(() => {
     markOnboardingTutorDone();
-    // Drop the resume marker so a later fresh run never picks up this tour.
+    if (getDemoMode()) {
+      // We are in tour-scoped demo mode: restore the real folder, clear the demo
+      // sticky + resume marker, then HARD-reload back to where the tour started,
+      // so the user lands on their own clean workspace (the real exit path, same
+      // as DevDemoToggleButton / LeaveDemoModal). endTourDemoSession navigates,
+      // so nothing after it runs.
+      void endTourDemoSession({
+        restore: restorePreDemoStateOrClear,
+        clearDemoMode,
+        clearMarker: clearTourResume,
+        consumeRoute: consumePreDemoRoute,
+        replace: (url) => window.location.replace(url),
+      });
+      return;
+    }
+    // Never entered demo (skipped at welcome/picker before the reload): just drop
+    // the marker and deactivate, no reload.
     clearTourResume();
     setActive(false);
-    // TODO(live): exit tour-scoped demo mode (clearDemoMode +
-    // restorePreDemoStateOrClear) so the user lands in their own clean empty
-    // workspace. Browser-coupled (it reloads out of demo); verify in checkpoint D.
   }, []);
 
   const handleRememberFact = useCallback(() => {
@@ -90,6 +143,17 @@ export default function TourHost({ username }: TourHostProps) {
   }, []);
 
   if (!active) return null;
+
+  // The opaque "Setting the stage" cover, shown for the one frame between the
+  // picker start and the hard reload into demo mode, so the reload flash never
+  // shows. The reload happens from the effect above.
+  if (staging) {
+    return (
+      <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-[var(--surface,#fff)] text-[var(--muted,#6b716a)]">
+        <span className="text-sm font-semibold">Setting the stage...</span>
+      </div>
+    );
+  }
 
   // When a resume marker is present (post-reload or refresh, build plan §2),
   // rebuild the playing machine state from it so the reel re-enters at the
@@ -108,6 +172,8 @@ export default function TourHost({ username }: TourHostProps) {
 
   return (
     <OnboardingTutor
+      live
+      onBeginShow={handleBeginShow}
       onComplete={handleComplete}
       onRememberFact={handleRememberFact}
       initialState={initialState}
