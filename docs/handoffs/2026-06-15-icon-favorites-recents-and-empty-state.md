@@ -59,6 +59,39 @@ Open `/figures`, Icons panel:
    is on).
 4. Spot-check a new synonym, e.g. "centrifuge" or "pcr" finds relevant icons.
 
+## ⚠️ SMART-SEARCH GO-LIVE BLOCKER FOUND (live prod, 2026-06-15)
+
+Drove the in-browser "Smart ranks" check on prod (`research-os.app/demo` → `/figures`,
+Chrome MCP). **The keyword (C) layer is LIVE and working** (the Smart toggle renders =
+flag is on; "tiny swimming microbe" returned 90/14559 results). **The opt-in semantic
+(A) layer is BROKEN on prod** — toggling Smart drops the BeakerBot loader into its error
+state ("Something went wrong loading this page", step = "Loading the smart-search model").
+
+Root cause (extracted from the swallowed `BootState.error` via React fiber walk):
+```
+TypeError: Cannot convert undefined or null to object
+    at Object.keys (<anonymous>)
+    at module evaluation (…/_next/static/chunks/e542494e8f278029.js)
+    at q (…/turbopack-…js)   ← Turbopack module loader
+```
+`import("@xenova/transformers")` **throws at module-evaluation** under the **Turbopack**
+production bundle (an `Object.keys(undefined)` in the library's top-level init). The import
+never resolves, so **no model / ort-wasm / embeddings.bin fetch is ever issued** — confirmed
+via network + `performance.getEntriesByType('resource')` (only `loro_wasm` loaded; meta.json
+200; zero transformers/onnx/wasm). **So this is NOT an R2/CSP/asset problem** — INJEST curled
+every sidecar 200 + CORS, and I confirmed meta.json 200 client-side. It's a client bundling bug.
+
+Fails safe: keyword search keeps working, the loader shows a retry, no soft-lock.
+
+**Fix candidates (untried — each needs a full prod build to verify, Turbopack can't symlink deps):**
+1. Add `@xenova/transformers` (+ maybe `onnxruntime-web`) to `transpilePackages` in
+   `next.config.ts` — there is direct precedent there for Ketcher ("ESM Turbopack fails to
+   bundle → RangeError"). Cheapest first try.
+2. Migrate to the maintained successor `@huggingface/transformers` (v3) — better ESM/bundler
+   compat; `@xenova/transformers@2.17.2` is the deprecated predecessor.
+3. Runtime-load transformers from a CDN (avoids Turbopack) — but CSP must allow that origin,
+   which the design deliberately avoided. Least preferred.
+
 ## To ship
 
 Branch is ff-able onto `origin/main`. Push is Grant's call (new feature, not the
