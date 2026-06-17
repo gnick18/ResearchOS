@@ -134,29 +134,35 @@ export async function readLabMembersWork(
 
   // 3. Open the lab from the relay, the roster plus the key envelopes. The
   //    current-generation key is the highest generation. Same derivation as
-  //    openLabKeyForHead in lab-head-membership.ts.
-  const remote = await d.fetchLab(labId);
-  if (!remote || remote.envelopes.length === 0) {
+  //    openLabKeyForHead in lab-head-membership.ts. A relay or key-open failure
+  //    surfaces as a clear error rather than an uncaught throw.
+  let labKey: Uint8Array;
+  let members: LabMember[];
+  try {
+    const remote = await d.fetchLab(labId);
+    if (!remote || remote.envelopes.length === 0) {
+      return {
+        ok: false,
+        error: "lab not found or has no key envelopes",
+        members: [],
+      };
+    }
+    const current = remote.envelopes.reduce((a, b) =>
+      b.generation > a.generation ? b : a,
+    );
+    labKey = d.openKey(current, piUsername, identity.keys.encryption.privateKey);
+    // 4. Every member except the head. The head's own work is reachable through
+    //    the own-only tools, so it is not duplicated (and not self-audited) here.
+    members = remote.record.members.filter(
+      (m: LabMember) => m.username !== piUsername,
+    );
+  } catch (err) {
     return {
       ok: false,
-      error: "lab not found or has no key envelopes",
+      error: err instanceof Error ? err.message : String(err),
       members: [],
     };
   }
-  const current = remote.envelopes.reduce((a, b) =>
-    b.generation > a.generation ? b : a,
-  );
-  const labKey = d.openKey(
-    current,
-    piUsername,
-    identity.keys.encryption.privateKey,
-  );
-
-  // 4. Every member except the head. The head's own work is reachable through
-  //    the own-only tools, so it is not duplicated (and not self-audited) here.
-  const members = remote.record.members.filter(
-    (m: LabMember) => m.username !== piUsername,
-  );
 
   const out: LabMemberWork[] = [];
   for (const member of members) {
