@@ -171,8 +171,12 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
               ? "Release to connect this folder"
               : "Drag your data folder here"}
           </h2>
-          {!isDragOver && (
-            <>
+          {/* Always in layout (invisible on drag) so the drop box never
+              shrinks under the cursor mid-drag. */}
+          <div
+            className={isDragOver ? "invisible" : ""}
+            aria-hidden={isDragOver || undefined}
+          >
               <div className="mt-5 flex items-center justify-center gap-3 text-xs text-foreground-muted">
                 <span className="h-px w-10 bg-border" />
                 or
@@ -191,8 +195,7 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
                 Chrome and Edge only. Dragging skips the file picker, which can
                 stall while a cloud sync wakes up.
               </p>
-            </>
-          )}
+          </div>
           {dropError && (
             <p
               role="alert"

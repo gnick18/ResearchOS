@@ -159,13 +159,19 @@ export default function FileDropzone({
           ? "Drop to upload"
           : (label ?? (multiple ? "Drag and drop files" : "Drag and drop a file"))}
       </span>
-      {!dragOver && (
-        <span className="text-meta text-foreground-muted">
-          or{" "}
-          <span className="font-semibold text-brand-action">click to choose</span>
-          {hint ? ` · ${hint}` : ""}
-        </span>
-      )}
+      {/* Keep this line ALWAYS in the layout so the box height never changes on
+          drag-over (it just goes invisible). Removing it on drag made the drop
+          target SHRINK under the cursor, so drops aimed at the resting box
+          landed outside the shrunken one. The box must never get smaller while
+          a file is hovering over it. */}
+      <span
+        className={`text-meta text-foreground-muted transition-opacity ${dragOver ? "invisible" : ""}`}
+        aria-hidden={dragOver || undefined}
+      >
+        or{" "}
+        <span className="font-semibold text-brand-action">click to choose</span>
+        {hint ? ` · ${hint}` : ""}
+      </span>
       <input
         ref={inputRef}
         id={inputId}

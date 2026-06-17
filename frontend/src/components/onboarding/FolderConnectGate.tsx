@@ -501,8 +501,12 @@ export default function FolderConnectGate({
                   ? "Release to connect this folder"
                   : "Drag your data folder here"}
               </h2>
-              {!isDragOver && (
-                <>
+              {/* Always in layout (invisible on drag) so the drop box never
+                  shrinks under the cursor mid-drag. */}
+              <div
+                className={isDragOver ? "invisible" : ""}
+                aria-hidden={isDragOver || undefined}
+              >
                   <p className="mt-1.5 text-body text-foreground-muted">
                     Drop it anywhere in this box to connect.
                   </p>
@@ -528,8 +532,7 @@ export default function FolderConnectGate({
                     skips the file picker, which can stall while a cloud sync
                     wakes up. Chrome and Edge only.
                   </p>
-                </>
-              )}
+              </div>
               {dropError && (
                 <p
                   role="alert"
