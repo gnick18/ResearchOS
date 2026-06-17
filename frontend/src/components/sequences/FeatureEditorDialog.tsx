@@ -618,7 +618,7 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={submit}
-                disabled={!segValidation.allOk}
+                disabled={!segValidation.allOk || !name.trim()}
                 className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isAdd ? "Add feature" : "Save"}
