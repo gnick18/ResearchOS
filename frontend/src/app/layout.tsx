@@ -6,6 +6,7 @@ import OfflineGatedAnalytics from "@/components/OfflineGatedAnalytics";
 import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
 import BeakerBotBridges from "@/components/ai/BeakerBotBridges";
 import ObjectPopupHost from "@/components/ObjectPopupHost";
+import UpgradeNudge from "@/components/billing/UpgradeNudge";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -128,6 +129,10 @@ export default function RootLayout({
             root so it survives the disconnect that self-export triggers (which
             unmounts the in-app modal) and shows on the connect screen. */}
         <SelfExportResultBanner />
+        {/* Gentle, infrequent upgrade nudge host. Renders nothing until a paid
+            produce-feature paywall fires triggerUpgradeNudge for a free user, and
+            stays dormant entirely until billing is live (NEXT_PUBLIC_BILLING_LIVE). */}
+        <UpgradeNudge />
         <OfflineGatedAnalytics />
       </body>
     </html>
