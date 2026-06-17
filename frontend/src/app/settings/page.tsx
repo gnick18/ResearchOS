@@ -25,6 +25,7 @@ import DevicesSection from "@/components/settings/DevicesSection";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 import UserAvatar from "@/components/UserAvatar";
 import VersionBadge from "@/components/VersionBadge";
 import WhatsNewModal from "@/components/WhatsNewModal";
@@ -138,13 +139,13 @@ export default function SettingsPage() {
     }
   }, [router]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") exit();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [exit]);
+  // Settings is the bottom overlay layer: register on the shared Escape stack so
+  // a nested dialog (e.g. Rotate key) opened on top closes FIRST and only a
+  // second Escape exits Settings. The raw window listener this replaces ignored
+  // defaultPrevented, so Escape used to bypass an open dialog and exit Settings
+  // outright. Section nav uses router.replace (no history buildup) and a direct
+  // load falls back to /workbench, so exit() never walks into chrome://newtab.
+  useEscapeLayer(true, exit);
 
   return (
     <div className="fixed inset-0 z-[60] flex flex-col bg-surface-sunken">
