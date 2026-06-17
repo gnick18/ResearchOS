@@ -38,30 +38,25 @@ describe("WelcomePage", () => {
     expect(screen.getByText("Free, but accountable")).toBeTruthy();
   });
 
-  it("renders the tri-CTA on the unsupported (phone) path", () => {
+  // The phone-welcome redesign (2026-06-11) removed the tri-CTA card set
+  // ("Get the companion app", "Open on desktop for the full app", "Be first
+  // to know"). The unsupported path now renders the same full marketing page
+  // with an amber sticky banner gated on isMobile===false (client-only,
+  // after mount). None of the removed copy should appear on either path.
+  it("does not render tri-CTA copy on the unsupported (phone) path", () => {
     render(<WelcomePage unsupported />);
 
-    // The three CTA cards, in priority order.
-    expect(screen.getByText("Get the companion app")).toBeTruthy();
+    expect(screen.queryByText("Get the companion app")).toBeNull();
+    expect(screen.queryByText("Be first to know")).toBeNull();
+    // The full marketing content still renders on the phone path.
     expect(
-      screen.getByText("Open on desktop for the full app"),
+      screen.getByText("The companion app brings ResearchOS to the bench"),
     ).toBeTruthy();
-    expect(screen.getByText("Be first to know")).toBeTruthy();
-
-    // Demo + notify hand-offs are present and wired.
-    expect(screen.getByTestId("phone-cta-demo").getAttribute("href")).toBe(
-      "/demo",
-    );
-    expect(
-      screen.getByTestId("phone-cta-notify").getAttribute("href"),
-    ).toMatch(/^mailto:/);
-
-    // Companion store badges default to a "Coming soon" state (no live flag).
-    expect(screen.getAllByText("Coming soon to").length).toBe(2);
   });
 
-  it("hides the tri-CTA on the supported desktop path", () => {
+  it("does not render tri-CTA copy on the supported desktop path either", () => {
     render(<WelcomePage />);
     expect(screen.queryByText("Get the companion app")).toBeNull();
+    expect(screen.queryByText("Be first to know")).toBeNull();
   });
 });

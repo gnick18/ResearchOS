@@ -161,6 +161,7 @@ describe("tabsForFeaturePicks() — lab paths", () => {
       "/datahub",
       "/phylo",
       "/figures",
+      "/library",
     ]);
     expect(result).toEqual(NAV_ORDER.filter((href) => !FLAG_GATED.has(href)));
   });
