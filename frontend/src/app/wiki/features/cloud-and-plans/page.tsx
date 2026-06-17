@@ -222,7 +222,7 @@ export default async function CloudAndPlansPage() {
       <h2>Related</h2>
       <p>
         <Link href="/wiki/getting-started/accounts">Accounts and tiers</Link>{" "}
-        covers Local-only, Free, and Lab accounts.{" "}
+        covers the Free account and Lab tiers.{" "}
         <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link>{" "}
         explains the funding model, and{" "}
         <Link href="/wiki/features/sharing-and-permissions">

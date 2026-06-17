@@ -92,9 +92,9 @@ export default async function SettingsFeaturePage() {
 
       <h3>Usage &amp; billing</h3>
       <p>
-        Visible only to users with a cloud account (or an active OAuth session).
-        Solo users without an account see the Add a free account card in the You
-        group instead.
+        Because a free account is required to use ResearchOS, this section is
+        available to everyone once you are signed in. It surfaces your cloud and
+        AI usage so you always know where you stand.
       </p>
 
       <Screenshot

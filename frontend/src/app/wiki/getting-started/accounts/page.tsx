@@ -7,63 +7,49 @@ import { Steps, Step } from "@/components/wiki/Steps";
 export default function AccountsPage() {
   return (
     <WikiPage
-      intro="ResearchOS has three tiers, each designed around how much you want to share and collaborate. You pick one when you create your account, and you can switch later."
+      intro="A free account is how you sign in to ResearchOS, and your data still lives on your own disk, end to end encrypted, and works offline after that first sign-in. There are two tiers, the Free account and the Lab, and you can move between them later without losing any data."
     >
       <h2>How you get here</h2>
       <p>
-        The account-first entry is the default. When you open ResearchOS
-        signed in but without a data folder connected, you land on the{" "}
-        <strong>/account</strong> home rather than the folder-connect wall.
-        From there you choose a tier before linking any folder. If you arrived
-        via OAuth (Google, GitHub, ORCID, or LinkedIn) the provider sign-in
-        happens first, and the tier-chooser screen follows once the OAuth
-        handshake completes.
+        A free account is required to use ResearchOS, and you create it by
+        signing in once with OAuth (Google, GitHub, ORCID, or LinkedIn). The
+        account is your identity, not your storage. Your research still lives in
+        a folder on your own machine, end to end encrypted, and the app keeps
+        working offline after the first sign-in. When you open ResearchOS signed
+        in but without a data folder connected, you land on the{" "}
+        <strong>/account</strong> home rather than the folder-connect wall, and
+        the provider sign-in happens first.
       </p>
 
       <Screenshot
         src="/wiki/screenshots/accounts-start-screen.png"
-        alt="The account start screen with the three-path tier chooser."
-        caption="The account start screen. Choose a path before connecting your folder."
+        alt="The account start screen."
+        caption="The account start screen. You sign in once, then connect your folder."
       />
 
       <Screenshot
         src="/wiki/screenshots/accounts-tier-chooser.png"
-        alt="The tier chooser showing the Just me local tile, Free account tile, and Lab tile."
+        alt="The tier chooser showing the Free account tile and the Lab tile."
         caption="The tier-chooser. The Lab tile is shown when the Lab tier is available."
       />
 
-      <h2>The three tiers</h2>
+      <h2>The two tiers</h2>
       <p>
-        The tier chooser presents three paths. Understanding what each one is
-        will save you from picking the wrong one and wondering why a feature
-        is missing.
-      </p>
-
-      <h3>Just me, local (solo, no login)</h3>
-      <p>
-        The lightest path. You connect a folder, pick a username, and
-        ResearchOS is ready to go. No account is created, no sign-in happens,
-        and nothing leaves your machine. All features that don&apos;t involve
-        sharing are available, including the full Workbench, notes, methods,
-        sequences, calculators, and purchases.
-      </p>
-      <p>
-        Pick this if you work alone and have no need to share data or
-        collaborate with people outside your folder. If you share a lab folder
-        via OneDrive, Dropbox, or Google Drive, the existing{" "}
-        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> setup
-        is a local-only workflow too. &ldquo;Just me, local&rdquo; is the right
-        pick for anyone who wants to try the app without committing to an
-        account.
+        Both tiers require the same free sign-in, and in both your data stays on
+        your own disk. The difference is how much you collaborate. Understanding
+        what each one is will save you from picking the wrong one and wondering
+        why a feature is missing.
       </p>
 
       <h3>Free account (solo + sharing)</h3>
       <p>
-        You sign in with Google, GitHub, ORCID, or LinkedIn. Your data still
-        lives on your disk. Signing in creates a cloud identity with an{" "}
-        <strong>@handle</strong> and a researcher profile (name, institution,
-        ORCID, and other typed links) that other researchers can find. It
-        unlocks two sharing surfaces.
+        The default. You sign in with Google, GitHub, ORCID, or LinkedIn, and
+        your data still lives on your disk. Signing in creates a cloud identity
+        with an <strong>@handle</strong> and a researcher profile (name,
+        institution, ORCID, and other typed links) that other researchers can
+        find. The full Workbench, notes, methods, sequences, calculators, and
+        purchases all work offline, and the account also unlocks two sharing
+        surfaces.
       </p>
       <ul>
         <li>
@@ -108,10 +94,9 @@ export default function AccountsPage() {
       </p>
 
       <Callout variant="tip" title="Not sure which to pick?">
-        Start with &ldquo;Just me, local.&rdquo; You can connect a folder,
-        build out your projects, and switch to a Free account or a Lab later
-        without losing any data. The tier is tied to your account, not to your
-        folder.
+        Start with the Free account. You sign in once, connect a folder, build
+        out your projects, and move into a Lab later without losing any data.
+        The tier is tied to your account, not to your folder.
       </Callout>
 
       <h2>A side-by-side comparison</h2>
@@ -120,21 +105,18 @@ export default function AccountsPage() {
           <thead>
             <tr className="bg-surface-sunken text-foreground-muted text-meta uppercase tracking-wide">
               <th className="px-4 py-2.5 text-left font-semibold">Feature</th>
-              <th className="px-4 py-2.5 text-center font-semibold">Just me, local</th>
               <th className="px-4 py-2.5 text-center font-semibold">Free account</th>
               <th className="px-4 py-2.5 text-center font-semibold">Lab</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
             <tr>
-              <td className="px-4 py-2.5 text-foreground">Sign-in required</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (OAuth)</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (OAuth)</td>
+              <td className="px-4 py-2.5 text-foreground">Free sign-in</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (OAuth, once)</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (OAuth, once)</td>
             </tr>
             <tr className="bg-surface-sunken/40">
-              <td className="px-4 py-2.5 text-foreground">Your data stays on your disk</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
+              <td className="px-4 py-2.5 text-foreground">Your data stays on your disk, end to end encrypted</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
@@ -142,41 +124,34 @@ export default function AccountsPage() {
               <td className="px-4 py-2.5 text-foreground">Full Workbench, methods, sequences</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr className="bg-surface-sunken/40">
-              <td className="px-4 py-2.5 text-foreground">Works fully offline</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
+              <td className="px-4 py-2.5 text-foreground">Works fully offline after sign-in</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes, but live co-editing needs internet</td>
             </tr>
             <tr>
               <td className="px-4 py-2.5 text-foreground">Send notes/files to other researchers</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">Researcher directory listing</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr>
               <td className="px-4 py-2.5 text-foreground">Real-time co-editing with labmates</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">PI Lab Overview dashboard</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (Lab Head)</td>
             </tr>
             <tr>
               <td className="px-4 py-2.5 text-foreground">Cloud sync for real-time collaboration</td>
-              <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
@@ -184,38 +159,23 @@ export default function AccountsPage() {
         </table>
       </div>
 
-      <h2>How to create a &ldquo;Just me, local&rdquo; account</h2>
+      <h2>How to create a Free account</h2>
       <Steps>
         <Step>
-          On the start screen, choose <strong>Just me, local</strong>.
+          On the start screen, sign in with Google, GitHub, ORCID, or LinkedIn.
+          This creates a cloud identity with an <strong>@handle</strong> and a
+          researcher profile other researchers can find in the directory. The
+          sign-in happens once, and ResearchOS remembers it so you don&apos;t
+          have to sign in again on this device. After that the app works offline.
         </Step>
         <Step>
-          Connect your data folder using the browser&apos;s folder picker. See{" "}
+          Connect your data folder using the browser&apos;s folder picker. Your
+          folder stays on your machine, end to end encrypted. The OAuth
+          credential is stored only in your browser, not in your folder. See{" "}
           <Link href="/wiki/getting-started/connecting-your-folder">
             Connecting your folder
           </Link>{" "}
           if you are new to this step.
-        </Step>
-        <Step>
-          Pick a username. You land on your Workbench.
-        </Step>
-      </Steps>
-
-      <h2>How to create a Free account</h2>
-      <Steps>
-        <Step>
-          On the start screen, choose <strong>Free account</strong>.
-        </Step>
-        <Step>
-          Sign in with Google, GitHub, ORCID, or LinkedIn. This creates a
-          cloud identity with an <strong>@handle</strong> and a researcher
-          profile other researchers can find in the directory. The sign-in
-          happens once, and ResearchOS remembers it so you don&apos;t have to
-          sign in again on this device.
-        </Step>
-        <Step>
-          Connect your data folder. Your folder stays on your machine. The
-          OAuth credential is stored only in your browser, not in your folder.
         </Step>
         <Step>
           Pick a username. You land on your Workbench. The sharing features
@@ -294,7 +254,7 @@ export default function AccountsPage() {
       </p>
       <ul>
         <li>
-          <strong>&ldquo;Just me, local&rdquo; and Free accounts:</strong> free,
+          <strong>Free accounts:</strong> free,
           no cloud storage used, no billing ever.
         </li>
         <li>
@@ -315,14 +275,13 @@ export default function AccountsPage() {
         for the broader funding story.
       </Callout>
 
-      <h2>Upgrading later</h2>
+      <h2>Moving into a lab later</h2>
       <p>
-        None of your data is locked to a tier. If you start Local-only and
-        later want sharing features, go to{" "}
-        <strong>Settings &rarr; Account</strong> and sign in with OAuth to
-        upgrade to a Free account. If you want to move into a lab, the Lab Head
-        can send you an invite link at any point. Your folder, projects, notes,
-        and methods carry over without any migration step.
+        None of your data is locked to a tier. If you start as a solo Free
+        account and later want to collaborate in real time, the Lab Head can
+        send you an invite link at any point, or you can find their lab in the
+        directory and request to join. Your folder, projects, notes, and methods
+        carry over without any migration step.
       </p>
 
       <Callout variant="tip" title="Lab Head: you can invite someone who is already a Free account user">
