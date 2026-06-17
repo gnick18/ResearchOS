@@ -73,7 +73,6 @@ export interface AccountTierChooserProps {
 type ChooserStep =
   | { view: "tiles" }
   | { view: "free-provider" }
-  | { view: "lab-choice" }
   | { view: "lab-create-provider" }
   | { view: "lab-join" };
 
@@ -325,53 +324,9 @@ function ProviderSubStep({
   );
 }
 
-// ---- Sub-step: create or join a lab ----
-function LabChoiceSubStep({
-  onCreate,
-  onJoin,
-  onBack,
-}: {
-  onCreate: () => void;
-  onJoin: () => void;
-  onBack: () => void;
-}) {
-  return (
-    <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
-      <div className="w-16 h-20 mb-3 flex-none">
-        <BeakerBotScene name="lab" className="w-full h-full" />
-      </div>
-      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
-        Set up a lab
-      </h1>
-      <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-sm">
-        You can create a new lab or join one you have been invited to.
-      </p>
-      <div className="w-full max-w-xs space-y-3">
-        <button
-          type="button"
-          className="w-full py-3 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-          onClick={onCreate}
-        >
-          Create a lab
-        </button>
-        <button
-          type="button"
-          className="w-full py-3 px-4 rounded-xl border border-border bg-surface-raised hover:border-[#1283c9] text-foreground font-semibold text-sm transition-colors"
-          onClick={onJoin}
-        >
-          Join a lab
-        </button>
-      </div>
-      <button
-        type="button"
-        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
-        onClick={onBack}
-      >
-        Back
-      </button>
-    </div>
-  );
-}
+// (The old create-or-join sub-step was removed: a joining member must never be
+// funneled through the paid "create a lab" path, so "Start a lab" now goes
+// straight to lab creation and "Join a lab" is its own free entry on the tiles.)
 
 // ---- Lab directory search result shape ----
 interface LabSearchResult {
@@ -764,6 +719,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
                 <li>Data still on your disk</li>
                 <li>Findable in the directory</li>
                 <li>Receive shares, plus 1.6M AI tokens to start</li>
+                <li>Upgrade to Solo anytime to send and co-edit</li>
               </ul>
               <div className="mt-auto pt-4">
                 <button
@@ -777,20 +733,23 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
             </div>
           )}
 
-          {/* Lab tile — shown when LAB_TIER_ENABLED */}
+          {/* Start-a-lab tile, LAB HEAD ONLY (shown when LAB_TIER_ENABLED). A
+              joining member uses the separate free "Join a lab" entry below, and
+              must never be funneled through this paid create path. */}
           {showLab && (
             <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
               <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
                 Paid
               </span>
-              <h3 className="font-extrabold text-lg text-foreground mb-1">Lab</h3>
+              <h3 className="font-extrabold text-lg text-foreground mb-1">Start a lab</h3>
               <p className="text-xs text-foreground-muted mt-1">
-                Run or join a lab. Real-time collaboration, PI oversight,
-                cloud-backed so your team works together.
+                For a lab head. You are the PI, so you create the lab and invite
+                your team. Real-time collaboration, the companion app, and your
+                lab's web home.
               </p>
               <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
-                <li>Create a lab or join one</li>
+                <li>You pay; your members join free</li>
                 <li>Cloud sync (server-blind)</li>
                 <li>Everything in Free, too</li>
               </ul>
@@ -798,14 +757,41 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
                 <button
                   type="button"
                   className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-                  onClick={() => setStep({ view: "lab-choice" })}
+                  onClick={() => setStep({ view: "lab-create-provider" })}
                 >
-                  Create or join a lab
+                  Start a lab
                 </button>
               </div>
             </div>
           )}
         </div>
+
+        {/* JOIN A LAB: a member joining is FREE (only the PI pays), so this is a
+            separate, clearly-free entry that routes straight to the invite path
+            and never touches the paid "Start a lab" create flow. */}
+        {showLab && (
+          <div className="w-full max-w-3xl mt-5">
+            <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-center sm:flex-row sm:text-left">
+              <div>
+                <div className="text-sm font-bold text-foreground">
+                  Joining a lab your PI runs?
+                </div>
+                <p className="mt-0.5 text-xs text-foreground-muted">
+                  That is free, not a paid plan. Accept the invite your lab head
+                  sent you. Only the lab head pays, members never do.
+                </p>
+              </div>
+              <button
+                type="button"
+                data-testid="chooser-join-lab"
+                className="inline-flex flex-none items-center gap-2 rounded-xl border border-green-300 bg-white px-5 py-2.5 text-sm font-semibold text-green-800 transition-colors hover:border-green-500"
+                onClick={() => setStep({ view: "lab-join" })}
+              >
+                Join with an invite
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* solo escape hatch, hidden when the require-account flag retires the
             no-account path (showLocal). */}
@@ -901,17 +887,6 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
     );
   }
 
-  // ---- Step: Lab create or join ----
-  if (step.view === "lab-choice") {
-    return (
-      <LabChoiceSubStep
-        onCreate={() => setStep({ view: "lab-create-provider" })}
-        onJoin={() => setStep({ view: "lab-join" })}
-        onBack={() => setStep({ view: "tiles" })}
-      />
-    );
-  }
-
   // ---- Step: Lab create provider picker ----
   if (step.view === "lab-create-provider") {
     return (
@@ -919,15 +894,15 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
         heading="Create a lab"
         subheading="Sign in with a provider to anchor your lab identity. Your data stays on your disk; the sign-in only binds the lab to your OAuth email."
         onProvider={handleLabCreateProvider}
-        onBack={() => setStep({ view: "lab-choice" })}
+        onBack={() => setStep({ view: "tiles" })}
       />
     );
   }
 
-  // ---- Step: Lab join via invite link ----
+  // ---- Step: Lab join via invite link (FREE, members never pay) ----
   if (step.view === "lab-join") {
     return (
-      <LabJoinSubStep onBack={() => setStep({ view: "lab-choice" })} />
+      <LabJoinSubStep onBack={() => setStep({ view: "tiles" })} />
     );
   }
 
