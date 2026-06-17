@@ -66,6 +66,9 @@ const EXCLUDED_PREFIXES = [
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
   "/ai", // public BeakerBot marketing page (sells the AI assistant; no AppShell, like /pricing and /welcome, not a documented in-app feature)
+  "/labs", // public lab-tier product/sell page (number-free, links /pricing; no AppShell, marketing/informational, like /ai and /pricing)
+  "/departments", // public department-tier product/sell page (number-free, links /pricing; no AppShell, marketing/informational, like /labs)
+  "/app", // public companion-app sell page (markets the mobile app; no AppShell, marketing/informational, like /ai and /pricing)
   "/chemistry-embed-check", // dev-only Ketcher/RDKit embed probe (not a documented user feature; like /sharing-setup-test)
   "/phylo", // pending wiki page (phylogenetics page; the wiki page + APP_ROUTE_TO_WIKI entry land with the BeakerBot/embeds phase). Like /sequences.
   "/people", // pending wiki page (PI Mode People roster, PE-1; real PI-only AppShell page, wiki page + mapping land with the PI-experience lane). Like /phylo.
