@@ -2,6 +2,24 @@
 
 For the iOS + Android apps.
 
+## CORRECTION (2026-06-17): Apple individual enrollment was NEVER completed
+
+Grant checked on 2026-06-17: the Apple individual enrollment was never finished.
+He had reached the final enrollment page but never paid or submitted, so there is
+NO active Apple membership of any kind. The earlier "enrolled as Individual, paid
+($99/yr)" status below (2026-06-07) was written ahead of the fact and is WRONG.
+
+Decision (Grant, 2026-06-17): abandon the individual flow and enroll Apple as the
+**ResearchOS LLC organization** directly (route B), using D-U-N-S 145038194. This
+supersedes the 2026-06-10 route-A call. Because individual was never paid, there
+is no second-membership overlap cost and no later App Transfer needed. Restart the
+Apple enrollment, choose Company / Organization (not Individual), and enroll under
+the LLC role Apple ID. See section 1 below for the org steps.
+
+Cleanup owed: clear any premature `appleEnrollmentId` / enrollment date in the
+`/admin/business` entity card and remove any phantom $99 Apple "Dev accounts"
+ledger line, since no payment ever happened (keep the books honest).
+
 ## STATUS (2026-06-07): both accounts enrolled, PERSONAL
 
 Decision was made to launch under PERSONAL accounts, not the LLC org, to skip the
