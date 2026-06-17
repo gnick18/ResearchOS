@@ -71,6 +71,18 @@
   .nudge .acts .later { background:#fff; color:var(--muted); border:1px solid var(--line); }
   .rules { margin-top:12px; font-size:13px; color:var(--muted); }
   .rules b { color:var(--ink); }
+
+  /* companion app band */
+  .appband { background:linear-gradient(135deg,#0f172a,#1e293b); color:#e2e8f0; border-radius:20px; padding:24px; box-shadow:var(--raise); }
+  .apphead { display:flex; gap:16px; align-items:center; margin-bottom:18px; }
+  .apphead .phone { width:46px; height:46px; flex:none; border-radius:12px; background:rgba(255,255,255,.1); display:flex; align-items:center; justify-content:center; font-size:22px; }
+  .apphead h2 { margin:0; font-size:20px; font-weight:800; color:#fff; }
+  .apphead p { margin:2px 0 0; font-size:14px; color:#94a3b8; }
+  .appgrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .appcell { background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-radius:14px; padding:16px; }
+  .appcell .ah { font-weight:800; font-size:15px; color:#fff; margin-bottom:4px; }
+  .appcell p { margin:0; font-size:13px; color:#cbd5e1; line-height:1.5; }
+  .appfoot { margin:16px 0 0; font-size:13px; color:#94a3b8; }
 </style>
 </head>
 <body>
@@ -98,7 +110,7 @@
         <li>Accept folder and lab invites</li>
         <li>One-time gift of about 1.6M AI tokens on sign-up</li>
         <li class="no">Send or co-edit your own work (paid)</li>
-        <li class="no">Phone capture sync (paid)</li>
+        <li class="no">The companion app paired to your lab (paid)</li>
       </ul>
       <button class="btn ghost">Start free</button>
     </div>
@@ -125,6 +137,36 @@
     </div>
   </div>
   <p class="note" style="margin-top:14px;">Sequencing keeps your locked "free wizard first" intent: a brand-new visitor can still hit "Start free" and explore with no login. This Free-vs-Paid screen is the choice moment, and "Start free" still leads to the account pitch (1.6M token gift + AI-tailored onboarding) or staying local.</p>
+
+  <div class="sec-label">The companion app, a paid superpower (surface this everywhere)</div>
+  <div class="appband">
+    <div class="apphead">
+      <div class="phone">▢</div>
+      <div>
+        <h2>Your whole lab in your pocket</h2>
+        <p>The single biggest reason to pay, and today it is barely mentioned. Pairing the app to your real lab is part of every paid plan.</p>
+      </div>
+    </div>
+    <div class="appgrid">
+      <div class="appcell">
+        <div class="ah">Capture at the bench</div>
+        <p>Snap a photo and annotate it, jot a note, log a measurement. It lands in the right experiment on your laptop, no retyping.</p>
+      </div>
+      <div class="appcell">
+        <div class="ah">Read and run anywhere</div>
+        <p>Your notebook, protocols, and methods on your phone, with step timers wired to the protocol you are actually running.</p>
+      </div>
+      <div class="appcell">
+        <div class="ah">Inventory in hand</div>
+        <p>Scan a barcode, see the room map, and add low stock to a one-tap reorder queue while you are standing at the shelf.</p>
+      </div>
+      <div class="appcell">
+        <div class="ah">Stay in the loop</div>
+        <p>Push notifications for your lab, so a finished run or a teammate's request reaches you off the bench.</p>
+      </div>
+    </div>
+    <p class="appfoot">Free to download with offline timers, calculators, and the wiki, plus a demo so anyone can see capture working. Pairing to your real lab is the paid part, included on Solo, Lab, and Department.</p>
+  </div>
 
   <div class="sec-label">The gentle nudge (for users who chose Free)</div>
   <div class="demo">
