@@ -124,7 +124,7 @@ function SummaryEditor({
       <table className="border-collapse text-body tabular-nums">
         <thead>
           <tr>
-            <th className="border border-border bg-surface-sunken px-3 py-1.5 text-meta font-medium text-foreground-muted">
+            <th className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1.5 text-meta font-medium text-foreground-muted">
               Stat
             </th>
             {groups.map((g) => (
@@ -134,7 +134,7 @@ function SummaryEditor({
                   if (readOnly || !onRenameSummaryGroup) return;
                   setRenamingGroupId(g.datasetId);
                 }}
-                className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
+                className="min-w-[96px] border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1.5 text-center text-body font-semibold text-foreground"
               >
                 {renamingGroupId === g.datasetId ? (
                   <ColumnRenameInput
@@ -157,7 +157,7 @@ function SummaryEditor({
         <tbody>
           {statRows.map((r) => (
             <tr key={r.key} data-testid={`datahub-summary-${r.key}`}>
-              <td className="border border-border bg-surface-sunken px-3 py-1 text-right text-meta font-medium uppercase tracking-wide text-foreground-muted">
+              <td className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1 text-right text-meta font-medium uppercase tracking-wide text-foreground-muted">
                 {r.label}
               </td>
               {groups.map((g) => {
@@ -273,7 +273,7 @@ export default function DataTableGrid({
             <table className="border-collapse text-body tabular-nums">
               <thead>
                 <tr>
-                  <th className="border border-border bg-surface-sunken px-3 py-1.5 text-meta font-medium text-foreground-muted">
+                  <th className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1.5 text-meta font-medium text-foreground-muted">
                     #
                   </th>
                   {columns.map((col) => (
@@ -285,7 +285,7 @@ export default function DataTableGrid({
                       onDoubleClick={
                         readOnly ? undefined : () => menu.beginRename(col.id)
                       }
-                      className="min-w-[96px] border border-border bg-surface-sunken px-3 py-1.5 text-center text-body font-semibold text-foreground"
+                      className="min-w-[96px] border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1.5 text-center text-body font-semibold text-foreground"
                     >
                       {menu.renamingColumnId === col.id ? (
                         <ColumnRenameInput
@@ -307,7 +307,7 @@ export default function DataTableGrid({
                       onContextMenu={
                         readOnly ? undefined : (e) => menu.openRowMenu(e, row.id)
                       }
-                      className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                      className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1 text-center text-meta text-foreground-muted"
                     >
                       {r + 1}
                     </td>
@@ -330,7 +330,7 @@ export default function DataTableGrid({
               <tfoot>
                 {(["mean", "sd", "sem", "n"] as const).map((kind) => (
                   <tr key={kind} data-testid={`datahub-footer-${kind}`}>
-                    <td className="border border-border bg-surface-sunken px-3 py-1 text-right text-meta font-medium uppercase tracking-wide text-foreground-muted">
+                    <td className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1 text-right text-meta font-medium uppercase tracking-wide text-foreground-muted">
                       {kind === "sem"
                         ? "SEM"
                         : kind === "sd"
@@ -348,7 +348,7 @@ export default function DataTableGrid({
                       return (
                         <td
                           key={col.id}
-                          className="border border-border bg-surface-sunken px-3 py-1 text-center text-meta text-foreground-muted"
+                          className="border border-border bg-surface-sunken dark:bg-surface-overlay px-3 py-1 text-center text-meta text-foreground-muted"
                         >
                           {text}
                         </td>
