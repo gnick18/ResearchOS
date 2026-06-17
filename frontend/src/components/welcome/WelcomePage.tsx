@@ -54,6 +54,7 @@ import {
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
+import type { IconName } from "@/components/icons/registry";
 import MarketingFooter from "@/components/MarketingFooter";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
@@ -391,9 +392,25 @@ function CostTable() {
  * Companion-app capability card (mockup section 6, the spotlight). A dark card
  * sitting on the navy spotlight band.
  * -------------------------------------------------------------------------- */
-function CapabilityCard({ title, body }: { title: string; body: string }) {
+function CapabilityCard({
+  icon,
+  title,
+  body,
+}: {
+  icon?: IconName;
+  title: string;
+  body: string;
+}) {
   return (
     <div className="rounded-xl border border-[#24375c] bg-white/[0.04] p-4">
+      {icon ? (
+        <span
+          aria-hidden
+          className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-lg bg-brand-sky/15 text-brand-sky"
+        >
+          <Icon name={icon} className="h-4 w-4" />
+        </span>
+      ) : null}
       <h3 className="text-title font-extrabold text-white">{title}</h3>
       <p className="mt-1.5 text-body leading-relaxed text-[#b9cde6]">{body}</p>
     </div>
@@ -912,6 +929,14 @@ export default function WelcomePage({
                 >
                   See the full pricing and the cost calculator{" "}
                   <span aria-hidden>&rarr;</span>
+                </a>{" "}
+                The companion app is free to download and paired on every paid
+                plan.{" "}
+                <a
+                  href="/app"
+                  className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+                >
+                  Learn more about the app <span aria-hidden>&rarr;</span>
                 </a>
               </p>
             </Reveal>
@@ -1179,35 +1204,56 @@ export default function WelcomePage({
                 </div>
               </Reveal>
 
-              {/* 2x2 capability grid, copy verbatim from the mockup. Each card
-                  cascades in after the phone at a 90ms step. */}
+              {/* 2x2 capability grid. The four capabilities mirror the bento on
+                  the /app sell page (Billing lane) so the two stay consistent.
+                  Each card cascades in after the phone at a 90ms step. */}
               <div className="grid gap-3.5 sm:grid-cols-2">
                 <Reveal delay={90}>
                   <CapabilityCard
-                    title="Snap a photo into the experiment"
-                    body="Photograph a gel, a plate, or the bench and it lands in the right experiment on your computer at full resolution. No cable, no retyping."
+                    icon="camera"
+                    title="Capture at the bench"
+                    body="Snap a gel or a plate and mark it up, jot a note, or log a measurement. It lands in the right experiment back on your laptop, with no retyping later."
                   />
                 </Reveal>
                 <Reveal delay={180}>
                   <CapabilityCard
-                    title="Scan handwritten notes to text"
-                    body="Point your phone at a page of bench scrawl and it pulls the text out, so a paper note becomes a searchable entry in the experiment."
+                    icon="alarmClock"
+                    title="Read and run with timers"
+                    body="Pull up your notebook, protocols, and methods at the bench, with step timers wired to the protocol you are running so a long incubation keeps time."
                   />
                 </Reveal>
                 <Reveal delay={270}>
                   <CapabilityCard
-                    title="Scan a barcode, inventory updates itself"
-                    body="Scan the barcode on a reagent box and inventory deducts automatically as you use it. No spreadsheet, no manual count, the stock stays right."
+                    icon="box"
+                    title="Inventory in hand"
+                    body="Scan a barcode, glance at the room map, and drop low stock into a one-tap reorder queue while you are standing at the shelf."
                   />
                 </Reveal>
                 <Reveal delay={360}>
                   <CapabilityCard
-                    title="Run methods on your phone, not on paper"
-                    body="Open a method in reading mode and follow it step by step at the bench instead of printing it. Add a variation note from your phone and it saves back to the run."
+                    icon="bell"
+                    title="Stay in the loop"
+                    body="Push notifications for your lab, so a finished run or a teammate's request reaches you when you are away from the bench."
                   />
                 </Reveal>
               </div>
             </div>
+
+            {/* Honest packaging framing + the link out to the full /app sell
+                page (Billing lane owns it). No prices here, /app and /pricing
+                carry the numbers. */}
+            <Reveal className="mt-7">
+              <p className="max-w-[64ch] text-body leading-relaxed text-[#b9cde6]">
+                The app is free to download, and pairing it to your real lab is
+                part of every paid plan.{" "}
+                <a
+                  href="/app"
+                  className="font-semibold text-[#7fc4ff] underline-offset-2 transition-colors hover:text-white hover:underline"
+                >
+                  Learn more about the app <span aria-hidden>&rarr;</span>
+                </a>
+              </p>
+            </Reveal>
 
             {/* Methods library in motion: opening a saved method and running it
                 step by step at the bench from the phone. */}
