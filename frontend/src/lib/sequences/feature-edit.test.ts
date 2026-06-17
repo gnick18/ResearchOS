@@ -20,9 +20,12 @@ import {
   notesFromQualifiers,
   readNoteFlag,
   withNoteFlag,
+  validateSegmentCoords,
+  validateAllSegments,
   TRANSLATE_NOTE_KEY,
   PRIORITIZE_NOTE_KEY,
   type FeatureDraft,
+  type FeatureSegment,
 } from "./feature-edit";
 import {
   documentToGenbank,
@@ -433,5 +436,115 @@ describe("qualifier editing", () => {
     const detail2 = genbankToDetail(gb, meta())!;
     const d2 = documentFromDetail({ ...detail2, genbank: gb } as SequenceDetail);
     expect(readNoteFlag(d2.features[0].notes, TRANSLATE_NOTE_KEY)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// validateSegmentCoords + validateAllSegments (P1 bounds validation)
+// ---------------------------------------------------------------------------
+
+describe("validateSegmentCoords", () => {
+  const SEQ_LEN = 4733; // matches the stress-test scenario
+
+  it("accepts a valid in-range segment", () => {
+    const r = validateSegmentCoords(0, 100, SEQ_LEN);
+    expect(r.ok).toBe(true);
+    expect(r.start).toBe(0);
+    expect(r.end).toBe(100);
+    expect(r.message).toBeUndefined();
+  });
+
+  it("accepts a segment spanning exactly the full sequence", () => {
+    const r = validateSegmentCoords(0, SEQ_LEN, SEQ_LEN);
+    expect(r.ok).toBe(true);
+    expect(r.start).toBe(0);
+    expect(r.end).toBe(SEQ_LEN);
+  });
+
+  it("rejects end > seqLen (the stress-test scenario: end=99999 on 4733 bp)", () => {
+    const r = validateSegmentCoords(0, 99999, SEQ_LEN);
+    // end is clamped but start >= clamped end is NOT the case here; end clamps to seqLen
+    expect(r.ok).toBe(true); // clamped end 4733 > start 0 => valid
+    expect(r.end).toBe(SEQ_LEN);
+    // A clamping note should be present
+    expect(r.message).toBeTruthy();
+    expect(r.message).toContain("clamped");
+  });
+
+  it("rejects start >= seqLen after clamping", () => {
+    const r = validateSegmentCoords(99999, 99999, SEQ_LEN);
+    expect(r.ok).toBe(false);
+    expect(r.message).toBeTruthy();
+  });
+
+  it("rejects start === end (zero-length segment)", () => {
+    const r = validateSegmentCoords(100, 100, SEQ_LEN);
+    expect(r.ok).toBe(false);
+  });
+
+  it("rejects start > end (inverted range) — both clamped independently, start >= clamped end", () => {
+    // validateSegmentCoords clamps start and end independently; start=200 end=100 =>
+    // clampedStart=200, clampedEnd=100, and 200 >= 100 so ok=false.
+    const r = validateSegmentCoords(200, 100, SEQ_LEN);
+    expect(r.ok).toBe(false);
+    expect(r.message).toBeTruthy();
+  });
+
+  it("rejects negative start by clamping to 0, stays valid when end > 0", () => {
+    const r = validateSegmentCoords(-50, 100, SEQ_LEN);
+    expect(r.ok).toBe(true);
+    expect(r.start).toBe(0);
+    expect(r.message).toBeTruthy();
+    expect(r.message).toContain("clamped");
+  });
+
+  it("clamps both start and end independently (start < 0, end > seqLen)", () => {
+    const r = validateSegmentCoords(-10, SEQ_LEN + 1000, SEQ_LEN);
+    expect(r.ok).toBe(true);
+    expect(r.start).toBe(0);
+    expect(r.end).toBe(SEQ_LEN);
+  });
+});
+
+describe("validateAllSegments", () => {
+  const SEQ_LEN = 4733;
+
+  it("returns allOk=true for a list of valid segments", () => {
+    const segs: FeatureSegment[] = [
+      { start: 0, end: 100 },
+      { start: 200, end: 500 },
+    ];
+    const { allOk, results } = validateAllSegments(segs, SEQ_LEN);
+    expect(allOk).toBe(true);
+    expect(results).toHaveLength(2);
+    expect(results[0].ok).toBe(true);
+    expect(results[1].ok).toBe(true);
+  });
+
+  it("returns allOk=false when any segment has start >= clamped end", () => {
+    const segs: FeatureSegment[] = [
+      { start: 0, end: 100 },
+      { start: SEQ_LEN, end: SEQ_LEN }, // zero-length at the boundary
+    ];
+    const { allOk, results } = validateAllSegments(segs, SEQ_LEN);
+    expect(allOk).toBe(false);
+    expect(results[0].ok).toBe(true);
+    expect(results[1].ok).toBe(false);
+  });
+
+  it("returns allOk=true (with clamping note) for out-of-range end clamped to seqLen", () => {
+    const segs: FeatureSegment[] = [{ start: 0, end: 99999 }];
+    const { allOk, results } = validateAllSegments(segs, SEQ_LEN);
+    // end clamped to 4733, which is > start 0 => ok
+    expect(allOk).toBe(true);
+    expect(results[0].ok).toBe(true);
+    expect(results[0].end).toBe(SEQ_LEN);
+    expect(results[0].message).toBeTruthy();
+  });
+
+  it("handles an empty segment list gracefully", () => {
+    const { allOk, results } = validateAllSegments([], SEQ_LEN);
+    expect(allOk).toBe(true);
+    expect(results).toHaveLength(0);
   });
 });

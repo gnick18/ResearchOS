@@ -47,11 +47,41 @@ describe("gcContent", () => {
   it("returns 0 for empty", () => {
     expect(gcContent("")).toBe(0);
   });
+  it("S (=GC) counts as 100% GC, W (=AT) counts as 0%", () => {
+    expect(gcContent("SS")).toBe(100);
+    expect(gcContent("WW")).toBe(0);
+  });
+  it("M (=AC) counts as 50%, K (=GT) counts as 50%", () => {
+    expect(gcContent("MM")).toBeCloseTo(50);
+    expect(gcContent("KK")).toBeCloseTo(50);
+  });
+  it("R (=AG) counts as 50%, Y (=CT) counts as 50%", () => {
+    expect(gcContent("RR")).toBeCloseTo(50);
+    expect(gcContent("YY")).toBeCloseTo(50);
+  });
+  it("N counts as 50%, B(=CGT) as 2/3, D(=AGT) as 1/3, H(=ACT) as 1/3, V(=ACG) as 2/3", () => {
+    expect(gcContent("N")).toBeCloseTo(50);
+    expect(gcContent("B")).toBeCloseTo((2 / 3) * 100);
+    expect(gcContent("D")).toBeCloseTo((1 / 3) * 100);
+    expect(gcContent("H")).toBeCloseTo((1 / 3) * 100);
+    expect(gcContent("V")).toBeCloseTo((2 / 3) * 100);
+  });
+  it("full-length primer with degenerate bases uses the full length as denominator", () => {
+    // ATGC = 4 bases, 2 GC = 50%. Adding an N (50% GC) keeps the denominator at 5.
+    expect(gcContent("ATGCN")).toBeCloseTo(50);
+  });
 });
 
 describe("sanitizePrimer", () => {
   it("strips whitespace, numbers, and uppercases", () => {
     expect(sanitizePrimer("  atg c 12 g ")).toBe("ATGCG");
+  });
+  it("keeps all IUPAC ambiguity codes (does NOT strip R Y W S K M B D H V N)", () => {
+    expect(sanitizePrimer("ATGCRYSWKMBDHVN")).toBe("ATGCRYSWKMBDHVN");
+  });
+  it("strips non-nucleotide characters but keeps degenerate bases", () => {
+    // A primer typed as "ATG-RYN-GCA" should keep all bases, drop the dashes.
+    expect(sanitizePrimer("ATG-RYN-GCA")).toBe("ATGRYNGCA");
   });
 });
 
@@ -91,9 +121,10 @@ describe("tmNearestNeighbor", () => {
     expect(tmNearestNeighbor("ATGC")).toBe(tmBasic("ATGC"));
     expect(tmNearestNeighbor("ATGCATG")).toBe(tmBasic("ATGCATG")); // 7 nt: still basic
   });
-  it("sanitizes ambiguity codes out before computing (N is dropped, not fatal)", () => {
-    // sanitizePrimer strips N, so the NN calc runs on the cleaned ACGT-only oligo.
-    expect(tmNearestNeighbor("ATGCNNNNATGCATGC")).toBe(tmNearestNeighbor("ATGCATGCATGC"));
+  it("falls back to basic for oligos with IUPAC ambiguity codes (N is kept, NN cannot score it)", () => {
+    // sanitizePrimer now keeps N; the NN calc detects [^ACGT] and falls back to basic.
+    // The basic Tm uses the full primer length and fractional GC for ambiguous bases.
+    expect(tmNearestNeighbor("ATGCNNNNATGCATGC")).toBe(tmBasic("ATGCNNNNATGCATGC"));
   });
   it("predictTm delegates to nearest-neighbor", () => {
     const s = "GTAAAACGACGGCCAGTGCC";

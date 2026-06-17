@@ -53,9 +53,25 @@ function colorOf(f: EditFeature, style: SequenceMapStyle): string {
   return style.perFeature?.[featureKey(f)]?.color || resolveFeatureColor(f);
 }
 
-/** The visible features under the current style (hidden ones dropped). */
+/** The visible features under the current style (hidden ones dropped).
+ *  Coordinates are clamped to [0, seqLen] as a render-boundary safety net so a
+ *  legacy bad value stored on disk (end > seqLen) cannot produce NaN geometry
+ *  or an infinite arc sweep that freezes the SVG layout.
+ *
+ *  Origin-wrapping circular features (start > end, both within [0, seqLen]) are
+ *  preserved as-is; only values genuinely outside [0, seqLen] are clamped. */
 function visibleFeatures(doc: SeqDocument, style: SequenceMapStyle): EditFeature[] {
-  return doc.features.filter((f) => !style.perFeature?.[featureKey(f)]?.hidden);
+  const seqLen = Math.max(1, doc.seq.length);
+  return doc.features
+    .filter((f) => !style.perFeature?.[featureKey(f)]?.hidden)
+    .map((f) => {
+      // Clamp each bound independently to [0, seqLen]. Do NOT impose start <= end
+      // because a circular feature legitimately has start > end (origin wrap).
+      const start = Math.max(0, Math.min(f.start, seqLen));
+      const end = Math.max(0, Math.min(f.end, seqLen));
+      if (start === f.start && end === f.end) return f;
+      return { ...f, start, end };
+    });
 }
 
 /**

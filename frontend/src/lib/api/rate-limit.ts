@@ -167,8 +167,12 @@ type UpstashLimiter = {
 const upstashCache: Map<string, Promise<UpstashLimiter | null>> = new Map();
 
 function getUpstashLimiter(opts: RateLimitOptions): Promise<UpstashLimiter | null> {
-  const url = process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  // Accept BOTH the upstash-native names AND the KV_* names the Vercel Upstash
+  // (Marketplace) integration provisions, so connecting the database is enough,
+  // no manual env duplication. Prefer the explicit upstash names when both exist.
+  const url = process.env.UPSTASH_REDIS_REST_URL ?? process.env.KV_REST_API_URL;
+  const token =
+    process.env.UPSTASH_REDIS_REST_TOKEN ?? process.env.KV_REST_API_TOKEN;
   if (!url || !token) return Promise.resolve(null);
 
   const cacheKey = `${opts.name}|${opts.limit}|${opts.windowMs}`;

@@ -64,6 +64,7 @@ export function MoleculeEditorPopup({
   // name input) so renaming does not refire Europe PMC / PubChem on every keystroke.
   const [litQuery, setLitQuery] = useState("");
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   // The structure to open is known (canvas safe to mount). False while an existing
@@ -138,6 +139,7 @@ export function MoleculeEditorPopup({
     setStructureReady(false);
     setIdentity(null);
     setLoadError(null);
+    setSaveError(null);
     setLoadedCid(undefined);
     setProjectIds([]);
     // The popup is a single persistent instance, so reset the rail to Identity and
@@ -177,7 +179,8 @@ export function MoleculeEditorPopup({
   }, [open, moleculeId, isNew]);
 
   // Recompute the RDKit identity from the live canvas, throttled so a burst of
-  // edits collapses into one (cheap) wasm parse.
+  // edits collapses into one (cheap) wasm parse. Also clears any stale save-time
+  // error so the user gets immediate feedback when they start drawing.
   const refreshIdentity = useCallback(() => {
     if (identityTimer.current) clearTimeout(identityTimer.current);
     identityTimer.current = setTimeout(async () => {
@@ -189,7 +192,10 @@ export function MoleculeEditorPopup({
           setIdentity(null);
           return;
         }
-        setIdentity(await computeIdentity(molfile));
+        const id = await computeIdentity(molfile);
+        setIdentity(id);
+        // Clear a lingering "no atoms" save error as soon as an atom appears.
+        if ((id.heavy_atoms ?? 0) > 0) setSaveError(null);
       } catch {
         setIdentity(null);
       }
@@ -222,15 +228,30 @@ export function MoleculeEditorPopup({
   const handleSave = useCallback(async () => {
     const k = ketcherRef.current;
     if (!k || saving) return;
+
+    // Guard: require a non-empty name so two blank saves can never create
+    // ambiguous "Untitled structure" duplicates.
+    const cleanName = name.trim();
+    if (!cleanName) {
+      setSaveError("Give this structure a name before saving.");
+      return;
+    }
+
     setSaving(true);
+    setSaveError(null);
     try {
       const molfile = await k.getMolfile();
-      if (!molfile || !molfile.trim()) {
-        setLoadError("Draw a structure before saving.");
+      // An empty Ketcher canvas still returns a valid MOL header with no atoms.
+      // Check the atom count from the live RDKit identity (populated by
+      // refreshIdentity on every canvas change). A null identity or zero heavy
+      // atoms means nothing has been drawn.
+      const hasAtoms =
+        identity != null && (identity.heavy_atoms ?? 0) > 0;
+      if (!molfile || !molfile.trim() || !hasAtoms) {
+        setSaveError("Draw at least one atom before saving.");
         setSaving(false);
         return;
       }
-      const cleanName = name.trim() || "Untitled structure";
       if (isNew || moleculeId == null) {
         await moleculesApi.create(molfile, {
           name: cleanName,
@@ -244,11 +265,11 @@ export function MoleculeEditorPopup({
       await queryClient.invalidateQueries({ queryKey: ["project-molecules"] });
       onClose();
     } catch {
-      setLoadError("Saving failed. Your structure is still on the canvas.");
+      setSaveError("Saving failed. Your structure is still on the canvas.");
     } finally {
       setSaving(false);
     }
-  }, [isNew, moleculeId, name, projectIds, queryClient, onClose, saving]);
+  }, [isNew, moleculeId, name, identity, projectIds, queryClient, onClose, saving]);
 
   // Add/remove a project link. Persisted immediately for a saved molecule; for a
   // new (unsaved) one it stays local and is written by create() on save.
@@ -287,9 +308,16 @@ export function MoleculeEditorPopup({
           </span>
           <input
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              // Clear the save-time error as soon as the user starts correcting it.
+              if (saveError) setSaveError(null);
+            }}
             placeholder="Name this molecule"
-            className="w-56 text-body font-semibold text-foreground bg-surface-raised border border-border rounded-md px-2.5 py-1.5 outline-none focus:border-brand-action"
+            aria-required="true"
+            className={`w-56 text-body font-semibold text-foreground bg-surface-raised border rounded-md px-2.5 py-1.5 outline-none focus:border-brand-action ${
+              saveError && !name.trim() ? "border-red-400 dark:border-red-500" : "border-border"
+            }`}
           />
           <div className="flex-1" />
           <button
@@ -430,7 +458,14 @@ export function MoleculeEditorPopup({
 
         {/* save bar */}
         <div className="flex items-center gap-2 px-4 py-3 border-t border-border bg-surface-sunken">
-          {loadError && ready ? (
+          {saveError ? (
+            <span
+              role="alert"
+              className="text-meta text-red-600 dark:text-red-300 mr-auto"
+            >
+              {saveError}
+            </span>
+          ) : loadError && ready ? (
             <span className="text-meta text-red-600 dark:text-red-300 mr-auto">
               {loadError}
             </span>

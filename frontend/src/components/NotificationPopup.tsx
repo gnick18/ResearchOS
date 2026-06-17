@@ -115,6 +115,10 @@ export default function NotificationPopup({
       await sharingApi.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       onNotificationRead();
+      // Dispatch the same change event that single-dismiss and clear-read
+      // fire so the badge's event listener calls loadUnreadCount() and
+      // reflects the new zero count without waiting for the 30s poll.
+      window.dispatchEvent(new CustomEvent("ros-notifications-changed"));
       // Onboarding v4 §6.3 silence sub-step also advances on Mark-all-read.
       // Grant flagged that clicking the header link should count: the
       // tour cares about "the user silenced a notification," not which

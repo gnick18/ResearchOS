@@ -72,7 +72,16 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
         <button
           aria-label="Notifications"
           data-tour-target="notifications-bell"
-          onClick={() => setShowPopup(!showPopup)}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={() => {
+            setShowPopup((prev) => {
+              const next = !prev;
+              // Refresh the badge count whenever the popup closes so reads
+              // that happened inside are reflected immediately.
+              if (!next) void loadUnreadCount();
+              return next;
+            });
+          }}
           className={`relative transition-colors ${
             pill
               ? "p-1.5 bg-white/75 hover:bg-surface-raised text-foreground hover:text-foreground rounded-full shadow-sm"
@@ -97,7 +106,13 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
 
       <NotificationPopup
         isOpen={showPopup}
-        onClose={() => setShowPopup(false)}
+        onClose={() => {
+          setShowPopup(false);
+          // Re-sync badge count when the popup closes so any reads that
+          // happened inside (including accidental ones on rapid clicks)
+          // are immediately reflected rather than waiting for the 30s poll.
+          void loadUnreadCount();
+        }}
         onNotificationRead={handleNotificationRead}
       />
     </div>

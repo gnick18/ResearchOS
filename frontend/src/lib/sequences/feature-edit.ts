@@ -79,6 +79,81 @@ function normalizeRange(
   return { start: lo, end: hi };
 }
 
+// ---------------------------------------------------------------------------
+// PUBLIC BOUNDS VALIDATION — used by the editor dialog + tests
+// ---------------------------------------------------------------------------
+
+/** Result of validating a single segment's [start, end) coordinates (0-based
+ *  internal representation; the dialog displays 1-based inclusive values). */
+export interface SegmentValidation {
+  /** True when both bounds are in [0, seqLen] and start < end. */
+  ok: boolean;
+  /** Clamped start (0-based). */
+  start: number;
+  /** Clamped end (0-based exclusive). */
+  end: number;
+  /** A human-readable message when !ok, otherwise undefined. */
+  message?: string;
+}
+
+/**
+ * Validate and clamp a single segment's bounds.
+ *
+ * The dialog stores coordinates in 0-based half-open [start, end) internally.
+ * Clamping rules (matching `normalizeRange`):
+ *   - start clamped to [0, seqLen]
+ *   - end   clamped to [0, seqLen]
+ *   - if start >= end after clamping, that is flagged as invalid (zero/negative length)
+ *
+ * @param start 0-based inclusive start
+ * @param end   0-based exclusive end
+ * @param seqLen sequence length in bp
+ */
+export function validateSegmentCoords(
+  start: number,
+  end: number,
+  seqLen: number,
+): SegmentValidation {
+  const clampedStart = Math.max(0, Math.min(start, seqLen));
+  const clampedEnd = Math.max(0, Math.min(end, seqLen));
+  if (clampedStart >= clampedEnd) {
+    return {
+      ok: false,
+      start: clampedStart,
+      end: clampedEnd,
+      message:
+        clampedStart >= seqLen
+          ? `Start (${clampedStart + 1}) must be less than the sequence length (${seqLen} bp).`
+          : `End (${clampedEnd}) must be greater than start (${clampedStart + 1}).`,
+    };
+  }
+  const messages: string[] = [];
+  if (start < 0) messages.push(`Start was clamped to 1 (was ${start + 1}).`);
+  if (end > seqLen)
+    messages.push(`End was clamped to ${seqLen} (was ${end}; sequence is ${seqLen} bp).`);
+  if (start > end)
+    messages.push(`Start and end were swapped.`);
+  return {
+    ok: true,
+    start: clampedStart,
+    end: clampedEnd,
+    message: messages.length ? messages.join(" ") : undefined,
+  };
+}
+
+/**
+ * Validate and clamp all segments in the dialog's segment table.
+ * Returns per-segment results and a summary `allOk` flag.
+ * A "bad" segment (ok:false) must be fixed before the draft can be saved.
+ */
+export function validateAllSegments(
+  segments: FeatureSegment[],
+  seqLen: number,
+): { results: SegmentValidation[]; allOk: boolean } {
+  const results = segments.map((s) => validateSegmentCoords(s.start, s.end, seqLen));
+  return { results, allOk: results.every((r) => r.ok) };
+}
+
 // --- SEGMENTS (multi-segment join() editing) --------------------------------
 
 /** A feature's segments as editable rows: its `locations` if multi-segment,

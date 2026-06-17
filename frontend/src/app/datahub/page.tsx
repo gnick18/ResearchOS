@@ -30,6 +30,12 @@ import {
 } from "@/lib/datahub/bigtable";
 import { ingestToDatasetLane } from "@/lib/datahub/bigtable/ingest";
 import { init as initBigTableEngine } from "@/lib/datahub/bigtable/duckdb-client";
+import {
+  getViewModePref,
+  setViewModePref,
+  getLinkedDatasetId,
+  setLinkedDatasetId,
+} from "@/lib/datahub/bigtable/view-mode-pref";
 import DatasetView from "@/components/datahub/bigtable/DatasetView";
 import TransformBuilder from "@/components/datahub/bigtable/TransformBuilder";
 import ManualSwitchControl from "@/components/datahub/bigtable/ManualSwitchControl";
@@ -530,6 +536,47 @@ export default function DataHubPage() {
     setSelectedPlotId(null);
     setConfirmDeleteTableId(null);
   }, [selectedTableId]);
+
+  // Restore the last-viewed mode when a table is opened. If the user previously
+  // converted this table to a dataset and was last viewing the dataset, reopen
+  // the dataset view automatically. The preference is stored in localStorage
+  // keyed by owner+tableId, so it persists across nav-away and back without any
+  // on-disk data-shape change. A missing or "editable" preference is a no-op.
+  // This runs after the table-switch clear above so it is not overwritten.
+  //
+  // Tracking: restorePendingId captures a tableId that has a "dataset" pref but
+  // whose catalog entry has not loaded yet. A follow-up datasets-change fires the
+  // restore once the linked dataset appears. Cleared as soon as we act on it.
+  const restorePendingId = useRef<string | null>(null);
+  useEffect(() => {
+    if (!bigTableOn || !currentUser || selectedTableId == null) return;
+    const pref = getViewModePref(currentUser, selectedTableId);
+    if (pref !== "dataset") return;
+    const linkedId = getLinkedDatasetId(currentUser, selectedTableId);
+    if (!linkedId) return;
+    if (datasets.some((d) => d.id === linkedId)) {
+      // Dataset catalog is already loaded: restore now.
+      setSelectedTableId(null);
+      setSelectedDatasetId(linkedId);
+      restorePendingId.current = null;
+    } else {
+      // Dataset catalog not yet loaded: park the request so the datasets effect
+      // below can complete the restore once the catalog arrives.
+      restorePendingId.current = selectedTableId;
+    }
+  }, [selectedTableId, currentUser, bigTableOn, datasets]);
+
+  // Complete a deferred mode restore once the dataset catalog has loaded.
+  useEffect(() => {
+    const tableId = restorePendingId.current;
+    if (!tableId || !currentUser || !bigTableOn || datasets.length === 0) return;
+    const linkedId = getLinkedDatasetId(currentUser, tableId);
+    if (!linkedId) return;
+    if (!datasets.some((d) => d.id === linkedId)) return;
+    restorePendingId.current = null;
+    setSelectedTableId(null);
+    setSelectedDatasetId(linkedId);
+  }, [datasets, currentUser, bigTableOn]);
 
   // Apply a pending `?analysis=<id>` deep link once the deep-linked doc's content
   // has loaded. This runs after the table-switch clear above, so the analysis the
@@ -1441,7 +1488,13 @@ export default function DataHubPage() {
       // Success: flip to the dataset view and clear the loader.
       setConvertBoot(null);
       setSelectedTableId(null);
-      if (newId) setSelectedDatasetId(newId);
+      if (newId) {
+        // Persist both the table->dataset link and the view-mode preference so
+        // that nav-back reopens the dataset view rather than the editable grid.
+        setLinkedDatasetId(owner, meta.id, newId);
+        setViewModePref(owner, meta.id, "dataset");
+        setSelectedDatasetId(newId);
+      }
     } catch {
       // The error phase was already emitted to convertBoot; the loader shows a
       // retry. Leave convertBoot set so the user sees it (cleared on retry/cancel).
@@ -1449,6 +1502,33 @@ export default function DataHubPage() {
       setManualSwitchBusy(false);
     }
   }, [bigTableOn, currentUser, openContent, selectedMeta, queryClient]);
+
+  // Switch back from the dataset view to the editable grid for the table that was
+  // previously converted. Reads the linked tableId from localStorage and restores
+  // it. Sets the view-mode preference to "editable" so nav-back stays on the grid.
+  // The editable cell store was never touched, so switching back is non-destructive.
+  const handleSwitchBack = useCallback(() => {
+    if (!currentUser || !selectedDatasetId) return;
+    // Find the editable tableId that links to this dataset.
+    const table = allTables.find(
+      (t) => getLinkedDatasetId(currentUser, t.id) === selectedDatasetId,
+    );
+    if (!table) return;
+    setViewModePref(currentUser, table.id, "editable");
+    setSelectedDatasetId(null);
+    setSelectedTableId(table.id);
+  }, [currentUser, selectedDatasetId, allTables]);
+
+  // Whether the currently-open dataset has a linked editable table (i.e. the user
+  // can switch back). Used to show/hide the switch-back affordance.
+  const linkedEditableTable = useMemo(() => {
+    if (!currentUser || !selectedDatasetId) return null;
+    return (
+      allTables.find(
+        (t) => getLinkedDatasetId(currentUser, t.id) === selectedDatasetId,
+      ) ?? null
+    );
+  }, [currentUser, selectedDatasetId, allTables]);
 
   // The derived-table banner inputs. When the open table is derived, resolve its
   // source meta from the catalog so the banner can name it and offer a jump to
@@ -2371,6 +2451,9 @@ export default function DataHubPage() {
                   });
                   setSelectedDatasetId(null);
                 }}
+                onSwitchToEditable={
+                  linkedEditableTable ? handleSwitchBack : undefined
+                }
               />
             )
           ) : tablesInCollection.length === 0 && datasets.length === 0 ? (

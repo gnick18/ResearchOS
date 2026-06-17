@@ -58,6 +58,7 @@ export default function DatasetView({
   sidecar,
   onOpenTransform,
   onDeleted,
+  onSwitchToEditable,
 }: {
   owner: string;
   sidecar: DatasetSidecar;
@@ -66,6 +67,13 @@ export default function DatasetView({
   /** Called after this dataset is deleted, so the page clears its selection and
    *  refreshes the table rail. */
   onDeleted?: () => void;
+  /**
+   * Called when the user chooses to switch back to the editable grid for the
+   * source table that was converted into this dataset. When absent, no
+   * switch-back affordance is shown (the dataset was not produced by a manual
+   * convert, or the source table is no longer in the catalog).
+   */
+  onSwitchToEditable?: () => void;
 }) {
   const totalRows = sidecar.rowCount;
   const allColumnNames = useMemo(
@@ -331,6 +339,19 @@ export default function DatasetView({
             >
               <Icon name="download" className="h-3.5 w-3.5" />
               Export
+            </button>
+          </Tooltip>
+        )}
+        {onSwitchToEditable && (
+          <Tooltip label="Switch back to the editable cell grid for this table">
+            <button
+              type="button"
+              onClick={onSwitchToEditable}
+              className="ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground"
+              data-testid="bigtable-switch-to-editable"
+            >
+              <Icon name="table" className="h-3.5 w-3.5" />
+              Switch to editable
             </button>
           </Tooltip>
         )}

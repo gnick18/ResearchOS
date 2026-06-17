@@ -121,22 +121,44 @@ export function documentFromDetail(detail: SequenceDetail): SeqDocument {
  *  serialize back to GenBank — only this on-map annotation projection drops them.
  */
 export function documentToAnnotations(doc: SeqDocument): SequenceAnnotation[] {
+  const seqLen = doc.seq.length;
   return doc.features
     .filter((f) => (f.type || "").toLowerCase() !== "primer_bind")
-    .map((f) => ({
-    name: f.name,
-    start: f.start,
-    end: f.end,
-    direction: (f.strand === -1 ? -1 : 1) as -1 | 0 | 1,
-    type: f.type,
-    // Resolve to a concrete color (explicit color, else the per-type default)
-    // so the viewer + features list always render a consistent swatch.
-    color: resolveFeatureColor(f),
-    // seq introns bot — carry exon spans for multi-segment (join) features so
-    // the viewer can draw exon boxes + dashed intron connectors and splice the
-    // translation. Single-span features omit this and render exactly as before.
-    ...(f.locations && f.locations.length > 1 ? { segments: f.locations } : {}),
-  }));
+    .map((f) => {
+      // Defensive render-boundary clamp: an out-of-range coordinate stored on
+      // disk (e.g. from a bug, import, or legacy file) must never reach the
+      // SeqViz renderer. Coordinates outside [0, seqLen] cause infinite loops
+      // or NaN geometry in the SVG/canvas layout code. We clamp silently here;
+      // the editor dialog's submit path already blocks the bad value from being
+      // written through validateAllSegments.
+      const start = Math.max(0, Math.min(f.start, seqLen));
+      const end = Math.max(start, Math.min(f.end, seqLen));
+      // Also clamp any explicit multi-segment locations so a join() with a bad
+      // exon coordinate does not reach the renderer either.
+      const rawLocations = f.locations && f.locations.length > 1 ? f.locations : undefined;
+      const safeLocations = rawLocations
+        ? rawLocations
+            .map((l) => ({
+              start: Math.max(0, Math.min(l.start, seqLen)),
+              end: Math.max(0, Math.min(l.end, seqLen)),
+            }))
+            .filter((l) => l.end > l.start)
+        : undefined;
+      return {
+        name: f.name,
+        start,
+        end,
+        direction: (f.strand === -1 ? -1 : 1) as -1 | 0 | 1,
+        type: f.type,
+        // Resolve to a concrete color (explicit color, else the per-type default)
+        // so the viewer + features list always render a consistent swatch.
+        color: resolveFeatureColor(f),
+        // seq introns bot — carry exon spans for multi-segment (join) features so
+        // the viewer can draw exon boxes + dashed intron connectors and splice the
+        // translation. Single-span features omit this and render exactly as before.
+        ...(safeLocations && safeLocations.length > 1 ? { segments: safeLocations } : {}),
+      };
+    });
 }
 
 /** Normalize/clamp a caret or selection index into [0, seq.length]. */

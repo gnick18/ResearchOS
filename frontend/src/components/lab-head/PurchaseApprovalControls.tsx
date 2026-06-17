@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { setPurchaseApproval } from "@/lib/lab/pi-actions";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
@@ -32,12 +32,17 @@ export function PurchaseApprovalToggle({
 }: PurchaseApprovalToggleProps) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  // inFlightRef guards against rapid double-clicks that fire before React
+  // re-renders with busy=true (ref mutation is synchronous, state is not).
+  const inFlightRef = useRef(false);
   const isApproved = !!item.approved;
 
   // Mira-Skeptic P0 compat migration (Mira-Skeptic P0 fix manager,
   // 2026-05-23): handles the new PiActionResult shape; see
   // AssignTaskButton.tsx for the full template.
   const handleToggle = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setBusy(true);
     try {
       const result = await setPurchaseApproval({
@@ -67,6 +72,7 @@ export function PurchaseApprovalToggle({
         );
       }
     } finally {
+      inFlightRef.current = false;
       setBusy(false);
     }
   };

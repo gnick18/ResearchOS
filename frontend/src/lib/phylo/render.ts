@@ -2038,6 +2038,40 @@ function longestLabelPx(root: TreeNode): number {
   return Math.min(220, 14 + max * 6.2);
 }
 
+/**
+ * Return the UNCAPPED tip-label width for the longest leaf name (px). Used to
+ * detect overflow: the capped version reserves at most 220 px inside the fixed
+ * figure width, but very long accession strings (e.g. HPV58 with 40+ chars)
+ * draw wider and clip at the canvas edge. The Studio widens the figure by the
+ * excess so labels always render fully, matching the circular-gutter pattern.
+ *
+ * Character advance uses the same constant as `drawLabels` (fs * 0.6 at fs=11
+ * = 6.6 px/char) plus a small leading gap (4 px), which is the actual SVG text
+ * width that `drawLabels` places on the canvas. Exported so PhyloStudio.tsx
+ * can widen the canvas before rendering.
+ */
+export function longestLabelPxUncapped(root: TreeNode): number {
+  const max = Math.max(8, ...leaves(root).map((t) => t.name.length));
+  return 4 + max * 6.6; // matches drawLabels tx offset + fs*0.6
+}
+
+/**
+ * Extra pixel width a rectangular figure needs beyond FIG_W so tip labels are
+ * never clipped at the right canvas edge. Zero when labels are off or when the
+ * longest label fits within the 220 px already reserved inside FIG_W.
+ * Exported for PhyloStudio to widen both the canvas and the SVG consistently.
+ */
+export function rectLabelGutterExtra(
+  root: TreeNode,
+  panels: AlignedPanel[],
+): number {
+  const hasLabels = panels.some((p) => p.visible && p.kind === "labels");
+  if (!hasLabels) return 0;
+  const uncapped = longestLabelPxUncapped(root);
+  const capped = 220; // the cap inside longestLabelPx that the layout budget uses
+  return Math.max(0, uncapped - capped);
+}
+
 function colorForBranch(
   spec: RenderSpec,
   nodeId: number,

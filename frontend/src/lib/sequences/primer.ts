@@ -34,27 +34,45 @@ export function reverseComplement(seq: string): string {
   return out;
 }
 
-/** GC% (0-100) of a primer/oligo string. Counts G/C/S over the unambiguous +
- *  S/W bases; non-base characters are excluded from the denominator. Mirrors the
- *  convention in edit-model.gcPercent so the two never disagree. */
+/** IUPAC GC contribution per base (fractional; absent bases count as 0 and are
+ *  excluded from the denominator). Standard table:
+ *    definite GC: 1.0  |  definite AT/U: 0.0  |  S(=GC): 1.0  |  W(=AT): 0.0
+ *    M(=AC): 0.5  |  K(=GT): 0.5  |  R(=AG): 0.5  |  Y(=CT): 0.5
+ *    B(=CGT): 2/3 |  D(=AGT): 1/3 |  H(=ACT): 1/3 |  V(=ACG): 2/3
+ *    N(=ACGT): 0.5
+ * A base is included in the denominator when it has a known contribution. */
+const IUPAC_GC_CONTRIBUTION: Record<string, number> = {
+  G: 1, C: 1, S: 1,
+  A: 0, T: 0, U: 0, W: 0,
+  M: 0.5, K: 0.5, R: 0.5, Y: 0.5,
+  B: 2 / 3, D: 1 / 3, H: 1 / 3, V: 2 / 3,
+  N: 0.5,
+};
+
+/** GC% (0-100) of a primer/oligo string. Handles all standard IUPAC ambiguity
+ *  codes using fractional contributions so degenerate primers report a meaningful
+ *  GC estimate without silently truncating the sequence. Non-nucleotide characters
+ *  are excluded from the denominator. */
 export function gcContent(seq: string): number {
   const s = seq.toUpperCase();
   let gc = 0;
   let counted = 0;
   for (const ch of s) {
-    if (ch === "A" || ch === "T" || ch === "U" || ch === "G" || ch === "C" || ch === "S" || ch === "W") {
+    const contrib = IUPAC_GC_CONTRIBUTION[ch];
+    if (contrib !== undefined) {
+      gc += contrib;
       counted += 1;
-      if (ch === "G" || ch === "C" || ch === "S") gc += 1;
     }
   }
   if (counted === 0) return 0;
   return (gc / counted) * 100;
 }
 
-/** Keep only A/C/G/T/U (uppercased), dropping whitespace/numbers/other. Used to
- *  sanitize a typed/pasted primer before any biology runs on it. */
+/** Keep only IUPAC nucleotide characters (uppercased), dropping whitespace,
+ *  numbers, and other non-base characters. Preserves all ambiguity codes
+ *  (R Y W S K M B D H V N) so degenerate primers are not silently truncated. */
 export function sanitizePrimer(raw: string): string {
-  return raw.toUpperCase().replace(/[^ACGTU]/g, "");
+  return raw.toUpperCase().replace(/[^ACGTUSRYWKMBDHVN]/g, "");
 }
 
 // --- Tm ---------------------------------------------------------------------
@@ -68,14 +86,21 @@ export type TmMethod = "basic" | "nn";
  * (2*(A+T) + 4*(G+C)); for >= 14 nt uses the common salt-adjusted GC formula
  *   Tm = 64.9 + 41*(G+C - 16.4) / (A+T+G+C)
  * (a standard textbook approximation; salt-independent at default 50 mM Na+).
- * Returns NaN for an empty/degenerate oligo.
+ * Returns NaN for an empty oligo.
+ *
+ * For primers with IUPAC ambiguity codes, uses the full primer length (n) and
+ * counts GC using the same fractional IUPAC contributions as gcContent so
+ * degenerate primers get a reasonable basic Tm without silent truncation.
  */
 export function tmBasic(seq: string): number {
   const s = sanitizePrimer(seq);
   const n = s.length;
   if (n === 0) return NaN;
   let gc = 0;
-  for (const ch of s) if (ch === "G" || ch === "C") gc += 1;
+  for (const ch of s) {
+    const contrib = IUPAC_GC_CONTRIBUTION[ch];
+    if (contrib !== undefined) gc += contrib;
+  }
   const at = n - gc;
   if (n < 14) {
     return 2 * at + 4 * gc;
@@ -110,9 +135,10 @@ const NN_MIN_LENGTH = 8;
  *                       converted to nM for the calculator call)
  * @param naMolarity    monovalent cation in mol/L (default 50 mM; converted to mM)
  *
- * Falls back to the basic formula for oligos < 8 nt or with non-ACGT bases (the
- * NN model and its dinucleotide table only cover unambiguous DNA >= 2 nt; we cap
- * the fallback at < 8 nt so short oligos keep their familiar Wallace estimate).
+ * Falls back to the basic formula for oligos < 8 nt or with IUPAC ambiguity
+ * codes (the NN dinucleotide table covers only unambiguous ACGT pairs). The
+ * basic formula uses the full primer length and fractional IUPAC GC contributions
+ * so degenerate oligos get a meaningful estimate without silent truncation.
  */
 export function tmNearestNeighbor(
   seq: string,
