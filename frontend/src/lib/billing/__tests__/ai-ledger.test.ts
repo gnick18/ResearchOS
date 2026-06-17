@@ -15,6 +15,7 @@ import {
   getRecentTasks,
   recordUsage,
 } from "../ai-ledger";
+import { seedStarterGrant } from "../seed-grant";
 
 interface LedgerRow {
   id: number;
@@ -208,6 +209,64 @@ describe("ai-ledger getOrGrantBalance", () => {
     await getOrGrantBalance("owner-a", sql);
     await getOrGrantBalance("owner-b", sql);
     expect(ledger.filter((r) => r.kind === "grant")).toHaveLength(2);
+  });
+});
+
+describe("seedStarterGrant (eager provision-time mint)", () => {
+  beforeEach(() => __resetAiSchemaCacheForTests());
+
+  it("mints the gift at provision so the balance is present immediately", async () => {
+    const { sql, balances, ledger } = makeMockSql();
+
+    // Before provision the owner has no balance row at all.
+    expect(balances.has("owner-new")).toBe(false);
+
+    // Provision seeds the gift eagerly.
+    const seeded = await seedStarterGrant("owner-new", sql);
+    expect(seeded).toBe(STARTER_GRANT_TOKENS);
+
+    // The balance row now exists right after provision, before any AI turn, so
+    // Settings and the chat header read the real balance on first fetch.
+    expect(balances.get("owner-new")?.tokens_remaining).toBe(
+      STARTER_GRANT_TOKENS,
+    );
+    expect(
+      ledger.filter((r) => r.owner_key === "owner-new" && r.kind === "grant"),
+    ).toHaveLength(1);
+  });
+
+  it("grants exactly once even if provision seeds twice (re-bind is a no-op)", async () => {
+    const { sql, ledger } = makeMockSql();
+    await seedStarterGrant("owner-new", sql);
+    await seedStarterGrant("owner-new", sql);
+    expect(
+      ledger.filter((r) => r.owner_key === "owner-new" && r.kind === "grant"),
+    ).toHaveLength(1);
+  });
+
+  it("does not double-grant when the lazy path later runs for the same owner", async () => {
+    const { sql, ledger } = makeMockSql();
+    // Eager seed at provision.
+    const seeded = await seedStarterGrant("owner-new", sql);
+    // The old lazy mint (first metered use / first ai-status read) still runs.
+    const lazy = await getOrGrantBalance("owner-new", sql);
+    expect(seeded).toBe(STARTER_GRANT_TOKENS);
+    expect(lazy).toBe(STARTER_GRANT_TOKENS);
+    expect(
+      ledger.filter((r) => r.owner_key === "owner-new" && r.kind === "grant"),
+    ).toHaveLength(1);
+  });
+
+  it("skips cleanly with no sql seam and no DATABASE_URL (lazy path still covers it)", async () => {
+    const prev = process.env.DATABASE_URL;
+    delete process.env.DATABASE_URL;
+    try {
+      const result = await seedStarterGrant("owner-no-db");
+      expect(result).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.DATABASE_URL;
+      else process.env.DATABASE_URL = prev;
+    }
   });
 });
 

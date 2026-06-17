@@ -30,6 +30,7 @@ import {
   upsertProfile,
 } from "@/lib/sharing/directory/db";
 import { extractVerifiedDomain } from "@/lib/sharing/directory/affiliationDomain";
+import { seedStarterGrant } from "@/lib/billing/seed-grant";
 import { getIpLimiter } from "@/lib/sharing/directory/ratelimit";
 import {
   extractClientIp,
@@ -121,6 +122,13 @@ export async function POST(request: Request): Promise<Response> {
     parsed.x25519PublicKey,
     parsed.ed25519PublicKey,
   );
+
+  // Eagerly mint the one-time sign-up gift now that the account exists, so the
+  // token balance is real and visible in Settings and the BeakerBot chat header
+  // before the user's first AI turn. The emailHash IS the billing owner key (the
+  // same peppered hash ownerKeyForEmail produces), the grant is idempotent, and
+  // the seed is best-effort so it never aborts the bind.
+  await seedStarterGrant(emailHash);
 
   // Create the researcher profile at signup so an account IS a profile (no
   // separate publish step). The display name is optional, present only when the
