@@ -1,0 +1,22 @@
+<svg viewBox="0 0 1000 770" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="rtrail" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1283C9" />
+      <stop offset="1" stop-color="#5B47D6" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M 180 100 L 820 100
+       C 980 100 980 285 820 285
+       L 180 285
+       C 20 285 20 470 180 470
+       L 820 470
+       C 980 470 760 620 520 612"
+    fill="none"
+    stroke="url(#rtrail)"
+    stroke-width="6"
+    stroke-linecap="round"
+    stroke-dasharray="2 20"
+    opacity="0.5"
+  />
+</svg>

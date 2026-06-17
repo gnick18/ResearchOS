@@ -1,0 +1,35 @@
+<svg viewBox="0 0 220 220" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+  <defs>
+    <linearGradient id="ship-body" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2a8fd6" />
+      <stop offset="1" stop-color="#5B47D6" />
+    </linearGradient>
+    <linearGradient id="ship-flame" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#F59E0B" />
+      <stop offset="1" stop-color="#FF6F61" />
+    </linearGradient>
+  </defs>
+
+  <!-- exhaust flames -->
+  <path d="M92 168 Q110 232 128 168 Q110 196 92 168 Z" fill="url(#ship-flame)" opacity="0.95" />
+  <path d="M100 170 Q110 212 120 170 Q110 190 100 170 Z" fill="#FFD9A3" opacity="0.9" />
+
+  <!-- left + right fins -->
+  <path d="M78 120 L48 176 L78 158 Z" fill="#4736b8" />
+  <path d="M142 120 L172 176 L142 158 Z" fill="#4736b8" />
+
+  <!-- body -->
+  <path d="M110 14
+           C140 40 150 78 150 118
+           C150 150 132 170 110 170
+           C88 170 70 150 70 118
+           C70 78 80 40 110 14 Z"
+        fill="url(#ship-body)" />
+
+  <!-- nose tip highlight -->
+  <path d="M110 14 C124 36 132 64 134 92 C126 60 118 38 110 24 Z" fill="#ffffff" opacity="0.18" />
+
+  <!-- window ring (BeakerBot rides here) -->
+  <circle cx="110" cy="92" r="34" fill="#eaf3fb" stroke="#ffffff" stroke-width="5" />
+  <circle cx="110" cy="92" r="34" fill="none" stroke="#1283C9" stroke-width="2" opacity="0.35" />
+</svg>

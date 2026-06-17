@@ -23,9 +23,9 @@ import Kicker from "@/components/marketing/Kicker";
  * can read it. Mission and positioning copy inherited from the welcome page and
  * docs/branding/POSITIONING.md, kept real and not salesy.
  *
- * NOTE: Emile is named by first name only on purpose. His surname, lab name, and
- * background are deliberately left out until Grant confirms what to publish, so
- * nothing about a real co-founder is fabricated here. Fill those in when ready.
+ * The two people: Dr. Grant Nickles (writes most of the code) and Dr. Emile
+ * Gluck-Thaler (PI of the Fungal Interactions Lab at UW-Madison, where they both
+ * work, piloting ResearchOS and leading adoption). Lab: https://fungi.cals.wisc.edu/.
  *
  * Voice rules: no em-dashes, no emojis, no mid-sentence colons. State the why.
  */
@@ -39,74 +39,113 @@ export const metadata: Metadata = {
 };
 
 // The product journey, the big features in the order they actually landed
-// (dates from git history). Rendered as a winding-trail map on desktop, where
-// each checkpoint sits on the path background (public/about/feature-trail.svg),
-// and as a simple stacked list on mobile. `x`/`y` are percentages into the map
-// box and MUST match the path control points in the SVG so a pin lands on the
-// trail. `side` is which side the label card sits on relative to its pin.
-type Checkpoint = {
-  when: string;
-  title: string;
-  sub: string;
-  x: number;
-  y: number;
-  side: "left" | "right";
-};
+// (dates from git history). Rendered as a boustrophedon "flight path" map on
+// desktop: each card is centered on (x, y) percentages of the map box, the
+// dotted rocket trail (public/about/rocket-trail.svg) snakes through the same
+// coordinates and shows in the gaps + U-turns, and BeakerBot rides a spaceship
+// at the end. Mobile falls back to a stacked list. The order here MUST follow
+// the serpentine path order (row 0 left to right, row 1 right to left, ...) so
+// the numbered cards read in sequence along the trail.
+type Checkpoint = { when: string; title: string; sub: string; x: number; y: number };
 const TRAIL: Checkpoint[] = [
+  // Row 0, left to right.
   {
     when: "Feb 2026",
     title: "The lab notebook",
     sub: "A free electronic lab notebook. Where ResearchOS began.",
-    x: 22,
-    y: 10,
-    side: "right",
+    x: 18,
+    y: 13,
+  },
+  {
+    when: "May 2026",
+    title: "Scheduling and methods",
+    sub: "A lab Gantt, a reusable methods library, and calendar overlays.",
+    x: 50,
+    y: 13,
   },
   {
     when: "May 2026",
     title: "Version control",
     sub: "Edit history, attribution, and a recycle bin for your notes.",
-    x: 78,
-    y: 32,
-    side: "left",
+    x: 82,
+    y: 13,
   },
-  {
-    when: "Jun 2026",
-    title: "First cloud features",
-    sub: "Optional sealed sharing between labs. Your data still lives on your disk.",
-    x: 22,
-    y: 54,
-    side: "right",
-  },
+  // Row 1, right to left.
   {
     when: "Jun 2026",
     title: "Sequences",
     sub: "A built-in plasmid and sequence editor, no separate license.",
-    x: 78,
-    y: 76,
-    side: "left",
+    x: 82,
+    y: 37,
+  },
+  {
+    when: "Jun 2026",
+    title: "Sealed sharing",
+    sub: "Optional encrypted sharing between labs. Your data stays on your disk.",
+    x: 50,
+    y: 37,
+  },
+  {
+    when: "Jun 2026",
+    title: "Mobile companion",
+    sub: "A phone app for bench photos, timers, and your day at a glance.",
+    x: 18,
+    y: 37,
+  },
+  // Row 2, left to right.
+  {
+    when: "Jun 2026",
+    title: "Chemistry workbench",
+    sub: "Draw structures and search the literature, no SciFinder needed.",
+    x: 18,
+    y: 61,
+  },
+  {
+    when: "Jun 2026",
+    title: "Data Hub",
+    sub: "Statistics and publication graphs, a free Prism alternative.",
+    x: 50,
+    y: 61,
+  },
+  {
+    when: "Jun 2026",
+    title: "Phylogenetics",
+    sub: "Build and style trees right in the browser.",
+    x: 82,
+    y: 61,
   },
 ];
-// The trail ends at an open flag, since we are still building.
-const TRAIL_END = { x: 50, y: 94 };
+// The trail ends at BeakerBot on a spaceship, since we are still building.
+const TRAIL_END = { x: 50, y: 82 };
 
 // The two people behind ResearchOS, honest about where we are right now. Plain
 // initial chips (letter marks, not logos), the same safe approach the prior
 // journey rail used.
-type Person = { initial: string; name: string; role: string; blurb: string };
+// `credential` is an optional verified affiliation chip. Grant's uses the exact
+// OVCR-cleared wording from the welcome page (the funder, UW-Madison Office of
+// the Vice Chancellor for Research, was specific about this), so keep it verbatim.
+type Person = {
+  initial: string;
+  name: string;
+  role: string;
+  blurb: string;
+  credential?: string;
+};
 const PEOPLE: Person[] = [
   {
     initial: "G",
-    name: "Grant",
+    name: "Dr. Grant Nickles",
     role: "Builds ResearchOS",
+    credential: "UW-Madison Distinguished Research Fellow",
     blurb:
-      "I came up through genetics at Iowa State and did my PhD at UW-Madison mining fungal genomes, so I lived in a dozen lab tools at once. I write most of the code.",
+      "I came up through genetics at Iowa State and did my PhD at UW-Madison mining fungal genomes, so I lived in a dozen lab tools at once. I write most of the code, and the fellowship is what lets the app stay free.",
   },
   {
     initial: "E",
-    name: "Emile",
-    role: "Pilots it in the lab",
+    name: "Dr. Emile Gluck-Thaler",
+    role: "Runs the lab it is built for",
     blurb:
-      "Emile runs lab work on our team. He is putting ResearchOS to use in his own lab as we build it, and he will lead getting it in front of other academic labs.",
+      "Emile leads the Fungal Interactions Lab at UW-Madison, where we both work. He is putting ResearchOS to use in the lab as we build it, and he will lead getting it in front of other academic labs.",
   },
 ];
 
@@ -221,14 +260,7 @@ export default function AboutPage() {
                 the same research team, and the plan is simple, anything
                 ResearchOS earns goes back into our own science.
               </p>
-              <blockquote
-                className="mt-6 pl-4 text-xl font-bold leading-snug tracking-tight text-foreground"
-                style={{ borderLeft: "3px solid transparent", borderImage: "var(--brand-rainbow) 1" }}
-              >
-                &ldquo;We were tired of paying too much for tools that held our
-                data hostage, so we built the one we wanted.&rdquo;
-              </blockquote>
-              <p className="mt-4 text-body font-semibold text-foreground">
+              <p className="mt-6 text-body font-semibold text-foreground">
                 Grant and Emile
               </p>
             </div>
@@ -247,53 +279,66 @@ export default function AboutPage() {
               the trail keeps going.
             </p>
 
-            {/* Desktop: a winding-trail map. The dashed path is a static SVG so
-                it never trips the inline-svg icon guard; pins are positioned to
-                sit on the path's control points. */}
-            <div className="relative mx-auto mt-10 hidden h-[620px] w-full max-w-[760px] md:block">
+            {/* Desktop: a boustrophedon flight-path map. The dotted rocket trail
+                is a static SVG (so it never trips the inline-svg icon guard) and
+                snakes left to right then back, showing in the gaps between the
+                opaque cards and on the U-turns. BeakerBot rides a spaceship at
+                the end of the trail. */}
+            <div className="relative mx-auto mt-10 hidden h-[760px] w-full max-w-[1040px] md:block">
               <img
-                src="/about/feature-trail.svg"
+                src="/about/rocket-trail.svg"
                 alt=""
                 aria-hidden
                 className="pointer-events-none absolute inset-0 h-full w-full"
               />
               {TRAIL.map((c, i) => (
-                <div key={c.title}>
-                  {/* The label card, on the inner side of its pin. */}
-                  <div
-                    className="absolute w-[42%] -translate-y-1/2 rounded-2xl border border-border bg-surface-raised px-4 py-3 shadow-[0_18px_40px_-26px_rgba(15,40,80,0.55)]"
-                    style={
-                      c.side === "right"
-                        ? { left: `${c.x + 7}%`, top: `${c.y}%` }
-                        : { right: `${100 - c.x + 7}%`, top: `${c.y}%`, textAlign: "right" }
-                    }
-                  >
-                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-action">
-                      {c.when}
-                    </span>
-                    <span className="mt-0.5 block text-body font-extrabold text-foreground">
-                      {c.title}
-                    </span>
-                    <span className="mt-1 block text-[12px] leading-snug text-foreground-muted">
-                      {c.sub}
-                    </span>
-                  </div>
-                  {/* The pin, on the path. */}
-                  <span
-                    className="absolute z-10 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-gradient-to-br from-brand-action to-brand-purple text-[15px] font-extrabold text-white ring-4 ring-surface-sunken shadow-[0_12px_28px_-12px_rgba(15,40,80,0.8)]"
-                    style={{ left: `${c.x}%`, top: `${c.y}%` }}
-                  >
+                <div
+                  key={c.title}
+                  className="absolute z-10 w-[27%] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-border bg-surface-raised px-4 py-3 shadow-[0_18px_40px_-26px_rgba(15,40,80,0.55)]"
+                  style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                >
+                  {/* The numbered stop badge, on the trail. */}
+                  <span className="absolute -left-3 -top-3 grid h-8 w-8 place-items-center rounded-full bg-gradient-to-br from-brand-action to-brand-purple text-[12px] font-extrabold text-white ring-4 ring-surface-sunken shadow-[0_8px_18px_-8px_rgba(15,40,80,0.8)]">
                     {i + 1}
+                  </span>
+                  <span className="block text-body font-extrabold text-foreground">
+                    {c.title}
+                  </span>
+                  <span className="mt-1 block text-[12px] leading-snug text-foreground-muted">
+                    {c.sub}
                   </span>
                 </div>
               ))}
-              {/* The open end of the trail, since the work continues. */}
-              <span
-                className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border border-dashed border-brand-action/50 bg-surface-raised px-4 py-2 text-meta font-semibold text-brand-action"
+              {/* The end of the trail: BeakerBot blasting off, because we are
+                  still building. */}
+              <div
+                className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
                 style={{ left: `${TRAIL_END.x}%`, top: `${TRAIL_END.y}%` }}
               >
-                Still building
-              </span>
+                <div className="relative h-36 w-36">
+                  <img
+                    src="/about/spaceship.svg"
+                    alt=""
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 h-full w-full drop-shadow-[0_18px_30px_rgba(15,40,80,0.35)]"
+                  />
+                  <BeakerBot
+                    pose="cheering"
+                    animated={false}
+                    className="absolute left-1/2 top-[36%] h-[52px] w-[52px] -translate-x-1/2 -translate-y-1/2"
+                    ariaLabel="BeakerBot blasting off"
+                  />
+                </div>
+                <div className="mt-1 w-[230px] rounded-2xl border border-border bg-surface-raised px-4 py-3 text-center shadow-[0_18px_40px_-26px_rgba(15,40,80,0.55)]">
+                  <span className="block text-body font-extrabold text-foreground">
+                    BeakerBot
+                  </span>
+                  <span className="mt-1 block text-[12px] leading-snug text-foreground-muted">
+                    An AI lab assistant that runs on your own data. And we are
+                    still building, so the trail keeps going.
+                  </span>
+                </div>
+              </div>
             </div>
 
             {/* Mobile: a plain stacked list with a straight dashed spine. */}
@@ -308,9 +353,6 @@ export default function AboutPage() {
                     {i + 1}
                   </span>
                   <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5">
-                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-action">
-                      {c.when}
-                    </span>
                     <span className="block text-body font-extrabold text-foreground">
                       {c.title}
                     </span>
@@ -320,12 +362,23 @@ export default function AboutPage() {
                   </span>
                 </li>
               ))}
-              <li className="relative flex items-center gap-4">
-                <span className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-dashed border-brand-action/50 bg-surface-raised text-[11px] font-bold text-brand-action">
-                  +
+              <li className="relative flex items-start gap-4">
+                <span className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-action to-brand-purple shadow-[0_10px_24px_-14px_rgba(15,40,80,0.7)]">
+                  <BeakerBot
+                    pose="cheering"
+                    animated={false}
+                    className="h-7 w-7 text-white"
+                    ariaLabel="BeakerBot blasting off"
+                  />
                 </span>
-                <span className="text-meta font-semibold text-brand-action">
-                  Still building, more on the way.
+                <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5">
+                  <span className="block text-body font-extrabold text-foreground">
+                    BeakerBot
+                  </span>
+                  <span className="block text-[11.5px] leading-snug text-foreground-muted">
+                    An AI lab assistant on your own data. Still building, more on
+                    the way.
+                  </span>
                 </span>
               </li>
             </ol>
@@ -340,9 +393,18 @@ export default function AboutPage() {
               Two researchers, one team
             </h2>
             <p className="mt-4 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
-              ResearchOS is built by two people on the same research team, not a
-              faceless company. We are still small and still building, and we would
-              rather tell you that plainly than pretend otherwise.
+              ResearchOS is built by two people on the same research team, the{" "}
+              <a
+                href="https://fungi.cals.wisc.edu/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-medium text-brand-action underline-offset-2 hover:underline"
+              >
+                Fungal Interactions Lab
+              </a>{" "}
+              at UW-Madison, not a faceless company. We are still small and still
+              building, and we would rather tell you that plainly than pretend
+              otherwise.
             </p>
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
               {PEOPLE.map((p) => (
@@ -360,6 +422,11 @@ export default function AboutPage() {
                     <p className="text-meta font-semibold text-brand-action">
                       {p.role}
                     </p>
+                    {p.credential ? (
+                      <span className="mt-2 inline-block rounded-full border border-brand-action/25 bg-brand-action/[0.06] px-2.5 py-1 text-[11px] font-semibold text-brand-action">
+                        {p.credential}
+                      </span>
+                    ) : null}
                     <p className="mt-1.5 text-meta leading-relaxed text-foreground-muted">
                       {p.blurb}
                     </p>
@@ -436,15 +503,16 @@ export default function AboutPage() {
               .
             </p>
             <p className="mt-3 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
-              ResearchOS grew out of work begun during a UW-Madison Distinguished
-              Research Fellowship. It is open source and local-first, so voluntary{" "}
+              ResearchOS grew out of work Grant began during a UW-Madison
+              Distinguished Research Fellowship, which is what funds the free and
+              open core. Because it is open source and local-first, voluntary{" "}
               <Link
                 href="/thanks"
                 className="font-medium text-brand-action underline-offset-2 hover:underline"
               >
                 GitHub Sponsors
               </Link>
-              {" "}are enough to keep the core free and open for the whole research community.
+              {" "}are enough to keep it free and open for the whole research community.
             </p>
             <p className="mt-3 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
               We are two researchers on the same team, and the goal is not to get
