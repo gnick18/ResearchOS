@@ -20,10 +20,31 @@
 // JsonStore is a cheap stateless handle; creating one per call is fine too, but
 // module-scope instances are marginally more efficient.
 //
+// DATAHUB PATTERN: listDatahub replicates the private listMirrorsForOwner
+// function in src/lib/datahub/api.ts (lines 61-73). It uses dataHubDir +
+// readDataHubMirror from datahub-sidecar-store and the shared fileService, then
+// spreads the mirror content with mirror.meta.id as the top-level id field so
+// the enumerator can use it as a stable, non-volatile record key.
+//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { JsonStore } from "@/lib/storage/json-store";
-import type { Task, Note, Method, PurchaseItem } from "@/lib/types";
+import type {
+  Task,
+  Note,
+  Method,
+  PurchaseItem,
+  InventoryItem,
+  InventoryStock,
+} from "@/lib/types";
+import { sequencesApi } from "@/lib/local-api";
+import { phyloApi } from "@/lib/phylo/api";
+import { moleculeStore } from "@/lib/chemistry/molecule-store";
+import {
+  dataHubDir,
+  readDataHubMirror,
+} from "@/lib/loro/datahub-sidecar-store";
+import { fileService } from "@/lib/file-system/file-service";
 import type { LabWorkSource, OwnedRecord } from "./lab-work-enumerate";
 
 // ---------------------------------------------------------------------------
@@ -42,7 +63,10 @@ import type { LabWorkSource, OwnedRecord } from "./lab-work-enumerate";
  * enumerator can treat them opaquely during canonical serialization.
  *
  * Collection names: tasks -> "tasks", notes -> "notes",
- *   methods -> "methods", purchases -> "purchase_items".
+ *   methods -> "methods", purchases -> "purchase_items",
+ *   inventory -> "inventory_items", inventory stock -> "inventory_stocks".
+ * Sequences, phylo trees, molecules, and datahub documents each use their own
+ * dedicated API/store rather than a raw JsonStore.
  *
  * The member-push case always calls with owner === the current user, but the
  * same owner-scoped reads also support a future cross-owner read (PI pulling
@@ -53,6 +77,8 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
   const notesStore = new JsonStore<Note>("notes");
   const methodsStore = new JsonStore<Method>("methods");
   const purchasesStore = new JsonStore<PurchaseItem>("purchase_items");
+  const inventoryItemsStore = new JsonStore<InventoryItem>("inventory_items");
+  const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
 
   return {
     listTasks(owner: string): Promise<OwnedRecord[]> {
@@ -70,6 +96,41 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
     },
     listPurchases(owner: string): Promise<OwnedRecord[]> {
       return purchasesStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listInventory(owner: string): Promise<OwnedRecord[]> {
+      return inventoryItemsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listInventoryStock(owner: string): Promise<OwnedRecord[]> {
+      return inventoryStocksStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listSequences(owner: string): Promise<OwnedRecord[]> {
+      // SequenceRecord lacks an index signature; route through unknown.
+      return sequencesApi.getForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listPhylo(owner: string): Promise<OwnedRecord[]> {
+      // PhyloMeta lacks an index signature; route through unknown.
+      return phyloApi.listForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listMolecules(owner: string): Promise<OwnedRecord[]> {
+      // MoleculeMeta lacks an index signature; route through unknown.
+      return moleculeStore.listMetaForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    async listDatahub(owner: string): Promise<OwnedRecord[]> {
+      // Replicates the private listMirrorsForOwner pattern from datahub/api.ts.
+      // Each mirror is spread with mirror.meta.id as the top-level id so the
+      // enumerator has a stable, non-volatile key. mirror.meta.id is the persisted
+      // DataHubDocument.id field; it is never runtime-derived.
+      const files = await fileService.listFiles(dataHubDir(owner));
+      const out: OwnedRecord[] = [];
+      for (const name of files) {
+        if (!name.endsWith(".json")) continue;
+        const id = name.slice(0, -".json".length);
+        const mirror = await readDataHubMirror(owner, id);
+        if (mirror && mirror.meta.id) {
+          out.push({ id: mirror.meta.id, ...mirror } as unknown as OwnedRecord);
+        }
+      }
+      return out;
     },
   };
 }

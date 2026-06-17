@@ -6,10 +6,11 @@
 // they need. The real-Api adapter that connects this to the live folder is chunk
 // 2b-bind, which also wires in the lab session.
 //
-// FIVE LAB-WORK TYPES: tasks, experiments, notes, methods, purchases. Tasks and
-// experiments both originate from the same listTasks() source; they are split here
-// by task_type === "experiment". Notes, methods, and purchases each have their own
-// source method.
+// ELEVEN LAB-WORK TYPES: tasks, experiments, notes, methods, purchases, inventory
+// items, inventory stocks, sequences, phylo trees, molecules, and datahub documents.
+// Tasks and experiments both originate from the same listTasks() source; they are
+// split here by task_type === "experiment". The remaining nine types each have their
+// own source method.
 //
 // DETERMINISTIC SERIALIZATION: canonicalRecordBytes() sorts all object keys
 // recursively before JSON-encoding so the resulting bytes are identical regardless
@@ -71,6 +72,21 @@ export interface OwnedRecord {
  *
  * listPurchases: return every purchase record for `owner` (raw persisted form).
  *
+ * listInventory: return every InventoryItem record for `owner` (raw persisted form).
+ *
+ * listInventoryStock: return every InventoryStock record for `owner` (raw persisted
+ *   form).
+ *
+ * listSequences: return every SequenceRecord for `owner` (raw persisted form).
+ *
+ * listPhylo: return every PhyloMeta record for `owner` (raw persisted form).
+ *
+ * listMolecules: return every MoleculeMeta record for `owner` (raw persisted form).
+ *
+ * listDatahub: return every DataHub mirror document for `owner`. Each returned
+ *   record MUST have a non-empty id drawn from mirror.meta.id (not a
+ *   runtime-derived field).
+ *
  * OWNERSHIP: each method is called once per sync run for a single owner string.
  *   The adapter is responsible for mapping `owner` to the correct data scope.
  */
@@ -79,6 +95,12 @@ export interface LabWorkSource {
   listNotes(owner: string): Promise<OwnedRecord[]>;
   listMethods(owner: string): Promise<OwnedRecord[]>;
   listPurchases(owner: string): Promise<OwnedRecord[]>;
+  listInventory(owner: string): Promise<OwnedRecord[]>;
+  listInventoryStock(owner: string): Promise<OwnedRecord[]>;
+  listSequences(owner: string): Promise<OwnedRecord[]>;
+  listPhylo(owner: string): Promise<OwnedRecord[]>;
+  listMolecules(owner: string): Promise<OwnedRecord[]>;
+  listDatahub(owner: string): Promise<OwnedRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,20 +108,29 @@ export interface LabWorkSource {
 // ---------------------------------------------------------------------------
 
 /**
- * The five record types that constitute "lab work" for PI-oversight purposes.
+ * The eleven record types that constitute "lab work" for PI-oversight purposes.
  * These are the stable recordType strings written to the R2 object key path.
  * Changing them would break the key schema and invalidate all pushed records.
+ * The original five types appear first; the six new types are appended at the end
+ * to preserve the existing key-schema ordering.
  */
 export type LabWorkType =
   | "task"
   | "experiment"
   | "note"
   | "method"
-  | "purchase";
+  | "purchase"
+  | "inventory"
+  | "inventory_stock"
+  | "sequence"
+  | "phylo"
+  | "molecule"
+  | "datahub";
 
 /**
- * Ordered array of all five lab-work types. Iteration order determines the
+ * Ordered array of all eleven lab-work types. Iteration order determines the
  * grouping in enumerateLabWork() output, so the sequence is intentionally fixed.
+ * The original five types come first; the six new types follow in append order.
  */
 export const LAB_WORK_TYPES: LabWorkType[] = [
   "task",
@@ -107,6 +138,12 @@ export const LAB_WORK_TYPES: LabWorkType[] = [
   "note",
   "method",
   "purchase",
+  "inventory",
+  "inventory_stock",
+  "sequence",
+  "phylo",
+  "molecule",
+  "datahub",
 ];
 
 // ---------------------------------------------------------------------------
@@ -175,7 +212,7 @@ function stableValue(v: unknown): unknown {
  *
  * @param params.owner   the username whose records to enumerate.
  * @param params.source  the injected data source (implemented by 2b-bind).
- * @returns a flat LabWorkRecord[] covering all five lab-work types.
+ * @returns a flat LabWorkRecord[] covering all eleven lab-work types.
  */
 export async function enumerateLabWork(params: {
   owner: string;
@@ -183,12 +220,29 @@ export async function enumerateLabWork(params: {
 }): Promise<LabWorkRecord[]> {
   const { owner, source } = params;
 
-  // Fetch all four record lists in parallel.
-  const [tasks, notes, methods, purchases] = await Promise.all([
+  // Fetch all ten record lists in parallel.
+  const [
+    tasks,
+    notes,
+    methods,
+    purchases,
+    inventory,
+    inventoryStock,
+    sequences,
+    phylo,
+    molecules,
+    datahub,
+  ] = await Promise.all([
     source.listTasks(owner),
     source.listNotes(owner),
     source.listMethods(owner),
     source.listPurchases(owner),
+    source.listInventory(owner),
+    source.listInventoryStock(owner),
+    source.listSequences(owner),
+    source.listPhylo(owner),
+    source.listMolecules(owner),
+    source.listDatahub(owner),
   ]);
 
   // Separate tasks from experiments by task_type.
@@ -209,6 +263,12 @@ export async function enumerateLabWork(params: {
     { type: "note", records: notes },
     { type: "method", records: methods },
     { type: "purchase", records: purchases },
+    { type: "inventory", records: inventory },
+    { type: "inventory_stock", records: inventoryStock },
+    { type: "sequence", records: sequences },
+    { type: "phylo", records: phylo },
+    { type: "molecule", records: molecules },
+    { type: "datahub", records: datahub },
   ];
 
   const result: LabWorkRecord[] = [];

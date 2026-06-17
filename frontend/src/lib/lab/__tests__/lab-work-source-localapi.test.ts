@@ -2,8 +2,11 @@
 //
 // Covers:
 //   - Unit: createLocalApiLabWorkSource() routes each method to the correct
-//     JsonStore collection (tasks/notes/methods/purchase_items) and forwards
-//     listAllForUser(owner) results through unchanged.
+//     JsonStore collection (tasks/notes/methods/purchase_items/inventory_items/
+//     inventory_stocks) and forwards listAllForUser(owner) results through unchanged.
+//   - Unit: the six new adapter methods (listInventory, listInventoryStock,
+//     listSequences, listPhylo, listMolecules, listDatahub) delegate to the correct
+//     store/API and return the correct records.
 //   - Integration: the source fed into the REAL enumerateLabWork() produces
 //     LabWorkRecord[] with correct recordType and recordId values.
 //
@@ -26,6 +29,8 @@ const FIXTURES: Record<string, Array<{ id: number; [k: string]: unknown }>> = {
   notes: [{ id: 10, body: "Observe colonies" }],
   methods: [{ id: 20, name: "PCR protocol" }],
   purchase_items: [{ id: 30, item: "Taq polymerase" }],
+  inventory_items: [{ id: 40, name: "Agarose" }],
+  inventory_stocks: [{ id: 50, item_id: 40, quantity: 3 }],
 };
 
 // Track which collection each JsonStore instance was created for, and capture
@@ -51,9 +56,62 @@ vi.mock("@/lib/storage/json-store", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Mock sequencesApi, phyloApi, moleculeStore, and datahub sidecar store.
+// ---------------------------------------------------------------------------
+
+const SEQUENCE_FIXTURES = [{ id: 100, display_name: "pUC19", seq_type: "dna" }];
+const PHYLO_FIXTURES = [{ id: "phylo-abc", name: "My tree" }];
+const MOLECULE_FIXTURES = [{ id: "mol-xyz", name: "Caffeine" }];
+const DATAHUB_FIXTURES = [
+  { id: "dh-001", meta: { id: "dh-001", name: "Results" }, columns: [], rows: [] },
+];
+
+vi.mock("@/lib/local-api", () => ({
+  sequencesApi: {
+    getForUser: vi.fn((_owner: string) => Promise.resolve(SEQUENCE_FIXTURES)),
+  },
+}));
+
+vi.mock("@/lib/phylo/api", () => ({
+  phyloApi: {
+    listForUser: vi.fn((_owner: string) => Promise.resolve(PHYLO_FIXTURES)),
+  },
+}));
+
+vi.mock("@/lib/chemistry/molecule-store", () => ({
+  moleculeStore: {
+    listMetaForUser: vi.fn((_owner: string) => Promise.resolve(MOLECULE_FIXTURES)),
+  },
+}));
+
+// Mock datahub-sidecar-store: dataHubDir returns a predictable path and
+// readDataHubMirror returns the fixture mirror content.
+vi.mock("@/lib/loro/datahub-sidecar-store", () => ({
+  dataHubDir: vi.fn((owner: string) => `users/${owner}/datahub`),
+  readDataHubMirror: vi.fn((_owner: string, id: string) => {
+    const match = DATAHUB_FIXTURES.find((f) => f.id === id);
+    return Promise.resolve(match ?? null);
+  }),
+}));
+
+// Mock fileService.listFiles to return a .json entry per datahub fixture.
+vi.mock("@/lib/file-system/file-service", () => ({
+  fileService: {
+    listFiles: vi.fn((_dir: string) =>
+      Promise.resolve(DATAHUB_FIXTURES.map((f) => `${f.id}.json`)),
+    ),
+  },
+}));
+
+// ---------------------------------------------------------------------------
 // Import the mock AFTER setting it up so we can inspect constructor calls.
 // ---------------------------------------------------------------------------
 import { JsonStore } from "@/lib/storage/json-store";
+import { sequencesApi } from "@/lib/local-api";
+import { phyloApi } from "@/lib/phylo/api";
+import { moleculeStore } from "@/lib/chemistry/molecule-store";
+import { readDataHubMirror } from "@/lib/loro/datahub-sidecar-store";
+import { fileService } from "@/lib/file-system/file-service";
 
 // ---------------------------------------------------------------------------
 // Unit tests: routing + per-collection delegation
@@ -64,7 +122,7 @@ describe("createLocalApiLabWorkSource — unit", () => {
     vi.clearAllMocks();
   });
 
-  it("constructs four JsonStore instances with the correct collection names", () => {
+  it("constructs six JsonStore instances with the correct collection names", () => {
     createLocalApiLabWorkSource();
     const ctorCalls = (JsonStore as unknown as ReturnType<typeof vi.fn>).mock.calls.map(
       (c: unknown[]) => c[0],
@@ -73,6 +131,8 @@ describe("createLocalApiLabWorkSource — unit", () => {
     expect(ctorCalls).toContain("notes");
     expect(ctorCalls).toContain("methods");
     expect(ctorCalls).toContain("purchase_items");
+    expect(ctorCalls).toContain("inventory_items");
+    expect(ctorCalls).toContain("inventory_stocks");
   });
 
   it("listTasks delegates to the tasks store with the supplied owner", async () => {
@@ -99,14 +159,78 @@ describe("createLocalApiLabWorkSource — unit", () => {
     expect(result).toEqual(FIXTURES.purchase_items);
   });
 
+  it("listInventory delegates to the inventory_items store with the supplied owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listInventory("alex");
+    expect(result).toEqual(FIXTURES.inventory_items);
+  });
+
+  it("listInventoryStock delegates to the inventory_stocks store with the supplied owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listInventoryStock("alex");
+    expect(result).toEqual(FIXTURES.inventory_stocks);
+  });
+
+  it("listSequences delegates to sequencesApi.getForUser with the supplied owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listSequences("alex");
+    expect(result).toEqual(SEQUENCE_FIXTURES);
+    expect(
+      (sequencesApi.getForUser as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("alex");
+  });
+
+  it("listPhylo delegates to phyloApi.listForUser with the supplied owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listPhylo("alex");
+    expect(result).toEqual(PHYLO_FIXTURES);
+    expect(
+      (phyloApi.listForUser as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("alex");
+  });
+
+  it("listMolecules delegates to moleculeStore.listMetaForUser with the supplied owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listMolecules("alex");
+    expect(result).toEqual(MOLECULE_FIXTURES);
+    expect(
+      (moleculeStore.listMetaForUser as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("alex");
+  });
+
+  it("listDatahub returns one record per .json file with id from mirror.meta.id", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listDatahub("alex");
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("dh-001");
+  });
+
+  it("listDatahub calls readDataHubMirror with the correct owner and id", async () => {
+    const source = createLocalApiLabWorkSource();
+    await source.listDatahub("alex");
+    expect(
+      (readDataHubMirror as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("alex", "dh-001");
+  });
+
+  it("listDatahub calls fileService.listFiles with the datahub dir for the owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    await source.listDatahub("alex");
+    expect(
+      (fileService.listFiles as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("users/alex/datahub");
+  });
+
   it("each store's listAllForUser is called with the correct owner string", async () => {
     const source = createLocalApiLabWorkSource();
     await source.listTasks("morgan");
     await source.listNotes("morgan");
     await source.listMethods("morgan");
     await source.listPurchases("morgan");
+    await source.listInventory("morgan");
+    await source.listInventoryStock("morgan");
 
-    // JsonStore was called 4 times (one per collection); each instance's
+    // JsonStore was called 6 times (one per collection); each instance's
     // listAllForUser should have been called with "morgan".
     const instances = (JsonStore as unknown as ReturnType<typeof vi.fn>).mock.results.map(
       (r: { value: unknown }) => r.value as { listAllForUser: ReturnType<typeof vi.fn> },
@@ -151,8 +275,28 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
     // purchase: id 30
     expect(pairs).toContainEqual({ type: "purchase", id: "30" });
 
-    // Total count: 1 task + 1 experiment + 1 note + 1 method + 1 purchase = 5.
-    expect(records).toHaveLength(5);
+    // inventory: id 40
+    expect(pairs).toContainEqual({ type: "inventory", id: "40" });
+
+    // inventory_stock: id 50
+    expect(pairs).toContainEqual({ type: "inventory_stock", id: "50" });
+
+    // sequence: id 100
+    expect(pairs).toContainEqual({ type: "sequence", id: "100" });
+
+    // phylo: id "phylo-abc"
+    expect(pairs).toContainEqual({ type: "phylo", id: "phylo-abc" });
+
+    // molecule: id "mol-xyz"
+    expect(pairs).toContainEqual({ type: "molecule", id: "mol-xyz" });
+
+    // datahub: id "dh-001"
+    expect(pairs).toContainEqual({ type: "datahub", id: "dh-001" });
+
+    // Total count: 1 task + 1 experiment + 1 note + 1 method + 1 purchase
+    //              + 1 inventory + 1 inventory_stock + 1 sequence
+    //              + 1 phylo + 1 molecule + 1 datahub = 11.
+    expect(records).toHaveLength(11);
   });
 
   it("records have a non-empty plaintext Uint8Array (canonical bytes)", async () => {
@@ -164,10 +308,22 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
     }
   });
 
-  it("output is grouped by type in LAB_WORK_TYPES order (task then experiment then note then method then purchase)", async () => {
+  it("output is grouped by type in LAB_WORK_TYPES order (original five then six new types)", async () => {
     const source = createLocalApiLabWorkSource();
     const records = await enumerateLabWork({ owner: "alex", source });
     const types = records.map((r) => r.recordType);
-    expect(types).toEqual(["task", "experiment", "note", "method", "purchase"]);
+    expect(types).toEqual([
+      "task",
+      "experiment",
+      "note",
+      "method",
+      "purchase",
+      "inventory",
+      "inventory_stock",
+      "sequence",
+      "phylo",
+      "molecule",
+      "datahub",
+    ]);
   });
 });

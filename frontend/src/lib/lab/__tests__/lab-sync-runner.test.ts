@@ -54,6 +54,12 @@ function makeEmptySource(): LabWorkSource {
     listNotes: vi.fn(async (_owner: string) => []),
     listMethods: vi.fn(async (_owner: string) => []),
     listPurchases: vi.fn(async (_owner: string) => []),
+    listInventory: vi.fn(async (_owner: string) => []),
+    listInventoryStock: vi.fn(async (_owner: string) => []),
+    listSequences: vi.fn(async (_owner: string) => []),
+    listPhylo: vi.fn(async (_owner: string) => []),
+    listMolecules: vi.fn(async (_owner: string) => []),
+    listDatahub: vi.fn(async (_owner: string) => []),
   };
 }
 
@@ -254,6 +260,12 @@ describe("runLabSyncForSession – error path", () => {
       listNotes: vi.fn(async (_owner: string) => []),
       listMethods: vi.fn(async (_owner: string) => []),
       listPurchases: vi.fn(async (_owner: string) => []),
+      listInventory: vi.fn(async (_owner: string) => []),
+      listInventoryStock: vi.fn(async (_owner: string) => []),
+      listSequences: vi.fn(async (_owner: string) => []),
+      listPhylo: vi.fn(async (_owner: string) => []),
+      listMolecules: vi.fn(async (_owner: string) => []),
+      listDatahub: vi.fn(async (_owner: string) => []),
     };
     const syncImpl = vi.fn(async () => makeSyncResult());
     const { store, saveMock } = makeManifestStore();
