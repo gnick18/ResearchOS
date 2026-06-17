@@ -5,16 +5,14 @@ slice A) is on origin/main, flag-gated OFF / byte-identical. This is the exact
 sequence to turn it on in a deploy and verify it live. Nothing here is destructive;
 flipping the flags back off makes it inert again instantly.
 
-## 0. BLOCKER TO RESOLVE FIRST — entitlement vs. free lab tier
-Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)` which
-(per Billing) returns true ONLY for an ACTIVE, PAID lab-audience subscription, and
-false for free / individual / lapsed. But the lab tier is going GA FREE for PI lab
-accounts. So a FREE lab account will currently get 403 and cannot publish a lab
-site. DECIDE with Billing before the live test:
-  - (a) lab sites are a PAID-only perk -> test with a paid lab account; OR
-  - (b) free-GA lab accounts should publish -> Billing widens isLabPublishEntitled
-        to treat an active free lab account as entitled.
-Pick one, or the verify steps below will all 403.
+## 0. Entitlement — RESOLVED (not a blocker)
+Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)` (true only
+for an ACTIVE PAID lab subscription). Per the canonical docs/branding/PRICING.md
+(Model A): there are NO free labs — Lab is a PAID tier ($25/mo flat + usage), and
+the Free tier is the network audience (receive-only, no produce). So the gate is
+CORRECT as-is. Run the live test with a PAID lab account; free/network users
+correctly get a 403 / upgrade state on the write APIs. (An earlier draft flagged a
+"free lab" blocker — that was a stale GA-free assumption that Model A supersedes.)
 
 ## 1. Env vars (Vercel production)
 - `LAB_SITES_ENABLED=true`            (server gate; must be exactly "true")
