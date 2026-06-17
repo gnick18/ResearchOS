@@ -26,6 +26,7 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Product", href: "/" },
   { label: "BeakerBot", href: "/ai" },
   { label: "Labs", href: "/labs" },
+  { label: "Departments", href: "/departments" },
   { label: "Library", href: "/library" },
   // Social layer (Phase A), behind NEXT_PUBLIC_SOCIAL_LAYER so flag-off is unchanged.
   ...(SOCIAL_LAYER_ENABLED ? [{ label: "Network", href: "/network" }] : []),

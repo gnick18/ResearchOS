@@ -419,6 +419,7 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/pricing" ||
     pathname === "/ai" ||
     pathname === "/labs" ||
+    pathname === "/departments" ||
     pathname === "/about" ||
     pathname === "/transparency" ||
     pathname === "/open-source" ||
