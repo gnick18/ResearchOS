@@ -17,8 +17,11 @@
  *      is only the sync intermediary)
  *   Final CTA (sign in to create a lab) + sponsors + footer
  *
- * HARD RULE: no pricing or plan numbers here. The Billing lane owns pricing and
- * is mid-rebuild (Model A). Link to /pricing for the numbers, never state them.
+ * PRICING (Grant 2026-06-16): unify the price across /labs, /departments, the
+ * payment page, and the chooser. Show the Lab price via the shared
+ * <PlanPriceCallout> only, which derives every figure from lib/billing/catalog
+ * (MODEL_A_PLANS), so a price change propagates from one place and stays in sync
+ * with /pricing. Never hardcode a dollar literal here.
  * An account is REQUIRED to run a lab (no-account local-only mode is retired),
  * so the account is framed as the way in, not as optional.
  *
@@ -39,6 +42,7 @@ import MarketingNav from "@/components/MarketingNav";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
 import SponsorStrip from "@/components/SponsorStrip";
+import PlanPriceCallout from "@/components/marketing/PlanPriceCallout";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
 const RAINBOW = "var(--brand-rainbow)";
@@ -382,6 +386,9 @@ export default function LabsPage() {
               off the same live records. You stay the lab head and your members
               keep their data on their own disks.
             </p>
+            <div className="mt-7 w-full max-w-md">
+              <PlanPriceCallout planId="lab" />
+            </div>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
                 type="button"

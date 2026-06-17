@@ -20,8 +20,10 @@
  *      is only the sync intermediary)
  *   Final CTA (sign in to set up a department) + sponsors + footer
  *
- * HARD RULE: no pricing or plan numbers here. The Billing lane owns pricing and
- * is mid-rebuild (Model A). Link to /pricing for the numbers, never state them.
+ * PRICING (Grant 2026-06-16): unify the price across /labs, /departments, the
+ * payment page, and the chooser via the shared <PlanPriceCallout>, which derives
+ * every figure from lib/billing/catalog (MODEL_A_PLANS). Department shows its
+ * volume discount versus a standalone lab. Never hardcode a dollar literal here.
  * An account is REQUIRED to run a department, so it is framed as the way in, not
  * as optional.
  *
@@ -42,6 +44,7 @@ import MarketingNav from "@/components/MarketingNav";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
 import SponsorStrip from "@/components/SponsorStrip";
+import PlanPriceCallout from "@/components/marketing/PlanPriceCallout";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
 const RAINBOW = "var(--brand-rainbow)";
@@ -382,6 +385,9 @@ export default function DepartmentsPage() {
               manage the org from one place. Your labs keep their own work and
               your members keep their data on their own disks.
             </p>
+            <div className="mt-7 w-full max-w-md">
+              <PlanPriceCallout planId="dept" />
+            </div>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
                 type="button"
