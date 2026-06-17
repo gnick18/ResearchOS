@@ -11,10 +11,12 @@
 // touches window at import.
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Ketcher } from "ketcher-core";
 
+import { PageBoot } from "@/components/page-boot/PageBoot";
+import { PAGE_BOOT_WHY_HREF, type BootTask } from "@/lib/page-boot/page-boot";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { Icon } from "@/components/icons";
 import { moleculesApi } from "@/lib/chemistry/api";
@@ -96,6 +98,34 @@ export function MoleculeEditorPopup({
   }, []);
 
   const isNew = moleculeId === "new";
+
+  // Honest-progress boot for the heavy editor (chunk + Indigo wasm). The two
+  // steps run in order and share the loaded module via a closure. On a normal
+  // flow the hub has already background-warmed both (ChemistryHub), so PageBoot
+  // finishes instantly and shows no loader; a cold open (deep-link, fast click)
+  // gets the branded loader with a real ETA on repeat. The Editor then reuses the
+  // already-warmed worker, so onReady fires fast once the children mount.
+  const editorBootTasks = useMemo<BootTask[]>(() => {
+    let mod: typeof import("./KetcherCanvas") | null = null;
+    return [
+      {
+        id: "editor-chunk",
+        label: "Loading the structure editor",
+        weight: 4,
+        run: async () => {
+          mod = await import("./KetcherCanvas");
+        },
+      },
+      {
+        id: "engine-wasm",
+        label: "Starting the chemistry engine",
+        weight: 5,
+        run: async () => {
+          await mod?.warmKetcher();
+        },
+      },
+    ];
+  }, []);
 
   // Load the molecule to edit (or reset for a new one) when the target changes.
   // KetcherCanvas loads its structure once, in onInit, so it must not mount until
@@ -283,11 +313,18 @@ export function MoleculeEditorPopup({
                 Opening your structure…
               </div>
             ) : (
-              <KetcherCanvas
-                initialStructure={initialStructure}
-                onReady={handleReady}
-                onChange={refreshIdentity}
-              />
+              <PageBoot
+                pageId="chemistry-editor"
+                tasks={editorBootTasks}
+                blurb="The molecular editor runs entirely in your browser, so your structures never leave your device. It caches after the first open."
+                whyHref={PAGE_BOOT_WHY_HREF}
+              >
+                <KetcherCanvas
+                  initialStructure={initialStructure}
+                  onReady={handleReady}
+                  onChange={refreshIdentity}
+                />
+              </PageBoot>
             )}
           </div>
 

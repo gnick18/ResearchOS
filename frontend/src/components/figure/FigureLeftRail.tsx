@@ -31,7 +31,7 @@ import {
   recordRecent,
   setFavorite,
 } from "@/lib/figure/asset-recents";
-import { runBoot, createLocalTimingStore, type BootState } from "@/lib/page-boot/page-boot";
+import { runBoot, createLocalTimingStore, PAGE_BOOT_WHY_HREF, type BootState } from "@/lib/page-boot/page-boot";
 import { BeakerBotLoader } from "@/components/page-boot/BeakerBotLoader";
 import type { FigurePage, ShapeKind, TextVariant } from "@/lib/figure/figure-page";
 import type { ElementRef } from "@/lib/figure/figure-arrange";
@@ -542,6 +542,7 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
           <BeakerBotLoader
             state={boot}
             blurb="Loading the smart-search model in your browser. It caches after the first time, then searches by meaning instantly, and nothing leaves your device."
+            whyHref={PAGE_BOOT_WHY_HREF}
             onRetry={enableSmart}
           />
         ) : loading ? (

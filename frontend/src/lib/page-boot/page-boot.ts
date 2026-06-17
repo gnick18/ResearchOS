@@ -38,6 +38,10 @@ export interface TimingStore {
   set(pageId: string, timings: Record<string, number>): void;
 }
 
+/** Canonical "Why the wait?" wiki page. One source of truth so every loader's
+ *  link points at the same local-first explainer. */
+export const PAGE_BOOT_WHY_HREF = "/wiki/getting-started/why-pages-load";
+
 const weightOf = (t: BootTask) => (t.weight && t.weight > 0 ? t.weight : 1);
 
 /** True aggregate percent (0..100) given the running state. Pure. */

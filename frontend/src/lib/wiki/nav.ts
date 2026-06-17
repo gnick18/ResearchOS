@@ -118,6 +118,11 @@ export const WIKI_NAV: WikiNode[] = [
         blurb: "Why ResearchOS needs Chrome or Edge.",
       },
       {
+        href: "/wiki/getting-started/why-pages-load",
+        label: "Why pages load once",
+        blurb: "What the BeakerBot loader is doing and why it only waits once.",
+      },
+      {
         href: "/wiki/getting-started/connecting-your-folder",
         label: "Connecting Your Folder",
         blurb: "How the folder picker works and what it stores.",
