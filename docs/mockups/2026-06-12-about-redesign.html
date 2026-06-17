@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>About page redesign (review)</title>
+<style>
+  :root{
+    --ink:#0f2350;--muted:#516079;--line:#dbe6f3;--tint:#f4f8fd;--card:#fff;--bg:#fbfcfe;
+    --action:#1283c9;--sky:#1aa0e6;--purple:#5b47d6;--green:#16a34a;
+    --rainbow:linear-gradient(90deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0);
+    --rainbow-text:linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+  }
+  [data-theme="dark"]{--ink:#e8eefb;--muted:#9fb2cc;--line:#22324c;--tint:#101a2c;--card:#0f1a2c;--bg:#0a1120;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  .ribbon{height:8px;background:var(--rainbow)}
+  /* review toolbar */
+  .bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:10px 18px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .tool{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .estat{font-size:12px;color:var(--muted)}
+  /* nav */
+  .nav{display:flex;align-items:center;gap:18px;max-width:1120px;margin:0 auto;padding:14px 24px}
+  .wordmark{font-weight:800;font-size:16px;letter-spacing:-.01em}
+  .wordmark b{background:var(--rainbow-text);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .nav a{font-size:13px;color:var(--muted);text-decoration:none;font-weight:600}
+  .nav .right{margin-left:auto;display:flex;gap:14px;align-items:center}
+  /* hero */
+  .hero{position:relative;overflow:hidden;border-bottom:1px solid var(--line)}
+  .hero-wash{position:absolute;inset:0;z-index:0;background:
+     radial-gradient(60% 70% at 78% 18%,#1aa0e618,transparent),
+     radial-gradient(50% 60% at 12% 30%,#7c5cff14,transparent);pointer-events:none}
+  .hero-dots{position:absolute;inset:0;z-index:0;background-image:radial-gradient(#9fb6d6 1px,transparent 1px);background-size:22px 22px;opacity:.18;mask-image:linear-gradient(#000,transparent 70%)}
+  .hero-in{position:relative;z-index:1;max-width:1120px;margin:0 auto;padding:56px 24px 50px;display:grid;grid-template-columns:1.25fr .75fr;gap:40px;align-items:center}
+  @media(max-width:820px){.hero-in{grid-template-columns:1fr;text-align:center}}
+  .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:var(--action);letter-spacing:.04em}
+  .hero h2{font-size:42px;line-height:1.08;font-weight:800;letter-spacing:-.025em;margin:14px 0 0;max-width:18ch}
+  .hero h2 .grad{background:var(--rainbow-text);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .hero p{font-size:17px;color:var(--muted);line-height:1.6;max-width:50ch;margin:18px 0 0}
+  @media(max-width:820px){.hero p{margin-left:auto;margin-right:auto}}
+  /* photo slots */
+  .photo{position:relative;border-radius:18px;overflow:hidden;background:
+    repeating-linear-gradient(45deg,#eef3fa,#eef3fa 12px,#e6edf6 12px,#e6edf6 24px);
+    border:1px dashed #b9cbe2;display:grid;place-items:center;text-align:center;color:#7488a6}
+  [data-theme="dark"] .photo{background:repeating-linear-gradient(45deg,#13203a,#13203a 12px,#16264180 12px,#16264180 24px);border-color:#2b3e5c;color:#7e94b4}
+  .photo .ph-l{font-size:12.5px;font-weight:800}.photo .ph-s{font-size:11px;margin-top:3px;opacity:.8}
+  .portrait{width:100%;max-width:300px;aspect-ratio:4/5;margin:0 auto;padding:3px;background:var(--rainbow);box-shadow:0 26px 60px -34px rgba(15,40,80,.5)}
+  .portrait .photo{border-radius:15px;width:100%;height:100%;border-style:solid;border-color:transparent}
+  /* sections */
+  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  section.blk{padding:52px 0;border-bottom:1px solid var(--line)}
+  .kick{display:inline-flex;align-items:center;gap:9px;font-family:ui-monospace,monospace;font-size:12px;font-weight:700;color:var(--action);letter-spacing:.04em;text-transform:lowercase}
+  .kick .rule{height:2px;width:22px;border-radius:2px;background:var(--rainbow)}
+  h3.blk-h{font-size:26px;font-weight:800;letter-spacing:-.02em;margin:12px 0 0;max-width:24ch}
+  .lede{font-size:15.5px;color:var(--muted);line-height:1.65;max-width:64ch;margin-top:14px}
+  .lede b{color:var(--ink);font-weight:700}
+  .lede a{color:var(--action);text-decoration:none;font-weight:600;border-bottom:1px solid #1283c955}
+  /* founder story */
+  .story{display:grid;grid-template-columns:.9fr 1.1fr;gap:36px;align-items:center}
+  @media(max-width:820px){.story{grid-template-columns:1fr}}
+  .story .lab{aspect-ratio:4/3}
+  .quote{margin-top:18px;padding-left:16px;border-left:3px solid transparent;border-image:var(--rainbow) 1;font-size:19px;font-weight:700;line-height:1.4;color:var(--ink);letter-spacing:-.01em}
+  .ph-note{display:inline-block;margin-top:12px;font-size:11px;font-weight:800;color:#9a6b00;background:#fff5dd;border:1px solid #f0d48a;border-radius:99px;padding:3px 10px}
+  [data-theme="dark"] .ph-note{background:#3a2e07;border-color:#6b551a;color:#f5c97a}
+  /* two-up cards */
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:6px}
+  @media(max-width:680px){.two{grid-template-columns:1fr}}
+  .pt{border:1px solid var(--line);border-radius:16px;background:var(--card);padding:18px}
+  .pt .pt-t{font-size:14px;font-weight:800}.pt p{font-size:13px;color:var(--muted);line-height:1.55;margin:6px 0 0}
+  /* madison band */
+  .madison{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:18px;padding:16px 18px;border:1px solid var(--line);border-radius:16px;background:linear-gradient(135deg,#1aa0e60c,#7c5cff0c)}
+  .badge{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;font-weight:800;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:6px 12px}
+  .badge .dot{width:9px;height:9px;border-radius:50%;background:linear-gradient(135deg,#1aa0e6,#7c5cff)}
+  /* onward */
+  .onward{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-top:8px}
+  @media(max-width:680px){.onward{grid-template-columns:repeat(2,1fr)}}
+  .ow{border:1px solid var(--line);border-radius:14px;background:var(--card);padding:16px;text-decoration:none;color:var(--ink);transition:transform .15s,border-color .15s}
+  .ow:hover{transform:translateY(-2px);border-color:#1283c955}
+  .ow .ow-t{font-size:13.5px;font-weight:800}.ow .ow-s{font-size:11.5px;color:var(--muted);margin-top:3px}
+  /* decisions */
+  .decision{max-width:780px;margin:16px auto;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .decision .q{font-size:13.5px;font-weight:800;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font-size:12px;font-weight:700;border:0;background:var(--card);color:var(--ink);padding:6px 13px;cursor:pointer}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}.seg button.on[data-v="reject"]{background:#dc2626;color:#fff}
+  textarea.note{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;padding:8px;min-height:42px;resize:vertical;font-family:inherit}
+  dialog{border:0;border-radius:12px;max-width:560px;width:92%;padding:0;background:var(--card);color:var(--ink)}
+  dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px}
+  dialog textarea{width:100%;border:0;background:var(--bg);color:var(--ink);min-height:280px;padding:14px;font-family:ui-monospace,monospace;font-size:12px}
+  dialog .df{padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="ribbon"></div>
+<div class="bar">
+  <div><h1>/about redesign</h1><div class="sub">5/10 -> premium. Photo slots + a spot for your recorded story. Decisions persist; Export when done.</div></div>
+  <div class="spacer"></div>
+  <button class="tool" id="themeBtn">Dark</button>
+  <span class="estat" id="estat">No decisions</span>
+  <button class="tool" id="exportBtn">Export</button>
+</div>
+
+<!-- nav -->
+<div class="nav">
+  <span class="wordmark">Research<b>OS</b></span>
+  <a>Product</a><a>BeakerBot</a><a>Pricing</a><a>Transparency</a><a>About</a>
+  <span class="right"><a>Open app</a><span class="badge">Try the demo</span></span>
+</div>
+
+<!-- hero -->
+<div class="hero">
+  <div class="hero-wash"></div><div class="hero-dots"></div>
+  <div class="hero-in">
+    <div>
+      <span class="eyebrow">// about ResearchOS</span>
+      <h2>Research software should be accessible and <span class="grad">better</span>, not expensive and locked</h2>
+      <p>ResearchOS grew out of a research fellowship at UW-Madison. The tools labs depend on are overpriced and hold your data hostage in someone else's cloud. We build free, open, local-first alternatives, and the goal is not just cheaper, it is better.</p>
+    </div>
+    <div class="portrait"><img src="https://gnick18.github.io/images/grant_nickles.png" alt="Dr. Grant Nickles" style="display:block;width:100%;height:100%;object-fit:cover;border-radius:15px" /></div>
+  </div>
+</div>
+
+<!-- founder story (the human anchor) -->
+<section class="blk"><div class="wrap">
+  <span class="kick"><span class="rule"></span>the story</span>
+  <h3 class="blk-h">Why two researchers built this</h3>
+  <div class="story" style="margin-top:22px">
+    <div class="photo lab"><div><div class="ph-l">Candid lab / bench shot</div><div class="ph-s">you'll send this (4:3)</div></div></div>
+    <div>
+      <div class="lede" style="margin-top:0">
+        I came up through genetics at Iowa State, then did my PhD at UW-Madison mining fungal genomes for natural products and running the chemistry to back it up. So I lived in a dozen tools at once. A lot of my PhD wasn't spent on science. It went to fighting software that cost too much and locked my own data away from me. Every tool wanted another license and another login, and on a grad student stipend, the stack a lab is told it needs just wasn't affordable.
+      </div>
+      <div class="lede">
+        I've always been a builder. I co-ran a swim-lesson business with my mom through college and spent a summer doing R&amp;D at a food-security startup, so when the tooling kept getting in the way of the science, I built the thing I wished I had instead. That's ResearchOS. It's free, it's open, and it's local-first, which is a fancy way of saying your work lives on your own machine and stays yours.
+      </div>
+      <div class="quote">"I wanted my data to be mine, and the tools to be something any lab could afford. So I built them."</div>
+      <span class="ph-note">DRAFT (humanized) &middot; refine, or record your own and I'll run it through the same pass</span>
+    </div>
+  </div>
+</div></section>
+
+<!-- why it exists -->
+<section class="blk"><div class="wrap">
+  <span class="kick"><span class="rule"></span>why it exists</span>
+  <h3 class="blk-h">Good research tooling should be a public good</h3>
+  <div class="two" style="margin-top:18px">
+    <div class="pt"><div class="pt-t">One app, not ten licenses</div><p>Lab software is sold one expensive license at a time, the notebook, the chemistry tool, the cloning tool, the stats package, renewed every year for every student who rotates through. ResearchOS replaces that stack with one free app.</p></div>
+    <div class="pt"><div class="pt-t">Inspectable, ownable, free</div><p>The code is open source on GitHub, export is the default state rather than a panic button, and a real, accountable business stands behind it rather than a donation link that can vanish.</p></div>
+  </div>
+  <div class="lede">Local-first means your notes, methods, experiments, structures, and files live in a plain folder on your own disk, readable with or without ResearchOS. The science is validated in public on the <a>transparency page</a>, where the calculations recompute against peer-reviewed tools.</div>
+</div></section>
+
+<!-- the company behind it -->
+<section class="blk"><div class="wrap">
+  <span class="kick"><span class="rule"></span>the company behind it</span>
+  <h3 class="blk-h">A real, accountable business</h3>
+  <div class="lede">ResearchOS is a registered Wisconsin LLC with real banking and payment processing in place. The local app and every feature stay free. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Full breakdown on the <a>pricing page</a>.</div>
+  <div class="lede">It is supported by a UW Distinguished Research Fellowship at UW-Madison, with funding from the Wisconsin Alumni Research Foundation. That, plus voluntary <a>GitHub Sponsors</a>, keeps the core free and open for the whole research community.</div>
+  <div class="madison">
+    <span class="badge"><span class="dot"></span>Built in Madison, Wisconsin</span>
+    <span style="font-size:12px;color:var(--muted);font-weight:600">A registered Wisconsin LLC, not a California cloud.</span>
+  </div>
+</div></section>
+
+<!-- onward -->
+<section class="blk" style="border-bottom:0"><div class="wrap">
+  <span class="kick"><span class="rule"></span>keep reading</span>
+  <h3 class="blk-h" style="margin-bottom:18px">Go deeper</h3>
+  <div class="onward">
+    <a class="ow"><div class="ow-t">Pricing</div><div class="ow-s">Every number, the real cost math</div></a>
+    <a class="ow"><div class="ow-t">Transparency</div><div class="ow-s">We reproduce peer-reviewed results</div></a>
+    <a class="ow"><div class="ow-t">Thanks</div><div class="ow-s">Sponsors + the open source we build on</div></a>
+    <a class="ow"><div class="ow-t">GitHub</div><div class="ow-s">Read and fork the source</div></a>
+  </div>
+</div></section>
+
+<!-- decisions -->
+<div class="wrap" style="padding-bottom:50px">
+  <div class="decision"><div class="q">1. Overall direction (hero with portrait, story section, branded blocks)?</div>
+    <div class="seg" data-id="direction"><button data-v="approve">Approve</button><button data-v="reject">Not it</button></div>
+    <textarea class="note" data-note="direction" placeholder="What works / what to change..."></textarea></div>
+  <div class="decision"><div class="q">2. Photo placement (portrait in hero, candid lab shot beside the story)?</div>
+    <div class="seg" data-id="photos"><button data-v="approve">Approve</button><button data-v="reject">Move them</button></div>
+    <textarea class="note" data-note="photos" placeholder="Different photo sizes / spots..."></textarea></div>
+  <div class="decision"><div class="q">3. The story section + pull-quote as the human anchor?</div>
+    <div class="seg" data-id="story"><button data-v="approve">Approve</button><button data-v="reject">Rework</button></div>
+    <textarea class="note" data-note="story" placeholder="Tone / what your real story should hit..."></textarea></div>
+  <div class="decision"><div class="q">4. Anything to add or cut (lab values, team, timeline, press)?</div>
+    <div class="seg" data-id="scope"><button data-v="approve">Good as-is</button><button data-v="reject">Add more</button></div>
+    <textarea class="note" data-note="scope" placeholder="Sections you want added or removed..."></textarea></div>
+</div>
+
+<dialog id="exp"><div class="dh">Decisions, paste back into chat</div><textarea id="expText" readonly></textarea>
+  <div class="df"><button class="tool" id="copyExp">Copy</button><button class="tool" id="closeExp">Close</button></div></dialog>
+
+<script>
+const KEY="ros-about-redesign-review";
+const state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function render(){const n=Object.keys(state).filter(k=>state[k]).length;document.getElementById("estat").textContent=n?`${n} recorded`:"No decisions";}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+document.querySelectorAll(".seg").forEach(seg=>{const id=seg.dataset.id;
+  seg.querySelectorAll("button").forEach(b=>{if(state[id]===b.dataset.v)b.classList.add("on");
+    b.onclick=()=>{seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");state[id]=b.dataset.v;save();};});});
+document.querySelectorAll("[data-note]").forEach(t=>{const id="note:"+t.dataset.note;t.value=state[id]||"";t.oninput=()=>{state[id]=t.value;save();};});
+document.getElementById("themeBtn").onclick=()=>{const d=document.documentElement.getAttribute("data-theme")==="dark";document.documentElement.setAttribute("data-theme",d?"":"dark");document.getElementById("themeBtn").textContent=d?"Dark":"Light";};
+document.getElementById("exportBtn").onclick=()=>{const L=["/about redesign, decisions",""];
+  const lab={direction:"1. Direction",photos:"2. Photos",story:"3. Story section",scope:"4. Scope"};
+  for(const k of ["direction","photos","story","scope"])L.push(`${lab[k]}: ${state[k]||"(no answer)"}`);L.push("");
+  for(const k of Object.keys(state).filter(k=>k.startsWith("note:")&&state[k]))L.push(`Note [${k.slice(5)}]: ${state[k]}`);
+  document.getElementById("expText").value=L.join("\n");document.getElementById("exp").showModal();};
+document.getElementById("copyExp").onclick=()=>navigator.clipboard.writeText(document.getElementById("expText").value);
+document.getElementById("closeExp").onclick=()=>document.getElementById("exp").close();
+render();
+</script>
+</body>
+</html>

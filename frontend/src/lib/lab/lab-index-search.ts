@@ -105,25 +105,36 @@ export async function searchLabIndex(
     return { ok: false, error: "this account is not bound to a lab", hits: [] };
   }
 
-  const remote = await d.fetchLab(labId);
-  if (!remote || remote.envelopes.length === 0) {
+  // The relay calls can throw (relay down, decrypt fail). Surface the reason
+  // rather than letting it bubble to a blank "unavailable", so a live debug
+  // session can tell a relay hiccup apart from a permissions or empty case.
+  let entries: LabIndexEntry[];
+  try {
+    const remote = await d.fetchLab(labId);
+    if (!remote || remote.envelopes.length === 0) {
+      return {
+        ok: false,
+        error: "lab not found or has no key envelopes",
+        hits: [],
+      };
+    }
+    const current = remote.envelopes.reduce((a, b) =>
+      b.generation > a.generation ? b : a,
+    );
+    const labKey = d.openKey(
+      current,
+      viewer.username,
+      identity.keys.encryption.privateKey,
+    );
+    const members = remote.record.members.map((m: LabMember) => m.username);
+    entries = await d.readIndex({ labId, members, labKey });
+  } catch (err) {
     return {
       ok: false,
-      error: "lab not found or has no key envelopes",
+      error: err instanceof Error ? err.message : String(err),
       hits: [],
     };
   }
-  const current = remote.envelopes.reduce((a, b) =>
-    b.generation > a.generation ? b : a,
-  );
-  const labKey = d.openKey(
-    current,
-    viewer.username,
-    identity.keys.encryption.privateKey,
-  );
-  const members = remote.record.members.map((m: LabMember) => m.username);
-
-  const entries = await d.readIndex({ labId, members, labKey });
 
   const q = query.trim().toLowerCase();
   let scoped = entries;

@@ -18,6 +18,8 @@ Built with the product-messaging method, on top of [POSITIONING.md](POSITIONING.
 
 ## Taglines
 
+**Live short tagline (LinkedIn, 2026-06-17).** The free, open-source lab notebook your research lives in, not someone else's cloud. Variant for a regional-pride wink in a post (not the tagline, the "California" jab is too oblique to lead with): "...not a California cloud."
+
 **Category Leadership** (superlative + why it matters)
 - The lab notebook you actually own.
 - The only ELN that leaves your data on your disk.
@@ -39,7 +41,7 @@ Built with the product-messaging method, on top of [POSITIONING.md](POSITIONING.
 - Your research should outlive your subscription.
 - The work is yours. The software should treat it that way.
 - Never get locked out of your own science again.
-- Built by a researcher who was tired of renting the notebook.
+- Built by two researchers tired of renting the notebook.
 
 **Problem to Promise**
 - Tired of paying to access your own data? Keep it in a folder you own.

@@ -95,7 +95,7 @@ export default function TermsOfService({
             </p>
             <p className="rounded-lg border border-brand-action/30 bg-brand-action/[0.06] px-4 py-3 text-body text-foreground">
               Effective {EFFECTIVE_DATE}. ResearchOS is free and open-source
-              software written by a researcher at the University of
+              software written by researchers at the University of
               Wisconsin-Madison and operated by ResearchOS LLC, a registered
               Wisconsin company. If anything here is unclear, write to{" "}
               <a
@@ -152,7 +152,7 @@ export default function TermsOfService({
 
         <Section id="who" title="Who provides ResearchOS">
           <p>
-            ResearchOS is built by a researcher at the University of
+            ResearchOS is built by researchers at the University of
             Wisconsin-Madison and operated by ResearchOS LLC, a registered
             Wisconsin company. The hosted version lives at research-os.app, and
             the source code is public on GitHub. You can also run it yourself
