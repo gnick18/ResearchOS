@@ -1,5 +1,7 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
+import { isAccountSettingsEnabled } from "./account/account-settings-config";
+import { fetchAccountSettings, resolveIsLabHead, clearAccountSettingsCache } from "./account/account-settings";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import {
   trashEntity,
@@ -5378,15 +5380,36 @@ export const retentionApi = {
 export async function buildCurrentViewer(): Promise<Viewer> {
   const username = (await getCurrentUserCached()) ?? "";
   let accountType: Viewer["account_type"] = "lab";
+  let folderIsLabHead = false;
   try {
     const s = await fileService.readJson<{ account_type?: string }>(
       `users/${username}/settings.json`,
     );
-    if (s?.account_type === "lab_head") accountType = "lab_head";
+    if (s?.account_type === "lab_head") {
+      accountType = "lab_head";
+      folderIsLabHead = true;
+    }
   } catch {
     // Settings read failure is non-fatal: fall back to the conservative
     // "lab" viewer (no implicit view-all). canRead still honors owner +
     // explicit / "*" shares.
+  }
+  // Account-scoped PI capability (Phase 1, account-settings foundation). A PI is
+  // recognized as a PI regardless of which folder they open, so opening a NEW
+  // empty folder (which lacks the lab_head marker) still renders them as a lab
+  // head. resolveIsLabHead is OR over the folder marker AND the account
+  // capability, so this only ever ELEVATES, never demotes a real folder PI.
+  // Fully behind the flag, fetchAccountSettings returns null when off, so the
+  // viewer shape is byte-for-byte unchanged in that case.
+  if (!folderIsLabHead && isAccountSettingsEnabled()) {
+    try {
+      const account = await fetchAccountSettings();
+      if (resolveIsLabHead(undefined, account?.labHead)) {
+        accountType = "lab_head";
+      }
+    } catch {
+      // Never let an account-capability lookup break the viewer build.
+    }
   }
   return { username, account_type: accountType };
 }
@@ -10061,6 +10084,10 @@ export const usersApi = {
   
   login: async (username: string): Promise<{ status: string; current_user: string }> => {
     clearCurrentUserCache();
+    // Account-settings cache is keyed by identity, but a user switch on the same
+    // device changes the active identity, so drop the cache alongside the current
+    // user so a fetch re-reads for the newly-signed-in identity (cross-user safety).
+    clearAccountSettingsCache();
     await storeCurrentUser(username);
     // Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23):
     // run the unified-sharing migration lazily on login. Idempotent: the
@@ -10079,6 +10106,7 @@ export const usersApi = {
 
   create: async (username: string): Promise<{ status: string; current_user: string; created: boolean }> => {
     clearCurrentUserCache();
+    clearAccountSettingsCache();
     await storeCurrentUser(username);
 
     // Curated-default method types (u2-curated-default bot, 2026-05-29).
@@ -10276,6 +10304,10 @@ export const usersApi = {
 
   logout: async (): Promise<{ status: string; message: string }> => {
     clearCurrentUserCache();
+    // Drop the decrypted account-settings session cache on sign-out so the next
+    // signed-in identity (possibly a different user on a shared machine) never
+    // sees the previous user's account preferences.
+    clearAccountSettingsCache();
     await clearCurrentUser();
     return { status: "ok", message: "Logged out" };
   },

@@ -68,6 +68,7 @@ import DevEphemeralSessionButton from "@/components/DevEphemeralSessionButton";
 import DevRestartServerButton from "@/components/DevRestartServerButton";
 import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
+import LiftOnConnectPopup from "@/components/account/LiftOnConnectPopup";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
 import MigrationGate from "@/components/lab/MigrationGate";
@@ -1159,6 +1160,12 @@ function AppContent({ children }: { children: ReactNode }) {
           "take your data to your own folder". Buried-in-Settings was a
           discoverability gap (Grant 2026-06-10). Dismissible per session. */}
       <MigrationGate />
+      {/* Lift-on-connect popup (account-scoped settings, Phase 2): when the flag
+          is on and the just-connected folder holds external calendars / prefs the
+          cloud account store lacks, offers to lift them so they follow the user
+          across folders + devices (the exact promise to Owen). Asks at most once
+          per folder; inert + renders nothing when the flag is off. */}
+      <LiftOnConnectPopup />
       {/* LabArchives import sticky-intent consumer. If the user clicked
           "Import from LabArchives" on the picker screen and signed in
           (which unmounts that screen), this auto-mounts ImportELNDialog
