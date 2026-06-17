@@ -494,7 +494,7 @@ export default function ProjectDetailPopup({
           </span>
         )}
         {project.is_shared_with_me && (
-          <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/15 text-blue-600 dark:text-blue-300 rounded-full">
+          <span className="text-meta px-2 py-0.5 bg-blue-50 dark:bg-blue-500/25 text-blue-600 dark:text-blue-200 rounded-full">
             Shared by {project.owner}
           </span>
         )}
@@ -751,7 +751,7 @@ export default function ProjectDetailPopup({
                     onClick={!restoreBusy ? handleUndoRestore : undefined}
                     disabled={restoreBusy}
                     data-testid="project-undo-restore-button"
-                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 hover:bg-amber-100 dark:hover:bg-amber-500/20 transition-colors disabled:opacity-60"
+                    className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1.5 text-meta font-medium rounded-lg text-amber-700 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/25 hover:bg-amber-100 dark:hover:bg-amber-500/40 transition-colors disabled:opacity-60"
                   >
                     {restoreBusy ? "Undoing..." : "Undo restore"}
                   </button>
@@ -759,7 +759,7 @@ export default function ProjectDetailPopup({
                 {undoConfirmPending && (
                   <div
                     data-testid="project-undo-confirm"
-                    className="mt-2 text-meta text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
+                    className="mt-2 text-meta text-amber-800 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/25 border border-amber-200 dark:border-amber-400/40 rounded-lg px-3 py-2 leading-snug"
                   >
                     <p>
                       You have edited this project since the restore. Undoing will
@@ -894,7 +894,7 @@ export default function ProjectDetailPopup({
               {restoreError && (
                 <p
                   data-testid="project-restore-error"
-                  className="mt-3 text-meta text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg px-3 py-2 leading-snug"
+                  className="mt-3 text-meta text-amber-700 dark:text-amber-200 bg-amber-50 dark:bg-amber-500/25 border border-amber-200 dark:border-amber-400/40 rounded-lg px-3 py-2 leading-snug"
                   role="alert"
                 >
                   {restoreError}
@@ -961,16 +961,16 @@ export default function ProjectDetailPopup({
             <p className="text-body text-foreground-muted mb-4">
               Are you sure you want to archive &quot;{project.name}&quot;?
             </p>
-            <div className="bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/30 rounded-lg p-3 mb-4">
-              <p className="text-meta text-amber-700 dark:text-amber-300">
+            <div className="bg-amber-50 dark:bg-amber-500/25 border border-amber-200 dark:border-amber-400/40 rounded-lg p-3 mb-4">
+              <p className="text-meta text-amber-700 dark:text-amber-200">
                 <strong>This will:</strong>
               </p>
-              <ul className="text-meta text-amber-600 dark:text-amber-300 mt-1 list-disc list-inside">
+              <ul className="text-meta text-amber-600 dark:text-amber-200 mt-1 list-disc list-inside">
                 <li>Hide the project from the main project list</li>
                 <li>Remove tasks from Gantt chart and task sidebar</li>
                 <li>Prevent adding new tasks to this project</li>
               </ul>
-              <p className="text-meta text-amber-700 dark:text-amber-300 mt-2">
+              <p className="text-meta text-amber-700 dark:text-amber-200 mt-2">
                 <strong>All data will be preserved</strong> and you can unarchive at any time.
               </p>
             </div>

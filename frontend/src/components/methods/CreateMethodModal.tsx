@@ -928,7 +928,7 @@ export function CreateMethodModal({
                   </p>
                 )}
                 {uploadWarning && (
-                  <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg flex items-start gap-2">
+                  <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/25 border border-amber-200 dark:border-amber-400/40 rounded-lg flex items-start gap-2">
                     <svg className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
@@ -990,7 +990,7 @@ export function CreateMethodModal({
                   deviations will be saved as a separate Markdown file.
                 </p>
                 {uploadWarning && (
-                  <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/30 rounded-lg flex items-start gap-2">
+                  <div className="mt-2 p-3 bg-amber-50 dark:bg-amber-500/25 border border-amber-200 dark:border-amber-400/40 rounded-lg flex items-start gap-2">
                     <svg className="w-4 h-4 shrink-0 mt-0.5 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
@@ -1267,7 +1267,7 @@ export function CreateMethodModal({
                           ]);
                         }
                       }}
-                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
+                      className="w-full py-2 text-meta text-blue-600 dark:text-blue-200 hover:bg-blue-50 dark:hover:bg-brand-action/10 border-t border-border"
                     >
                       + Add Ingredient
                     </button>
