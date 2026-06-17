@@ -1,13 +1,13 @@
 # Setting up support@research-os.app (inbound forwarding)
 
-Status, LIVE. `support@research-os.app` forwards to `researchos.llc@gmail.com` (the LLC inbox) via ForwardEmail on Vercel DNS. Destination changed 2026-06-17 from `gnickles@wisc.edu` to the LLC Google so support mail lands in the business inbox; the change was made by swapping the `forward-email` TXT record via the Vercel CLI and verified with `dig +short TXT research-os.app`. Originally set up + verified end to end 2026-06-04. The address is safe to publish.
+Status, LIVE. ALL mail to `@research-os.app` (catch-all) forwards to `researchos.llc@gmail.com` (the LLC inbox) via ForwardEmail on Vercel DNS, so support@, noreply@, abuse@, interproscan@, and any other address land in the business inbox and nothing bounces. 2026-06-17: switched the destination from `gnickles@wisc.edu` to the LLC Google AND broadened from a support-only alias to a catch-all (dropped the `support:` prefix), via the Vercel CLI, verified at the authoritative nameserver with `dig +short TXT research-os.app @ns1.vercel-dns.com`. Originally set up + verified end to end 2026-06-04. The address is safe to publish.
 
 As-built records (added in the Vercel team scope `grant-nickles-projects` -> Domains -> research-os.app -> DNS Records, all on the root unless noted):
 
 ```
 MX   @        mx1.forwardemail.net.   priority 10
 MX   @        mx2.forwardemail.net.   priority 10
-TXT  @        forward-email=support:researchos.llc@gmail.com
+TXT  @        forward-email=researchos.llc@gmail.com   (catch-all, all addresses)
 TXT  @        v=spf1 a mx include:spf.forwardemail.net -all
 TXT  _dmarc   v=DMARC1; p=none;
 ```
