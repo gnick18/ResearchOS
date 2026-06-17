@@ -687,6 +687,14 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // The Model-A billing panel preview is a folderless dev harness: it renders the
+  // billing panel from fixture status with no backend, for visual review.
+  if (pathname === "/dev/model-a-billing-preview") {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
+
   // The demo-video studio launcher is a folderless dev console of clip links. It
   // must render in ANY browser (notably Safari, so recordings dodge Chrome's
   // "Claude is debugging" automation banner) without the File System Access gate.
