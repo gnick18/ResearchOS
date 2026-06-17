@@ -252,10 +252,23 @@ describe("folderHasLiftableSettings (the popup trigger)", () => {
     expect(folderHasLiftableSettings(null, [icsFeed(1)], "member", {})).toBe(true);
   });
 
-  it("is TRUE when the folder has a preference the account lacks", () => {
+  it("is FALSE when the folder has ONLY a cosmetic preference (no feeds, not a lab head)", () => {
+    // A fresh/near-empty folder still carries default prefs in settings.json.
+    // Prefs alone must NOT trigger the popup (the Owen misfire), they only ride
+    // along when the popup fires for a substantive reason.
     expect(
       folderHasLiftableSettings(null, [], "member", { theme: "dark" }),
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it("is TRUE when the folder marks a lab head the account has not recorded", () => {
+    expect(folderHasLiftableSettings(null, [], "lab_head", {})).toBe(true);
+  });
+
+  it("is FALSE for a lab head once the account already records the capability", () => {
+    expect(
+      folderHasLiftableSettings({ labHead: true }, [], "lab_head", {}),
+    ).toBe(false);
   });
 
   it("is FALSE when the account already has everything the folder offers", () => {
