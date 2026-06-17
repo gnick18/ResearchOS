@@ -119,6 +119,187 @@ function ByoUploadSection({ slug }: { slug: string }) {
   );
 }
 
+interface GithubConnectionSummary {
+  owner: string;
+  repo: string;
+  ref: string;
+  subdir: string;
+  lastSyncedSha: string | null;
+  lastSyncedAt: string | null;
+}
+
+/**
+ * BYO GitHub-connect subsection (lab-domains BYO GitHub-connect Slice A). Connect a
+ * PUBLIC GitHub repo as the site source (owner/repo + branch + optional subdir),
+ * then re-pull on demand with "Sync now". Mirrors the zip-upload section: all authz
+ * + validation is server-side; this only renders the verdict. Mounted only when
+ * LAB_BYO_SITES_ENABLED, so it is dark by default.
+ */
+function ByoGithubSection() {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [conn, setConn] = useState<GithubConnectionSummary | null>(null);
+
+  const [owner, setOwner] = useState("");
+  const [repo, setRepo] = useState("");
+  const [ref, setRef] = useState("main");
+  const [subdir, setSubdir] = useState("");
+
+  const loadConnection = useCallback(async () => {
+    try {
+      const res = await fetch("/api/social/lab-site/byo/github", { method: "GET" });
+      if (!res.ok) return;
+      const data = (await res.json()) as { connection: GithubConnectionSummary | null };
+      if (data.connection) {
+        setConn(data.connection);
+        setOwner(data.connection.owner);
+        setRepo(data.connection.repo);
+        setRef(data.connection.ref || "main");
+        setSubdir(data.connection.subdir || "");
+      }
+    } catch {
+      // Best effort: a load failure just leaves the form blank.
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadConnection();
+  }, [loadConnection]);
+
+  const runAction = useCallback(
+    async (action: "connect" | "sync" | "disconnect") => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const body =
+          action === "connect"
+            ? { action, owner: owner.trim(), repo: repo.trim(), ref: ref.trim() || "main", subdir: subdir.trim() }
+            : { action };
+        const res = await fetch("/api/social/lab-site/byo/github", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (action === "disconnect") {
+          if (res.ok) {
+            setConn(null);
+            setMsg("Disconnected. Your already-published files stay live until you replace them.");
+          } else {
+            setMsg("Could not disconnect right now.");
+          }
+          return;
+        }
+        if (res.status === 422 || res.status === 502) {
+          const data = (await res.json().catch(() => ({}))) as { reason?: string };
+          const reason = data.reason ?? "invalid";
+          setMsg(`Could not pull that repo (${reason}). Use a PUBLIC repo with an index.html at its (sub)root.`);
+          return;
+        }
+        if (!res.ok) {
+          setMsg("Could not sync the repo right now.");
+          return;
+        }
+        const data = (await res.json()) as { fileCount: number; totalBytes: number; resolvedRef?: string };
+        setMsg(`Synced ${data.fileCount} files (${Math.round(data.totalBytes / 1024)} KB)${data.resolvedRef ? ` at ${data.resolvedRef.slice(0, 7)}` : ""}.`);
+        await loadConnection();
+      } catch {
+        setMsg("Could not sync the repo right now.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [owner, repo, ref, subdir, loadConnection],
+  );
+
+  return (
+    <section className="mb-8 rounded-xl border border-border bg-surface-raised p-5">
+      <h2 className="text-lg font-medium text-foreground">Connect a GitHub repo</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Point us at a PUBLIC GitHub repo with an index.html (your paper-companion
+        repo). We pull its files and host them. Use Sync now to re-pull after you
+        push changes. Private repos and automatic sync are coming later.
+      </p>
+      {conn && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Connected to {conn.owner}/{conn.repo} ({conn.ref || "main"}
+          {conn.subdir ? `, /${conn.subdir}` : ""})
+          {conn.lastSyncedSha ? ` . last synced ${conn.lastSyncedSha.slice(0, 7)}` : " . not synced yet"}
+        </p>
+      )}
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input
+          type="text"
+          value={owner}
+          onChange={(e) => setOwner(e.target.value)}
+          disabled={busy}
+          placeholder="owner (e.g. smithlab)"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          aria-label="GitHub owner"
+        />
+        <input
+          type="text"
+          value={repo}
+          onChange={(e) => setRepo(e.target.value)}
+          disabled={busy}
+          placeholder="repo (e.g. companion-site)"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          aria-label="GitHub repo"
+        />
+        <input
+          type="text"
+          value={ref}
+          onChange={(e) => setRef(e.target.value)}
+          disabled={busy}
+          placeholder="branch / tag (e.g. main)"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          aria-label="Branch or tag"
+        />
+        <input
+          type="text"
+          value={subdir}
+          onChange={(e) => setSubdir(e.target.value)}
+          disabled={busy}
+          placeholder="subfolder (optional, e.g. site)"
+          className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+          aria-label="Subfolder (optional)"
+        />
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          disabled={busy || owner.trim().length === 0 || repo.trim().length === 0}
+          onClick={() => void runAction("connect")}
+          className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          <Icon name="check" className="h-4 w-4" /> {conn ? "Reconnect" : "Connect and pull"}
+        </button>
+        {conn && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void runAction("sync")}
+            className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            <Icon name="refresh" className="h-4 w-4" /> Sync now
+          </button>
+        )}
+        {conn && (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void runAction("disconnect")}
+            className="ros-btn-neutral rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+          >
+            Disconnect
+          </button>
+        )}
+        {busy && <span className="text-xs text-muted-foreground">Working.</span>}
+      </div>
+      {msg && <p className="mt-3 text-sm text-foreground">{msg}</p>}
+    </section>
+  );
+}
+
 export default function LabSiteDashboard() {
   const [load, setLoad] = useState<LoadState>("loading");
   const [site, setSite] = useState<SiteSummary | null>(null);
@@ -473,6 +654,7 @@ export default function LabSiteDashboard() {
             </div>
 
             {LAB_BYO_SITES_ENABLED && <ByoUploadSection slug={site.slug} />}
+            {LAB_BYO_SITES_ENABLED && <ByoGithubSection />}
 
             {editorPath !== null && (
               <section className="rounded-xl border border-border bg-surface-raised p-5">

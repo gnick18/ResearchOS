@@ -157,3 +157,144 @@ export async function deleteByoSiteRow(labOwnerKey: string): Promise<void> {
   const sql = getSql();
   await sql`DELETE FROM lab_byo_sites WHERE lab_owner_key = ${labOwnerKey}`;
 }
+
+// ---------------------------------------------------------------------------
+// GitHub source connection (lab-domains BYO GitHub-connect Slice A)
+//
+// A lab may source its BYO site from a PUBLIC GitHub repo instead of a manual zip
+// upload. The connection (repo owner/name, ref, optional subdir) is recorded here,
+// one per lab, so a "sync now" action can re-pull the recorded repo. The pulled
+// FILES still land in lab_byo_sites / R2 via the normal BYO path; this table only
+// remembers WHERE to pull from. The owner/repo/ref values are charset-validated in
+// lab-byo-github.ts BEFORE they are recorded, so this store holds only safe values.
+// ---------------------------------------------------------------------------
+
+/** A recorded GitHub connection for one lab (one connection per lab). */
+export interface LabByoGithubRow {
+  labOwnerKey: string;
+  owner: string;
+  repo: string;
+  ref: string;
+  /** "" when the repo root is the site root. */
+  subdir: string;
+  /** The resolved commit sha of the last successful sync, or null. */
+  lastSyncedSha: string | null;
+  /** ISO timestamp of the last successful sync, or null. */
+  lastSyncedAt: string | null;
+  updatedAt: string;
+}
+
+/** Creates the lab_byo_github table if absent. Idempotent (callable per request).
+ *  Keyed by lab_owner_key (one connection per lab). */
+export async function ensureLabByoGithubSchema(): Promise<void> {
+  const sql = getSql();
+  await sql`
+    CREATE TABLE IF NOT EXISTS lab_byo_github (
+      lab_owner_key   text primary key,
+      owner           text not null,
+      repo            text not null,
+      ref             text not null,
+      subdir          text not null default '',
+      last_synced_sha text,
+      last_synced_at  timestamptz,
+      updated_at      timestamptz default now()
+    )
+  `;
+}
+
+function rowToGithub(r: {
+  lab_owner_key: string;
+  owner: string;
+  repo: string;
+  ref: string;
+  subdir: string | null;
+  last_synced_sha: string | null;
+  last_synced_at: string | null;
+  updated_at: string;
+}): LabByoGithubRow {
+  return {
+    labOwnerKey: r.lab_owner_key,
+    owner: r.owner,
+    repo: r.repo,
+    ref: r.ref,
+    subdir: r.subdir ?? "",
+    lastSyncedSha: r.last_synced_sha ?? null,
+    lastSyncedAt: r.last_synced_at ?? null,
+    updatedAt: r.updated_at,
+  };
+}
+
+/** Fetches the recorded GitHub connection for a lab, or null when none. */
+export async function getByoGithubByOwner(
+  labOwnerKey: string,
+): Promise<LabByoGithubRow | null> {
+  if (!labOwnerKey) return null;
+  await ensureLabByoGithubSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_owner_key, owner, repo, ref, subdir, last_synced_sha, last_synced_at, updated_at
+    FROM lab_byo_github
+    WHERE lab_owner_key = ${labOwnerKey}
+    LIMIT 1
+  `) as Array<{
+    lab_owner_key: string;
+    owner: string;
+    repo: string;
+    ref: string;
+    subdir: string | null;
+    last_synced_sha: string | null;
+    last_synced_at: string | null;
+    updated_at: string;
+  }>;
+  return rows[0] ? rowToGithub(rows[0]) : null;
+}
+
+/** Upsert a lab's GitHub connection (idempotent on lab_owner_key). The values are
+ *  already charset-validated by the caller (parseGithubConnection). Re-connecting
+ *  replaces the row and resets the last-synced markers. */
+export async function upsertByoGithub(input: {
+  labOwnerKey: string;
+  owner: string;
+  repo: string;
+  ref: string;
+  subdir: string;
+}): Promise<LabByoGithubRow | null> {
+  await ensureLabByoGithubSchema();
+  const sql = getSql();
+  await sql`
+    INSERT INTO lab_byo_github (lab_owner_key, owner, repo, ref, subdir, updated_at)
+    VALUES (${input.labOwnerKey}, ${input.owner}, ${input.repo}, ${input.ref}, ${input.subdir}, now())
+    ON CONFLICT (lab_owner_key) DO UPDATE SET
+      owner      = EXCLUDED.owner,
+      repo       = EXCLUDED.repo,
+      ref        = EXCLUDED.ref,
+      subdir     = EXCLUDED.subdir,
+      updated_at = now()
+  `;
+  return getByoGithubByOwner(input.labOwnerKey);
+}
+
+/** Record a successful sync's resolved sha + timestamp for a lab's connection
+ *  (best effort; a missing connection is a no-op). */
+export async function recordByoGithubSync(input: {
+  labOwnerKey: string;
+  resolvedSha: string | null;
+}): Promise<void> {
+  if (!input.labOwnerKey) return;
+  await ensureLabByoGithubSchema();
+  const sql = getSql();
+  await sql`
+    UPDATE lab_byo_github
+    SET last_synced_sha = ${input.resolvedSha}, last_synced_at = now()
+    WHERE lab_owner_key = ${input.labOwnerKey}
+  `;
+}
+
+/** Deletes a lab's GitHub connection row (best effort). The pulled files are
+ *  removed separately via deleteByoSite when the site itself is removed. */
+export async function deleteByoGithubRow(labOwnerKey: string): Promise<void> {
+  if (!labOwnerKey) return;
+  await ensureLabByoGithubSchema();
+  const sql = getSql();
+  await sql`DELETE FROM lab_byo_github WHERE lab_owner_key = ${labOwnerKey}`;
+}
