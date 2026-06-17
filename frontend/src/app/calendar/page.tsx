@@ -18,6 +18,8 @@ import {
   formatTime,
   EVENT_TYPE_COLORS,
 } from "@/components/calendar/utils";
+import { useFormErrors } from "@/lib/forms/useFormErrors";
+import FieldError from "@/components/ui/FieldError";
 import {
   useCalendarFeeds,
   useExternalEvents,
@@ -933,6 +935,8 @@ function CreateEventModal({
   const [color, setColor] = useState("");
   const [isPto, setIsPto] = useState<boolean>(false);
 
+  const { errors, setError, clearError, clearAll, focusFirstError } = useFormErrors();
+
   // P1-3: Escape key closes the modal
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -943,7 +947,31 @@ function CreateEventModal({
   }, [onClose]);
 
   const handleCreate = () => {
-    if (!title.trim()) return;
+    clearAll();
+    let ok = true;
+    if (!title.trim()) {
+      setError("new-event-title", "Title is required.");
+      ok = false;
+    }
+    if (!startDate) {
+      setError("new-event-start-date", "Start date is required.");
+      ok = false;
+    }
+    if (!endDate) {
+      setError("new-event-end-date", "End date is required.");
+      ok = false;
+    } else if (startDate && endDate < startDate) {
+      setError("new-event-end-date", "End date must be on or after the start date.");
+      ok = false;
+    }
+    if (startTime && endTime && endTime < startTime) {
+      setError("new-event-end-time", "End time must be after start time.");
+      ok = false;
+    }
+    if (!ok) {
+      focusFirstError();
+      return;
+    }
     onCreate({
       title,
       event_type: eventType,
@@ -976,19 +1004,28 @@ function CreateEventModal({
         </div>
         <div className="p-6 space-y-4 overflow-y-auto flex-1">
           <div>
-            <label className="block text-meta font-medium text-foreground-muted mb-1">Title</label>
+            <label htmlFor="new-event-title" className="block text-meta font-medium text-foreground-muted mb-1">
+              Title <span aria-hidden="true" className="text-red-500">*</span>
+            </label>
             <input
+              id="new-event-title"
               type="text"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => { setTitle(e.target.value); clearError("new-event-title"); }}
               placeholder="e.g. ACS National Meeting"
-              className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+              aria-required="true"
+              aria-describedby={errors["new-event-title"] ? "new-event-title-error" : undefined}
+              className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                errors["new-event-title"] ? "border-red-400 focus:ring-red-400" : "border-border"
+              }`}
               autoFocus
             />
+            <FieldError message={errors["new-event-title"]} />
           </div>
           <div>
-            <label className="block text-meta font-medium text-foreground-muted mb-1">Type</label>
+            <label htmlFor="new-event-type" className="block text-meta font-medium text-foreground-muted mb-1">Type</label>
             <select
+              id="new-event-type"
               value={eventType}
               onChange={(e) => setEventType(e.target.value as Event["event_type"])}
               className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -1001,46 +1038,65 @@ function CreateEventModal({
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta font-medium text-foreground-muted mb-1">Start Date</label>
+              <label htmlFor="new-event-start-date" className="block text-meta font-medium text-foreground-muted mb-1">
+                Start Date <span aria-hidden="true" className="text-red-500">*</span>
+              </label>
               <input
+                id="new-event-start-date"
                 type="date"
                 value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => { setStartDate(e.target.value); clearError("new-event-start-date"); clearError("new-event-end-date"); }}
+                aria-required="true"
+                className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors["new-event-start-date"] ? "border-red-400 focus:ring-red-400" : "border-border"
+                }`}
               />
+              <FieldError message={errors["new-event-start-date"]} />
             </div>
             <div>
-              <label className="block text-meta font-medium text-foreground-muted mb-1">End Date</label>
+              <label htmlFor="new-event-end-date" className="block text-meta font-medium text-foreground-muted mb-1">
+                End Date <span aria-hidden="true" className="text-red-500">*</span>
+              </label>
               <input
+                id="new-event-end-date"
                 type="date"
                 value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => { setEndDate(e.target.value); clearError("new-event-end-date"); }}
+                aria-required="true"
+                className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors["new-event-end-date"] ? "border-red-400 focus:ring-red-400" : "border-border"
+                }`}
               />
+              <FieldError message={errors["new-event-end-date"]} />
             </div>
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-meta font-medium text-foreground-muted mb-1">
+              <label htmlFor="new-event-start-time" className="block text-meta font-medium text-foreground-muted mb-1">
                 Start Time <span className="text-foreground-muted font-normal">(optional)</span>
               </label>
               <input
+                id="new-event-start-time"
                 type="time"
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
+                onChange={(e) => { setStartTime(e.target.value); clearError("new-event-end-time"); }}
                 className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
             <div>
-              <label className="block text-meta font-medium text-foreground-muted mb-1">
+              <label htmlFor="new-event-end-time" className="block text-meta font-medium text-foreground-muted mb-1">
                 End Time <span className="text-foreground-muted font-normal">(optional)</span>
               </label>
               <input
+                id="new-event-end-time"
                 type="time"
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-                className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onChange={(e) => { setEndTime(e.target.value); clearError("new-event-end-time"); }}
+                className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  errors["new-event-end-time"] ? "border-red-400 focus:ring-red-400" : "border-border"
+                }`}
               />
+              <FieldError message={errors["new-event-end-time"]} />
             </div>
           </div>
           <p className="text-meta text-foreground-muted -mt-2">
@@ -1120,8 +1176,7 @@ function CreateEventModal({
           </button>
           <button
             onClick={handleCreate}
-            disabled={!title.trim()}
-            className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+            className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg"
           >
             Create Event
           </button>

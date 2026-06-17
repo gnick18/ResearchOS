@@ -19,6 +19,7 @@ import {
 } from "@/lib/calendar/calendar-colors";
 import type { CalendarFeed, CalendarFeedProvider } from "@/lib/types";
 import LivingPopup from "@/components/ui/LivingPopup";
+import FieldError from "@/components/ui/FieldError";
 import Tooltip from "./Tooltip";
 
 const PROVIDER_LABELS: Record<CalendarFeedProvider, string> = {
@@ -110,6 +111,21 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
     const url = draftUrl.trim();
     if (!url) {
       setDraftError("Paste an ICS URL first.");
+      // Focus the URL input so screen readers announce the error.
+      (document.getElementById("ics-url-input") as HTMLInputElement | null)?.focus();
+      return;
+    }
+    // Basic scheme check: reject obviously non-ICS inputs before hitting the server.
+    const lowerUrl = url.toLowerCase();
+    if (
+      !lowerUrl.startsWith("http://") &&
+      !lowerUrl.startsWith("https://") &&
+      !lowerUrl.startsWith("webcal://")
+    ) {
+      setDraftError(
+        "URL must start with https://, http://, or webcal://. Copy it from your calendar app's share settings.",
+      );
+      (document.getElementById("ics-url-input") as HTMLInputElement | null)?.focus();
       return;
     }
     setTesting(true);
@@ -371,8 +387,8 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
               </div>
               <div>
                 <div className="flex items-center gap-1.5 mb-1">
-                  <label className="text-meta font-medium text-foreground-muted">
-                    ICS URL
+                  <label htmlFor="ics-url-input" className="text-meta font-medium text-foreground-muted">
+                    ICS URL <span aria-hidden="true" className="text-red-500">*</span>
                   </label>
                   <Tooltip
                     label="Stored in users/<your-username>/_calendar-feeds.json on your disk. Sent to /api/calendar-feed via an x-calendar-url header (not a query string, so it's not logged) when refreshing events."
@@ -388,12 +404,22 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                   </Tooltip>
                 </div>
                 <input
+                  id="ics-url-input"
                   type="url"
                   value={draftUrl}
-                  onChange={(e) => setDraftUrl(e.target.value)}
+                  onChange={(e) => {
+                    setDraftUrl(e.target.value);
+                    if (draftError) setDraftError(null);
+                  }}
                   placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"
-                  className="w-full px-3 py-2 border border-border rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  aria-required="true"
+                  aria-describedby={draftError ? "ics-url-error" : undefined}
+                  className={`w-full px-3 py-2 border rounded-lg text-body font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    draftError ? "border-red-400 focus:ring-red-400" : "border-border"
+                  }`}
                 />
+                {/* Inline error shown under the field (clears as user types). */}
+                <FieldError message={draftError ?? undefined} />
                 <p className="mt-1 text-meta text-amber-600 dark:text-amber-300">
                   This URL grants read access to your calendar events to anyone who has
                   it. ResearchOS stores it in your private data folder.
@@ -423,11 +449,6 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                   ))}
                 </div>
               </div>
-              {draftError && (
-                <p className="text-meta text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-500/15 border border-red-100 rounded p-2">
-                  {draftError}
-                </p>
-              )}
               <div className="flex items-center justify-between">
                 <button
                   onClick={() =>
@@ -439,11 +460,12 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
                   {showHelp === draftProvider ? "Hide" : "Where do I find this URL?"}
                 </button>
                 <button
-                  onClick={handleAdd}
-                  disabled={testing || !draftUrl.trim()}
-                  className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50"
+                  onClick={() => void handleAdd()}
+                  disabled={testing}
+                  aria-busy={testing}
+                  className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  {testing ? "Testing…" : "Add Calendar"}
+                  {testing ? "Checking feed…" : "Add Calendar"}
                 </button>
               </div>
               {showHelp === draftProvider && (
