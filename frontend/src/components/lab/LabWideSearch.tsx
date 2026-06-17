@@ -19,6 +19,7 @@ import { Icon } from "@/components/icons";
 import UserAvatar from "@/components/UserAvatar";
 import { useLabIndexSearch } from "@/hooks/useLabIndexSearch";
 import type { LabSearchHit } from "@/lib/lab/lab-index-search";
+import { requestLabContent } from "@/lib/lab/lab-request-actions";
 
 /** A human label for a record type. */
 function typeLabel(recordType: string): string {
@@ -133,7 +134,28 @@ export default function LabWideSearch() {
   );
 }
 
+type RequestStatus = "idle" | "requesting" | "requested" | "error";
+
 function LabSearchResultCard({ hit }: { hit: LabSearchHit }) {
+  const [status, setStatus] = useState<RequestStatus>("idle");
+  const [error, setError] = useState<string | undefined>();
+
+  async function onRequest() {
+    setStatus("requesting");
+    setError(undefined);
+    const res = await requestLabContent({
+      owner: hit.owner,
+      recordType: hit.recordType,
+      recordId: hit.recordId,
+    });
+    if (res.ok) {
+      setStatus("requested");
+    } else {
+      setStatus("error");
+      setError(res.error);
+    }
+  }
+
   return (
     <li
       className="bg-surface-raised border border-border rounded-lg p-4"
@@ -143,7 +165,11 @@ function LabSearchResultCard({ hit }: { hit: LabSearchHit }) {
         <h3 className="text-body font-medium text-foreground line-clamp-2">
           {hit.title}
         </h3>
-        <EagerBadge eager={hit.eager} />
+        {hit.eager ? (
+          <InCloudBadge />
+        ) : (
+          <RequestControl status={status} onRequest={onRequest} />
+        )}
       </div>
 
       <div className="mt-2 flex items-center gap-2">
@@ -161,24 +187,58 @@ function LabSearchResultCard({ hit }: { hit: LabSearchHit }) {
           {hit.preview}
         </p>
       ) : null}
+
+      {status === "error" && error ? (
+        <p className="mt-2 text-meta text-red-600 dark:text-red-400">
+          Request failed: {error}
+        </p>
+      ) : null}
     </li>
   );
 }
 
-/** Shows whether the full content is in the cloud or fetched on request. */
-function EagerBadge({ eager }: { eager: boolean }) {
-  if (eager) {
+function InCloudBadge() {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-meta text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+      <Icon name="cloud" className="h-3.5 w-3.5" />
+      In cloud
+    </span>
+  );
+}
+
+/**
+ * For a heavy (on-request) item: a button that sends the request, then shows a
+ * "Requested" state. The owner approves it on their next session, after which it
+ * appears in the cloud.
+ */
+function RequestControl({
+  status,
+  onRequest,
+}: {
+  status: RequestStatus;
+  onRequest: () => void;
+}) {
+  if (status === "requested") {
     return (
-      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-meta text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+      <span
+        className="inline-flex shrink-0 items-center gap-1 rounded-full bg-surface-sunken px-2 py-0.5 text-meta text-foreground-muted"
+        data-testid="lab-wide-requested"
+      >
         <Icon name="cloud" className="h-3.5 w-3.5" />
-        In cloud
+        Requested
       </span>
     );
   }
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-meta text-amber-700 dark:bg-amber-500/15 dark:text-amber-300">
+    <button
+      type="button"
+      onClick={onRequest}
+      disabled={status === "requesting"}
+      data-testid="lab-wide-request-btn"
+      className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-meta text-amber-700 disabled:opacity-50 dark:text-amber-300"
+    >
       <Icon name="download" className="h-3.5 w-3.5" />
-      On request
-    </span>
+      {status === "requesting" ? "Requesting..." : status === "error" ? "Retry" : "Request"}
+    </button>
   );
 }

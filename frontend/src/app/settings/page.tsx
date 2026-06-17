@@ -64,6 +64,7 @@ import LabIdentitySection from "@/components/lab/LabIdentitySection";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 import MyLabViewPanel from "@/components/lab/MyLabViewPanel";
+import MyLabRequestsPanel from "@/components/lab/MyLabRequestsPanel";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
@@ -804,6 +805,18 @@ function SettingsBodyInner({
                   "transparency privacy what my pi lab head sees reads access audit my data lab view",
                 render: () => <MyLabViewSection />,
               },
+              // Phase C: requests from the lab head for the member's heavy items
+              // (big tables) that are not in the eager mirror. The member
+              // approves to upload them for a window. Visible to every lab user.
+              {
+                id: "labrequests",
+                group: "Lab",
+                title: "Requests from your lab head",
+                icon: "download" as const,
+                keywords:
+                  "requests lab head approve share heavy table on demand upload grant pi",
+                render: () => <MyLabRequestsSection />,
+              },
               ...(isLabHead
                 ? [
                     {
@@ -1492,6 +1505,31 @@ function MyLabViewSection() {
         </button>
       </div>
       <MyLabViewPanel open={panelOpen} onClose={() => setPanelOpen(false)} />
+    </SectionShell>
+  );
+}
+
+/**
+ * Phase C: the member's "Requests from your lab head" section. Visible to every
+ * lab user. Lists the heavy items the PI has asked for and lets the member
+ * approve, which uploads them for a TTL window. See MyLabRequestsPanel.
+ */
+function MyLabRequestsSection() {
+  return (
+    <SectionShell
+      id="my-lab-requests"
+      title="Requests from your lab head"
+      description="Approve your lab head's requests for your heavy items (like big data tables) to upload them for a window."
+      searchKeywords="requests lab head approve share heavy table on demand upload grant pi"
+    >
+      <div className="space-y-3">
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          Heavy items like large data tables are not uploaded automatically. When
+          your lab head wants to see one, it shows up here. Approving uploads that
+          one item and keeps it shared for 30 days, then it reverts to on-request.
+        </p>
+        <MyLabRequestsPanel />
+      </div>
     </SectionShell>
   );
 }
