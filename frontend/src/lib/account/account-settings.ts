@@ -29,17 +29,33 @@ import {
 } from "./account-settings-crypto";
 import { isAccountSettingsEnabled } from "./account-settings-config";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
+import { bytesToHex } from "@noble/hashes/utils.js";
 
 // ---------------------------------------------------------------------------
 // PURE LOGIC (unit-tested): merge, lift, PI resolution.
 // ---------------------------------------------------------------------------
 
 /**
- * The slice of UserSettings the account tier OVERRIDES. Phase 1 owns exactly the
- * lab-head capability (as account_type) of the folder settings shape. Kept as a
- * Partial so the merge stays additive and obviously bounded.
+ * The slice of UserSettings the account tier OVERRIDES. Phase 1 owned exactly the
+ * lab-head capability; Phase 2 widens it to the account-wide preferences below.
+ * Kept as a Partial so the merge stays additive and obviously bounded.
  */
-export type AccountOverridableSettings = Pick<UserSettings, "account_type">;
+export type AccountOverridableSettings = Pick<
+  UserSettings,
+  | "account_type"
+  | "animationType"
+  | "beakerBotAnimations"
+  | "coloredHeader"
+  | "dateFormat"
+  | "timeFormat"
+  | "professionalMode"
+  | "showCompanionButton"
+  | "autoPublishSnapshotsToPhones"
+  | "notificationPreferences"
+  | "displayName"
+  | "defaultLandingTab"
+  | "visibleTabs"
+>;
 
 /**
  * Merge the account-scoped settings (cloud) OVER the folder-local settings
@@ -47,26 +63,87 @@ export type AccountOverridableSettings = Pick<UserSettings, "account_type">;
  * with. Pure and total, so it is the single source of truth for "which value
  * wins".
  *
- * Phase 1 rule set:
+ * Rule set:
  *   - account.labHead === true PROMOTES account_type to "lab_head" no matter
  *     what the folder said. This is the direct fix for opening a new empty
  *     folder (which lacks the marker) yet still being a PI. It is one-directional:
  *     the account capability can ELEVATE but never DEMOTE (a folder that locally
  *     marks lab_head is honored even if the account flag is unset/false), so a
  *     stale/empty account blob never strips a real PI of their folder role.
+ *   - The account-WIDE PREFERENCES (appearance, formatting, professional mode,
+ *     companion + notification prefs, display name) ELEVATE when present on the
+ *     account blob, so a preference set in one folder follows the user to the
+ *     next. A field ABSENT from the account blob leaves the folder value intact.
+ *   - The NAV defaults (defaultLandingTab + visibleTabs) are account DEFAULTS the
+ *     folder can OVERRIDE. They only apply when the folder is still at the system
+ *     default (the folder never picked its own), so a class folder that set its
+ *     own tab set keeps it. Detection of "folder picked its own" is supplied by
+ *     the caller via folderNavIsDefault (the read path knows whether the folder
+ *     settings.json carried explicit nav fields).
  *
- * Everything else passes the folder value through untouched (Phase 2 widens the
- * field set). Returns a new object; never mutates either input.
+ * Returns a new object; never mutates either input.
  */
 export function mergeAccountOverFolder(
   folder: UserSettings,
   account: AccountScopedSettings | null,
+  folderNavIsDefault?: { defaultLandingTab?: boolean; visibleTabs?: boolean },
 ): UserSettings {
   if (!account) return folder;
   const next: UserSettings = { ...folder };
+
+  // Lab-head capability: ELEVATE only (Phase 1 rule, unchanged).
   if (account.labHead === true && next.account_type !== "lab_head") {
     next.account_type = "lab_head";
   }
+
+  // Account-wide preferences: account value wins when the blob carries one.
+  if (account.animationType !== undefined) {
+    next.animationType = account.animationType as UserSettings["animationType"];
+  }
+  if (account.beakerBotAnimations !== undefined) {
+    next.beakerBotAnimations = account.beakerBotAnimations;
+  }
+  if (account.coloredHeader !== undefined) {
+    next.coloredHeader = account.coloredHeader;
+  }
+  if (account.dateFormat !== undefined) {
+    next.dateFormat = account.dateFormat as UserSettings["dateFormat"];
+  }
+  if (account.timeFormat !== undefined) {
+    next.timeFormat = account.timeFormat as UserSettings["timeFormat"];
+  }
+  if (account.professionalMode !== undefined) {
+    next.professionalMode = account.professionalMode;
+  }
+  if (account.showCompanionButton !== undefined) {
+    next.showCompanionButton = account.showCompanionButton;
+  }
+  if (account.autoPublishSnapshotsToPhones !== undefined) {
+    next.autoPublishSnapshotsToPhones = account.autoPublishSnapshotsToPhones;
+  }
+  if (account.notificationPreferences !== undefined) {
+    next.notificationPreferences =
+      account.notificationPreferences as unknown as UserSettings["notificationPreferences"];
+  }
+  if (account.displayName !== undefined) {
+    next.displayName = account.displayName;
+  }
+
+  // Nav defaults: account DEFAULT, folder OVERRIDE. Apply the account value only
+  // when the folder is still at the system default for that field.
+  if (
+    account.defaultLandingTab !== undefined &&
+    folderNavIsDefault?.defaultLandingTab === true
+  ) {
+    next.defaultLandingTab = account.defaultLandingTab;
+  }
+  if (
+    account.visibleTabs !== undefined &&
+    folderNavIsDefault?.visibleTabs === true
+  ) {
+    next.visibleTabs = [...account.visibleTabs];
+  }
+
   return next;
 }
 
@@ -88,10 +165,36 @@ export function resolveIsLabHead(
 }
 
 /**
+ * The folder-side, account-SCOPABLE preference values the lift reads up into the
+ * account blob. All optional, so the caller supplies only what the folder has.
+ * These mirror the Phase 2 AccountScopedSettings preference fields (NOT research
+ * data). `theme` comes from localStorage (per-device store), the rest from the
+ * folder settings.json.
+ */
+export interface FolderAccountScopablePrefs {
+  theme?: string;
+  animationType?: string;
+  beakerBotAnimations?: boolean;
+  coloredHeader?: boolean;
+  dateFormat?: string;
+  timeFormat?: string;
+  professionalMode?: boolean;
+  showCompanionButton?: boolean;
+  autoPublishSnapshotsToPhones?: boolean;
+  notificationPreferences?: Record<string, unknown>;
+  displayName?: string | null;
+  defaultLandingTab?: string;
+  visibleTabs?: string[];
+}
+
+/**
  * Build the account-scoped settings to LIFT out of a folder's current state on
- * first login (idempotent, non-destructive). Phase 1 lifts the two fields:
- *   - the folder's enabled ICS calendar feeds (structurally copied), and
- *   - the lab-head capability (true iff the folder marks the user lab_head).
+ * first login (idempotent, non-destructive). Lifts:
+ *   - the folder's enabled ICS calendar feeds (structurally copied),
+ *   - the lab-head capability (true iff the folder marks the user lab_head), and
+ *   - (Phase 2) the account-wide preferences in `folderPrefs` (appearance,
+ *     formatting, professional mode, companion + notification prefs, display
+ *     name, nav defaults), each seeded only when the account lacks it.
  *
  * IDEMPOTENT + NON-DESTRUCTIVE: if the account blob ALREADY carries a value for a
  * field, the existing account value WINS (we never overwrite the user's account
@@ -104,6 +207,7 @@ export function liftFolderIntoAccount(
   existingAccount: AccountScopedSettings | null,
   folderFeeds: CalendarFeed[],
   folderAccountType: string | undefined,
+  folderPrefs: FolderAccountScopablePrefs = {},
 ): AccountScopedSettings {
   const next: AccountScopedSettings = { ...(existingAccount ?? {}) };
 
@@ -137,7 +241,76 @@ export function liftFolderIntoAccount(
     next.labHead = true;
   }
 
+  // Phase 2 account-wide preferences: seed each only when the account blob does
+  // not already carry it (the existing account choice always wins). The folder
+  // value is structurally copied so a later folder mutation cannot reach into the
+  // account blob. A prefs field the caller did not supply (undefined) is skipped.
+  seedIfAbsent(next, "theme", folderPrefs.theme);
+  seedIfAbsent(next, "animationType", folderPrefs.animationType);
+  seedIfAbsent(next, "beakerBotAnimations", folderPrefs.beakerBotAnimations);
+  seedIfAbsent(next, "coloredHeader", folderPrefs.coloredHeader);
+  seedIfAbsent(next, "dateFormat", folderPrefs.dateFormat);
+  seedIfAbsent(next, "timeFormat", folderPrefs.timeFormat);
+  seedIfAbsent(next, "professionalMode", folderPrefs.professionalMode);
+  seedIfAbsent(next, "showCompanionButton", folderPrefs.showCompanionButton);
+  seedIfAbsent(
+    next,
+    "autoPublishSnapshotsToPhones",
+    folderPrefs.autoPublishSnapshotsToPhones,
+  );
+  seedIfAbsent(
+    next,
+    "notificationPreferences",
+    folderPrefs.notificationPreferences
+      ? structuredClone(folderPrefs.notificationPreferences)
+      : undefined,
+  );
+  seedIfAbsent(next, "displayName", folderPrefs.displayName);
+  seedIfAbsent(next, "defaultLandingTab", folderPrefs.defaultLandingTab);
+  seedIfAbsent(
+    next,
+    "visibleTabs",
+    folderPrefs.visibleTabs ? [...folderPrefs.visibleTabs] : undefined,
+  );
+
   return next;
+}
+
+/** Seed a single account-blob field from a folder value ONLY when the account
+ *  blob does not already carry it and the folder value is present. Keeps the lift
+ *  idempotent + non-destructive, one field at a time. */
+function seedIfAbsent<K extends keyof AccountScopedSettings>(
+  blob: AccountScopedSettings,
+  key: K,
+  folderValue: AccountScopedSettings[K] | undefined,
+): void {
+  if (blob[key] === undefined && folderValue !== undefined) {
+    blob[key] = folderValue;
+  }
+}
+
+/**
+ * Does the folder hold ANY account-scopable setting that the account blob does
+ * NOT already carry? This is the popup TRIGGER condition: when true (and the flag
+ * is on), the lift-on-connect popup offers to add the folder's settings to the
+ * cloud profile; when false (the account already has everything, or the folder
+ * has nothing liftable), the popup never shows. Pure, so the trigger rule is
+ * testable in isolation. Computed by running the lift and seeing whether it would
+ * change the blob.
+ */
+export function folderHasLiftableSettings(
+  existingAccount: AccountScopedSettings | null,
+  folderFeeds: CalendarFeed[],
+  folderAccountType: string | undefined,
+  folderPrefs: FolderAccountScopablePrefs = {},
+): boolean {
+  const lifted = liftFolderIntoAccount(
+    existingAccount,
+    folderFeeds,
+    folderAccountType,
+    folderPrefs,
+  );
+  return !accountBlobsEqual(existingAccount, lifted);
 }
 
 /** Are two account blobs equal for the purpose of skipping a redundant write?
@@ -156,6 +329,20 @@ export function accountBlobsEqual(
 const ACCOUNT_SETTINGS_ENDPOINT = "/api/account/settings";
 
 /**
+ * The unlocked identity, or null when none is unlocked in this session. Wrapped so
+ * both the key material AND the cache owner-key derive from the SAME identity read.
+ */
+async function getUnlockedIdentityKeys(): Promise<{
+  privateKey: Uint8Array;
+  publicKey: Uint8Array;
+} | null> {
+  const stored = await loadIdentity();
+  const enc = stored?.keys.encryption;
+  if (!enc?.privateKey || !enc.publicKey) return null;
+  return { privateKey: enc.privateKey, publicKey: enc.publicKey };
+}
+
+/**
  * The unlocked identity's X25519 encryption private key, the material the blob is
  * sealed to (account-settings-crypto.ts). Null when no identity is unlocked in
  * this session, in which case the account blob cannot be read or written and the
@@ -163,53 +350,154 @@ const ACCOUNT_SETTINGS_ENDPOINT = "/api/account/settings";
  * not already hold in memory.
  */
 async function getIdentityKeyMaterial(): Promise<Uint8Array | null> {
-  const stored = await loadIdentity();
-  return stored?.keys.encryption.privateKey ?? null;
+  return (await getUnlockedIdentityKeys())?.privateKey ?? null;
 }
 
 /**
- * Fetch + decrypt the caller's account-scoped settings. Returns null (a clean
- * "no account settings, use folder-local") when:
+ * A STABLE, non-secret per-account cache key derived from the identity's PUBLIC
+ * encryption key. The public key is the same across every folder the account opens
+ * and differs per account, so it is the right key to scope the session cache by.
+ * Hex of the public key bytes; never the private key. Returns null when no identity
+ * is unlocked.
+ */
+async function getIdentityOwnerKey(): Promise<string | null> {
+  const keys = await getUnlockedIdentityKeys();
+  if (!keys) return null;
+  return bytesToHex(keys.publicKey);
+}
+
+// ---------------------------------------------------------------------------
+// SESSION CACHE (the pre-flag-flip blocker fix).
+//
+// fetchAccountSettings decrypts + hits the network on EVERY call, and
+// buildCurrentViewer (the hot sharing path) calls it. We memoize the decrypted
+// blob for this session, KEYED BY the identity owner key (the public encryption
+// key hex), so the cache can NEVER serve one user's settings to another: a
+// different identity has a different owner key and misses the cache. The cache is
+// populated on first fetch, served synchronously after, written through on
+// writeAccountSettings, and cleared on logout / identity change / user switch.
+//
+// `settings` is stored as the decrypted blob OR null ("fetched, user has no
+// blob"). `fetched` distinguishes "never fetched" from "fetched and empty" so a
+// genuine no-blob account is not re-fetched on every viewer build.
+// ---------------------------------------------------------------------------
+interface AccountSettingsCacheEntry {
+  ownerKey: string;
+  fetched: boolean;
+  settings: AccountScopedSettings | null;
+}
+let accountSettingsCache: AccountSettingsCacheEntry | null = null;
+
+/**
+ * Drop the in-memory account-settings cache. MUST be called on logout, identity
+ * change, and user switch so a subsequent fetch re-reads for the (possibly
+ * different) identity rather than serving the previous user's blob. Idempotent and
+ * safe to call when the cache is already empty. Exported so the logout / user
+ * switch hooks in local-api can clear it alongside clearCurrentUserCache.
+ */
+export function clearAccountSettingsCache(): void {
+  accountSettingsCache = null;
+}
+
+/**
+ * The decrypted account settings already cached for the CURRENT identity, or
+ * null when nothing is cached for it. Synchronous, so a hot caller that has
+ * already warmed the cache can read account defaults without an await. The caller
+ * supplies the current owner key (the identity public-key hex) so this never
+ * returns a stale OTHER-identity entry. Returns null on an owner-key mismatch,
+ * which forces the async path to re-fetch + re-key for the new identity.
+ */
+export function getCachedAccountSettingsFor(
+  ownerKey: string | null,
+): AccountScopedSettings | null {
+  if (!ownerKey) return null;
+  if (!accountSettingsCache || accountSettingsCache.ownerKey !== ownerKey) {
+    return null;
+  }
+  return accountSettingsCache.settings;
+}
+
+/**
+ * Fetch + decrypt the caller's account-scoped settings, MEMOIZED per identity for
+ * the session. Returns null (a clean "no account settings, use folder-local")
+ * when:
  *   - the flag is off (the IO never fires),
  *   - no identity is unlocked,
  *   - the API 404s / errors,
  *   - the user has no stored blob yet.
  * Any decrypt failure is swallowed to null so a corrupt/foreign blob can never
  * break login; the caller proceeds folder-local.
+ *
+ * CACHE: the first call for an identity hits the network + decrypts and caches the
+ * result keyed by the identity owner key; subsequent calls for the SAME identity
+ * return the cached value without any network or crypto. A call for a DIFFERENT
+ * identity (the owner key changed, e.g. a user switch the logout hook missed)
+ * misses the cache, re-fetches, and re-keys, so the cache can never cross users.
  */
 export async function fetchAccountSettings(): Promise<AccountScopedSettings | null> {
   if (!isAccountSettingsEnabled()) return null;
-  const keyMaterial = await getIdentityKeyMaterial();
-  if (!keyMaterial) return null;
+  const keys = await getUnlockedIdentityKeys();
+  if (!keys) return null;
+  const ownerKey = bytesToHex(keys.publicKey);
+
+  // Cache hit for THIS identity: serve without network or decrypt.
+  if (accountSettingsCache && accountSettingsCache.ownerKey === ownerKey) {
+    return accountSettingsCache.settings;
+  }
+
+  let settings: AccountScopedSettings | null = null;
   try {
     const res = await fetch(ACCOUNT_SETTINGS_ENDPOINT, { method: "GET" });
-    if (!res.ok) return null;
-    const body = (await res.json()) as { ciphertext?: string | null };
-    if (!body.ciphertext) return null;
-    return decryptAccountBlob(body.ciphertext, keyMaterial);
+    if (res.ok) {
+      const body = (await res.json()) as { ciphertext?: string | null };
+      if (body.ciphertext) {
+        settings = decryptAccountBlob(body.ciphertext, keys.privateKey);
+      }
+    }
   } catch {
-    return null;
+    // Network / decrypt failure: fall through to a null cache entry so the hot
+    // path does not re-attempt on every viewer build within the session. A write
+    // (write-through) or an identity change still refreshes it.
+    settings = null;
   }
+
+  accountSettingsCache = { ownerKey, fetched: true, settings };
+  return settings;
 }
 
 /**
  * Encrypt + write back the account-scoped settings. No-op (returns false) when
  * the flag is off or no identity is unlocked, so a folder-local-only session
  * never writes. Returns true on a successful store.
+ *
+ * WRITE-THROUGH: on a successful store the session cache is updated to the
+ * just-written blob (keyed by the current identity), so a fetch right after a
+ * write returns the new value without a round trip. A failed write leaves the
+ * cache untouched (the stored value is unchanged).
  */
 export async function writeAccountSettings(
   settings: AccountScopedSettings,
 ): Promise<boolean> {
   if (!isAccountSettingsEnabled()) return false;
-  const keyMaterial = await getIdentityKeyMaterial();
-  if (!keyMaterial) return false;
+  const keys = await getUnlockedIdentityKeys();
+  if (!keys) return false;
   try {
-    const ciphertext = encryptAccountBlob(settings, keyMaterial);
+    const ciphertext = encryptAccountBlob(settings, keys.privateKey);
     const res = await fetch(ACCOUNT_SETTINGS_ENDPOINT, {
       method: "PUT",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ ciphertext, blobVersion: ACCOUNT_BLOB_VERSION }),
     });
+    if (res.ok) {
+      // Write-through: the cache now holds the value we just persisted, keyed by
+      // this identity. A structural copy so a later mutation of the caller's
+      // object cannot reach into the cache.
+      accountSettingsCache = {
+        ownerKey: bytesToHex(keys.publicKey),
+        fetched: true,
+        settings: structuredClone(settings),
+      };
+    }
     return res.ok;
   } catch {
     return false;
@@ -244,21 +532,39 @@ export function scheduleAccountSettingsWrite(
 
 /**
  * One-time, idempotent first-login lift of a folder's account-scoped fields up
- * into the account blob (calendar feeds + the lab-head capability). Reads the
- * current account blob, lifts non-destructively (liftFolderIntoAccount), and
- * writes back ONLY if something new was added. No-op when the flag is off or no
- * identity is unlocked. Returns the (possibly unchanged) account blob so a caller
- * can use it immediately for the merge.
+ * into the account blob (calendar feeds + the lab-head capability + the Phase 2
+ * preferences in `folderPrefs`). Reads the current account blob (served from the
+ * session cache when warm), lifts non-destructively (liftFolderIntoAccount), and
+ * writes back ONLY if something new was added (the write is write-through, so the
+ * cache reflects the lift immediately). No-op when the flag is off or no identity
+ * is unlocked. Returns the (possibly unchanged) account blob so a caller can use
+ * it immediately for the merge.
  */
 export async function liftFolderSettingsOnLogin(
   folderFeeds: CalendarFeed[],
   folderAccountType: string | undefined,
+  folderPrefs: FolderAccountScopablePrefs = {},
 ): Promise<AccountScopedSettings | null> {
   if (!isAccountSettingsEnabled()) return null;
   const existing = await fetchAccountSettings();
-  const next = liftFolderIntoAccount(existing, folderFeeds, folderAccountType);
+  const next = liftFolderIntoAccount(
+    existing,
+    folderFeeds,
+    folderAccountType,
+    folderPrefs,
+  );
   if (!accountBlobsEqual(existing, next)) {
     await writeAccountSettings(next);
   }
   return next;
+}
+
+/**
+ * The current identity's stable owner key (the encryption public-key hex), or
+ * null when no identity is unlocked. Exposed so a synchronous cache reader
+ * (getCachedAccountSettingsFor) and the popup-trigger path can key by the same
+ * identity the fetch / write use. Never returns secret material.
+ */
+export async function currentIdentityOwnerKey(): Promise<string | null> {
+  return getIdentityOwnerKey();
 }

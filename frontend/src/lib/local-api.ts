@@ -1,7 +1,7 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
 import { isAccountSettingsEnabled } from "./account/account-settings-config";
-import { fetchAccountSettings, resolveIsLabHead } from "./account/account-settings";
+import { fetchAccountSettings, resolveIsLabHead, clearAccountSettingsCache } from "./account/account-settings";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import {
   trashEntity,
@@ -10084,6 +10084,10 @@ export const usersApi = {
   
   login: async (username: string): Promise<{ status: string; current_user: string }> => {
     clearCurrentUserCache();
+    // Account-settings cache is keyed by identity, but a user switch on the same
+    // device changes the active identity, so drop the cache alongside the current
+    // user so a fetch re-reads for the newly-signed-in identity (cross-user safety).
+    clearAccountSettingsCache();
     await storeCurrentUser(username);
     // Lab Mode retirement R1 (R1 unified sharing manager, 2026-05-23):
     // run the unified-sharing migration lazily on login. Idempotent: the
@@ -10102,6 +10106,7 @@ export const usersApi = {
 
   create: async (username: string): Promise<{ status: string; current_user: string; created: boolean }> => {
     clearCurrentUserCache();
+    clearAccountSettingsCache();
     await storeCurrentUser(username);
 
     // Curated-default method types (u2-curated-default bot, 2026-05-29).
@@ -10299,6 +10304,10 @@ export const usersApi = {
 
   logout: async (): Promise<{ status: string; message: string }> => {
     clearCurrentUserCache();
+    // Drop the decrypted account-settings session cache on sign-out so the next
+    // signed-in identity (possibly a different user on a shared machine) never
+    // sees the previous user's account preferences.
+    clearAccountSettingsCache();
     await clearCurrentUser();
     return { status: "ok", message: "Logged out" };
   },

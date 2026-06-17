@@ -132,6 +132,54 @@ export async function listFeeds(username: string): Promise<CalendarFeed[]> {
   return file.feeds;
 }
 
+/**
+ * Merge the ACCOUNT-scoped calendar feeds (cloud, follow the user across folders)
+ * OVER the folder-local feeds, producing the EFFECTIVE feed list the calendar UI
+ * renders. Pure + total, so the resolution is testable in isolation.
+ *
+ * Rule: when the account carries feeds, they are the source of truth (this is the
+ * Owen case, the external calendars FOLLOW him to a new folder). A folder-local
+ * feed whose ICS URL is NOT in the account list is appended so a one-off feed a
+ * user added in just this folder still shows. Account feeds win on URL collision.
+ * When the account has NO feeds (null / undefined / empty), the folder list passes
+ * through unchanged, so a flag-off / no-account session is byte-for-byte as before.
+ */
+export function resolveEffectiveFeeds(
+  folderFeeds: CalendarFeed[],
+  accountFeeds: AccountFeedRecord[] | null | undefined,
+): CalendarFeed[] {
+  if (!accountFeeds || accountFeeds.length === 0) return folderFeeds;
+  const accountAsCalendar: CalendarFeed[] = accountFeeds.map((f) => ({
+    id: f.id,
+    provider: f.provider as CalendarFeedProvider,
+    kind: "ics",
+    label: f.label,
+    icsUrl: f.icsUrl,
+    color: f.color,
+    enabled: f.enabled,
+    lastSyncAt: null,
+  }));
+  const accountUrls = new Set(
+    accountAsCalendar.map((f) => f.icsUrl).filter(Boolean),
+  );
+  const folderOnly = folderFeeds.filter(
+    (f) => !f.icsUrl || !accountUrls.has(f.icsUrl),
+  );
+  return [...accountAsCalendar, ...folderOnly];
+}
+
+/** The minimal account-feed record shape resolveEffectiveFeeds accepts. Mirrors
+ *  AccountCalendarFeed (account-settings-crypto) without importing it, so the
+ *  calendar layer carries no account-settings dependency. */
+export interface AccountFeedRecord {
+  id: number;
+  provider: string;
+  label: string;
+  icsUrl: string;
+  color: string;
+  enabled: boolean;
+}
+
 /** Input shape for adding an ICS-subscription feed. */
 export interface CreateIcsFeedInput {
   provider: CalendarFeedProvider;

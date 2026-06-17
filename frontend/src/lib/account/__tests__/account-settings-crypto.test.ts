@@ -89,6 +89,30 @@ describe("account-settings-crypto", () => {
     // The version lives in the plaintext, so we cannot read it without the key;
     // assert the constant is the one we round-trip under (a guard against an
     // accidental bump that would orphan existing blobs without a migration).
-    expect(ACCOUNT_BLOB_VERSION).toBe(1);
+    // Phase 2 bumped this to 2 (purely ADDITIVE fields, so v1 blobs still
+    // decrypt + merge cleanly).
+    expect(ACCOUNT_BLOB_VERSION).toBe(2);
+  });
+
+  it("decrypts a v1 (Phase 1) blob cleanly under the v2 reader (additive back-compat)", () => {
+    // A blob written by a Phase 1 client carries only calendarFeeds + labHead and
+    // v: 1 in its envelope. The current reader must round-trip it without loss,
+    // proving the version bump is non-breaking.
+    const key = freshKey();
+    const v1Only: AccountScopedSettings = {
+      labHead: true,
+      calendarFeeds: [
+        {
+          id: 1,
+          provider: "google",
+          label: "Owen lab calendar",
+          icsUrl: "https://example.com/owen.ics",
+          color: "#3b82f6",
+          enabled: true,
+        },
+      ],
+    };
+    const ct = encryptAccountBlob(v1Only, key);
+    expect(decryptAccountBlob(ct, key)).toEqual(v1Only);
   });
 });

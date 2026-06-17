@@ -52,12 +52,21 @@ import { xchacha20poly1305 } from "@noble/ciphers/chacha.js";
 import { base64ToBytes, bytesToBase64 } from "@/lib/sharing/identity/backup";
 
 /**
- * The account-scoped settings the blob carries. Phase 1 ships only the two
- * fields below (external calendar feeds + the lab-head capability); Phase 2 adds
- * theme / animations / AI prefs / notifications / tabs. Optional + additive, so
- * an older blob (missing a field) merges cleanly. The merge over folder-local
- * defaults lives in account-settings.ts, NOT here, so this module stays pure
- * crypto + shape.
+ * The account-scoped settings the blob carries. EVERY field is optional +
+ * additive, so an OLDER blob (written before a field existed) merges cleanly and
+ * a NEWER reader treats a missing field as "no account default, use folder-local".
+ * The merge over folder-local defaults lives in account-settings.ts, NOT here, so
+ * this module stays pure crypto + shape.
+ *
+ * The split (docs/proposals/2026-06-17-account-vs-folder-settings.md): these are
+ * PREFERENCES + external CONNECTIONS, never research DATA. Research content,
+ * created calendar events, the per-folder lab roster, and the sharing graph stay
+ * FOLDER-LOCAL and are deliberately absent here.
+ *
+ * Phase 1 shipped the first two fields (calendarFeeds + labHead). Phase 2 widens
+ * the set to the account-WIDE preferences below: appearance, formatting, the
+ * professional-mode + companion + notification preferences, the display name, and
+ * the nav defaults (tabs) a folder can still override.
  */
 export interface AccountScopedSettings {
   /**
@@ -75,6 +84,52 @@ export interface AccountScopedSettings {
    * folder-local account_type can still apply).
    */
   labHead?: boolean;
+
+  // -- Phase 2 account-wide preferences (additive, all optional) --------------
+
+  /**
+   * Theme / dark-mode choice ("light" | "dark" | "system"). Theme lives in
+   * localStorage per device (use-theme.ts), but the chosen mode is an account
+   * preference so it can follow the user to a new machine. Carried as a plain
+   * string so this module needs no theme import.
+   */
+  theme?: string;
+  /** Per-task-completion celebration animation the user picked (AnimationType). */
+  animationType?: string;
+  /** BeakerBot streak-celebration scenes on / off. */
+  beakerBotAnimations?: boolean;
+  /** Tint the header with the user color vs keep it white. */
+  coloredHeader?: boolean;
+  /** Date display format ("MDY" | "DMY" | "YMD"). */
+  dateFormat?: string;
+  /** Time display format ("12h" | "24h"). */
+  timeFormat?: string;
+  /** Master "quiet the playful surfaces" switch. */
+  professionalMode?: boolean;
+  /** Show the Companion button in the app header. */
+  showCompanionButton?: boolean;
+  /** Auto-publish today/inventory/notebook snapshots to paired phones. */
+  autoPublishSnapshotsToPhones?: boolean;
+  /**
+   * Per-category notification + companion routing (bell / laptop / phone / email)
+   * plus quiet hours. Carried structurally (an opaque object) so this crypto
+   * module does not depend on the notifications layer; account-settings.ts owns
+   * the typed shape on the way in and out.
+   */
+  notificationPreferences?: Record<string, unknown>;
+  /** The user's display name (null = use the folder name). */
+  displayName?: string | null;
+  /**
+   * The default landing tab href, as an ACCOUNT DEFAULT. A folder can still
+   * override it locally (the merge only seeds it when the folder has not set its
+   * own), so a class folder keeps its own landing choice.
+   */
+  defaultLandingTab?: string;
+  /**
+   * The visible-tab href set, as an ACCOUNT DEFAULT. Same override rule as
+   * defaultLandingTab, so a per-folder visible-tab choice still wins locally.
+   */
+  visibleTabs?: string[];
 }
 
 /**
@@ -91,8 +146,13 @@ export interface AccountCalendarFeed {
   enabled: boolean;
 }
 
-/** The current account-settings blob version. Bumped on a shape change. */
-export const ACCOUNT_BLOB_VERSION = 1;
+/** The current account-settings blob version. Bumped on a shape change. v2 adds
+ *  the Phase 2 account-wide preference fields. Purely ADDITIVE, so a v1 blob (the
+ *  Phase 1 calendarFeeds + labHead pair) decrypts + merges cleanly under v2, and a
+ *  v2 blob read by a v1 client simply ignores the unknown fields. The version
+ *  travels inside the encrypted envelope so a future non-additive migration can
+ *  branch on it. */
+export const ACCOUNT_BLOB_VERSION = 2;
 
 /**
  * The decrypted, versioned envelope. The version travels INSIDE the encrypted
