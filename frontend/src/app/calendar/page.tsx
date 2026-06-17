@@ -966,10 +966,7 @@ function CreateEventModal({
       setError("new-event-start-date", "Start date is required.");
       ok = false;
     }
-    if (!endDate) {
-      setError("new-event-end-date", "End date is required.");
-      ok = false;
-    } else if (startDate && endDate < startDate) {
+    if (endDate && startDate && endDate < startDate) {
       setError("new-event-end-date", "End date must be on or after the start date.");
       ok = false;
     }
@@ -981,11 +978,13 @@ function CreateEventModal({
       focusFirstError();
       return;
     }
+    // If the user left end date blank, default it to the start date (single-day event).
+    const effectiveEndDate = endDate || startDate;
     onCreate({
       title,
       event_type: eventType,
       start_date: startDate,
-      end_date: endDate || null,
+      end_date: effectiveEndDate || null,
       start_time: startTime || null,
       end_time: endTime || null,
       location: location || null,
