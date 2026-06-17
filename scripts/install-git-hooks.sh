@@ -7,6 +7,9 @@
 #
 # Currently installs a combined pre-commit hook:
 #   1. Icon ratchet guard  - blocks a NEW inline <svg> under frontend/src.
+#   1b. Dead-route guard    - blocks a static internal link (href / router.push)
+#                             that points at a route which does not exist and would
+#                             404 at runtime (masked by the top-level [labSlug]).
 #   2. Credits self-heal    - when package.json changes, regenerate + stage the
 #                             open-source credits so committed NOTICES never drift.
 #   3. Privacy guard        - blocks staging business/financial/personal info into
@@ -38,6 +41,14 @@ if printf '%s\n' "$staged" | grep -qE '^frontend/src/.*\.(ts|tsx)$'; then
   if [ -f "$check" ]; then
     node "$check"
     # 1 = a real offender; block. Anything else (0 clean, 2 tooling error) = allow.
+    [ "$?" -eq 1 ] && exit 1
+  fi
+  # Dead-route guard. Scans the whole tree (a staged link can break against any
+  # route), so it rides the same staged-frontend-src trigger as the icon guard.
+  deadroutes="$root/frontend/scripts/check-dead-routes.mjs"
+  if [ -f "$deadroutes" ]; then
+    node "$deadroutes"
+    # 1 = a real dead link; block. 0 clean / 2 tooling error = allow.
     [ "$?" -eq 1 ] && exit 1
   fi
 fi
