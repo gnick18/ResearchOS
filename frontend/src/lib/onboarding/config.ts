@@ -1,27 +1,41 @@
-// Onboarding wizard feature flag. The stepped account-setup wizard (the
-// 3-track shell that replaces the stacked /account page) is dark until launch.
-// Uses the same NEXT_PUBLIC env pattern as LAB_TIER_ENABLED / DEPT_TIER_ENABLED,
-// so it is OFF by default in prod (env unset), safe to commit and push, and
-// turned on locally with NEXT_PUBLIC_ONBOARDING_WIZARD=1 in frontend/.env.local.
+// Onboarding feature flag (the ONE intertwined first-run flow).
 //
-// When OFF, the current /account stacked flow and the current AccountTierChooser
-// behavior are completely unchanged. The wizard is purely additive and dark
-// until Grant flips this flag (an env action, set the var + redeploy, not a
-// code change).
+// The stepped account-setup WIZARD (the 3-track shell that replaces the stacked
+// /account page) and the LLM-driven TOUR (Beaker drives the real pages and greets
+// you by the name + role you gave the wizard) are a SINGLE flow, not two, so they
+// gate together under one env var: NEXT_PUBLIC_ONBOARDING. The wizard collects who
+// you are, then the tour personalizes off those answers, so shipping one without
+// the other makes no sense.
+//
+// Same NEXT_PUBLIC pattern as LAB_TIER_ENABLED / DEPT_TIER_ENABLED: OFF by default
+// in prod (env unset), safe to commit and push, turned on locally with
+// NEXT_PUBLIC_ONBOARDING=1 in frontend/.env.local. When OFF, the current /account
+// stacked flow + AccountTierChooser are unchanged and NONE of the tour mounts;
+// the whole flow is purely additive and dark until Grant flips this one flag.
+//
+// The two legacy vars (NEXT_PUBLIC_ONBOARDING_WIZARD / _TUTOR) are still honored as
+// aliases so any existing .env.local / Vercel setup keeps working; either one now
+// turns on the WHOLE flow, since they are intertwined.
+//
+// Spec: docs/proposals/2026-06-14-onboarding-wizard.md (setup) +
+// docs/proposals/2026-06-14-llm-onboarding-tutor.md (tour).
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-export const ONBOARDING_WIZARD_ENABLED =
-  process.env.NEXT_PUBLIC_ONBOARDING_WIZARD === "1" ||
-  process.env.NEXT_PUBLIC_ONBOARDING_WIZARD === "true";
+function flagOn(value: string | undefined): boolean {
+  return value === "1" || value === "true";
+}
 
-// Onboarding TUTOR feature flag. The LLM-driven guided first-run (Beaker drives
-// the real pages with a presenter cursor; a tailored, example-first presentation
-// that runs after the setup wizard, account-gated, funded by a capped slice of
-// the new-account token gift). Same NEXT_PUBLIC pattern: OFF by default in prod,
-// safe to commit and push, turned on locally with NEXT_PUBLIC_ONBOARDING_TUTOR=1.
-// When OFF, none of the tutor code mounts and nothing changes. Spec:
-// docs/proposals/2026-06-14-llm-onboarding-tutor.md (+ -onboarding-demo-scripts).
-export const ONBOARDING_TUTOR_ENABLED =
-  process.env.NEXT_PUBLIC_ONBOARDING_TUTOR === "1" ||
-  process.env.NEXT_PUBLIC_ONBOARDING_TUTOR === "true";
+/** The single onboarding flow flag: the wizard and the tour together. */
+export const ONBOARDING_ENABLED =
+  flagOn(process.env.NEXT_PUBLIC_ONBOARDING) ||
+  // Legacy aliases, honored so existing setups do not break. Either one enables
+  // the whole intertwined flow now.
+  flagOn(process.env.NEXT_PUBLIC_ONBOARDING_WIZARD) ||
+  flagOn(process.env.NEXT_PUBLIC_ONBOARDING_TUTOR);
+
+// Kept as named exports so every existing consumer (providers, AccountTierChooser,
+// FolderConnectGate, the wizard shell, OnboardingTutor, tour-gate, ...) keeps
+// working unchanged. They now both resolve to the single flow flag above.
+export const ONBOARDING_WIZARD_ENABLED = ONBOARDING_ENABLED;
+export const ONBOARDING_TUTOR_ENABLED = ONBOARDING_ENABLED;
