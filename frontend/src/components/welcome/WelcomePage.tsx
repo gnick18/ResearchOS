@@ -59,6 +59,7 @@ import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
 import DemoLoop from "@/components/welcome/DemoLoop";
+import VideoLightbox from "@/components/welcome/VideoLightbox";
 import BeakerSearchShowpiece from "@/components/welcome/BeakerSearchShowpiece";
 import Reveal from "@/components/marketing/Reveal";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
@@ -86,17 +87,42 @@ const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 const WELCOME_VIDEO_BASE = `${ASSET_BASE_URL}/welcome`;
 
 /** A framed R2 welcome demo clip (poster + mp4 by name under `welcome/`). Wraps
- *  the shared DemoLoop in the rainbow frame used across the feature rows. */
+ *  the shared DemoLoop in the rainbow frame used across the feature rows. The
+ *  inline embed is always tastefully capped + centered (never full-screen, in
+ *  any layout); clicking it opens the clip larger in a VideoLightbox. */
 function R2Demo({ name, label }: { name: string; label: string }) {
+  const [open, setOpen] = useState(false);
+  const src = `${WELCOME_VIDEO_BASE}/${name}.mp4`;
+  const poster = `${WELCOME_VIDEO_BASE}/${name}.poster.jpg`;
   return (
-    <RainbowFrame>
-      <DemoLoop
-        src={`${WELCOME_VIDEO_BASE}/${name}.mp4`}
-        poster={`${WELCOME_VIDEO_BASE}/${name}.poster.jpg`}
-        label={label}
-        preload="metadata"
-      />
-    </RainbowFrame>
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label={`View larger: ${label}`}
+        className="group relative mx-auto block w-full max-w-[600px] cursor-zoom-in rounded-[20px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/60"
+      >
+        <RainbowFrame>
+          <DemoLoop
+            src={src}
+            poster={poster}
+            label={label}
+            preload="metadata"
+          />
+        </RainbowFrame>
+        <span className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-[#0a1424]/70 px-2.5 py-1 text-xs font-medium text-white opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          Click to expand
+        </span>
+      </button>
+      {open && (
+        <VideoLightbox
+          src={src}
+          poster={poster}
+          label={label}
+          onClose={() => setOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
