@@ -42,11 +42,23 @@ From Grant's brainstorm — these are NATIVE blocks, NOT BYO, and a separate bac
 ### Hosting + security — THE critical constraint
 Untrusted lab HTML/JS must NOT execute on the `research-os.app` origin (it could
 read app cookies/localStorage or phish under our brand). So BYO sites are served
-from an **isolated sandbox origin** — a per-lab subdomain on a separate apex
-(e.g. `<labslug>.research-os.site` or `*.labs.research-os.app`) — so their code is
-cross-origin-isolated from the app. The clean lab URL (`research-os.app/<slug>`)
-can link to / front it; the untrusted bytes live only on the sandbox origin.
-Files hosted on R2, served via that origin's CDN.
+from an **isolated sandbox origin**.
+
+LOCKED DECISION (Grant, 2026-06-16): the sandbox origin is the EXISTING
+`research-os.com` (our assets domain — R2-backed, NO auth / NO cookies, and a
+DIFFERENT registrable domain from the app's `research-os.app`, so untrusted lab JS
+loaded from it is automatically cookie-isolated from the authed app). Each BYO site
+lives at a per-lab subdomain `<labSlug>.research-os.com`. NO new domain purchase is
+needed (the earlier "register research-os.site" idea is superseded). The clean lab
+URL (`research-os.app/<slug>`) can link to / front it; the untrusted bytes live only
+on `<labSlug>.research-os.com`. Files hosted on R2, served via the social-lane R2
+client. INVARIANT: never set app cookies or serve the authed app on `.com`.
+
+GO-LIVE infra (deferred, like Phase 4a's R2 creds): a `*.research-os.com` wildcard
+DNS record + the Vercel domain config that maps `<labSlug>.research-os.com` to the
+serve route. Until that exists, the serve route is testable via its `?slug=` +
+`?path=` query fallback. See the BYO Slice 1 handoff
+(`docs/handoffs/2026-06-16-lab-byo-upload-slice1.md`).
 
 ### Cost + permanence (reuse Phase 4)
 Same model as native hosted data: metered, 100% pass-through (reuse the Phase 4

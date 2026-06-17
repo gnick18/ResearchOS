@@ -26,6 +26,7 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  ListObjectsV2Command,
   PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
@@ -134,6 +135,126 @@ export async function deleteAsset(assetId: string): Promise<boolean> {
     await s3.send(
       new DeleteObjectCommand({ Bucket: bucket, Key: hostedAssetKey(assetId) }),
     );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// BYO ("bring your own") static-site files (lab-domains BYO Slice 1).
+//
+// A BYO site is a set of static files stored under a PER-LAB key prefix, distinct
+// from the hosted-Parquet keys above so the two uses never collide. The server
+// uploads each unzipped file here (the bytes DO transit this server, unlike the
+// Parquet presign flow, because the server unzips + sanitizes the archive first),
+// and the public serve route reads one file back at a time and streams it. R2 keeps
+// the Content-Type per object, so the serve route reads it back.
+// ---------------------------------------------------------------------------
+
+/** The R2 key prefix for ALL BYO static-site files. Kept distinct from the hosted
+ *  Parquet prefix + the institution-registry prefix so the social-lane R2 uses
+ *  never collide. Overridable via env for a preview deployment. */
+export const BYO_SITE_KEY_PREFIX =
+  process.env.LAB_BYO_SITE_R2_PREFIX ?? "byo-sites";
+
+/** Build the R2 object key for one BYO file: `<prefix>/<labFragment>/<relPath>`.
+ *  labFragment namespaces per lab; relPath is the ALREADY-SANITIZED relative path
+ *  (the caller passes a path that has been through sanitizeZipEntryPath, so this is
+ *  a flat, safe join). */
+export function byoFileKey(labFragment: string, relPath: string): string {
+  return `${BYO_SITE_KEY_PREFIX}/${labFragment}/${relPath}`;
+}
+
+/**
+ * Store one BYO file's bytes to R2 with its Content-Type. Returns true on success,
+ * false when R2 is unconfigured or the put failed. The caller has already
+ * sanitized relPath and chosen contentType per extension.
+ */
+export async function putByoFile(
+  labFragment: string,
+  relPath: string,
+  bytes: Uint8Array,
+  contentType: string,
+): Promise<boolean> {
+  const s3 = getR2();
+  const bucket = getBucket();
+  if (!s3 || !bucket) return false;
+  try {
+    await s3.send(
+      new PutObjectCommand({
+        Bucket: bucket,
+        Key: byoFileKey(labFragment, relPath),
+        // Copy into a fresh buffer so a pooled view is not retained by the SDK.
+        Body: bytes.slice(),
+        ContentType: contentType,
+      }),
+    );
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** One BYO file read back from R2: its bytes + the stored Content-Type. */
+export interface ByoFileBytes {
+  bytes: Uint8Array;
+  contentType: string | null;
+}
+
+/**
+ * Read one BYO file's bytes (and stored Content-Type) from R2, or null when R2 is
+ * unconfigured or the object is gone. The public serve route streams these bytes;
+ * a null result is a clean 404.
+ */
+export async function readByoFile(
+  labFragment: string,
+  relPath: string,
+): Promise<ByoFileBytes | null> {
+  const s3 = getR2();
+  const bucket = getBucket();
+  if (!s3 || !bucket) return null;
+  try {
+    const res = await s3.send(
+      new GetObjectCommand({ Bucket: bucket, Key: byoFileKey(labFragment, relPath) }),
+    );
+    if (!res.Body) return null;
+    const bytes = await res.Body.transformToByteArray();
+    return { bytes, contentType: res.ContentType ?? null };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Delete ALL BYO files under one lab's prefix (best effort). Called before storing
+ * a fresh upload so a re-upload never leaves orphaned files from the previous site
+ * (a removed page would otherwise stay reachable). Returns true on success, false
+ * when R2 is unconfigured or a delete failed. Lists + deletes in pages of 1000.
+ */
+export async function deleteByoSite(labFragment: string): Promise<boolean> {
+  const s3 = getR2();
+  const bucket = getBucket();
+  if (!s3 || !bucket) return false;
+  const prefix = `${BYO_SITE_KEY_PREFIX}/${labFragment}/`;
+  try {
+    let token: string | undefined;
+    do {
+      const list = await s3.send(
+        new ListObjectsV2Command({
+          Bucket: bucket,
+          Prefix: prefix,
+          ContinuationToken: token,
+        }),
+      );
+      const keys = (list.Contents ?? [])
+        .map((o) => o.Key)
+        .filter((k): k is string => typeof k === "string");
+      for (const key of keys) {
+        await s3.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
+      }
+      token = list.IsTruncated ? list.NextContinuationToken : undefined;
+    } while (token);
     return true;
   } catch {
     return false;
