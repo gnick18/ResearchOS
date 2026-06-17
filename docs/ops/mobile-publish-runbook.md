@@ -12,16 +12,18 @@ Every step is tagged with who does it:
 
 ## Account decision (read first)
 
-Launch is going out under your **personal** Apple and Google developer accounts, not
-the ResearchOS LLC org accounts. That is faster (the LLC org Apple account needs the
-D-U-N-S, which can take 1-2 weeks). Tradeoff: the store "developer / seller" name
-shows as you personally, not ResearchOS LLC.
+UPDATE (2026-06-17): launching under the **ResearchOS LLC organization** accounts on
+both stores, not personal. The earlier personal-first plan below is superseded.
+- **Apple:** the individual enrollment was never completed; the LLC org enrollment
+  was submitted 2026-06-17 (enrollment ID on file, in entity verification, allow a
+  few days to ~2 weeks). Org from day one, so no later App Transfer.
+- **Google Play:** the ResearchOS LLC organization account is created and verified.
+  Build Android FRESH on it (org accounts skip the 12-tester / 14-day closed test).
+So the store seller name is ResearchOS LLC on both from launch, and the demo-mode
+gate is already built (`docs/proposals/MOBILE_REVIEWER_DEMO.md`).
 
-You can **transfer the app to the LLC account later**. Apple supports App Transfer
-(App Store Connect, the receiving account needs an active org membership and the
-same bundle id is kept). Google supports app transfer between Play Console accounts.
-Do the transfer after the LLC org accounts are fully enrolled. Until then, personal
-is fine.
+(Superseded) Earlier plan: launch under personal accounts for speed, transfer to the
+LLC later. No longer the path now that the D-U-N-S and both org accounts exist.
 
 ### Launch sequencing (decided 2026-06-09): Apple first, Android on the org account
 

@@ -1,9 +1,18 @@
 # Mobile reviewer demo mode (scope)
 
+STATUS (2026-06-17): BUILT. The demo path is live in the app, so this doc is now a
+reference for what shipped, not a to-do. Implementation: `Pairing.demo?: boolean`
+plus `setDemoPairing()` in `mobile/lib/pairing.ts`; `fetchSnapshot()` in
+`mobile/lib/snapshots.ts` short-circuits to fixtures when `pairing.demo` is true;
+a "No desktop? Try the demo" link on `mobile/app/pair.tsx` (testID
+`pair-try-demo`); the timers / method / wiki tabs already work offline. So a
+reviewer with no desktop can reach the core features. The remaining work to ship
+is store-side (build, listing, data-safety, screenshots), not this.
+
 Goal: let an App Store / Play reviewer (and any curious user) see the companion
 app's core features with no desktop, no account, and no real pairing. This is the
 gate that blocks submission, a reviewer who only sees the pairing wall rejects the
-app under "we could not access the core features." Scope only, no code yet.
+app under "we could not access the core features."
 
 House style applies to all copy added (no em-dashes, no emojis, no mid-sentence
 colons, BeakerBot is the only mascot).
