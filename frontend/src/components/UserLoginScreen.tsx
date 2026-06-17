@@ -6,6 +6,7 @@ import { signIn, signOut } from "next-auth/react";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
+import { isRequireAccountEnabled } from "@/lib/account/require-account";
 import {
   hasLocalAccount,
   loginWithPassword,
@@ -1986,7 +1987,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   )}
 
                   <p className="mt-3 text-center text-meta text-foreground-muted">
-                    Your notebook works offline without signing in.
+                    {isRequireAccountEnabled()
+                      ? "Your notebook works fully offline once you have signed in."
+                      : "Your notebook works offline without signing in."}
                   </p>
                 </div>
               )}

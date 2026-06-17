@@ -66,6 +66,7 @@ import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Kicker from "@/components/marketing/Kicker";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
+import { isRequireAccountEnabled } from "@/lib/account/require-account";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
@@ -1457,8 +1458,9 @@ export default function WelcomePage({
               Start your notebook in a minute
             </h2>
             <p className="mt-4 max-w-[50ch] text-title leading-relaxed text-[#475569]">
-              No sign-up to begin. Connect a folder and you are writing. Sign in
-              only when you want to share with your lab.
+              {isRequireAccountEnabled()
+                ? "Sign in once with a free account, then connect a folder and you are writing. Your data still lives on your own machine and the app works fully offline."
+                : "No sign-up to begin. Connect a folder and you are writing. Sign in only when you want to share with your lab."}
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
