@@ -5,7 +5,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { fetchAllMethodsIncludingShared, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { useAccountType } from "@/hooks/useAccountType";
 import AppShell from "@/components/AppShell";
+import LabWideSearch from "@/components/lab/LabWideSearch";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import ExportFormatDialog, { type ExportProgressUi } from "@/components/ExportFormatDialog";
 // TODO(manager): unstub once Sub-bot A lands frontend/src/lib/export/orchestrate.ts.
@@ -81,6 +83,9 @@ export default function SearchPage() {
 
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
+  // Only a lab head sees the whole-lab index search (the role grants read over
+  // all lab data); everyone else searches their own work with the form below.
+  const isLabHead = useAccountType(providerCurrentUser) === "lab_head";
 
   // BeakerSearch global object search, chunk 3. Deep-link `/search?keywords=<q>`
   // seeds the keyword box and runs the search once on mount, then strips just
@@ -490,6 +495,13 @@ export default function SearchPage() {
             Find tasks, experiments, and purchases across all projects
           </p>
         </div>
+
+        {/* Lab head: search every member's synced work through the lab index. */}
+        {isLabHead && (
+          <div className="mb-6">
+            <LabWideSearch />
+          </div>
+        )}
 
         {/* Search Form */}
         <div className="bg-surface-raised border border-border rounded-xl p-6 mb-6">
