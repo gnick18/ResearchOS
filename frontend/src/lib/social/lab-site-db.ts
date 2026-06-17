@@ -191,6 +191,69 @@ function rowToPage(r: RawPageRow): LabSitePageRow {
 // Site lookups
 // ---------------------------------------------------------------------------
 
+/**
+ * Enumeration for the Phase 4b hosted-asset GC. Returns one row per lab site,
+ * each carrying the lab's owner key and the raw hosted_json text of EVERY page in
+ * that site (draft or published) that has a non-null hosted manifest. The GC
+ * runner parses each blob via parseHostedManifest (lab-site-hosted.ts) to recover
+ * the live R2 asset ids, so the parse stays in the pure module and this layer is a
+ * thin read.
+ *
+ * BOUNDARY: this reads only the social lane's own tables (lab_sites +
+ * lab_site_pages). It deliberately does NOT join Billing's lab_hosted_assets
+ * table. An asset row that was orphaned from a dropped embed (registered in
+ * Billing but no longer referenced by any current page manifest) is therefore NOT
+ * enumerated here; reconciling those orphans is a known follow-up (see the Phase
+ * 4b handoff).
+ *
+ * The list can be large in principle but is bounded by the number of labs with a
+ * site; each lab's manifests are small metadata blobs (no Parquet bytes), so this
+ * is a light scan suitable for a scheduled job.
+ */
+export interface LabSiteHostedManifests {
+  labOwnerKey: string;
+  /** Raw hosted_json text of each page in the site that has a manifest. */
+  hostedJsonByPath: Array<{ path: string; hostedJson: string }>;
+}
+
+export async function listAllSiteHostedManifests(): Promise<
+  LabSiteHostedManifests[]
+> {
+  await ensureLabSiteSchema();
+  const sql = getSql();
+  // One scan: every site joined to its pages that carry a hosted manifest. A site
+  // with no hosted pages still appears (LEFT JOIN) so the GC sees the lab exists
+  // but has nothing to reclaim, which keeps the runner uniform. Ordered by owner
+  // so the grouping below is a single linear pass.
+  const rows = (await sql`
+    SELECT s.lab_owner_key AS lab_owner_key,
+           p.path          AS path,
+           p.hosted_json   AS hosted_json
+    FROM lab_sites s
+    LEFT JOIN lab_site_pages p
+      ON p.lab_owner_key = s.lab_owner_key
+     AND p.hosted_json IS NOT NULL
+    ORDER BY s.lab_owner_key
+  `) as Array<{
+    lab_owner_key: string;
+    path: string | null;
+    hosted_json: string | null;
+  }>;
+
+  const byOwner = new Map<string, LabSiteHostedManifests>();
+  for (const r of rows) {
+    let entry = byOwner.get(r.lab_owner_key);
+    if (!entry) {
+      entry = { labOwnerKey: r.lab_owner_key, hostedJsonByPath: [] };
+      byOwner.set(r.lab_owner_key, entry);
+    }
+    if (r.hosted_json != null && r.path != null) {
+      entry.hostedJsonByPath.push({ path: r.path, hostedJson: r.hosted_json });
+    }
+  }
+  return Array.from(byOwner.values());
+}
+
 /** Fetches the site for a lab owner-key, or null if none exists yet. */
 export async function getSiteByOwner(
   labOwnerKey: string,
