@@ -418,6 +418,7 @@ function AppContent({ children }: { children: ReactNode }) {
   const isPublicMarketingRoute =
     pathname === "/pricing" ||
     pathname === "/ai" ||
+    pathname === "/app" ||
     pathname === "/labs" ||
     pathname === "/departments" ||
     pathname === "/about" ||
