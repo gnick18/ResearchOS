@@ -34,15 +34,21 @@
     padding:4px 9px;border-radius:999px}
 
   /* stage: page on left, dock on right (split view) */
-  .stage{display:grid;grid-template-columns:1fr 0fr;transition:grid-template-columns .5s cubic-bezier(.4,0,.2,1);min-height:430px}
+  .stage{display:grid;grid-template-columns:1fr 0px;transition:grid-template-columns .82s cubic-bezier(.22,1,.36,1);min-height:430px}
   .stage.docked{grid-template-columns:1fr 340px}
-  .page{position:relative;padding:18px;min-width:0;border-right:1px solid transparent}
+  .page{position:relative;padding:18px;min-width:0;border-right:1px solid transparent;transition:padding .82s cubic-bezier(.22,1,.36,1)}
   .stage.docked .page{border-right:1px solid var(--line)}
 
-  /* the dock (persists ON TOP across page changes) */
+  /* the dock (persists ON TOP across page changes). The grid column widens from
+     0 to 340px as a smooth morph; the dock content eases + fades in as it is
+     revealed, so it settles rather than snaps. Reuse the real chat-panel easing
+     in the Phase 1 build. */
   .dock{position:relative;background:#fbfdff;overflow:hidden;width:340px;
-    transform:translateX(100%);transition:transform .5s cubic-bezier(.4,0,.2,1);opacity:0}
+    transform:translateX(22px) scale(.985);transform-origin:right center;opacity:0;
+    transition:transform .82s cubic-bezier(.22,1,.36,1),opacity .55s ease .2s}
   .stage.docked .dock{transform:none;opacity:1}
+  .stream{transition:opacity .5s ease .28s}
+  .stage:not(.docked) .stream{opacity:0}
   .dockhead{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--line)}
   .dockhead b{font-size:13px}
   .dockhead .sub{font-size:11px;color:var(--muted)}
