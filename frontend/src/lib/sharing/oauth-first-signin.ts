@@ -47,6 +47,17 @@ interface OAuthFirstOptions {
    * folder step is reached inside the wizard with no fresh-folder bounce.
    */
   onboardingWizard?: "free" | "lab";
+  /**
+   * Cold paid-signup door (Billing handoff, 2026-06-17). When a brand-new user
+   * picks a PAID path in the tier chooser (Start a lab today, a future Solo door),
+   * set this so that on return, once the session and lab are provisioned, the flow
+   * redirects to the Stripe card-on-file checkout instead of leaving them a free
+   * signed-in user. Stored as a sessionStorage marker that survives the OAuth
+   * round-trip; LabCreateResume reads + consumes it after provisioning. The
+   * card-setup endpoint is billing-flag-gated server side, so this is a clean
+   * no-op (the user stays a provisioned free account) when billing is off.
+   */
+  startPlan?: "lab" | "solo";
 }
 
 /**
@@ -74,6 +85,15 @@ export function startOAuthFirstSignIn(
     } catch {
       // sessionStorage unavailable (private mode); the redirect still fires,
       // the lab just is not auto-provisioned on return.
+    }
+  }
+
+  if (options.startPlan) {
+    try {
+      sessionStorage.setItem("researchos:start-plan", options.startPlan);
+    } catch {
+      // sessionStorage unavailable; the user just lands as a free signed-in
+      // account and converts later via the in-app upgrade nudge instead.
     }
   }
 

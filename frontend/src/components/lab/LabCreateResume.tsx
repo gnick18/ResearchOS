@@ -213,6 +213,44 @@ export default function LabCreateResume() {
     [currentUser],
   );
 
+  // Cold paid-signup door (Billing handoff). When the chooser's paid "Start a lab"
+  // CTA set the start-plan marker, send the freshly provisioned PI to the Stripe
+  // card-on-file checkout so a user who chose paid up front saves a card instead of
+  // landing as a free signed-in lab head. Runs once the lab + PI are provisioned
+  // (done). Best-effort and billing-flag-gated server side: a non-ok response
+  // (billing off, not ready) leaves them a provisioned free lab head, and the
+  // in-app upgrade nudge + settings panel still convert them later. Only the "lab"
+  // marker is ours, a future Solo door redirects from its own provisioning path.
+  useEffect(() => {
+    if (!done) return;
+    let plan: string | null = null;
+    try {
+      plan = sessionStorage.getItem("researchos:start-plan");
+    } catch {
+      // sessionStorage unavailable; nothing to do.
+    }
+    if (plan !== "lab") return;
+    try {
+      sessionStorage.removeItem("researchos:start-plan");
+    } catch {
+      // best-effort consume.
+    }
+    void (async () => {
+      try {
+        const res = await fetch("/api/billing/model-a/card-setup", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ planId: "lab" }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { url?: string };
+        if (data.url) window.location.assign(data.url);
+      } catch {
+        // best-effort: stay a provisioned free lab head, the nudge converts later.
+      }
+    })();
+  }, [done]);
+
   useEffect(() => {
     if (!LAB_TIER_ENABLED) return;
     if (!markerPresent) return;
