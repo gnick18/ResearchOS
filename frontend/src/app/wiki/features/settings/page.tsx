@@ -216,7 +216,7 @@ export default async function SettingsFeaturePage() {
       />
       <p>
         The Companion section is where you pair your phone to the{" "}
-        <Link href="/wiki/companion">ResearchOS Companion app</Link> and adjust
+        <Link href="/wiki/features/companion">ResearchOS Companion app</Link> and adjust
         two push preferences.
       </p>
       <ul>

@@ -900,7 +900,7 @@ function LabPhase3Row({ notification, onMarkRead, onNavigate }: LabPhase3RowProp
           if (notification.record_type === "purchase_item") {
             router.push("/purchases");
           } else if (notification.record_type === "note") {
-            router.push("/notes");
+            router.push("/workbench?tab=notes");
           } else {
             router.push("/lab-overview");
           }

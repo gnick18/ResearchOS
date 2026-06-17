@@ -15,9 +15,10 @@
 //   - Create account + Sign in.
 //
 // "See the tour" scrolls DOWN in-surface to the embedded WelcomePage rather than
-// navigating to a route (the standalone /welcome route stays for the wiki /
-// settings links). The whole thing is permanently light (the marketing surface
-// rule), so it pins the light palette regardless of the user's dark setting.
+// navigating to a route. The standalone /welcome route was retired (b9701ae65), so
+// the sell page lives only here (embedded) and inside the wiki feature pages, never
+// at /welcome. The whole thing is permanently light (the marketing surface rule),
+// so it pins the light palette regardless of the user's dark setting.
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
@@ -109,7 +110,7 @@ export function OAuthFirstLanding({
                 backgroundColor: "#1AA0E6",
               }}
             />
-            ResearchOS LLC, Madison, Wisconsin
+            ResearchOS LLC
           </div>
 
           {/* Funding acknowledgment, upper-right, balancing the entity
