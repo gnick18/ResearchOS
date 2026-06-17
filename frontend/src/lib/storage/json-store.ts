@@ -221,7 +221,6 @@ export class JsonStore<T extends { id: number }> {
     await fileService.ensureDir(`${basePath}/${this.entityName}`);
     const record = { ...data, id };
     const filePath = this.getFilePath(id, basePath);
-    this.traceProjectWrite("saveForUser", filePath, record);
     await fileService.writeJson(filePath, record);
     return record;
   }
@@ -238,7 +237,6 @@ export class JsonStore<T extends { id: number }> {
     }
     const basePath = `users/${username}`;
     const filePath = this.getFilePath(id, basePath);
-    this.traceProjectWrite("updateForUser", filePath, updated);
     await fileService.writeJson(filePath, updated);
     return updated;
   }
@@ -270,7 +268,6 @@ export class JsonStore<T extends { id: number }> {
     const newId = await nextIdForUser(this.entityName, username);
     const record = { ...data, id: newId } as T;
     const filePath = this.getFilePath(newId, basePath);
-    this.traceProjectWrite("createForUser", filePath, record);
     await fileService.writeJson(filePath, record);
     return record;
   }
@@ -292,7 +289,6 @@ export class JsonStore<T extends { id: number }> {
     const record = { ...data, id: newId } as T;
     const basePath = await this.getBasePath();
     const filePath = this.getFilePath(newId, basePath);
-    this.traceProjectWrite("create", filePath, record);
     await fileService.writeJson(filePath, record);
     return record;
   }
@@ -311,7 +307,6 @@ export class JsonStore<T extends { id: number }> {
 
     const basePath = await this.getBasePath();
     const filePath = this.getFilePath(id, basePath);
-    this.traceProjectWrite("update", filePath, updated);
     await fileService.writeJson(filePath, updated);
     return updated;
   }
@@ -321,29 +316,8 @@ export class JsonStore<T extends { id: number }> {
     const record = { ...data, id };
     const basePath = await this.getBasePath();
     const filePath = this.getFilePath(id, basePath);
-    this.traceProjectWrite("save", filePath, record);
     await fileService.writeJson(filePath, record);
     return record;
-  }
-
-  /**
-   * Orphan-project diagnostic instrumentation (orphan v2 sub-bot,
-   * 2026-05-21). Whenever a `projects/<id>.json` file is written
-   * through this store (create / save / update / saveForUser /
-   * updateForUser), log the resolved path AND the JSON payload AND a
-   * stack trace. Scoped to entityName === "projects" so we don't flood
-   * the console with every task / method / note write. The trace lets
-   * us identify any call site that writes a malformed (blank-name)
-   * project record without modifying behavior.
-   */
-  private traceProjectWrite(op: string, filePath: string, payload: unknown): void {
-    if (this.entityName !== "projects") return;
-    if (typeof console === "undefined") return;
-    const trace = new Error(`JsonStore.${op} call-site trace`).stack;
-    console.warn(
-      `[JsonStore<projects>.${op}] writing ${filePath}`,
-      { payload, stack: trace },
-    );
   }
 
   async delete(id: number): Promise<boolean> {
