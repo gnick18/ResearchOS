@@ -24,6 +24,7 @@ import {
 import { getPlan } from "@/lib/billing/plans";
 import { packTokens, type AiPack } from "@/lib/billing/ai-config";
 import { creditTokens } from "@/lib/billing/ai-ledger";
+import { recordCharge, setCloudPaymentMethod } from "@/lib/billing/model-a/ledger";
 import {
   ensureOrgBillingSchema,
   getOrgBillingBySubId,
@@ -143,6 +144,31 @@ export async function POST(request: Request): Promise<Response> {
     switch (event.type) {
       case "checkout.session.completed": {
         const s = event.data.object as Stripe.Checkout.Session;
+        // Model-A card-on-file setup completing. A setup-mode session carries
+        // modelA in metadata and a setup_intent, no subscription, so it is
+        // distinct from the flat-plan subscription path and the AI top-up. Store
+        // the saved card and activate the chosen Model-A plan; usage then accrues
+        // and the charge job runs this card past the threshold.
+        if (s.mode === "setup" && s.metadata?.modelA === "1") {
+          const ownerKey = s.metadata?.ownerKey;
+          const planId = s.metadata?.planId;
+          if (ownerKey && s.setup_intent) {
+            const siId =
+              typeof s.setup_intent === "string" ? s.setup_intent : s.setup_intent.id;
+            const si = await getStripe().setupIntents.retrieve(siId);
+            const pm =
+              typeof si.payment_method === "string"
+                ? si.payment_method
+                : si.payment_method?.id ?? null;
+            const customerId =
+              typeof s.customer === "string" ? s.customer : s.customer?.id ?? null;
+            if (pm && customerId) {
+              await setCloudPaymentMethod(ownerKey, customerId, pm);
+              if (planId) await setPlan(ownerKey, planId);
+            }
+          }
+          break;
+        }
         // BeakerBot token top-up (Phase 3). A one-time pack purchase carries the
         // pack name in metadata, the subscription path does not, so the presence
         // of aiPack is what distinguishes the two. Credit is idempotent on the
@@ -247,6 +273,32 @@ export async function POST(request: Request): Promise<Response> {
               toEmail: inv.customer_email ?? "",
               subject: `${category} payment received, ${formatUSD(amountCents)}`,
               body: `A ${category.toLowerCase()} payment of ${formatUSD(amountCents)} was received on ${date}. Stripe sends the customer-facing receipt; this is the LLC record.`,
+            });
+          }
+        }
+        break;
+      }
+      case "payment_intent.succeeded": {
+        const pi = event.data.object as Stripe.PaymentIntent;
+        // Only Model-A cloud-usage charges are handled here (tagged modelA in
+        // metadata); other PaymentIntents are handled via their invoice/session.
+        if (pi.metadata?.modelA === "1" && pi.metadata?.ownerKey) {
+          const ownerKey = pi.metadata.ownerKey;
+          const amountCents = pi.amount_received ?? pi.amount ?? 0;
+          if (amountCents > 0) {
+            // Draw the accrued balance down, idempotent on the PaymentIntent id
+            // (the charge job records the same id, so this is belt-and-braces).
+            await recordCharge(ownerKey, amountCents, pi.id);
+            // Book the revenue in the LLC ledger, idempotent per PaymentIntent id.
+            await ensureBusinessSchema();
+            const date = new Date().toISOString().slice(0, 10);
+            await addLedgerEntryBySource({
+              date,
+              direction: "in",
+              category: "Cloud usage",
+              amountCents,
+              note: `owner ${ownerKey.slice(0, 12)}...`,
+              source: `cloud-charge:${pi.id}`,
             });
           }
         }

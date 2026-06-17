@@ -16,6 +16,10 @@
     {
       "path": "/api/cron/model-a-accrual",
       "schedule": "0 5 1 * *"
+    },
+    {
+      "path": "/api/cron/model-a-charge",
+      "schedule": "0 6 * * *"
     }
   ]
 }
