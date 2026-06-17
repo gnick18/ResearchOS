@@ -6,13 +6,20 @@ sequence to turn it on in a deploy and verify it live. Nothing here is destructi
 flipping the flags back off makes it inert again instantly.
 
 ## 0. Entitlement — RESOLVED (not a blocker)
-Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)` (true only
-for an ACTIVE PAID lab subscription). Per the canonical docs/branding/PRICING.md
-(Model A): there are NO free labs — Lab is a PAID tier ($25/mo flat + usage), and
-the Free tier is the network audience (receive-only, no produce). So the gate is
-CORRECT as-is. Run the live test with a PAID lab account; free/network users
-correctly get a 403 / upgrade state on the write APIs. (An earlier draft flagged a
-"free lab" blocker — that was a stale GA-free assumption that Model A supersedes.)
+Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)`, which
+Billing made BILLING-FLAG-AWARE (commit 5477db5d7):
+- BETA (BILLING_ENABLED off — today): returns true for ANY lab account, so the live
+  verify works with a normal (free) lab account. Matches the "everything is free in
+  beta" rule. -> Run the verify with a lab account; no paid sub needed.
+- GA (BILLING_ENABLED on): returns true only for an active PAID lab plan, so lab
+  sites become the Model-A paid lab perk automatically; non-paid labs then see an
+  upgrade state (UI to be added at billing-live).
+No change needed on the social side; consume the gate as-is. (Earlier drafts of this
+doc flagged a "free lab" blocker, then said "paid lab only" — both stale; the
+flag-aware gate handles beta vs GA correctly.)
+Minor open item (flagged to Billing): the create-site path relies entirely on this
+gate for lab-ness, so confirm it returns false for an individual/solo account even
+in beta (else an individual could create a lab site during beta).
 
 ## 1. Env vars (Vercel production)
 - `LAB_SITES_ENABLED=true`            (server gate; must be exactly "true")
