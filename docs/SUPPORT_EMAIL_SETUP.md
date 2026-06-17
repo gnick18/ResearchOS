@@ -1,13 +1,13 @@
 # Setting up support@research-os.app (inbound forwarding)
 
-Status, LIVE and verified end to end on 2026-06-04. `support@research-os.app` forwards to `gnickles@wisc.edu` via ForwardEmail on Vercel DNS. A test message from an outside Gmail landed in the inbox within seconds. The address is safe to publish.
+Status, LIVE. `support@research-os.app` forwards to `researchos.llc@gmail.com` (the LLC inbox) via ForwardEmail on Vercel DNS. Destination changed 2026-06-17 from `gnickles@wisc.edu` to the LLC Google so support mail lands in the business inbox; the change was made by swapping the `forward-email` TXT record via the Vercel CLI and verified with `dig +short TXT research-os.app`. Originally set up + verified end to end 2026-06-04. The address is safe to publish.
 
 As-built records (added in the Vercel team scope `grant-nickles-projects` -> Domains -> research-os.app -> DNS Records, all on the root unless noted):
 
 ```
 MX   @        mx1.forwardemail.net.   priority 10
 MX   @        mx2.forwardemail.net.   priority 10
-TXT  @        forward-email=support:gnickles@wisc.edu
+TXT  @        forward-email=support:researchos.llc@gmail.com
 TXT  @        v=spf1 a mx include:spf.forwardemail.net -all
 TXT  _dmarc   v=DMARC1; p=none;
 ```
