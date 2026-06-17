@@ -52,7 +52,7 @@ export async function accruePeriodCharge(
     VALUES
       (${ownerKey}, 'accrual', ${charge.totalCents}, ${period}, ${charge.baseCents},
        ${charge.usageCents}, ${charge.storageCents}, ${charge.hostedCents}, ${idem})
-    ON CONFLICT (idem_key) DO NOTHING
+    ON CONFLICT (idem_key) WHERE idem_key IS NOT NULL DO NOTHING
     RETURNING id
   `) as Array<{ id: number }>;
 
@@ -89,7 +89,7 @@ export async function recordCharge(
       (owner_key, kind, cents_delta, idem_key)
     VALUES
       (${ownerKey}, 'charge', ${-Math.abs(cents)}, ${stripeEventId})
-    ON CONFLICT (idem_key) DO NOTHING
+    ON CONFLICT (idem_key) WHERE idem_key IS NOT NULL DO NOTHING
     RETURNING id
   `) as Array<{ id: number }>;
 
