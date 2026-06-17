@@ -12,6 +12,11 @@ import OrcidField from "@/components/settings/OrcidField";
 import ColorPickerRows from "@/components/profile/ColorPickerRows";
 import Toggle from "@/components/ui/Toggle";
 import type { UserSettings } from "@/lib/settings/user-settings";
+import {
+  MAX_LENGTH_NAME,
+  charsOver,
+  hardenName,
+} from "@/lib/validation/input-hardening";
 
 export default function AppearanceCard({
   currentUser,
@@ -24,8 +29,14 @@ export default function AppearanceCard({
 }) {
   const [draftName, setDraftName] = useState(settings.displayName ?? "");
 
+  const nameOver = charsOver(draftName, MAX_LENGTH_NAME);
+
   const commitName = () => {
-    const next = draftName.trim() === "" ? null : draftName.trim();
+    const hardened = hardenName(draftName, MAX_LENGTH_NAME);
+    const next = hardened.trim() === "" ? null : hardened.trim();
+    // Reflect the stripped/capped form back into the input so the user
+    // sees exactly what was saved (avoids invisible control chars).
+    if (hardened !== draftName) setDraftName(hardened);
     if (next !== settings.displayName) void update({ displayName: next });
   };
 
@@ -61,22 +72,34 @@ export default function AppearanceCard({
         </div>
 
         <div>
-          <label className="block text-meta font-medium text-foreground mb-1">
-            Display name
-          </label>
+          <div className="flex items-center justify-between mb-1">
+            <label className="text-meta font-medium text-foreground">
+              Display name
+            </label>
+            {nameOver > 0 && (
+              <span className="text-meta text-red-600 dark:text-red-400" role="alert">
+                {nameOver} over limit
+              </span>
+            )}
+          </div>
           <input
             type="text"
             value={draftName}
             placeholder={currentUser}
+            maxLength={MAX_LENGTH_NAME + 20}
             onChange={(e) => setDraftName(e.target.value)}
             onBlur={commitName}
             onKeyDown={(e) => {
               if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
             }}
-            className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              nameOver > 0
+                ? "border-red-400 focus:ring-red-300"
+                : "border-border"
+            }`}
           />
           <p className="text-meta text-foreground-muted mt-1">
-            Leave blank to use your folder name ({currentUser}).
+            Leave blank to use your folder name ({currentUser}). Max {MAX_LENGTH_NAME} characters.
           </p>
         </div>
 

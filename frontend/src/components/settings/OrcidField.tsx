@@ -31,6 +31,10 @@ import {
   normalizeOrcid,
   orcidRecordUrl,
 } from "@/lib/metadata/orcid";
+import { stripControlChars } from "@/lib/validation/input-hardening";
+
+/** Rejects any scheme that is not http(s) (javascript:, vbscript:, data:, etc.). */
+const DANGEROUS_SCHEME_RE = /^\s*(?!https?:\/\/)[a-z][a-z0-9+\-.]*\s*:/i;
 
 interface OrcidFieldProps {
   /** Active folder username - the metadata key the iD is stored under. */
@@ -41,6 +45,7 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
   const [draft, setDraft] = useState("");
   const [saved, setSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [schemeError, setSchemeError] = useState(false);
 
   // Load the persisted iD once per user. Re-runs when the active user
   // changes so switching folders re-seeds the field. The async metadata
@@ -74,10 +79,24 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
 
   const commit = async () => {
     if (!currentUser) return;
+    setSchemeError(false);
+    // Strip control characters before any further check.
+    const cleaned = stripControlChars(trimmed);
+    // Hard-reject any non-http(s) scheme (javascript:, vbscript:, data:,
+    // etc.). The ORCID field value may be used as an href; a dangerous
+    // scheme must never reach the store. This is a hard block, not a soft
+    // warning.
+    if (cleaned.length > 0 && DANGEROUS_SCHEME_RE.test(cleaned)) {
+      setSchemeError(true);
+      // Reset the draft to the last saved value (which is always safe).
+      const meta = await getUserMetadata(currentUser);
+      setDraft(meta?.orcid ?? "");
+      return;
+    }
     // Persist the canonical bare hyphenated form when we can normalize it
     // (even if the checksum is off - the warning is soft). An empty field
     // clears the stored value back to null.
-    const next = hasValue ? (normalizeOrcid(trimmed) ?? trimmed) : null;
+    const next = cleaned.length > 0 ? (normalizeOrcid(cleaned) ?? cleaned) : null;
     // Reflect the normalized form in the input so the user sees the
     // canonical 4-4-4-4 shape after pasting a URL / no-hyphen string.
     if (next !== null) setDraft(next);
@@ -182,8 +201,16 @@ export default function OrcidField({ currentUser }: OrcidFieldProps) {
         )}
       </div>
 
+      {/* Hard error: dangerous scheme rejected outright (not saved). */}
+      {schemeError && (
+        <p className="text-meta text-red-600 dark:text-red-400 mt-1" role="alert">
+          That value looks like a URL with an unsafe scheme (for example,{" "}
+          <code>javascript:</code>). Enter a bare ORCID iD (0000-0000-0000-0000)
+          or a full https://orcid.org/... link. The previous value was kept.
+        </p>
+      )}
       {/* Live, non-blocking validity line. */}
-      {hasValue && !valid && (
+      {hasValue && !valid && !schemeError && (
         <p className="text-meta text-amber-600 mt-1">
           This doesn&apos;t look like a valid ORCID iD (the checksum
           doesn&apos;t match). It will still be saved, but double-check it.

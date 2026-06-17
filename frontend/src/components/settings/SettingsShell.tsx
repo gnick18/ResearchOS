@@ -108,7 +108,7 @@ export default function SettingsShell({
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { lower, active } = useSettingsSearch();
+  const { query, lower, active } = useSettingsSearch();
 
   // Flatten for lookup. The groups are the source of order.
   const allSections = useMemo(
@@ -179,6 +179,14 @@ export default function SettingsShell({
 
   const activeSection =
     allSections.find((s) => s.id === resolvedActiveId) ?? null;
+
+  // When search is active, count how many sections across all groups match.
+  // If none match, the pane shows a visible "No settings match" message
+  // instead of silently clearing (the audit found a blank black panel with
+  // no feedback when the query matched nothing).
+  const anyGroupVisible = active
+    ? groups.some((g) => g.sections.some(sectionMatches))
+    : true;
 
   return (
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
@@ -308,7 +316,28 @@ export default function SettingsShell({
             and links live at the bottom of the rail instead. ── */}
         <div ref={paneRef} className="overflow-y-auto">
           <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
-            {activeSection ? (
+            {active && !anyGroupVisible ? (
+              // Search is active but nothing matched. Show a clear message
+              // instead of a blank pane (audit finding: blank black panel with
+              // no feedback).
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex flex-col items-center justify-center gap-3 py-16 text-center"
+              >
+                <p className="text-title font-semibold text-foreground">
+                  No settings match
+                </p>
+                <p className="text-body text-foreground-muted max-w-xs">
+                  No section or setting matched{" "}
+                  <span className="font-medium text-foreground">
+                    &ldquo;{query}&rdquo;
+                  </span>
+                  . Try a different term, or clear the search to browse all
+                  sections.
+                </p>
+              </div>
+            ) : activeSection ? (
               <div key={activeSection.id} className="space-y-4">
                 {activeSection.render()}
               </div>

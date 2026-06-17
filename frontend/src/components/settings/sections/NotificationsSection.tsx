@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { UserSettings } from "@/lib/settings/user-settings";
 import { sharingApi } from "@/lib/local-api";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
+import { stripControlChars } from "@/lib/validation/input-hardening";
 import {
   DEFAULT_NOTIFICATION_PREFERENCES,
   NOTIFICATION_CATEGORIES,
@@ -89,6 +90,7 @@ export default function NotificationsSection({
     settings.notificationPreferences ?? DEFAULT_NOTIFICATION_PREFERENCES,
   );
   const [email, setEmailLocal] = useState(prefs.email ?? "");
+  const [emailError, setEmailError] = useState<string | null>(null);
   const [permission, setPermission] = useState<string>(
     typeof Notification !== "undefined" ? Notification.permission : "default",
   );
@@ -244,16 +246,38 @@ export default function NotificationsSection({
                   A short note lands in your inbox. We verify the address once.
                 </div>
               </div>
-              <input
-                type="email"
-                value={email}
-                placeholder="you@university.edu"
-                onChange={(e) => setEmailLocal(e.target.value)}
-                onBlur={() => {
-                  if (email !== (prefs.email ?? "")) save({ ...prefs, email });
-                }}
-                className="w-[230px] max-w-[46%] rounded-lg border border-border bg-surface-sunken px-2.5 py-1.5 text-meta text-foreground"
-              />
+              <div className="flex flex-col items-end gap-1">
+                <input
+                  type="email"
+                  value={email}
+                  placeholder="you@university.edu"
+                  onChange={(e) => {
+                    setEmailLocal(e.target.value);
+                    setEmailError(null);
+                  }}
+                  onBlur={() => {
+                    // Strip control chars before saving. Also reject embedded
+                    // HTML tags (e.g. <script>...</script>@domain) that bypass
+                    // the type=email guard via JS injection or paste.
+                    const cleaned = stripControlChars(email);
+                    if (/<[^>]*>/.test(cleaned)) {
+                      setEmailError("Email address cannot contain HTML tags.");
+                      return;
+                    }
+                    const next = cleaned.trim();
+                    if (next !== email) setEmailLocal(next);
+                    if (next !== (prefs.email ?? "")) save({ ...prefs, email: next });
+                  }}
+                  className={`w-[230px] max-w-[46%] rounded-lg border bg-surface-sunken px-2.5 py-1.5 text-meta text-foreground ${
+                    emailError ? "border-red-400" : "border-border"
+                  }`}
+                />
+                {emailError && (
+                  <p className="text-[11px] text-red-600 dark:text-red-400" role="alert">
+                    {emailError}
+                  </p>
+                )}
+              </div>
             </div>
           </>
         ) : null}

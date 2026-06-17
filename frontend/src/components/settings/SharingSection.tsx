@@ -86,6 +86,11 @@ import {
   unpublishProfile,
 } from "@/lib/sharing/profile";
 import { trackProfilePublished } from "@/lib/analytics/events";
+import {
+  MAX_LENGTH_NAME,
+  charsOver,
+  hardenName,
+} from "@/lib/validation/input-hardening";
 
 // ---------------------------------------------------------------------------
 // Shared helpers.
@@ -992,13 +997,13 @@ export function ProfileEditorCard() {
   );
 
   const save = useCallback(async () => {
-    const name = draftName.trim();
+    const name = hardenName(draftName, MAX_LENGTH_NAME).trim();
     if (!name) {
       setError("A display name is required.");
       return;
     }
-    if (name.length > 100) {
-      setError("Display name must be 100 characters or fewer.");
+    if (charsOver(draftName, MAX_LENGTH_NAME) > 0) {
+      setError(`Display name must be ${MAX_LENGTH_NAME} characters or fewer.`);
       return;
     }
     const affiliation = draftAffiliation.trim() || null;
@@ -1016,6 +1021,10 @@ export function ProfileEditorCard() {
 
     setBusy(true);
     setError(null);
+    // `name` is already hardened (stripControlChars + cap) by the hardenName
+    // call at the top of save. Reflect it in the draft so the input shows the
+    // cleaned form if the user cancels and re-opens.
+    if (name !== draftName.trim()) setDraftName(name);
     const result = await publishProfile({
       displayName: name,
       affiliation,
@@ -1148,20 +1157,31 @@ export function ProfileEditorCard() {
         <div className="space-y-4">
           <div className="space-y-3">
             <div>
-              <label className="block text-meta font-medium text-foreground mb-1">
-                Display name
-                <span className="text-red-500 ml-0.5" aria-label="required">
-                  *
-                </span>
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-meta font-medium text-foreground">
+                  Display name
+                  <span className="text-red-500 ml-0.5" aria-label="required">
+                    *
+                  </span>
+                </label>
+                {charsOver(draftName, MAX_LENGTH_NAME) > 0 && (
+                  <span className="text-meta text-red-600 dark:text-red-400" role="alert">
+                    {charsOver(draftName, MAX_LENGTH_NAME)} over limit
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 value={draftName}
                 onChange={(e) => setDraftName(e.target.value)}
                 placeholder="Your name as other researchers will see it"
-                maxLength={100}
+                maxLength={MAX_LENGTH_NAME + 20}
                 disabled={busy}
-                className="w-full rounded-lg border border-border px-3 py-2 text-body text-foreground placeholder-foreground-muted focus:border-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-200 disabled:opacity-50"
+                className={`w-full rounded-lg border px-3 py-2 text-body text-foreground placeholder-foreground-muted focus:outline-none focus:ring-2 disabled:opacity-50 ${
+                  charsOver(draftName, MAX_LENGTH_NAME) > 0
+                    ? "border-red-400 focus:border-red-400 focus:ring-red-200"
+                    : "border-border focus:border-sky-500 focus:ring-sky-200"
+                }`}
               />
             </div>
 
