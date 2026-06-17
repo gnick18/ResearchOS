@@ -1,4 +1,5 @@
 import { get, set, del } from "idb-keyval";
+import { getFolderRegistryScope } from "./folder-account-scope";
 
 const DIRECTORY_HANDLE_KEY = "research-os-directory-handle";
 const CURRENT_USER_KEY = "research-os-current-user";
@@ -895,9 +896,32 @@ export async function restorePreDemoStateOrClear(): Promise<boolean> {
 // demo tab exactly like the single-folder helpers do, so the fixture identity
 // can never leak into the remembered set.
 
+// LEGACY/unscoped base strings. Per-account hardening namespaces the metas and
+// active-id keys by the account scope (the signing public key hex, see
+// folder-account-scope.ts). With no identity unlocked the scope is null and
+// these bare keys are used verbatim, so a pre-account build behaves exactly as
+// before. Handles are NOT scoped: ids are globally-unique UUIDs and each scope's
+// meta list controls which ids it can see, so the handle store needs no scoping.
 const FOLDERS_KEY = "research-os-folders";
 const ACTIVE_FOLDER_KEY = "research-os-active-folder";
 const FOLDER_HANDLE_PREFIX = "folder-handle::";
+// Records the scope that claimed the one-time unscoped-to-scoped inherit, so the
+// pre-account folder set seeds only the FIRST signed-in account and no later
+// account re-inherits it. We do not delete the unscoped keys (flag-off safety),
+// so this flag is what makes the inherit one-time.
+const UNSCOPED_INHERIT_CLAIMED_KEY = "research-os-folders-inherited-by";
+
+/** The idb-keyval key for a scope's remembered-folder metas list. A null scope
+ *  (no account unlocked) maps to the legacy unscoped base key. */
+function foldersKey(scope: string | null): string {
+  return scope ? FOLDERS_KEY + "::" + scope : FOLDERS_KEY;
+}
+
+/** The idb-keyval key for a scope's active-folder id. A null scope maps to the
+ *  legacy unscoped base key. */
+function activeFolderKey(scope: string | null): string {
+  return scope ? ACTIVE_FOLDER_KEY + "::" + scope : ACTIVE_FOLDER_KEY;
+}
 
 /** A folder the app remembers, as surfaced to the UI. The `handle` is hydrated
  *  from the `handles` object store on read; the rest is metadata persisted in
@@ -932,18 +956,23 @@ function makeFolderId(): string {
   return `f_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-async function readFolderMetas(): Promise<RememberedFolderMeta[]> {
+async function readFolderMetas(
+  scope: string | null,
+): Promise<RememberedFolderMeta[]> {
   try {
-    const metas = (await get<RememberedFolderMeta[]>(FOLDERS_KEY)) ?? [];
+    const metas = (await get<RememberedFolderMeta[]>(foldersKey(scope))) ?? [];
     return Array.isArray(metas) ? metas : [];
   } catch {
     return [];
   }
 }
 
-async function writeFolderMetas(metas: RememberedFolderMeta[]): Promise<void> {
+async function writeFolderMetas(
+  scope: string | null,
+  metas: RememberedFolderMeta[],
+): Promise<void> {
   try {
-    await set(FOLDERS_KEY, metas);
+    await set(foldersKey(scope), metas);
   } catch {
     // best-effort
   }
@@ -1012,25 +1041,72 @@ async function deleteFolderHandle(id: string): Promise<void> {
 
 /**
  * Backward-compatible migration (CRITICAL). On the first multi-folder read for
- * a returning user, the remembered set is empty but the OLD single
- * DIRECTORY_HANDLE_KEY handle may exist. Copy it into the new store as the
- * active folder so the user does NOT lose their folder or get bounced to the
- * picker. Idempotent: it only runs when the set is empty AND a legacy handle is
- * present, and it never deletes the legacy key (the legacy key stays the source
- * of truth for a flag-off build).
+ * a given account scope, the SCOPED remembered set is empty but earlier data may
+ * exist that should seed it. This runs a TWO-LEVEL migration, idempotent and
+ * demo-safe, only when the scoped metas are empty.
+ *
+ * Level (a), unscoped to scoped inherit. When a scope is set AND the legacy
+ * UNSCOPED metas are non-empty, copy them into the scoped key and copy the
+ * unscoped active id into the scoped active key (best-effort). This is a
+ * one-time "the first signed-in account inherits the pre-account folder set".
+ * That is intentional and acceptable, the very first account on a browser
+ * adopts the folders that were remembered before accounts existed. The unscoped
+ * keys are NOT deleted, so a flag-off build still reads them.
+ *
+ * Level (b), legacy single-handle adoption. Otherwise (no unscoped metas, or no
+ * scope) adopt the OLD single DIRECTORY_HANDLE_KEY handle as the active folder,
+ * writing into the SCOPED keys, so a returning user does NOT lose their folder
+ * or get bounced to the picker. The legacy handle key is never deleted.
  *
  * Returns true when a migration was performed.
  *
  * No-op in a demo tab (the legacy getter is masked there anyway).
  */
-async function migrateLegacyFolderIfNeeded(): Promise<boolean> {
+async function migrateLegacyFolderIfNeeded(scope: string | null): Promise<boolean> {
   if (isDemoTab()) return false;
-  const metas = await readFolderMetas();
+  const metas = await readFolderMetas(scope);
   if (metas.length > 0) return false;
 
-  // Read the legacy single handle directly from the object store. We bypass
-  // getStoredDirectoryHandle so a poisoned in-process cachedHandle can't steer
-  // the migration, and so the fixture sentinel is filtered out below.
+  // Level (a): the first signed-in account inherits the pre-account (unscoped)
+  // folder set. Only when we are actually in a scope, and the unscoped registry
+  // has folders to inherit. The unscoped keys are left in place for flag-off
+  // safety, so this is a copy and not a move.
+  if (scope !== null) {
+    let claimed: string | null = null;
+    try {
+      claimed = (await get<string>(UNSCOPED_INHERIT_CLAIMED_KEY)) || null;
+    } catch {
+      claimed = null;
+    }
+    // Only the first account (or the same account again, idempotently) inherits.
+    // Once another scope has claimed the inherit, later accounts start empty.
+    if (claimed === null || claimed === scope) {
+      const unscoped = await readFolderMetas(null);
+      if (unscoped.length > 0) {
+        await writeFolderMetas(scope, unscoped);
+        try {
+          const unscopedActive =
+            (await get<string>(activeFolderKey(null))) || null;
+          if (unscopedActive) {
+            await set(activeFolderKey(scope), unscopedActive);
+          }
+        } catch {
+          // best-effort
+        }
+        try {
+          await set(UNSCOPED_INHERIT_CLAIMED_KEY, scope);
+        } catch {
+          // best-effort
+        }
+        return true;
+      }
+    }
+  }
+
+  // Level (b): adopt the legacy single DIRECTORY_HANDLE_KEY handle. Read it
+  // directly from the object store. We bypass getStoredDirectoryHandle so a
+  // poisoned in-process cachedHandle can't steer the migration, and so the
+  // fixture sentinel is filtered out below.
   let legacy: FileSystemDirectoryHandle | null = null;
   const db = await initDB();
   if (db) {
@@ -1060,9 +1136,9 @@ async function migrateLegacyFolderIfNeeded(): Promise<boolean> {
     lastOpenedAt: meta?.grantedAt ?? Date.now(),
   };
   await putFolderHandle(id, legacy);
-  await writeFolderMetas([row]);
+  await writeFolderMetas(scope, [row]);
   try {
-    await set(ACTIVE_FOLDER_KEY, id);
+    await set(activeFolderKey(scope), id);
   } catch {
     // best-effort
   }
@@ -1078,8 +1154,9 @@ async function migrateLegacyFolderIfNeeded(): Promise<boolean> {
  */
 export async function listRememberedFolders(): Promise<RememberedFolder[]> {
   if (isDemoTab()) return [];
-  await migrateLegacyFolderIfNeeded();
-  const metas = await readFolderMetas();
+  const scope = await getFolderRegistryScope();
+  await migrateLegacyFolderIfNeeded(scope);
+  const metas = await readFolderMetas(scope);
   const out: RememberedFolder[] = [];
   for (const m of metas) {
     const handle = await getFolderHandle(m.id);
@@ -1096,9 +1173,10 @@ export async function listRememberedFolders(): Promise<RememberedFolder[]> {
  *  has an active id even on the very first multi-folder load. */
 export async function getActiveFolderId(): Promise<string | null> {
   if (isDemoTab()) return null;
-  await migrateLegacyFolderIfNeeded();
+  const scope = await getFolderRegistryScope();
+  await migrateLegacyFolderIfNeeded(scope);
   try {
-    return (await get<string>(ACTIVE_FOLDER_KEY)) || null;
+    return (await get<string>(activeFolderKey(scope))) || null;
   } catch {
     return null;
   }
@@ -1138,9 +1216,10 @@ export async function rememberFolder(
 ): Promise<string> {
   if (isDemoTab()) return "";
   if (handle.name === FIXTURE_HANDLE_SENTINEL) return "";
-  await migrateLegacyFolderIfNeeded();
+  const scope = await getFolderRegistryScope();
+  await migrateLegacyFolderIfNeeded(scope);
 
-  const metas = await readFolderMetas();
+  const metas = await readFolderMetas(scope);
 
   // Dedupe by isSameEntry against the already-remembered handles. isSameEntry
   // is the only reliable same-directory test the FSA gives us; name equality is
@@ -1170,18 +1249,18 @@ export async function rememberFolder(
     const next = metas.map((m) =>
       m.id === matchId ? { ...m, name: handle.name, lastOpenedAt: now } : m,
     );
-    await writeFolderMetas(next);
+    await writeFolderMetas(scope, next);
   } else {
     activeId = makeFolderId();
     await putFolderHandle(activeId, handle);
-    await writeFolderMetas([
+    await writeFolderMetas(scope, [
       { id: activeId, name: handle.name, lastOpenedAt: now },
       ...metas,
     ]);
   }
 
   try {
-    await set(ACTIVE_FOLDER_KEY, activeId);
+    await set(activeFolderKey(scope), activeId);
   } catch {
     // best-effort
   }
@@ -1192,14 +1271,16 @@ export async function rememberFolder(
  *  Does NOT touch permissions (the caller re-grants); pure pointer update. */
 export async function setActiveFolderId(id: string): Promise<void> {
   if (isDemoTab()) return;
-  const metas = await readFolderMetas();
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
   if (!metas.some((m) => m.id === id)) return;
   const now = Date.now();
   await writeFolderMetas(
+    scope,
     metas.map((m) => (m.id === id ? { ...m, lastOpenedAt: now } : m)),
   );
   try {
-    await set(ACTIVE_FOLDER_KEY, id);
+    await set(activeFolderKey(scope), id);
   } catch {
     // best-effort
   }
@@ -1213,15 +1294,40 @@ export async function setActiveFolderId(id: string): Promise<void> {
  */
 export async function forgetRememberedFolder(id: string): Promise<void> {
   if (isDemoTab()) return;
-  const metas = await readFolderMetas();
-  await writeFolderMetas(metas.filter((m) => m.id !== id));
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
+  await writeFolderMetas(scope, metas.filter((m) => m.id !== id));
   await deleteFolderHandle(id);
   try {
-    const active = (await get<string>(ACTIVE_FOLDER_KEY)) || null;
+    const active = (await get<string>(activeFolderKey(scope))) || null;
     if (active === id) {
-      await del(ACTIVE_FOLDER_KEY);
+      await del(activeFolderKey(scope));
     }
   } catch {
     // best-effort
   }
+}
+
+/**
+ * Rename one remembered folder within the current account scope. This changes
+ * only the display name in the scoped metas list. lastOpenedAt and the active
+ * pointer are left untouched, and the on-disk folder is never touched. A blank
+ * or whitespace-only name is a no-op so the UI can never store an empty label.
+ *
+ * No-op in a demo tab.
+ */
+export async function renameRememberedFolder(
+  id: string,
+  name: string,
+): Promise<void> {
+  if (isDemoTab()) return;
+  const trimmed = name.trim();
+  if (!trimmed) return;
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
+  if (!metas.some((m) => m.id === id)) return;
+  await writeFolderMetas(
+    scope,
+    metas.map((m) => (m.id === id ? { ...m, name: trimmed } : m)),
+  );
 }

@@ -17,6 +17,7 @@ import {
   rememberFolder,
   listRememberedFolders,
   forgetRememberedFolder,
+  renameRememberedFolder,
   getActiveFolderId,
   getRememberedFolderHandle,
   setActiveFolderId,
@@ -152,6 +153,12 @@ interface FileSystemContextValue extends FileSystemState {
    * is off.
    */
   forgetFolder: (id: string) => Promise<void>;
+  /**
+   * Multi-folder (Phase A). Rename one remembered folder's display label within
+   * the current account scope. Does NOT touch the on-disk folder or the active
+   * pointer. A blank name is a no-op. No-op when the flag is off.
+   */
+  renameFolder: (id: string, name: string) => Promise<void>;
 }
 
 /** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
@@ -1618,6 +1625,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     [disconnect],
   );
 
+  const renameFolder = useCallback(
+    async (id: string, name: string): Promise<void> => {
+      if (!MULTI_FOLDER_ENABLED) return;
+      await renameRememberedFolder(id, name);
+      const folders = await listRememberedFolders();
+      setState((prev) => ({ ...prev, rememberedFolders: folders }));
+    },
+    [],
+  );
+
   const value: FileSystemContextValue = {
     ...state,
     connect,
@@ -1634,6 +1651,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     listFolders,
     switchFolder,
     forgetFolder,
+    renameFolder,
   };
 
   return (

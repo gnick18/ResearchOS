@@ -57,12 +57,17 @@ export default function FolderSwitcher({
     directoryName,
     switchFolder,
     forgetFolder,
+    renameFolder,
     connect,
     listFolders,
   } = useFileSystem();
 
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  // Id of the row currently being renamed inline (panel variant only), plus the
+  // working text. Null means no row is in edit mode.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draftName, setDraftName] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // Refresh the remembered set the first time the menu opens (or on mount for
@@ -111,13 +116,49 @@ export default function FolderSwitcher({
     }
   }
 
-  async function onForget(id: string) {
+  async function onForget(id: string, name: string) {
     if (busy) return;
+    // Guard so a misplaced tap never silently drops a remembered folder. This
+    // only removes the remembered handle, the on-disk data is untouched, and the
+    // connect screen / picker stays one click away so the user is never trapped.
+    const ok =
+      typeof window === "undefined"
+        ? true
+        : window.confirm(
+            `Forget "${name}"? This removes it from your remembered folders. Your files on disk are not changed and you can reconnect the folder later.`,
+          );
+    if (!ok) return;
     setBusy(true);
     try {
       await forgetFolder(id);
     } finally {
       setBusy(false);
+    }
+  }
+
+  function startRename(id: string, name: string) {
+    if (busy) return;
+    setEditingId(id);
+    setDraftName(name);
+  }
+
+  function cancelRename() {
+    setEditingId(null);
+    setDraftName("");
+  }
+
+  async function saveRename(id: string) {
+    const next = draftName.trim();
+    if (!next) {
+      cancelRename();
+      return;
+    }
+    setBusy(true);
+    try {
+      await renameFolder(id, next);
+    } finally {
+      setBusy(false);
+      cancelRename();
     }
   }
 
@@ -133,10 +174,70 @@ export default function FolderSwitcher({
   }
 
   function renderRows() {
+    // Rename and the per-row controls are panel-only. The compact header
+    // dropdown stays a quick switcher, the panel (connect screen / Settings) is
+    // where folders are managed.
+    const showManage = variant === "panel";
     return (
       <>
         {folders.map((f) => {
           const isActive = !!directoryName && f.name === directoryName;
+          const isEditing = showManage && editingId === f.id;
+
+          if (isEditing) {
+            return (
+              <div
+                key={f.id}
+                className="flex items-center gap-2 px-3 py-2"
+              >
+                <Icon
+                  name="folder"
+                  className="h-4 w-4 shrink-0 text-foreground-muted"
+                />
+                <input
+                  type="text"
+                  value={draftName}
+                  autoFocus
+                  disabled={busy}
+                  aria-label={`Rename ${f.name}`}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void saveRename(f.id);
+                    } else if (e.key === "Escape") {
+                      e.preventDefault();
+                      cancelRename();
+                    }
+                  }}
+                  className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent"
+                />
+                <Tooltip label="Save name" placement="left">
+                  <button
+                    type="button"
+                    aria-label="Save name"
+                    disabled={busy}
+                    onClick={() => void saveRename(f.id)}
+                    className="rounded-md p-1 text-foreground-muted transition hover:bg-surface-raised hover:text-foreground disabled:opacity-30"
+                  >
+                    <Icon name="check" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+                <Tooltip label="Cancel" placement="left">
+                  <button
+                    type="button"
+                    aria-label="Cancel rename"
+                    disabled={busy}
+                    onClick={cancelRename}
+                    className="rounded-md p-1 text-foreground-muted transition hover:bg-surface-raised hover:text-foreground disabled:opacity-30"
+                  >
+                    <Icon name="close" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
+            );
+          }
+
           return (
             <div
               key={f.id}
@@ -159,20 +260,36 @@ export default function FolderSwitcher({
                       {f.name}
                     </span>
                     {isActive && (
-                      <Icon name="check" className="h-3.5 w-3.5 shrink-0 text-accent" />
+                      <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                        <Icon name="check" className="h-3 w-3" />
+                        Active
+                      </span>
                     )}
                   </span>
                   <span className="block truncate text-meta text-foreground-muted">
-                    {isActive ? "Active" : relativeOpened(f.lastOpenedAt)}
+                    {isActive ? "Active folder" : relativeOpened(f.lastOpenedAt)}
                   </span>
                 </span>
               </button>
+              {showManage && (
+                <Tooltip label="Rename this folder" placement="left">
+                  <button
+                    type="button"
+                    aria-label={`Rename ${f.name}`}
+                    disabled={busy}
+                    onClick={() => startRename(f.id, f.name)}
+                    className="rounded-md p-1 text-foreground-muted opacity-0 transition hover:bg-surface-raised hover:text-foreground group-hover:opacity-100 disabled:opacity-30"
+                  >
+                    <Icon name="pencil" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              )}
               <Tooltip label="Forget this folder" placement="left">
                 <button
                   type="button"
                   aria-label={`Forget ${f.name}`}
                   disabled={busy}
-                  onClick={() => onForget(f.id)}
+                  onClick={() => onForget(f.id, f.name)}
                   className="rounded-md p-1 text-foreground-muted opacity-0 transition hover:bg-surface-raised hover:text-foreground group-hover:opacity-100 disabled:opacity-30"
                 >
                   <Icon name="trash" className="h-3.5 w-3.5" />
