@@ -83,6 +83,7 @@ import {
 // the palette only debounces, maps to PaletteGroups, and wires the run
 // closures.
 import { useDebouncedValue } from "@/hooks/useDebouncedValue";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 import {
   rankGlobalEntries,
   type GlobalObjectType,
@@ -901,22 +902,16 @@ export function CommandPalette({
     el.focus();
   }, [open]);
 
-  // Escape closes the palette (or pops one sub-flow stage) from a WINDOW-level
-  // listener so it works regardless of where focus sits.
-  useEffect(() => {
-    if (!open) return;
-    const onWindowKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      e.preventDefault();
-      if (inSubflow) popSubflow();
-      else onClose();
-    };
-    window.addEventListener("keydown", onWindowKey);
-    return () => window.removeEventListener("keydown", onWindowKey);
-  // popSubflow is stable (useCallback with no deps); onClose is stable from
-  // the provider (useCallback). Lint requires them in the array.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, inSubflow, onClose]);
+  // Escape closes the palette (or pops one sub-flow stage). The palette is the
+  // BASE layer of the shared overlay stack, so lighter surfaces opened on top of
+  // it (the slash command menu, the @ mention picker) register ABOVE it and claim
+  // Escape first. One press then closes exactly the topmost layer, never both at
+  // once. useEscapeLayer keeps the handler current each render, so it always sees
+  // the live inSubflow value without re-running the registration effect.
+  useEscapeLayer(open, () => {
+    if (inSubflow) popSubflow();
+    else onClose();
+  });
 
   // BeakerSearch v2 (sub-flow framework, chunk 1). OPEN a sub-flow from a
   // command whose `subflow` factory is set.

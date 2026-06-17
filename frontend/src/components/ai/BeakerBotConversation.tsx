@@ -43,6 +43,7 @@ import ComposerMentionPicker, {
 } from "./ComposerMentionPicker";
 import type { GlobalIndexEntry } from "@/components/beaker-search/global-index";
 import ComposerSlashMenu, { type MacroMenuItem } from "./ComposerSlashMenu";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 import MacroEditorSheet from "./MacroEditorSheet";
 import BeakerBotPlanCard from "./BeakerBotPlanCard";
 import { useMacroUiStore } from "@/lib/ai/macro-ui-store";
@@ -1018,6 +1019,16 @@ export default function BeakerBotConversation({
     setSlashQuery(null);
     setActiveIndex(0);
   }, []);
+
+  // Register the slash command menu as a layer ABOVE the host dialog (the
+  // CommandPalette base layer) in the shared overlay stack. The palette owns a
+  // window-level Escape that would otherwise close the WHOLE dialog when the
+  // menu is open. With the menu registered on top, one Escape closes only the
+  // menu and leaves the dialog open; an Escape with no menu open still reaches
+  // the palette and closes the dialog as before. The textarea's own Escape
+  // handler keeps preventDefault, so when the composer holds focus the stack
+  // sees the event already handled and stays out of the way (no double close).
+  useEscapeLayer(slashOpen, closeOverlays);
 
   // Attach an object from the @ picker. Stages the ref in the store and strips
   // the in-progress "@query" token from the draft (the chip replaces it). Keeps
