@@ -121,6 +121,34 @@ export async function upsertByoSite(input: {
   return getByoSiteByOwner(input.labOwnerKey);
 }
 
+/**
+ * Enumerate EVERY lab that has a BYO site (one row per lab). Used by the Phase 4b
+ * lapse-reclaim GC to discover which labs own a BYO site so it can reclaim the
+ * R2 bytes + billing asset of any whose subscription lapsed past the grace window.
+ * Mirrors lib/social/lab-site-db.ts listAllSiteHostedManifests: a light, bounded
+ * scan (one row per lab, metadata only, no file bytes) suitable for a daily cron.
+ *
+ * BOUNDARY: reads only the social lane's own lab_byo_sites table. It does NOT join
+ * Billing; the caller cross-references each lab_owner_key against getLabLapse. A lab
+ * is referenced only by its lab_owner_key. The manifest is parsed back into a typed
+ * ByoSiteManifest, identical to the per-owner read.
+ */
+export async function listAllByoSites(): Promise<LabByoSiteRow[]> {
+  await ensureLabByoSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_owner_key, manifest_json, total_bytes, updated_at
+    FROM lab_byo_sites
+    ORDER BY lab_owner_key
+  `) as Array<{
+    lab_owner_key: string;
+    manifest_json: string;
+    total_bytes: string | number;
+    updated_at: string;
+  }>;
+  return rows.map(rowToByoSite);
+}
+
 /** Deletes a lab's BYO site row (best effort). Used when a lab removes its BYO
  *  site; the R2 files are removed separately via deleteByoSite. */
 export async function deleteByoSiteRow(labOwnerKey: string): Promise<void> {
