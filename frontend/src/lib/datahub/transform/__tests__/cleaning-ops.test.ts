@@ -123,6 +123,66 @@ describe("fillna", () => {
 // dropna
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// interpolate
+// ---------------------------------------------------------------------------
+
+describe("interpolate", () => {
+  it("linearly fills a single interior gap", () => {
+    const table = makeTable(
+      [{ name: "od", type: "number" }],
+      [{ od: 1 }, { od: null }, { od: 3 }],
+    );
+    const op: TransformOp = { kind: "interpolate", column: "od" };
+    expect(run(table, [op]).rows.map((r) => r.od)).toEqual([1, 2, 3]);
+  });
+
+  it("fills a multi-cell gap equally spaced by row position", () => {
+    const table = makeTable(
+      [{ name: "od", type: "number" }],
+      [{ od: 1 }, { od: null }, { od: null }, { od: 4 }],
+    );
+    const op: TransformOp = { kind: "interpolate", column: "od" };
+    expect(run(table, [op]).rows.map((r) => r.od)).toEqual([1, 2, 3, 4]);
+  });
+
+  it("leaves one-sided leading or trailing gaps empty, no extrapolation", () => {
+    const table = makeTable(
+      [{ name: "od", type: "number" }],
+      [{ od: null }, { od: 2 }, { od: null }, { od: 4 }, { od: null }],
+    );
+    const op: TransformOp = { kind: "interpolate", column: "od" };
+    expect(run(table, [op]).rows.map((r) => r.od)).toEqual([null, 2, 3, 4, null]);
+  });
+
+  it("interpolates along an orderBy column, not raw row order", () => {
+    const table = makeTable(
+      [
+        { name: "t", type: "number" },
+        { name: "od", type: "number" },
+      ],
+      [
+        { t: 3, od: 4 },
+        { t: 1, od: 1 },
+        { t: 2, od: null },
+      ],
+    );
+    const op: TransformOp = { kind: "interpolate", column: "od", orderBy: "t" };
+    // Sorted by t the gap sits between od 1 and od 4 -> 2.5, written back in place.
+    expect(run(table, [op]).rows.map((r) => r.od)).toEqual([4, 1, 2.5]);
+  });
+
+  it("pandas + SQL codegen", () => {
+    const op: TransformOp = { kind: "interpolate", column: "od" };
+    expect(transformOpToPandas(op).code).toContain('.interpolate(method="linear")');
+    const sql = transformOpToSql(op, ctx(["od"]));
+    expect(sql).toContain("last_value");
+    expect(sql).toContain("first_value");
+    expect(sql).toContain("IGNORE NULLS");
+    expect(sql).toContain("REPLACE");
+  });
+});
+
 describe("dropna", () => {
   const table = makeTable(
     [

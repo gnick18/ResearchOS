@@ -60,6 +60,7 @@ import type {
   FilterCondition,
   AggSpec,
   FillNaOp,
+  InterpolateOp,
   DropNaOp,
   SetWhereOp,
   StrOp,
@@ -449,6 +450,8 @@ export function transformOpToSql(op: TransformOp, ctx: SqlCodegenContext): strin
 
     case "fillna":
       return fillnaSql(from, op);
+    case "interpolate":
+      return interpolateSql(from, op);
     case "dropna":
       return dropnaSql(from, op, cols);
     case "set-where":
@@ -703,6 +706,37 @@ function fillnaSql(from: string, op: FillNaOp): string {
   }
   // REPLACE swaps the one column, keeping the rest with *.
   return `SELECT * REPLACE (CASE WHEN ${sqlIsEmpty(ref)} THEN ${fill} ELSE ${ref} END AS ${ref}) FROM ${from}`;
+}
+
+function interpolateSql(from: string, op: InterpolateOp): string {
+  const ref = sqlIdent(op.column);
+  // The numeric value of the cell, or NULL when it is empty or non-numeric.
+  const num = `TRY_CAST(CASE WHEN ${sqlIsEmpty(ref)} THEN NULL ELSE ${ref} END AS DOUBLE)`;
+  const orderClause = op.orderBy ? `ORDER BY ${sqlIdent(op.orderBy)}` : "";
+  // You cannot nest window functions to read off the prev/next FILLED row index, so
+  // materialise the numeric value plus a stable row index in an inner relation, read
+  // the neighbours off it in a middle relation, then interpolate in the outer one.
+  const base = `SELECT *, ${num} AS __interp_num, row_number() OVER (${orderClause}) AS __interp_rn FROM ${from}`;
+  const prevWin = `OVER (ORDER BY __interp_rn ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)`;
+  const nextWin = `OVER (ORDER BY __interp_rn ROWS BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING)`;
+  const wins =
+    `SELECT *, ` +
+    `last_value(__interp_num IGNORE NULLS) ${prevWin} AS __interp_pv, ` +
+    `last_value(CASE WHEN __interp_num IS NOT NULL THEN __interp_rn END IGNORE NULLS) ${prevWin} AS __interp_pi, ` +
+    `first_value(__interp_num IGNORE NULLS) ${nextWin} AS __interp_nv, ` +
+    `first_value(CASE WHEN __interp_num IS NOT NULL THEN __interp_rn END IGNORE NULLS) ${nextWin} AS __interp_ni ` +
+    `FROM (${base}) AS __interp_base`;
+  // Filled cells stay. A gap with a filled neighbour on both sides is interpolated by
+  // row position. A one-sided (leading or trailing) gap stays empty, no extrapolation.
+  const filled =
+    `CASE WHEN __interp_num IS NOT NULL THEN __interp_num ` +
+    `WHEN __interp_pv IS NOT NULL AND __interp_nv IS NOT NULL AND __interp_ni <> __interp_pi ` +
+    `THEN __interp_pv + (__interp_nv - __interp_pv) * (__interp_rn - __interp_pi) / (__interp_ni - __interp_pi) ` +
+    `ELSE NULL END`;
+  return (
+    `SELECT * EXCLUDE (__interp_num, __interp_rn, __interp_pv, __interp_pi, __interp_nv, __interp_ni) ` +
+    `REPLACE (${filled} AS ${ref}) FROM (${wins}) AS __interp_win`
+  );
 }
 
 function dropnaSql(from: string, op: DropNaOp, cols: string[]): string {

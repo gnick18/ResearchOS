@@ -83,6 +83,7 @@ import type {
   AggSpec,
   SortKey,
   FillNaOp,
+  InterpolateOp,
   DropNaOp,
   SetWhereOp,
   StrOp,
@@ -1575,6 +1576,60 @@ function applyRolling(table: InternalTable, op: RollingOp): InternalTable | stri
   return { columns, rows };
 }
 
+function applyInterpolate(
+  table: InternalTable,
+  op: InterpolateOp,
+): InternalTable | string {
+  if (!table.columns.includes(op.column))
+    return `interpolate: column "${op.column}" not found`;
+  if (op.orderBy && !table.columns.includes(op.orderBy))
+    return `interpolate: order column "${op.orderBy}" not found`;
+  const col = op.column;
+  // Numeric value (or null) per row, in the original row order.
+  const num = table.rows.map((r) => {
+    const v = r[col];
+    if (isEmpty(v)) return null;
+    const n = coerceToNumber(v);
+    return Number.isFinite(n) ? n : null;
+  });
+  // The order to interpolate along. Default is row order. With orderBy, walk the
+  // rows sorted by that column, then write results back to original positions.
+  const order = table.rows.map((_, i) => i);
+  if (op.orderBy) {
+    const ob = op.orderBy;
+    const key = (i: number): number | string => {
+      const v = table.rows[i][ob];
+      const n = coerceToNumber(v);
+      return Number.isFinite(n) ? n : String(v ?? "");
+    };
+    order.sort((a, b) => {
+      const ka = key(a);
+      const kb = key(b);
+      if (typeof ka === "number" && typeof kb === "number") return ka - kb;
+      return String(ka).localeCompare(String(kb));
+    });
+  }
+  // Interpolated value per original index, or null to leave the cell empty (a
+  // one-sided gap is not extrapolated, matching the pandas linear default).
+  const fill: (number | null)[] = table.rows.map(() => null);
+  for (let pos = 0; pos < order.length; pos++) {
+    if (num[order[pos]] !== null) continue;
+    let p = pos - 1;
+    while (p >= 0 && num[order[p]] === null) p--;
+    let n = pos + 1;
+    while (n < order.length && num[order[n]] === null) n++;
+    if (p >= 0 && n < order.length) {
+      const pv = num[order[p]] as number;
+      const nv = num[order[n]] as number;
+      fill[order[pos]] = pv + ((nv - pv) * (pos - p)) / (n - p);
+    }
+  }
+  const rows = table.rows.map((r, i) =>
+    fill[i] === null ? r : { ...r, [col]: fill[i] },
+  );
+  return { columns: table.columns, rows };
+}
+
 function applyIsIn(table: InternalTable, op: IsInOp): InternalTable | string {
   if (!table.columns.includes(op.column)) return `isin: column "${op.column}" not found`;
   const set = new Set(op.values.map(String));
@@ -1885,6 +1940,8 @@ function executeOp(
       return applyColumnTransform(table, (c) => fractionOfTotal(c, op.params));
     case "fillna":
       return applyFillNa(table, op);
+    case "interpolate":
+      return applyInterpolate(table, op);
     case "dropna":
       return applyDropNa(table, op);
     case "set-where":

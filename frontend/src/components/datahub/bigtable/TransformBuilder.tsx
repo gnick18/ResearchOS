@@ -85,7 +85,7 @@ const PALETTE: { group: string; ops: PaletteEntry[] }[] = [
     ops: [
       { kind: "fillna", label: "fill empty with", ready: true },
       { kind: "dropna", label: "drop empty rows", ready: true },
-      { kind: "interpolate", label: "interpolate", ready: false },
+      { kind: "interpolate", label: "interpolate", ready: true },
     ],
   },
   {
@@ -158,6 +158,7 @@ const VERB: Record<string, string> = {
   dedupe: "Dedupe",
   groupby: "Group + agg",
   fillna: "Fill empty",
+  interpolate: "Interpolate",
   dropna: "Drop empty rows",
   "set-where": "Set where",
   "str-op": "Text",
@@ -231,6 +232,8 @@ function defaultOp(kind: string, cols: string[], numericCols: string[]): Transfo
       };
     case "fillna":
       return { kind: "fillna", column: firstNum, method: "constant", value: 0 };
+    case "interpolate":
+      return { kind: "interpolate", column: firstNum };
     case "dropna":
       return { kind: "dropna", columns: [first], how: "any" };
     case "setwhere":
@@ -650,6 +653,30 @@ function OpParams({
             }}
           />
         )}
+      </>
+    );
+  }
+
+  if (op.kind === "interpolate") {
+    return (
+      <>
+        <Pill>interpolate empties in</Pill>
+        <select
+          className={selectCls()}
+          value={op.column}
+          onChange={(e) => onChange({ ...op, column: e.target.value })}
+        >
+          {colOptions}
+        </select>
+        <Pill>ordered by</Pill>
+        <select
+          className={selectCls()}
+          value={op.orderBy ?? ""}
+          onChange={(e) => onChange({ ...op, orderBy: e.target.value || undefined })}
+        >
+          <option value="">row order</option>
+          {colOptions}
+        </select>
       </>
     );
   }

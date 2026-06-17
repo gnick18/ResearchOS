@@ -141,6 +141,11 @@ const OP_META: Record<TransformOp["kind"], { label: string; blurb: string }> = {
     blurb:
       "Fill empty cells in a column with a value, the previous or next value, or the column mean or median.",
   },
+  interpolate: {
+    label: "Interpolate empty cells",
+    blurb:
+      "Linearly fill empty numeric cells from the nearest filled neighbours, equally spaced by row position.",
+  },
   dropna: {
     label: "Drop empty rows",
     blurb: "Drop rows that are empty in any or all of the selected columns.",

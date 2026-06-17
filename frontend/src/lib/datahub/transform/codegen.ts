@@ -49,6 +49,7 @@ import type {
   AggSpec,
   SortKey,
   FillNaOp,
+  InterpolateOp,
   DropNaOp,
   SetWhereOp,
   StrOp,
@@ -734,6 +735,22 @@ function fillnaPandas(df: string, op: FillNaOp): { code: string; comment: string
   };
 }
 
+function interpolatePandas(
+  df: string,
+  op: InterpolateOp,
+): { code: string; comment: string } {
+  const col = colRef(df, op.column);
+  const interp = `${col} = pd.to_numeric(${col}, errors="coerce").interpolate(method="linear")`;
+  return {
+    code: op.orderBy
+      ? `${df} = ${df}.sort_values(${pyStr(op.orderBy)})\n${interp}`
+      : interp,
+    comment: op.orderBy
+      ? `Linearly interpolate empty cells in ${op.column}, ordered by ${op.orderBy}.`
+      : `Linearly interpolate empty cells in ${op.column} from the nearest filled neighbours.`,
+  };
+}
+
 function dropnaPandas(df: string, op: DropNaOp): { code: string; comment: string } {
   const subset =
     op.columns && op.columns.length > 0 ? `subset=${pyStrList(op.columns)}, ` : "";
@@ -1133,6 +1150,8 @@ export function transformOpToPandas(
       return fractionOfTotalPandas(df, op);
     case "fillna":
       return fillnaPandas(df, op);
+    case "interpolate":
+      return interpolatePandas(df, op);
     case "dropna":
       return dropnaPandas(df, op);
     case "set-where":

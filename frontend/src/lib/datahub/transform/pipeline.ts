@@ -346,6 +346,23 @@ export interface FillNaOp {
 }
 
 /**
+ * Linearly interpolate empty numeric cells in one column from the nearest filled
+ * neighbours, equally spaced by row position (pandas Series.interpolate, method
+ * "linear"). A gap with a filled neighbour on only one side (leading or trailing)
+ * stays empty, matching the pandas default of no extrapolation. An optional
+ * orderBy column sets the order to interpolate along, otherwise the current row
+ * order is used. Dataset-lane (SQL) only, like the other gap ops.
+ *
+ *   pandas:  df[col] = pd.to_numeric(df[col], errors="coerce").interpolate("linear")
+ */
+export interface InterpolateOp {
+  kind: "interpolate";
+  column: string;
+  /** Optional column to order the interpolation along. Absent uses row order. */
+  orderBy?: string;
+}
+
+/**
  * Drop rows that are empty in the selected columns (pandas DataFrame.dropna).
  *
  *   - how "any": drop a row if ANY selected column is empty (pandas default).
@@ -869,6 +886,7 @@ export type TransformOp =
   | RemoveBaselineColumnOp
   | FractionOfTotalColumnOp
   | FillNaOp
+  | InterpolateOp
   | DropNaOp
   | SetWhereOp
   | StrOp
