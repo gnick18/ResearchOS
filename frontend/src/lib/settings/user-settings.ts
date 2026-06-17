@@ -734,6 +734,57 @@ export async function readUserSettings(username: string): Promise<UserSettings> 
   return normalize({ ...metaSeed, ...(raw ?? {}) });
 }
 
+/**
+ * The EFFECTIVE user settings = the account-scoped defaults (cloud, follow the
+ * user) merged OVER the folder-local settings.json. This is the read a consumer
+ * wants when it should honor an account preference (appearance, formatting, nav
+ * defaults) that follows the user across folders.
+ *
+ * SURGICAL + FAILS CLOSED: when the account-settings flag is OFF, or no account
+ * blob exists, this returns the folder-local settings byte-for-byte (it just
+ * delegates to readUserSettings + mergeAccountOverFolder with a null blob, which
+ * returns the folder unchanged), so flag-off behavior is identical to today. The
+ * folder-local readUserSettings stays the source of truth for the WRITE path and
+ * for callers that must see only what is on disk; this reader is opt-in.
+ *
+ * Nav defaults (defaultLandingTab + visibleTabs) are account DEFAULTS the folder
+ * can OVERRIDE: we detect whether the folder explicitly set them (present in the
+ * raw on-disk settings) and only let the account value apply when the folder did
+ * NOT, so a class folder keeps its own tab set.
+ */
+export async function readEffectiveUserSettings(
+  username: string,
+): Promise<UserSettings> {
+  const folder = await readUserSettings(username);
+  // Lazy import to keep the settings module free of an account-layer dependency
+  // at module scope (and to stay tree-shakeable when the flag path is unused).
+  const { isAccountSettingsEnabled } = await import(
+    "@/lib/account/account-settings-config"
+  );
+  if (!isAccountSettingsEnabled()) return folder;
+  try {
+    const { fetchAccountSettings, mergeAccountOverFolder } = await import(
+      "@/lib/account/account-settings"
+    );
+    const account = await fetchAccountSettings();
+    if (!account) return folder;
+    // Detect whether the folder set its OWN nav fields on disk, so account nav
+    // defaults only fill the gaps (folder override wins).
+    const raw = fileService.isConnected()
+      ? await fileService.readJson<Partial<UserSettings>>(settingsPath(username))
+      : null;
+    const folderNavIsDefault = {
+      defaultLandingTab: !raw || raw.defaultLandingTab === undefined,
+      visibleTabs: !raw || raw.visibleTabs === undefined,
+    };
+    return mergeAccountOverFolder(folder, account, folderNavIsDefault);
+  } catch {
+    // Any account-layer failure falls back to the folder settings, never breaks
+    // a settings read.
+    return folder;
+  }
+}
+
 export async function userSettingsFileExists(username: string): Promise<boolean> {
   if (!fileService.isConnected()) return false;
   return fileService.fileExists(settingsPath(username));

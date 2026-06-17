@@ -8,9 +8,12 @@ import { useAppStore } from "@/lib/store";
 import {
   listFeeds,
   markFeedSynced,
+  resolveEffectiveFeeds,
 } from "./external-feeds-store";
 import { parseIcsToExternalEvents } from "./ics-parser";
 import { FEED_EVENTS_PREFIX } from "./feed-cache-keys";
+import { isAccountSettingsEnabled } from "@/lib/account/account-settings-config";
+import { fetchAccountSettings } from "@/lib/account/account-settings";
 
 const FEEDS_QUERY_KEY = ["calendar-feeds"] as const;
 
@@ -80,7 +83,23 @@ export function useCalendarFeeds() {
   const { currentUser } = useCurrentUser();
   return useQuery({
     queryKey: [...FEEDS_QUERY_KEY, currentUser],
-    queryFn: async () => (currentUser ? listFeeds(currentUser) : []),
+    queryFn: async () => {
+      if (!currentUser) return [];
+      const folderFeeds = await listFeeds(currentUser);
+      // Account-scoped feeds (the Owen case): when the flag is on and the account
+      // store carries calendar feeds, they FOLLOW the user across folders, so the
+      // calendar renders the account list merged OVER the folder-local one. Flag
+      // off / no account blob falls through to the folder list unchanged.
+      // fetchAccountSettings is memoized per session, so this adds no per-feed I/O.
+      if (!isAccountSettingsEnabled()) return folderFeeds;
+      try {
+        const account = await fetchAccountSettings();
+        return resolveEffectiveFeeds(folderFeeds, account?.calendarFeeds ?? null);
+      } catch {
+        // Never let an account lookup break the calendar; fall back to folder.
+        return folderFeeds;
+      }
+    },
     enabled: !!currentUser,
     staleTime: ONE_HOUR_MS,
   });
