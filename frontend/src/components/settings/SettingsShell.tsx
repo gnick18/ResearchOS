@@ -122,8 +122,18 @@ export default function SettingsShell({
   const sectionParam = searchParams.get("section");
   const tabParam = searchParams.get("tab");
   const resolvedActiveId = useMemo(() => {
-    if (sectionParam && allSections.some((s) => s.id === sectionParam)) {
-      return sectionParam;
+    if (sectionParam) {
+      const exact = allSections.find((s) => s.id === sectionParam);
+      if (exact) return exact.id;
+      // Tolerate hyphenated deep-links onto ids that concatenate words
+      // without a separator (e.g. `ai-helper` -> `aihelper`, `lab-settings`
+      // -> `labsettings`). Someone bookmarking or hand-typing the URL will
+      // reach for the natural hyphenated form, so normalize before failing.
+      const normalized = sectionParam.replace(/-/g, "");
+      const aliased = allSections.find(
+        (s) => s.id.replace(/-/g, "") === normalized,
+      );
+      if (aliased) return aliased.id;
     }
     const fromTab = defaultSectionForTab(tabParam, groups);
     if (fromTab && allSections.some((s) => s.id === fromTab)) return fromTab;
