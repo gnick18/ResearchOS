@@ -1,0 +1,90 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8" />
+<!--
+  Option D social banner generator (2026-06-17).
+
+  Wordmark-only lockup on a deep-ink (or white) field: "Research" in the lockup
+  text color, "OS" in the signature rainbow (luminous ramp on dark, vivid on
+  light), a rainbow hairline rule that auto-matches the wordmark width, and the
+  tagline below. Geist 800, the same lockup the app renders.
+
+  Pick a platform with the ?p= query param. Each value sets the canvas size,
+  alignment, and palette:
+    ?p=linkedin-dark   1128x191  left-aligned   (LinkedIn company cover)
+    ?p=linkedin-light  1128x191  left-aligned   white field
+    ?p=bluesky-dark    1500x500  centered       (Bluesky 3:1 header)
+    ?p=youtube-dark    2560x1440 centered        (YouTube art; lockup inside the
+                                                  1546x423 all-device safe area)
+
+  Render with Chrome headless (2x for crisp PNGs, 1x for native sizes):
+    CHR="/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    "$CHR" --headless=new --disable-gpu --hide-scrollbars \
+      --force-device-scale-factor=2 --window-size=1128,191 \
+      --virtual-time-budget=2500 --user-data-dir=/tmp/cb_li \
+      --screenshot=../png/researchos-banner-linkedin-dark.png \
+      "file://$PWD/social-banner-d.html?p=linkedin-dark"
+  Match --window-size to the platform's canvas. LinkedIn uses 2x; bluesky and
+  youtube are already large, render at factor 1.
+-->
+<style>
+  @font-face { font-family: 'Geist'; font-weight: 800; src: url('../../docs/marketing/assets/fonts/geist-4.woff2') format('woff2'); }
+  @font-face { font-family: 'Geist'; font-weight: 500; src: url('../../docs/marketing/assets/fonts/geist-4.woff2') format('woff2'); }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { overflow: hidden; }
+  .stage { width: 100%; height: 100%; display: flex; flex-direction: column; }
+  .lockup { display: inline-block; }
+  .word { font-family: 'Geist', sans-serif; font-weight: 800; line-height: 1; white-space: nowrap; }
+  .rule { border-radius: 99px; }
+  .tag { font-family: 'Geist', sans-serif; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="stage" id="stage">
+  <div class="lockup">
+    <div class="word" id="word">Research<span class="os" id="os">OS</span></div>
+    <div class="rule" id="rule"></div>
+  </div>
+  <div class="tag" id="tag">Local-first. Open source. Free for every researcher.</div>
+</div>
+<script>
+  const LUM = "linear-gradient(90deg,#fb923c 0%,#fbbf24 25%,#4ade80 50%,#38bdf8 75%,#c084fc 100%)";
+  const VIV = "linear-gradient(90deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%)";
+  const P = {
+    "linkedin-dark":  { w:1128, h:191,  align:"left",   bg:"#11161f", ink:"#f1f5f9", grad:LUM, tag:"#9aa6b6", word:78,  ls:-2.3, rh:6,  rmt:13, tp:22, tmt:17, padL:64 },
+    "linkedin-light": { w:1128, h:191,  align:"left",   bg:"#ffffff", ink:"#111827", grad:VIV, tag:"#5b6675", word:78,  ls:-2.3, rh:6,  rmt:13, tp:22, tmt:17, padL:64 },
+    "bluesky-dark":   { w:1500, h:500,  align:"center", bg:"#11161f", ink:"#f1f5f9", grad:LUM, tag:"#9aa6b6", word:150, ls:-4.4, rh:11, rmt:16, tp:40, tmt:38 },
+    "youtube-dark":   { w:2560, h:1440, align:"center", bg:"#11161f", ink:"#f1f5f9", grad:LUM, tag:"#9aa6b6", word:156, ls:-4.6, rh:12, rmt:18, tp:46, tmt:40 },
+  };
+  const key = new URLSearchParams(location.search).get("p") || "linkedin-dark";
+  const c = P[key] || P["linkedin-dark"];
+  document.documentElement.style.width = c.w + "px";
+  document.documentElement.style.height = c.h + "px";
+  document.body.style.width = c.w + "px";
+  document.body.style.height = c.h + "px";
+  document.body.style.background = c.bg;
+  const stage = document.getElementById("stage");
+  if (c.align === "center") { stage.style.alignItems = "center"; stage.style.justifyContent = "center"; }
+  else { stage.style.justifyContent = "center"; stage.style.paddingLeft = c.padL + "px"; }
+  const word = document.getElementById("word");
+  word.style.fontSize = c.word + "px";
+  word.style.letterSpacing = c.ls + "px";
+  word.style.color = c.ink;
+  const os = document.getElementById("os");
+  os.style.background = c.grad;
+  os.style.webkitBackgroundClip = "text";
+  os.style.backgroundClip = "text";
+  os.style.color = "transparent";
+  const rule = document.getElementById("rule");
+  rule.style.height = c.rh + "px";
+  rule.style.marginTop = c.rmt + "px";
+  rule.style.background = c.grad;
+  const tag = document.getElementById("tag");
+  tag.style.fontSize = c.tp + "px";
+  tag.style.marginTop = c.tmt + "px";
+  tag.style.color = c.tag;
+  tag.style.textAlign = c.align === "center" ? "center" : "left";
+</script>
+</body>
+</html>
