@@ -24,6 +24,7 @@ import {
   columnNoun,
   dataColumns,
   isStructuralColumn,
+  mintRowId,
   rowIndex,
   rowNoun,
 } from "@/lib/datahub/grid-crud";
@@ -312,6 +313,19 @@ describe("addColumnAt / addRowAt insert at a position", () => {
     expect(out.rows.map((row) => row.id)).toEqual(["r1", "rMid", "r2"]);
     const mid = out.rows.find((row) => row.id === "rMid");
     expect(mid?.cells).toMatchObject({ c1: 9, c2: 9 });
+  });
+});
+
+describe("mintRowId mints unique ids even within one millisecond", () => {
+  it("never collides across a rapid-fire burst (the Add-row stress test)", () => {
+    // Simulate rapid-clicking Add row: many ids minted back to back, which used
+    // to share a single Date.now() value and produce duplicate React keys.
+    const ids = Array.from({ length: 500 }, () => mintRowId());
+    expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it("keeps the on-disk row-id shape (a row- string prefix)", () => {
+    expect(mintRowId()).toMatch(/^row-\d+-\d+$/);
   });
 });
 

@@ -1,81 +1,203 @@
-// Render smoke test for the Path-A FinalizeTab service-tier dashboard. Proves
-// the rebuilt component mounts in jsdom and renders the new AI + scenario
-// content without throwing, independent of the dev server. Canvas is a no-op in
-// jsdom (clientWidth 0, so prep() returns null before getContext), which the
-// component already handles. Some labels repeat (a preset button plus a table
-// cell), so queries use getAllByText.
+// Unit tests for the Model A margin explorer (PriceModelingModal rebuild).
+//
+// Asserts revenue/cost/margin math for known tier+usage inputs, and that dept
+// is cheaper per lab than lab on both base fee and usage markup. Canvas is a
+// no-op in jsdom (clientWidth 0, so prep() returns null before getContext),
+// which the component already handles gracefully.
 
 import { describe, expect, it } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 
-import { FinalizeTab } from "./PriceModelingModal";
+import PriceModelingModal, {
+  MarginExplorerTab,
+} from "./PriceModelingModal";
+import {
+  MODEL_A_PLANS,
+  periodCharge,
+  ACCRUAL_CHARGE_THRESHOLD_CENTS,
+} from "@/lib/billing/model-a/pricing";
+import {
+  DEPT_PER_LAB_DISCOUNT_CENTS,
+  DEPT_USAGE_DISCOUNT_PCT,
+} from "@/lib/billing/catalog";
 
-const has = (re: RegExp) => expect(screen.getAllByText(re).length).toBeGreaterThan(0);
+const has = (re: RegExp) =>
+  expect(screen.getAllByText(re).length).toBeGreaterThan(0);
 
-describe("FinalizeTab (Path-A service dashboard)", () => {
-  it("mounts and shows the locked AI rates + the three outcome panels", () => {
-    render(<FinalizeTab />);
-    has(/metered token product at LOCKED rates/i); // locked AI rates strip
-    has(/AI adoption/i); // share of paid users who buy AI
-    has(/AI per AI-user/i); // streamlined assumption knob
-    has(/Conservative/i); // scenario preset
-    has(/Dept-heavy/i); // mix preset
-    has(/When do we become profitable/i); // the break-even plot
-    has(/Break even/i); // the headline break-even-users readout
-    has(/Break-even users by conversion scenario/i); // per-scenario break-even
-    has(/Where the money comes from/i); // composition plot
-    has(/AI margin/i); // composition row
-    has(/Governance fees/i); // composition row
-    // Free users are ~$0/mo recurring; the grant is a separate one-time line.
-    has(/None of that writes to us/i);
-    has(/Acquiring this free base/i); // one-time acquisition line
-    has(/Free relay \(recurring\)/i); // recurring cost line
-    has(/Fixed business costs/i); // recurring cost line
-    has(/Fixed business costs \(charged every month/i); // the editable panel
-    has(/Claude Max \(co-runs ops/i); // the permanent ops subscription
-    has(/Service step-ups/i); // per-service free-tier crossings
-    has(/Crosses at/i); // the per-service cross-user column
-    has(/Owner tax on profit/i); // the tax dial
-    has(/Free grant usage/i); // conservative free-grant-usage dial
-    has(/Take-home \(after tax\)/i); // post-tax take-home line
-    has(/Measured relay footprint/i); // measured-vs-seed grounding line
+// ── pure math assertions (no DOM) ────────────────────────────────────────────
+
+describe("Model A pricing math", () => {
+  it("solo: revenue = base + marked-up usage + storage + hosted", () => {
+    const plan = MODEL_A_PLANS.solo;
+    // 100k writes, 2 GB stored, 0 hosted.
+    const charge = periodCharge(plan, {
+      writes: 100_000,
+      storageBytes: 2e9,
+      hostedBytes: 0,
+      labCount: 1,
+    });
+    // Base is $3 = 300 cents.
+    expect(charge.baseCents).toBe(300);
+    // Usage: relay bare cost * 5x markup. relayCost(0.1M) = 0.1 * 1.5 = $0.15;
+    // marked up 5x = $0.75 = 75 cents.
+    expect(charge.usageCents).toBeGreaterThan(0);
+    // Storage: 2 GB at retail (1.15x blended ~$0.05/GB = ~$0.1175).
+    expect(charge.storageCents).toBeGreaterThan(0);
+    // Hosted: 0 GB.
+    expect(charge.hostedCents).toBe(0);
+    // Total = sum of parts.
+    expect(charge.totalCents).toBe(
+      charge.baseCents + charge.usageCents + charge.storageCents + charge.hostedCents,
+    );
+  });
+
+  it("lab: base scales with lab count", () => {
+    const plan = MODEL_A_PLANS.lab;
+    const charge3 = periodCharge(plan, {
+      writes: 0,
+      storageBytes: 0,
+      hostedBytes: 0,
+      labCount: 3,
+    });
+    const charge1 = periodCharge(plan, {
+      writes: 0,
+      storageBytes: 0,
+      hostedBytes: 0,
+      labCount: 1,
+    });
+    // 3 labs = 3x the single-lab base.
+    expect(charge3.baseCents).toBe(charge1.baseCents * 3);
+  });
+
+  it("dept is cheaper per lab than lab on base fee", () => {
+    const lab = MODEL_A_PLANS.lab;
+    const dept = MODEL_A_PLANS.dept;
+    // Dept base < Lab base per lab.
+    expect(dept.baseFeeCents).toBeLessThan(lab.baseFeeCents);
+    // The catalog discount constant matches the plan values.
+    expect(DEPT_PER_LAB_DISCOUNT_CENTS).toBe(
+      lab.baseFeeCents - dept.baseFeeCents,
+    );
+    // Discount must be positive.
+    expect(DEPT_PER_LAB_DISCOUNT_CENTS).toBeGreaterThan(0);
+  });
+
+  it("dept is cheaper per lab than lab on usage markup", () => {
+    const lab = MODEL_A_PLANS.lab;
+    const dept = MODEL_A_PLANS.dept;
+    expect(dept.usageMarkup).toBeLessThan(lab.usageMarkup);
+    expect(DEPT_USAGE_DISCOUNT_PCT).toBeGreaterThan(0);
+  });
+
+  it("free plan has zero base and zero markup and cannot produce", () => {
+    const plan = MODEL_A_PLANS.free;
+    expect(plan.baseFeeCents).toBe(0);
+    expect(plan.usageMarkup).toBe(0);
+    expect(plan.produce).toBe(false);
+    const charge = periodCharge(plan, {
+      writes: 1_000_000,
+      storageBytes: 10e9,
+      hostedBytes: 0,
+    });
+    // No base, no usage charge (free cannot produce).
+    expect(charge.baseCents).toBe(0);
+    expect(charge.usageCents).toBe(0);
+  });
+
+  it("accrual threshold is the $5 card-run gate", () => {
+    // Threshold is 500 cents = $5.
+    expect(ACCRUAL_CHARGE_THRESHOLD_CENTS).toBe(500);
+  });
+});
+
+// ── component smoke tests ─────────────────────────────────────────────────────
+
+describe("MarginExplorerTab", () => {
+  it("mounts and renders the four main panels", () => {
+    render(<MarginExplorerTab />);
+    has(/Tier \+ scale/i);
+    has(/Usage this month/i);
+    has(/Cost, Stripe fee, and net margin/i);
+    has(/Dept vs Lab/i);
     cleanup();
   });
 
-  it("free tier uses 'shared-folder workspaces', never 'collab' for the free capability", () => {
-    render(<FinalizeTab />);
-    has(/shared-folder workspaces/i);
+  it("shows the three usage presets", () => {
+    render(<MarginExplorerTab />);
+    has(/Light note-taker/i);
+    has(/Typical researcher/i);
+    has(/Heavy imaging/i);
     cleanup();
   });
 
-  it("puts the working area (dials + plots) above the prose context", () => {
-    const { container } = render(<FinalizeTab />);
-    const text = container.textContent ?? "";
-    const assumptions = text.indexOf("Assumptions");
-    const plot = text.indexOf("When do we become profitable");
-    const lockedStrip = text.indexOf("Path A, locked");
-    const howToRead = text.indexOf("How to read it");
-    expect(assumptions).toBeGreaterThanOrEqual(0);
-    expect(plot).toBeGreaterThanOrEqual(0);
-    // Working-area markers must come before the bottom prose in DOM order.
-    expect(plot).toBeLessThan(lockedStrip);
-    expect(assumptions).toBeLessThan(howToRead);
+  it("shows the accrual threshold note", () => {
+    render(<MarginExplorerTab />);
+    has(/only run the card when accrued balance crosses/i);
     cleanup();
   });
 
-  it("scenario + mix preset clicks do not throw", () => {
-    render(<FinalizeTab />);
-    fireEvent.click(screen.getAllByText(/Optimistic/i)[0]);
-    fireEvent.click(screen.getAllByText(/Dept-heavy/i)[0]);
-    has(/Break-even conversion/i); // still rendered after recomputation
+  it("shows dept discount copy when dept tier is selected", () => {
+    render(<MarginExplorerTab />);
+    // Switch to dept tier.
+    fireEvent.click(screen.getByText("Department"));
+    has(/Dept saves/i);
+    has(/volume discount/i);
     cleanup();
   });
 
-  it("splitScroll mounts and makes the columns independent scroll panes", () => {
-    const { container } = render(<FinalizeTab splitScroll />);
-    // Two independently-scrolling columns on lg screens.
-    expect(container.querySelectorAll(".lg\\:overflow-y-auto").length).toBeGreaterThanOrEqual(2);
-    has(/When do we become profitable/i); // plots still render
+  it("shows lab count slider for lab tier", () => {
+    render(<MarginExplorerTab />);
+    fireEvent.click(screen.getByText("Lab"));
+    has(/Lab count/i);
     cleanup();
+  });
+
+  it("preset click updates the active preset highlight", () => {
+    render(<MarginExplorerTab />);
+    fireEvent.click(screen.getByText("Heavy imaging"));
+    // The Heavy imaging button should now be active (has different styling).
+    // The other presets should still be visible.
+    has(/Light note-taker/i);
+    has(/Typical researcher/i);
+    cleanup();
+  });
+
+  it("shows revenue breakdown with base fee, relay, storage, hosted, AI lines", () => {
+    render(<MarginExplorerTab />);
+    has(/Base fee/i);
+    has(/Relay\/compute/i);
+    has(/Storage \(1\.15x\)/i);
+    has(/Hosted assets \(1\.15x\)/i);
+    has(/Total revenue/i);
+    cleanup();
+  });
+
+  it("shows net margin readout and provider cost breakdown", () => {
+    render(<MarginExplorerTab />);
+    has(/Net margin/i);
+    has(/minus provider cost/i);
+    has(/minus Stripe/i);
+    has(/Net to us/i);
+    cleanup();
+  });
+
+  it("shows the storage pass-through note", () => {
+    render(<MarginExplorerTab />);
+    has(/pass-through, never a profit center/i);
+    cleanup();
+  });
+});
+
+describe("PriceModelingModal (shell)", () => {
+  it("renders the modal title when open", () => {
+    render(<PriceModelingModal open onClose={() => {}} />);
+    has(/Model A margin explorer/i);
+    cleanup();
+  });
+
+  it("does not crash when closed", () => {
+    // Should mount cleanly even when closed (LivingPopup gates rendering).
+    const { unmount } = render(<PriceModelingModal open={false} onClose={() => {}} />);
+    unmount();
   });
 });

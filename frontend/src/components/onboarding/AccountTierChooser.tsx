@@ -643,12 +643,14 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   function handleLabCreateProvider(provider: SharingProvider) {
     // Keep the lab-create marker (LabCreateResume provisions the lab on return)
     // and add the onbWizard marker so the return resumes the PI/lab wizard at the
-    // handle step instead of FolderConnectGate.
+    // handle step instead of FolderConnectGate. startPlan "lab" is the cold
+    // paid-signup door, so once the lab is provisioned the PI is sent to the
+    // Stripe card-on-file checkout (a no-op when billing is off).
     startOAuthFirstSignIn(
       provider,
       ONBOARDING_WIZARD_ENABLED
-        ? { labCreate: true, onboardingWizard: "lab" }
-        : { labCreate: true },
+        ? { labCreate: true, onboardingWizard: "lab", startPlan: "lab" }
+        : { labCreate: true, startPlan: "lab" },
     );
   }
 

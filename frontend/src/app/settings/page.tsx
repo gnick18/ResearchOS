@@ -62,6 +62,7 @@ import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import LabIdentitySection from "@/components/lab/LabIdentitySection";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
+import MyLabViewPanel from "@/components/lab/MyLabViewPanel";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { ensureGitignoreEntries } from "@/lib/file-system/gitignore";
 import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
@@ -789,6 +790,19 @@ function SettingsBodyInner({
                   </>
                 ),
               },
+              // Member transparency: every lab user (member or head) can see
+              // exactly what their lab head's lab view has read and changed about
+              // them. Not lab-head-gated, this is the member's half of the trust
+              // contract behind the PI lab-scoped read.
+              {
+                id: "mylabview",
+                group: "Lab",
+                title: "Your lab view",
+                icon: "eye" as const,
+                keywords:
+                  "transparency privacy what my pi lab head sees reads access audit my data lab view",
+                render: () => <MyLabViewSection />,
+              },
               ...(isLabHead
                 ? [
                     {
@@ -1437,6 +1451,46 @@ function LabMembershipSection() {
       searchKeywords="invite member join link lab tier add request"
     >
       <LabMembershipPanel />
+    </SectionShell>
+  );
+}
+
+/**
+ * The member-facing transparency section, the member's half of the PI
+ * lab-scoped-read trust contract (docs/proposals/2026-06-17-beakerbot-lab-head-
+ * utilities.md). Visible to every lab user, not gated to lab heads. A short
+ * explainer plus a button that opens the read-only MyLabViewPanel onto the
+ * current user's own audit log.
+ */
+function MyLabViewSection() {
+  const [panelOpen, setPanelOpen] = useState(false);
+  return (
+    <SectionShell
+      id="my-lab-view"
+      title="Your lab view"
+      description="See exactly what your lab head's lab view has read and changed about your work. Read-only."
+      searchKeywords="transparency privacy what my pi lab head sees reads access audit my data lab view"
+    >
+      <div className="space-y-3">
+        <p className="text-meta text-foreground-muted leading-relaxed">
+          Your lab head can read the work you sync to the lab, since they own the
+          grant and the records. Every time their lab view reads or changes your
+          work it is logged here, on its own, and nobody can quietly turn the log
+          off. Open it to see the full record.
+        </p>
+        <button
+          type="button"
+          onClick={() => setPanelOpen(true)}
+          className="ros-btn-neutral inline-flex items-center gap-2 px-3.5 py-2 text-body font-medium"
+          data-testid="open-my-lab-view-settings"
+        >
+          <span aria-hidden="true" className="text-foreground-muted">
+            <Icon name="eye" className="h-4 w-4" />
+          </span>
+          Open your lab view
+        </button>
+      </div>
+      <MyLabViewPanel open={panelOpen} onClose={() => setPanelOpen(false)} />
     </SectionShell>
   );
 }

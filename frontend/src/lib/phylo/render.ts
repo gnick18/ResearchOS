@@ -1047,10 +1047,14 @@ function drawCircularCallouts(
     // Anchor on the ring at the open gap (cartesian angle 0 -> straight right).
     const ax = cx + rMid;
     const ay = cy;
-    // Elbow leader: ring anchor -> vertical rail at the label's row -> short tick.
+    // Orthogonal bracket leader: exit the ring horizontally through the open gap
+    // at 3 o'clock (all anchors share y=cy so these stubs sit collinearly, reading
+    // as one line, never crossing), then drop down the shared vertical rail to the
+    // label's row, then a short tick. A single diagonal anchor->label segment used
+    // to fan out and the diagonals crossed each other once 3+ rings stacked.
     parts.push(
       `<circle cx="${ax.toFixed(1)}" cy="${ay.toFixed(1)}" r="1.6" fill="${MUTED}"/>`,
-      `<path d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${railX.toFixed(1)} ${labelY.toFixed(1)} L${(labelX - 4).toFixed(1)} ${labelY.toFixed(1)}" fill="none" stroke="${MUTED}" stroke-width="0.75"/>`,
+      `<path d="M${ax.toFixed(1)} ${ay.toFixed(1)} L${railX.toFixed(1)} ${ay.toFixed(1)} L${railX.toFixed(1)} ${labelY.toFixed(1)} L${(labelX - 4).toFixed(1)} ${labelY.toFixed(1)}" fill="none" stroke="${MUTED}" stroke-width="0.75"/>`,
       `<text x="${labelX.toFixed(1)}" y="${(labelY + 3).toFixed(1)}" font-size="9.5" font-weight="600" fill="${FG}">${esc(truncate(c.title, 16))}</text>`,
     );
   });

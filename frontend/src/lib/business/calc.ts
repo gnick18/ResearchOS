@@ -424,6 +424,32 @@ export function vercelOssApplicationDeadline(now: Date = new Date()): Deadline |
   };
 }
 
+/** Target date to place a drop-catch backorder for researchos.app (the
+ *  hyphen-less domain people naturally type). It is currently held by an
+ *  abandoned-looking "Aiona" prototype (dead Railway backend) and is registered
+ *  through Namecheap, expiring 2026-11-22. A domain does not drop on its expiry:
+ *  the owner has roughly a 75-day grace + redemption window first, so the real
+ *  release is around early February 2027. A backorder must be queued before the
+ *  drop, not on it, because the release is caught in milliseconds by automated
+ *  catchers. This target gives buffer to place the order. */
+export const RESEARCHOS_APP_DROP_BACKORDER_TARGET = "2026-10-15";
+
+/** One-time reminder to backorder researchos.app. Returns null once the whole
+ *  expiry-to-drop lifecycle is well past (after 2027-03-01), so it stops
+ *  lingering on the strip whether or not the catch succeeded. */
+export function researchosAppDropWatch(now: Date = new Date()): Deadline | null {
+  const due = new Date(`${RESEARCHOS_APP_DROP_BACKORDER_TARGET}T00:00:00Z`);
+  const lifecycleOver = new Date("2027-03-01T00:00:00Z");
+  if (now.getTime() >= lifecycleOver.getTime()) return null;
+  return {
+    key: "researchos-app-drop-watch",
+    label: "Backorder researchos.app (hyphen-less domain)",
+    dueDate: RESEARCHOS_APP_DROP_BACKORDER_TARGET,
+    daysUntil: daysUntil(due, now),
+    note: "Held by an abandoned 'Aiona' prototype (dead backend), Namecheap, expires 2026-11-22. It will not drop until roughly early Feb 2027 after the grace and redemption windows. Queue a drop-catch backorder (Namecheap, DropCatch, or Snapnames) before then; manual renewal on the expiry date will not work. Pay only if the catch wins. Detail in docs/proposals/researchos-app-domain-watch.md.",
+  };
+}
+
 /** The upcoming deadlines, soonest first. WI report only if a formation date is set. */
 /**
  * The next Apple Developer Program renewal, the annual anniversary of the

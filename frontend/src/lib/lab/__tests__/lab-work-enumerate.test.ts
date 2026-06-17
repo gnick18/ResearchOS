@@ -41,6 +41,14 @@ function fakeSource(overrides: Partial<LabWorkSource> = {}): LabWorkSource {
     listNotes: overrides.listNotes ?? (async () => []),
     listMethods: overrides.listMethods ?? (async () => []),
     listPurchases: overrides.listPurchases ?? (async () => []),
+    listInventory: overrides.listInventory ?? (async () => []),
+    listInventoryStock: overrides.listInventoryStock ?? (async () => []),
+    listSequences: overrides.listSequences ?? (async () => []),
+    listPhylo: overrides.listPhylo ?? (async () => []),
+    listMolecules: overrides.listMolecules ?? (async () => []),
+    listDatahub: overrides.listDatahub ?? (async () => []),
+    listResultSheets: overrides.listResultSheets ?? (async () => []),
+    listNotesSheets: overrides.listNotesSheets ?? (async () => []),
   };
 }
 
@@ -354,14 +362,117 @@ describe("enumerateLabWork", () => {
     expect(records).toEqual([]);
   });
 
-  it("LAB_WORK_TYPES array contains all five expected types in order", () => {
+  it("LAB_WORK_TYPES array contains all thirteen expected types in order", () => {
     expect(LAB_WORK_TYPES).toEqual([
       "task",
       "experiment",
       "note",
       "method",
       "purchase",
+      "inventory",
+      "inventory_stock",
+      "sequence",
+      "phylo",
+      "molecule",
+      "datahub",
+      "result_sheet",
+      "notes_sheet",
     ]);
+  });
+
+  it("maps inventory items to recordType 'inventory'", async () => {
+    const source = fakeSource({
+      listInventory: async () => [{ id: 1, name: "Taq polymerase" }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("inventory");
+    expect(records[0].recordId).toBe("1");
+  });
+
+  it("maps inventory stocks to recordType 'inventory_stock'", async () => {
+    const source = fakeSource({
+      listInventoryStock: async () => [{ id: 2, item_id: 1, quantity: 5 }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("inventory_stock");
+    expect(records[0].recordId).toBe("2");
+  });
+
+  it("maps sequences to recordType 'sequence'", async () => {
+    const source = fakeSource({
+      listSequences: async () => [{ id: 10, display_name: "pUC19" }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("sequence");
+    expect(records[0].recordId).toBe("10");
+  });
+
+  it("maps phylo trees to recordType 'phylo'", async () => {
+    const source = fakeSource({
+      listPhylo: async () => [{ id: "phylo-abc", name: "My tree" }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("phylo");
+    expect(records[0].recordId).toBe("phylo-abc");
+  });
+
+  it("maps molecules to recordType 'molecule'", async () => {
+    const source = fakeSource({
+      listMolecules: async () => [{ id: "mol-xyz", name: "Caffeine" }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("molecule");
+    expect(records[0].recordId).toBe("mol-xyz");
+  });
+
+  it("maps datahub documents to recordType 'datahub'", async () => {
+    const source = fakeSource({
+      listDatahub: async () => [
+        { id: "dh-001", meta: { id: "dh-001", name: "Results" }, columns: [], rows: [] },
+      ],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("datahub");
+    expect(records[0].recordId).toBe("dh-001");
+  });
+
+  it("new types appear after original five in output order", async () => {
+    const source = fakeSource({
+      listTasks: async () => [{ id: "t1", task_type: "task" }],
+      listInventory: async () => [{ id: 1, name: "item" }],
+      listSequences: async () => [{ id: 9, display_name: "seq" }],
+      listDatahub: async () => [{ id: "dh-1", meta: { id: "dh-1" } }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+    const types = records.map((r) => r.recordType);
+
+    const taskIdx = types.indexOf("task");
+    const invIdx = types.indexOf("inventory");
+    const seqIdx = types.indexOf("sequence");
+    const dhIdx = types.indexOf("datahub");
+
+    expect(taskIdx).toBeLessThan(invIdx);
+    expect(invIdx).toBeLessThan(seqIdx);
+    expect(seqIdx).toBeLessThan(dhIdx);
   });
 });
 
