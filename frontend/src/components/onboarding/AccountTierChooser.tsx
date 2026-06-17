@@ -756,9 +756,9 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
               </span>
               <h3 className="font-extrabold text-lg text-foreground mb-1">Free account</h3>
               <p className="text-xs text-foreground-muted mt-1">
-                Local like above, plus a sign-in so you can receive work shared
-                by researchers outside your folder and be findable in the
-                directory.
+                Your data stays on your disk, plus a sign-in so you can receive
+                work shared by researchers outside your folder and be findable in
+                the directory.
               </p>
               <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
                 <li>Data still on your disk</li>
