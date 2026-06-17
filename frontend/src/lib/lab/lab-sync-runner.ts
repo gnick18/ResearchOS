@@ -24,7 +24,12 @@ import type { LabSessionState } from "./lab-session";
 import { enumerateLabWork, type LabWorkSource } from "./lab-work-enumerate";
 import { syncLabWorkToMirror } from "./lab-sync";
 import type { ManifestStore } from "./lab-sync-manifest-store";
-import { buildLabIndex, pushLabIndex } from "./lab-index";
+import {
+  buildLabIndex,
+  pushLabIndex,
+  splitBySize,
+  HEAVY_CONTENT_THRESHOLD_BYTES,
+} from "./lab-index";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -54,6 +59,20 @@ export interface LabSyncRunDeps {
   pushIndexImpl?: typeof pushLabIndex;
 
   /**
+   * Heavy-content size threshold in bytes (default: HEAVY_CONTENT_THRESHOLD_BYTES).
+   * Records above it are indexed but held back from the eager push. Injected in
+   * tests to exercise gating with small fixtures.
+   */
+  heavyThresholdBytes?: number;
+
+  /**
+   * Per-owner dedup cache for the index push, mapping owner to the last
+   * successfully-pushed index JSON. Defaults to a module-level map (one entry,
+   * the current user). Injected fresh in tests so cases do not share state.
+   */
+  indexHashCache?: Map<string, string>;
+
+  /**
    * Optional override for Date.now() (not used in this function directly but
    * available for future extension, e.g. timeout guards). Reserved here to keep
    * the deps bag consistent with other lab-tier modules.
@@ -70,6 +89,8 @@ export interface LabSyncRunDeps {
  *   pushed:     R2 object keys uploaded during this run.
  *   skipped:    R2 object keys whose content hash matched the manifest (no-op).
  *   tombstoned: R2 object keys overwritten with a tombstone sentinel.
+ *   heavyHeld:  count of records held back from the eager push for being over
+ *               the heavy threshold (indexed but fetched on demand, Phase B).
  */
 export interface LabSyncRunResult {
   ran: boolean;
@@ -78,7 +99,13 @@ export interface LabSyncRunResult {
   pushed?: string[];
   skipped?: string[];
   tombstoned?: string[];
+  heavyHeld?: number;
 }
+
+// Module-level default for the index dedup cache. The runner only ever syncs the
+// current session member's own records, so this holds a single entry. It resets
+// on reload, which at worst causes one redundant index push per session.
+const moduleIndexCache = new Map<string, string>();
 
 // ---------------------------------------------------------------------------
 // runLabSyncForSession: main entry point.
@@ -123,11 +150,18 @@ export async function runLabSyncForSession(
   // Step 2: load manifest.
   const manifest = await deps.manifestStore.load(owner);
 
-  // Step 3: sync. If this throws, we let it propagate (see error policy above).
+  // Phase B size-gating: push only LIGHT content eagerly. Heavy records are
+  // indexed (so they stay searchable) but held back from the eager push and
+  // fetched on demand. Splitting before the sync means the engine never sees the
+  // heavy records, so it does not push them.
+  const threshold = deps.heavyThresholdBytes ?? HEAVY_CONTENT_THRESHOLD_BYTES;
+  const { light, heavy } = splitBySize(records, threshold);
+
+  // Step 3: sync the LIGHT records only. If this throws, let it propagate.
   const result = await doSync({
     labId: session.labId,
     owner,
-    records,
+    records: light,
     labKey: session.labKey,
     signerEd25519Priv: session.signingKeyPair.ed25519Priv,
     signerEd25519Pub: session.signingKeyPair.ed25519Pub,
@@ -138,25 +172,29 @@ export async function runLabSyncForSession(
   // Step 4: persist the updated manifest ONLY on success.
   await deps.manifestStore.save(owner, result.manifest);
 
-  // Step 5: rebuild and push the index when the content actually changed. The
-  // index is derived from the same enumerated records, so it only moves when a
-  // record pushed or was tombstoned this run. On a fully-skipped (idle) run the
-  // index is unchanged, so we skip the write. Best-effort: an index push hiccup
-  // must not fail a content sync that already succeeded (the next changed run
-  // rebuilds it).
-  const contentChanged =
-    result.pushed.length > 0 || result.tombstoned.length > 0;
-  if (contentChanged) {
+  // Step 5: rebuild the index from ALL records (light and heavy, with an eager
+  // flag per entry) and push it when it actually changed. The push is gated on
+  // the index CONTENT, not on the light-sync result, so a heavy-record change
+  // the light sync cannot see still refreshes the index. The per-owner cache
+  // dedups identical re-pushes within a session and resets harmlessly on reload.
+  // Best-effort: an index push hiccup must not fail a content sync that already
+  // succeeded.
+  const index = buildLabIndex(owner, records, threshold);
+  const indexJson = JSON.stringify(index);
+  const cache = deps.indexHashCache ?? moduleIndexCache;
+  if (cache.get(owner) !== indexJson) {
     const pushIndex = deps.pushIndexImpl ?? pushLabIndex;
     try {
       await pushIndex({
         labId: session.labId,
         owner,
-        index: buildLabIndex(owner, records),
+        index,
         labKey: session.labKey,
         signerEd25519Priv: session.signingKeyPair.ed25519Priv,
         signerEd25519Pub: session.signingKeyPair.ed25519Pub,
       });
+      // Only record success, so a failed push retries on the next run.
+      cache.set(owner, indexJson);
     } catch (err) {
       console.warn("[lab-sync-runner] index push failed", err);
     }
@@ -169,5 +207,6 @@ export async function runLabSyncForSession(
     pushed: result.pushed,
     skipped: result.skipped,
     tombstoned: result.tombstoned,
+    heavyHeld: heavy.length,
   };
 }

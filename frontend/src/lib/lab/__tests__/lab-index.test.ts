@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   buildLabIndex,
+  splitBySize,
   summarizeRecord,
   encodeLabIndex,
   pushLabIndex,
@@ -102,6 +103,20 @@ describe("buildLabIndex", () => {
     expect(index.entries[0].recordType).toBe("task");
   });
 
+  it("marks entries eager or on-demand by the heavy threshold", () => {
+    const records = [
+      rec("note", "1", { name: "tiny" }),
+      rec("datahub", "dh-1", { meta: { name: "big" }, blob: "y".repeat(500) }),
+    ];
+    // Threshold of 100 bytes: the note is under it, the padded table is over it.
+    const index = buildLabIndex("alex", records, 100);
+    const byId = Object.fromEntries(
+      index.entries.map((e) => [e.recordId, e.eager]),
+    );
+    expect(byId["1"]).toBe(true);
+    expect(byId["dh-1"]).toBe(false);
+  });
+
   it("still indexes a non-JSON record with the fallback title", () => {
     const bad: LabWorkRecord = {
       recordType: "note",
@@ -114,13 +129,26 @@ describe("buildLabIndex", () => {
   });
 });
 
+describe("splitBySize", () => {
+  it("splits records into light and heavy by the threshold and drops _index", () => {
+    const records = [
+      rec("note", "1", { name: "small" }),
+      rec("datahub", "dh-1", { blob: "z".repeat(500) }),
+      { recordType: "_index", recordId: "manifest", plaintext: new Uint8Array([1]) },
+    ];
+    const { light, heavy } = splitBySize(records, 100);
+    expect(light.map((r) => r.recordId)).toEqual(["1"]);
+    expect(heavy.map((r) => r.recordId)).toEqual(["dh-1"]);
+  });
+});
+
 describe("pushLabIndex / readLabIndex round-trip", () => {
   it("pushes to the reserved key and reads back the same entries", async () => {
     const index: LabIndexFile = {
       version: 1,
       owner: "alex",
       entries: [
-        { recordType: "task", recordId: "1", owner: "alex", title: "Run gel", sizeBytes: 12, preview: "x" },
+        { recordType: "task", recordId: "1", owner: "alex", title: "Run gel", sizeBytes: 12, preview: "x", eager: true },
       ],
     };
 
@@ -177,7 +205,7 @@ describe("readLabIndexAcrossMembers", () => {
       version: 1,
       owner,
       entries: [
-        { recordType: "task", recordId: "1", owner, title: `${owner} task`, sizeBytes: 5, preview: "" },
+        { recordType: "task", recordId: "1", owner, title: `${owner} task`, sizeBytes: 5, preview: "", eager: true },
       ],
     });
     const getImpl = vi.fn(async (p: { owner: string }) => {

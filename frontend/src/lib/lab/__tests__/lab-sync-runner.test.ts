@@ -151,7 +151,7 @@ describe("runLabSyncForSession – live session", () => {
     expect(params.tombstoneRemoved).toBe(true);
   });
 
-  it("rebuilds and pushes the member index when content changed", async () => {
+  it("rebuilds and pushes the member index on the first run", async () => {
     const session = makeLiveSession();
     const syncImpl = vi.fn(async () => makeSyncResult()); // pushed: ["key/a"]
     const pushIndexImpl = vi.fn(async () => {});
@@ -162,6 +162,7 @@ describe("runLabSyncForSession – live session", () => {
       manifestStore: store,
       syncImpl,
       pushIndexImpl: pushIndexImpl as never,
+      indexHashCache: new Map(),
     });
 
     expect(pushIndexImpl).toHaveBeenCalledOnce();
@@ -172,26 +173,24 @@ describe("runLabSyncForSession – live session", () => {
     expect(Array.isArray((p.index as { entries: unknown }).entries)).toBe(true);
   });
 
-  it("skips the index push on an idle run (nothing pushed or tombstoned)", async () => {
+  it("skips the index push when the index is unchanged across runs", async () => {
     const session = makeLiveSession();
-    const syncImpl = vi.fn(async () => ({
-      manifest: {},
-      pushed: [],
-      skipped: ["lab-abc/alice/note/n1"],
-      removedKeys: [],
-      tombstoned: [],
-    }));
+    const syncImpl = vi.fn(async () => makeSyncResult());
     const pushIndexImpl = vi.fn(async () => {});
     const { store } = makeManifestStore();
-
-    await runLabSyncForSession(session, {
+    const deps = {
       source: makeEmptySource(),
       manifestStore: store,
       syncImpl,
       pushIndexImpl: pushIndexImpl as never,
-    });
+      indexHashCache: new Map<string, string>(),
+    };
 
-    expect(pushIndexImpl).not.toHaveBeenCalled();
+    await runLabSyncForSession(session, deps);
+    await runLabSyncForSession(session, deps);
+
+    // Pushed once on the first run; the identical second run is deduped.
+    expect(pushIndexImpl).toHaveBeenCalledOnce();
   });
 
   it("a failed index push does not fail a content sync that already succeeded", async () => {
@@ -208,11 +207,58 @@ describe("runLabSyncForSession – live session", () => {
       manifestStore: store,
       syncImpl,
       pushIndexImpl: pushIndexImpl as never,
+      indexHashCache: new Map(),
     });
 
     expect(result.ran).toBe(true);
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+
+  it("holds heavy records back from the eager push but still indexes them", async () => {
+    const session = makeLiveSession();
+    const small = { id: 1, name: "small", task_type: "task" };
+    const big = {
+      id: 2,
+      name: "big",
+      task_type: "task",
+      description: "x".repeat(2000),
+    };
+    const source = {
+      ...makeEmptySource(),
+      listTasks: async () => [small, big] as never,
+    };
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const pushIndexImpl = vi.fn(async () => {});
+    const { store } = makeManifestStore();
+
+    const result = await runLabSyncForSession(session, {
+      source,
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+      heavyThresholdBytes: 200, // small task is tiny, big task is ~2KB
+      indexHashCache: new Map(),
+    });
+
+    // The light sync received ONLY the small record.
+    const syncArg = (
+      syncImpl.mock.calls as unknown as [{ records: { recordId: string }[] }][]
+    )[0][0];
+    expect(syncArg.records.map((r) => r.recordId)).toEqual(["1"]);
+    expect(result.heavyHeld).toBe(1);
+
+    // The index carries BOTH records, with eager reflecting the gate.
+    const idx = (
+      pushIndexImpl.mock.calls as unknown as [
+        { index: { entries: { recordId: string; eager: boolean }[] } },
+      ][]
+    )[0][0].index;
+    const eagerById = Object.fromEntries(
+      idx.entries.map((e) => [e.recordId, e.eager]),
+    );
+    expect(eagerById["1"]).toBe(true); // small -> eager
+    expect(eagerById["2"]).toBe(false); // big -> on demand
   });
 
   it("returns { ran: true, owner, pushed, skipped, tombstoned } from syncImpl result", async () => {

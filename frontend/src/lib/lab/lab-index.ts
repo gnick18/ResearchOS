@@ -30,6 +30,15 @@ export const LAB_INDEX_RECORD_ID = "manifest";
 /** How many characters of plain text a preview carries. */
 export const LAB_INDEX_PREVIEW_LENGTH = 200;
 
+/**
+ * Size-gating threshold (Phase B). A record whose content is at or below this is
+ * pushed eagerly (its full content is in the mirror). A record above it is
+ * indexed but NOT pushed eagerly, so its content is fetched on demand. 256 KB
+ * keeps every text record eager and gates only genuinely heavy blobs like big
+ * Data Hub tables.
+ */
+export const HEAVY_CONTENT_THRESHOLD_BYTES = 256 * 1024;
+
 /** One lightweight, searchable entry for a single record. */
 export interface LabIndexEntry {
   recordType: string;
@@ -45,6 +54,12 @@ export interface LabIndexEntry {
   sizeBytes: number;
   /** First LAB_INDEX_PREVIEW_LENGTH chars of plain text, whitespace-collapsed. */
   preview: string;
+  /**
+   * True when the full content is in the eager mirror (open is instant), false
+   * when it is heavy and must be fetched on demand (Phase C request/approval).
+   * Set from sizeBytes against the heavy threshold at build time.
+   */
+  eager: boolean;
 }
 
 export interface LabIndexFile {
@@ -186,6 +201,7 @@ function previewFromNoteEntries(entries: unknown): string | undefined {
 export function buildLabIndex(
   owner: string,
   records: LabWorkRecord[],
+  heavyThresholdBytes: number = HEAVY_CONTENT_THRESHOLD_BYTES,
 ): LabIndexFile {
   const decoder = new TextDecoder();
   const entries: LabIndexEntry[] = [];
@@ -205,6 +221,7 @@ export function buildLabIndex(
       r.recordId,
       obj,
     );
+    const sizeBytes = r.plaintext.length;
     entries.push({
       recordType: r.recordType,
       recordId: r.recordId,
@@ -212,11 +229,31 @@ export function buildLabIndex(
       title,
       updatedAt,
       tags,
-      sizeBytes: r.plaintext.length,
+      sizeBytes,
       preview,
+      eager: sizeBytes <= heavyThresholdBytes,
     });
   }
   return { version: 1, owner, entries };
+}
+
+/**
+ * Split enumerated records into the light set (pushed eagerly) and the heavy set
+ * (indexed but not pushed, fetched on demand) by the same threshold the index
+ * uses. The reserved index record is never in either set.
+ */
+export function splitBySize(
+  records: LabWorkRecord[],
+  heavyThresholdBytes: number = HEAVY_CONTENT_THRESHOLD_BYTES,
+): { light: LabWorkRecord[]; heavy: LabWorkRecord[] } {
+  const light: LabWorkRecord[] = [];
+  const heavy: LabWorkRecord[] = [];
+  for (const r of records) {
+    if (r.recordType === LAB_INDEX_RECORD_TYPE) continue;
+    if (r.plaintext.length <= heavyThresholdBytes) light.push(r);
+    else heavy.push(r);
+  }
+  return { light, heavy };
 }
 
 /** Serialize an index file to canonical UTF-8 bytes. */
