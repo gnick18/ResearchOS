@@ -9,12 +9,16 @@ Related: `MOBILE_COMPANION.md` (what the app is), `mobile-dev-accounts-setup.md`
 
 ## What this app is (so the copy stays honest)
 
-A free, thin mobile companion to the desktop ResearchOS app. The laptop stays the
-main workspace. The phone does the few things a phone is better at, snap a photo at
-the bench so it lands in your inbox, get a push when something needs you, glance at
-today's tasks and calendar. It is NOT a port of the desktop, NOT a second source of
-truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
-(editors, planning, sequence tools) are on mobile.
+A free mobile companion to the desktop ResearchOS app, and a capable bench tool in
+its own right. The laptop stays the main workspace, but the phone has seven working
+tabs: Notebook (photo capture + markup + quick notes to an experiment), Methods
+(protocol library, run step by step, offline download), Timers (step timers), Calc
+(bench calculators + custom calculators), Inventory (barcode scan + room map +
+reorder queue), Home (today's tasks + lab calendar + active-experiment suggestions),
+and Wiki (read protocols/reference). Plus push notifications and offline use. Sell
+ALL of these. The honest boundaries to keep: it is NOT a port of the desktop EDITORS
+(writing up experiments, chemistry, sequence design, statistics stay on desktop),
+the local folder is the single source of truth, and the app is free (no IAP, no ads).
 
 ## App identity
 
@@ -54,30 +58,42 @@ truth, NOT paid. Keep all copy inside that scope. Do not claim desktop features
 - **App name (30 char max):** `ResearchOS`
 - **Short description (80 char max):**
   ```
-  Photograph the bench into your ResearchOS inbox, then file it from your computer.
+  Your lab bench companion: capture results, run timed protocols, track inventory.
   ```
 - **Full description (4000 char max):** see "Full description" below.
 
 ## Full description (shared, App Store + Play)
 
+Updated 2026-06-17: the earlier draft under-sold the app as a thin photo-capture
+companion. The app actually has seven working tabs (Notebook capture, Methods with
+step timers, Timers, Calc + custom calculators, Inventory with barcode scan + room
+map + reorder, Home today/calendar, Wiki). Description below covers all of them.
+Still honest: the deep editors (writing up experiments, chemistry, sequence design,
+statistics) remain desktop-only, and the local folder is the single source of truth.
+
 ```
-ResearchOS is a free, open, local-first research workspace. Your experiments, lab notes, methods, and schedule live in a folder you own on your own computer, not on someone else's server.
+ResearchOS is the free, local-first lab notebook, and this is its mobile companion: the bench in your pocket. Capture results, run your protocols step by step, do the quick math, and keep the lab stocked, all from your phone, all synced to the workspace you own.
 
-This is the mobile companion. The laptop stays your main workspace. The phone handles the bench.
+Your data stays yours. Everything lives in a folder on your own computer, not on a vendor's server. The phone works offline and pairs to your desktop, so nothing is trapped in someone else's cloud.
 
-What the app does:
-- Photograph a gel, plate, or whiteboard at the bench. It lands in your ResearchOS inbox, ready to file into the right experiment from your computer.
-- See today's tasks and your lab calendar without opening the laptop.
-- Get a push when a labmate shares a note with you, mentions you, or a task comes due.
+At the bench:
+- Capture results. Photograph a gel, plate, or whiteboard, mark it up, and send it straight to the right experiment. Add a quick typed note in seconds.
+- Run protocols. Pull up any method from your library and run it step by step, with timers wired to each step so a long incubation keeps time for you. Download your methods for offline use.
+- Lab calculators. Run the everyday bench math without leaving the app, and build your own custom calculators.
+- Track inventory. Scan a package barcode, glance at the room map, and drop low stock into a reorder queue while you stand at the shelf.
+- Stay on top of the day. See today's tasks and your lab calendar at a glance, with suggestions for your active experiment.
+- Read and reference. Open your lab wiki and protocols anywhere.
+- Get notified. Push alerts when a labmate shares or mentions you, or a task comes due.
 
-What it is not:
-- It is not a port of the desktop app. The deep work, the editors, the planning, the sequence tools, stays on the desktop.
-- It is not a second copy of your data. The folder on your own computer stays the single source of truth.
-- It is free. No subscription, no in-app purchases, no ads.
+Why ResearchOS:
+- Free. No subscription, no per-seat fees, no in-app purchases, no ads.
+- Local-first. Your research is plain files in a folder you own. Leaving is just closing a folder.
+- Open source. Anyone can read exactly how it works.
+- Built for real labs by researchers, not a vendor renting you your own data.
 
-Your data stays yours. ResearchOS is built so scientists keep full control of their research instead of renting it from a vendor.
+The desktop app stays your main workspace for the deep work, writing up experiments, chemistry, sequence design, and statistics. The phone handles everything the bench needs.
 
-Learn more at research-os.app.
+Own your science. Learn more at research-os.app.
 ```
 
 Voice check: no em-dashes, no emojis, no mid-sentence colons (the colons are
