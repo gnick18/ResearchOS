@@ -13,12 +13,19 @@ import { isOperator } from "@/lib/sharing/operator-access";
  * / Comms. The old `/business` and `/admin/business` routes redirect here so
  * existing bookmarks land in the one console.
  *
- * Grant-only. The page is just a shell; the data is gated by the
- * /api/admin/metrics and /api/admin/business endpoints (ADMIN_EMAILS), which
- * return 404 to anyone not on the allow-list, so loading the page leaks
- * nothing. Like /open-source it renders without the AppShell or a connected
- * folder, and is excluded from the wiki-coverage map (an operator tool, not a
- * documented user feature).
+ * Operator-only, gated in THREE places. The API endpoints
+ * (/api/admin/metrics, /api/admin/business) 404 for non-operators, so the
+ * server data never loads. But the shell ALSO renders the price-modeling tool
+ * from client-bundled constants (provider cost, Stripe fee, net margin, pricing
+ * assumptions), which do NOT depend on those endpoints. So the earlier "loading
+ * the page leaks nothing" assumption was wrong and the cost model was visible to
+ * anyone who hit /admin. The page now refuses to render for non-operators
+ * (force-dynamic + isOperator() + notFound()), and proxy.ts 404s /admin at the
+ * route level for any request with no session. Do NOT remove either gate, and do
+ * NOT assume an API-gated page is safe when it renders client-computed figures.
+ * Like /open-source it renders without the AppShell or a connected folder, and
+ * is excluded from the wiki-coverage map (an operator tool, not a documented
+ * user feature).
  *
  * Pinned to light mode (Grant 2026-06-11): the operator surfaces always read in
  * the light palette regardless of the user's theme. The full-height
