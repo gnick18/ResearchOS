@@ -5,14 +5,18 @@ slice A) is on origin/main, flag-gated OFF / byte-identical. This is the exact
 sequence to turn it on in a deploy and verify it live. Nothing here is destructive;
 flipping the flags back off makes it inert again instantly.
 
-## 0. Entitlement — RESOLVED (not a blocker)
-Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)` (true only
-for an ACTIVE PAID lab subscription). Per the canonical docs/branding/PRICING.md
-(Model A): there are NO free labs — Lab is a PAID tier ($25/mo flat + usage), and
-the Free tier is the network audience (receive-only, no produce). So the gate is
-CORRECT as-is. Run the live test with a PAID lab account; free/network users
-correctly get a 403 / upgrade state on the write APIs. (An earlier draft flagged a
-"free lab" blocker — that was a stale GA-free assumption that Model A supersedes.)
+## 0. Entitlement — SETTLED (not a blocker)
+Every publish/host path is gated on `isLabPublishEntitled(labOwnerKey)`, which is
+PAID-LAB-ONLY in EVERY environment (Billing final, commit 47ee18909): true only for
+an active PAID lab plan; FALSE for individual/solo, free/network, and lapsed labs —
+no flag dependency. The create-site path relies on this as the SOLE lab-ness check,
+which is correct (an individual cannot create a lab site); no upstream guard needed.
+- TO RUN THE VERIFY: seed a paid lab via the dev route `/api/dev/billing-sim` (it is
+  prod-gated: 404 unless `BILLING_SIM_SECRET` is set + sent in `Authorization` + a
+  session). With a paid lab the gate returns true; any non-paid account gets 403.
+- At billing-live, add a lab-site upgrade prompt for non-paid labs (ping Billing for
+  copy). Note: the /dev middleware gate covers PAGE `/dev/*` only — `/api/dev/*`
+  routes self-gate (billing-sim does).
 
 ## 1. Env vars (Vercel production)
 - `LAB_SITES_ENABLED=true`            (server gate; must be exactly "true")

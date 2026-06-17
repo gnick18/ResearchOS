@@ -58,7 +58,7 @@ import MarketingFooter from "@/components/MarketingFooter";
 import SponsorStrip from "@/components/SponsorStrip";
 import BeakerBotPeek from "@/components/welcome/BeakerBotPeek";
 import Wordmark from "@/components/Wordmark";
-import DemoLoop from "@/components/welcome/DemoLoop";
+import DemoLoop, { DemoLoopPlaceholder } from "@/components/welcome/DemoLoop";
 import VideoLightbox from "@/components/welcome/VideoLightbox";
 import BeakerSearchShowpiece from "@/components/welcome/BeakerSearchShowpiece";
 import Reveal from "@/components/marketing/Reveal";
@@ -86,14 +86,31 @@ const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
  *  retired 2026-06-15; this is the curated five-clip lineup. */
 const WELCOME_VIDEO_BASE = `${ASSET_BASE_URL}/welcome`;
 
+/** Flip to true once the welcome demo clips are RE-RECORDED against the current
+ *  UI and re-uploaded to R2 (welcome/<name>.mp4 + .poster.jpg). While false,
+ *  every R2Demo renders the "demo coming soon" placeholder instead. The prior
+ *  batch (uploaded 2026-06-15) was recorded from a stale build — it showed the
+ *  old nav and the removed "Connect Telegram" button — so we pulled them from
+ *  the live page rather than show deprecated UI. Re-recording is a manual task;
+ *  storyboards live in docs/marketing/welcome-video-scripts.md. */
+const WELCOME_DEMOS_READY: boolean = false;
+
 /** A framed R2 welcome demo clip (poster + mp4 by name under `welcome/`). Wraps
  *  the shared DemoLoop in the rainbow frame used across the feature rows. The
  *  inline embed is always tastefully capped + centered (never full-screen, in
- *  any layout); clicking it opens the clip larger in a VideoLightbox. */
+ *  any layout); clicking it opens the clip larger in a VideoLightbox. Until the
+ *  clips are re-recorded (WELCOME_DEMOS_READY), it shows a capped placeholder. */
 function R2Demo({ name, label }: { name: string; label: string }) {
   const [open, setOpen] = useState(false);
   const src = `${WELCOME_VIDEO_BASE}/${name}.mp4`;
   const poster = `${WELCOME_VIDEO_BASE}/${name}.poster.jpg`;
+  if (!WELCOME_DEMOS_READY) {
+    return (
+      <div className="mx-auto w-full max-w-[600px]">
+        <DemoLoopPlaceholder claim={label} />
+      </div>
+    );
+  }
   return (
     <>
       <button
