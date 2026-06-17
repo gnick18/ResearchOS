@@ -1,5 +1,7 @@
 import { JsonStore, getPublicStore, getLabStore, getCurrentUserCached, clearCurrentUserCache } from "./storage/json-store";
 import { fileService } from "./file-system/file-service";
+import { isAccountSettingsEnabled } from "./account/account-settings-config";
+import { fetchAccountSettings, resolveIsLabHead } from "./account/account-settings";
 import { trashNote, restoreTrashedNote } from "./notes/notes-trash";
 import {
   trashEntity,
@@ -5378,15 +5380,36 @@ export const retentionApi = {
 export async function buildCurrentViewer(): Promise<Viewer> {
   const username = (await getCurrentUserCached()) ?? "";
   let accountType: Viewer["account_type"] = "lab";
+  let folderIsLabHead = false;
   try {
     const s = await fileService.readJson<{ account_type?: string }>(
       `users/${username}/settings.json`,
     );
-    if (s?.account_type === "lab_head") accountType = "lab_head";
+    if (s?.account_type === "lab_head") {
+      accountType = "lab_head";
+      folderIsLabHead = true;
+    }
   } catch {
     // Settings read failure is non-fatal: fall back to the conservative
     // "lab" viewer (no implicit view-all). canRead still honors owner +
     // explicit / "*" shares.
+  }
+  // Account-scoped PI capability (Phase 1, account-settings foundation). A PI is
+  // recognized as a PI regardless of which folder they open, so opening a NEW
+  // empty folder (which lacks the lab_head marker) still renders them as a lab
+  // head. resolveIsLabHead is OR over the folder marker AND the account
+  // capability, so this only ever ELEVATES, never demotes a real folder PI.
+  // Fully behind the flag, fetchAccountSettings returns null when off, so the
+  // viewer shape is byte-for-byte unchanged in that case.
+  if (!folderIsLabHead && isAccountSettingsEnabled()) {
+    try {
+      const account = await fetchAccountSettings();
+      if (resolveIsLabHead(undefined, account?.labHead)) {
+        accountType = "lab_head";
+      }
+    } catch {
+      // Never let an account-capability lookup break the viewer build.
+    }
   }
   return { username, account_type: accountType };
 }
