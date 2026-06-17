@@ -14,7 +14,7 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-import { FREE_ALLOWANCE_BYTES } from "./config";
+import { FREE_ALLOWANCE_BYTES, isBillingEnabled } from "./config";
 import { getActiveGrant } from "./grants";
 import { getSponsoringLab } from "./lab";
 import { getPlan } from "./plans";
@@ -193,13 +193,24 @@ function isLabSponsor(sub: SubscriptionRecord | null): boolean {
 /**
  * Cross-lane entitlement gate for the lab-domains / companion-sites lane (social
  * lane owns slug registry + rendering; this is the publish/edit gate it checks).
- * True only for an active, paid LAB-tier subscription. Self-contained (ensures
- * schema) so the social lane can call it cold by lab owner key.
- * See docs/handoffs/2026-06-16-service-tier-model-build.md.
+ * Self-contained (ensures schema) so the social lane can call it cold by lab
+ * owner key. See docs/handoffs/2026-06-16-service-tier-model-build.md.
+ *
+ * Lab sites are a LAB-TIER feature, gated to billing-live like the rest of
+ * billing (Grant 2026-06-16). The social lane only ever calls this with a LAB
+ * owner key, so lab-vs-individual is already established upstream; this answers
+ * the billing question:
+ *   - Beta (BILLING_ENABLED off): the lab tier is GA-free, and everything is
+ *     free during the beta, so any lab account can publish. This is what lets a
+ *     free PI lab account (and the live verify pass) publish today.
+ *   - GA (BILLING_ENABLED on): publishing becomes a paid lab-tier perk, so it
+ *     requires an active PAID lab plan.
+ * The signature is stable across the flip, so callers never change.
  */
 export async function isLabPublishEntitled(labOwnerKey: string): Promise<boolean> {
   if (!labOwnerKey) return false;
   await ensureBillingSchema();
+  if (!isBillingEnabled()) return true;
   return isActiveLabPlan(await getSubscription(labOwnerKey));
 }
 
