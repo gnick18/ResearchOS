@@ -17,7 +17,9 @@ import { parseExternalEmbed, type ExternalEmbedDescriptor } from "@/lib/embeds/e
 import ObjectChip from "@/components/ObjectChip";
 import ObjectEmbed from "@/components/embeds/ObjectEmbed";
 import BakedEmbedView from "@/components/embeds/BakedEmbedView";
+import PublicDatasetEmbed from "@/components/social/PublicDatasetEmbed";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
+import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import { Icon } from "@/components/icons/Icon";
 import { parsePhoneNoteCallout } from "@/lib/mobile-relay/phone-note-callout";
 import { lazy, Suspense } from "react";
@@ -349,6 +351,19 @@ interface RenderedMarkdownProps {
    */
   bakedEmbeds?: Map<string, BakedEmbed>;
   /**
+   * Live hosted dataset assets keyed by embed link href (lab-domains Phase 4a, the
+   * public companion-site render). When a lone dataset / datahub embed link has an
+   * entry here, it renders the LIVE interactive DuckDB-WASM viewer
+   * (PublicDatasetEmbed) reading the Parquet hosted on R2, instead of the frozen
+   * baked snapshot. The baked snapshot for that href (from bakedEmbeds) is passed
+   * to the viewer as its runtime fallback, so an unreachable R2 asset degrades to
+   * the Phase 3b static table, never a crash. An href with no entry here falls
+   * through to the bakedEmbeds path unchanged, so a page with no hosted assets is
+   * byte-identical to its Phase 3b behavior. Only consulted alongside bakedEmbeds
+   * (the public render), so every other caller is unaffected.
+   */
+  hostedAssets?: Map<string, HostedAssetEntry>;
+  /**
    * When provided, rendered images become clickable and this callback fires
    * with the image details. LiveMarkdownEditor uses this to open the resize
    * popover from Preview mode. Absent on all other read-only callers, so
@@ -380,6 +395,7 @@ export default function RenderedMarkdown({
   enableSyntaxHighlight = false,
   embedPinSidecar,
   bakedEmbeds,
+  hostedAssets,
   onImageClick,
   onFileLinkClick,
 }: RenderedMarkdownProps) {
@@ -475,7 +491,23 @@ export default function RenderedMarkdown({
               // fallback, never a crash. This branch is only taken when bakedEmbeds
               // is provided, so every other caller keeps the live ObjectEmbed path.
               if (bakedEmbeds) {
-                const snapshot = bakedEmbeds.get(lone.href);
+                const snapshot = bakedEmbeds.get(lone.href) ?? null;
+                // Phase 4a: a hosted dataset asset upgrades the frozen snapshot to
+                // a LIVE interactive viewer. The baked snapshot is handed to the
+                // viewer as its runtime fallback, so an unreachable R2 asset
+                // degrades to the static table. Only a dataset / datahub embed has
+                // a hosted asset; any other type falls through to the baked path.
+                const hosted = hostedAssets?.get(lone.href);
+                if (hosted) {
+                  return (
+                    <PublicDatasetEmbed
+                      asset={hosted}
+                      baked={snapshot}
+                      caption={lone.caption}
+                      descriptor={lone.descriptor}
+                    />
+                  );
+                }
                 if (snapshot) {
                   return (
                     <BakedEmbedView

@@ -122,6 +122,12 @@ export interface UpsertPageBody {
 export interface PublishPageBody {
   path: string;
   snapshots?: unknown;
+  /** The OPTIONAL hosted dataset-asset manifest (Phase 4a). The author uploaded
+   *  each dataset's Parquet to R2 client-side and sends the manifest here; carried
+   *  through as unknown so the route validates it with parseHostedManifest
+   *  (lab-site-hosted.ts), the single defensive boundary for the untrusted hosted
+   *  shape. Absent for a page with no hosted datasets. */
+  hosted?: unknown;
 }
 
 function asRecord(body: unknown): Record<string, unknown> | null {
@@ -175,5 +181,6 @@ export function parsePublishPageBody(body: unknown): PublishPageBody | null {
   if (typeof b.path !== "string") return null;
   const out: PublishPageBody = { path: b.path };
   if ("snapshots" in b) out.snapshots = b.snapshots;
+  if ("hosted" in b) out.hosted = b.hosted;
   return out;
 }

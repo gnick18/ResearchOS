@@ -26,6 +26,7 @@ import ReferencePicker from "@/components/references/ReferencePicker";
 import { isBlockEmbedMarkdown } from "@/lib/references";
 import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
 import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-site-snapshots";
+import { LAB_BYO_SITES_ENABLED } from "@/lib/social/config";
 
 interface SiteSummary {
   slug: string;
@@ -46,6 +47,76 @@ const HOME_PATH_LABEL = "Home";
 
 function pathLabel(path: string): string {
   return path === "" ? HOME_PATH_LABEL : `/${path}`;
+}
+
+/**
+ * BYO ("bring your own") static-site upload subsection (lab-domains BYO Slice 1).
+ * Deliberately minimal: pick a .zip of a static site, POST it to the gated upload
+ * endpoint, and render the verdict. All authorization + validation is server-side;
+ * this only renders the result. Mounted only when LAB_BYO_SITES_ENABLED (a strict
+ * subset of the lab-sites surface), so it is dark by default.
+ */
+function ByoUploadSection({ slug }: { slug: string }) {
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const upload = useCallback(async (file: File) => {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/social/lab-site/byo", {
+        method: "POST",
+        headers: { "content-type": "application/zip" },
+        body: file,
+      });
+      if (res.status === 422) {
+        const data = (await res.json().catch(() => ({}))) as { reason?: string };
+        const reason = data.reason ?? "invalid";
+        setMsg(`That site could not be accepted (${reason}). Upload a zip of a static site with an index.html at its root.`);
+        return;
+      }
+      if (!res.ok) {
+        setMsg("Could not upload the site right now.");
+        return;
+      }
+      const data = (await res.json()) as { fileCount: number; totalBytes: number };
+      setMsg(`Uploaded ${data.fileCount} files (${Math.round(data.totalBytes / 1024)} KB).`);
+    } catch {
+      setMsg("Could not upload the site right now.");
+    } finally {
+      setBusy(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }, []);
+
+  return (
+    <section className="mb-8 rounded-xl border border-border bg-surface-raised p-5">
+      <h2 className="text-lg font-medium text-foreground">Upload a website (zip)</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Already have your own static site (HTML, CSS, JS)? Upload a zip with an
+        index.html at its root and we will host it. It is served from a separate,
+        sandboxed domain ({slug}.research-os.com) so your site&apos;s code stays
+        isolated from your account.
+      </p>
+      <div className="mt-4 flex items-center gap-2">
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".zip,application/zip"
+          disabled={busy}
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void upload(f);
+          }}
+          className="text-sm text-foreground"
+          aria-label="Static site zip"
+        />
+        {busy && <span className="text-xs text-muted-foreground">Uploading.</span>}
+      </div>
+      {msg && <p className="mt-3 text-sm text-foreground">{msg}</p>}
+    </section>
+  );
 }
 
 export default function LabSiteDashboard() {
@@ -400,6 +471,8 @@ export default function LabSiteDashboard() {
                 </ul>
               )}
             </div>
+
+            {LAB_BYO_SITES_ENABLED && <ByoUploadSection slug={site.slug} />}
 
             {editorPath !== null && (
               <section className="rounded-xl border border-border bg-surface-raised p-5">

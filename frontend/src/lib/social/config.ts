@@ -43,3 +43,35 @@ export function isLabSitesEnabled(): boolean {
 export const LAB_SITES_ENABLED =
   process.env.NEXT_PUBLIC_LAB_SITES === "1" ||
   process.env.NEXT_PUBLIC_LAB_SITES === "true";
+
+// BYO ("bring your own") static-site hosting SUB-FLAG (lab-domains BYO Slice 1).
+//
+// BYO lets a paid lab upload its OWN static website (raw HTML/CSS/JS, e.g. a
+// paper's companion site) instead of authoring native markdown pages. It is a
+// strict SUBSET of the lab-sites surface, so its server + client gates are layered
+// ON TOP of the lab-sites gates: a BYO surface requires BOTH isLabSitesEnabled()
+// (server) / LAB_SITES_ENABLED (client) AND the BYO flag below. With the BYO flag
+// off the app is byte-identical: the upload + serve routes 404, the dashboard BYO
+// control is absent.
+//
+// Mirrors the LAB_SITES split exactly (server gate read lazily, client gate inlined
+// at build time), and is kept SEPARATE so BYO can ship behind its own switch after
+// the native lab-sites surface goes live.
+
+/**
+ * SERVER gate for BYO static-site routes (upload + serve). Read lazily at request
+ * time. A BYO route must check BOTH isLabSitesEnabled() AND this, fail-closed.
+ */
+export function isLabByoSitesEnabled(): boolean {
+  return (
+    isLabSitesEnabled() &&
+    (process.env.LAB_BYO_SITES === "1" || process.env.LAB_BYO_SITES === "true")
+  );
+}
+
+/** CLIENT gate for BYO upload UI. Inlined at build time, default OFF. The BYO UI
+ *  must also be inside a LAB_SITES_ENABLED surface, so callers gate on both. */
+export const LAB_BYO_SITES_ENABLED =
+  LAB_SITES_ENABLED &&
+  (process.env.NEXT_PUBLIC_LAB_BYO_SITES === "1" ||
+    process.env.NEXT_PUBLIC_LAB_BYO_SITES === "true");

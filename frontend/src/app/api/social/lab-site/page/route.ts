@@ -41,6 +41,10 @@ import {
   parseSnapshotBundle,
   serializeSnapshotBundle,
 } from "@/lib/social/lab-site-snapshots";
+import {
+  parseHostedManifest,
+  serializeHostedManifest,
+} from "@/lib/social/lab-site-hosted";
 
 export const runtime = "nodejs";
 
@@ -161,9 +165,20 @@ export async function PUT(request: Request): Promise<Response> {
       ? serializeSnapshotBundle(bundle)
       : null;
 
+  // Phase 4a: the hosted dataset-asset manifest. The author uploaded each
+  // dataset's Parquet to R2 client-side (presign -> PUT -> register) and sent the
+  // manifest. parseHostedManifest is the single defensive boundary for the
+  // untrusted hosted shape: it drops anything malformed, rejects a bad assetId,
+  // and caps the count. serializeHostedManifest returns null for an empty manifest,
+  // so a page with no hosted datasets stores NULL and the public render falls back
+  // to the baked snapshot per embed. The bytes were already reported to billing by
+  // the register endpoint; this only stores the read pointers for the public page.
+  const manifest = parseHostedManifest(parsed.hosted);
+  const hostedJson = serializeHostedManifest(manifest);
+
   let page;
   try {
-    page = await publishPage(ownerKey, parsed.path, snapshotsJson);
+    page = await publishPage(ownerKey, parsed.path, snapshotsJson, hostedJson);
   } catch {
     return json(503, { error: "store unavailable" });
   }

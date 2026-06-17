@@ -74,6 +74,16 @@ export interface LabSitePageRow {
    * stores it.
    */
   snapshotsJson: string | null;
+  /**
+   * The hosted dataset-asset manifest for this page version, as the raw JSON text
+   * stored in the hosted_json column, or null when no datasets are hosted (a page
+   * with no live data, or one published before Phase 4a). The public render parses
+   * this through parseHostedManifest (lab-site-hosted.ts) and renders the LIVE
+   * DuckDB-WASM viewer for any embed href with a hosted asset, falling back to the
+   * Phase 3b baked snapshot otherwise. Phase 4a: the author uploads the Parquet to
+   * R2 CLIENT-SIDE and sends this manifest, and this layer just stores it.
+   */
+  hostedJson: string | null;
 }
 
 /**
@@ -127,6 +137,15 @@ export async function ensureLabSiteSchema(): Promise<void> {
     ALTER TABLE lab_site_pages
       ADD COLUMN IF NOT EXISTS snapshots_json text
   `;
+  // Phase 4a: the hosted dataset-asset manifest for the published page version.
+  // Added as a nullable column via IF NOT EXISTS so the schema-ensure stays
+  // idempotent and a pre-4a deployment migrates forward in place (existing rows
+  // keep hosted_json = NULL = "no hosted datasets", so the public render falls
+  // back to the baked snapshot per embed, exactly as Phase 3b).
+  await sql`
+    ALTER TABLE lab_site_pages
+      ADD COLUMN IF NOT EXISTS hosted_json text
+  `;
 }
 
 function rowToSite(r: {
@@ -151,6 +170,7 @@ interface RawPageRow {
   version: string | number;
   updated_at: string;
   snapshots_json?: string | null;
+  hosted_json?: string | null;
 }
 
 function rowToPage(r: RawPageRow): LabSitePageRow {
@@ -163,12 +183,76 @@ function rowToPage(r: RawPageRow): LabSitePageRow {
     version: Number(r.version),
     updatedAt: r.updated_at,
     snapshotsJson: r.snapshots_json ?? null,
+    hostedJson: r.hosted_json ?? null,
   };
 }
 
 // ---------------------------------------------------------------------------
 // Site lookups
 // ---------------------------------------------------------------------------
+
+/**
+ * Enumeration for the Phase 4b hosted-asset GC. Returns one row per lab site,
+ * each carrying the lab's owner key and the raw hosted_json text of EVERY page in
+ * that site (draft or published) that has a non-null hosted manifest. The GC
+ * runner parses each blob via parseHostedManifest (lab-site-hosted.ts) to recover
+ * the live R2 asset ids, so the parse stays in the pure module and this layer is a
+ * thin read.
+ *
+ * BOUNDARY: this reads only the social lane's own tables (lab_sites +
+ * lab_site_pages). It deliberately does NOT join Billing's lab_hosted_assets
+ * table. An asset row that was orphaned from a dropped embed (registered in
+ * Billing but no longer referenced by any current page manifest) is therefore NOT
+ * enumerated here; reconciling those orphans is a known follow-up (see the Phase
+ * 4b handoff).
+ *
+ * The list can be large in principle but is bounded by the number of labs with a
+ * site; each lab's manifests are small metadata blobs (no Parquet bytes), so this
+ * is a light scan suitable for a scheduled job.
+ */
+export interface LabSiteHostedManifests {
+  labOwnerKey: string;
+  /** Raw hosted_json text of each page in the site that has a manifest. */
+  hostedJsonByPath: Array<{ path: string; hostedJson: string }>;
+}
+
+export async function listAllSiteHostedManifests(): Promise<
+  LabSiteHostedManifests[]
+> {
+  await ensureLabSiteSchema();
+  const sql = getSql();
+  // One scan: every site joined to its pages that carry a hosted manifest. A site
+  // with no hosted pages still appears (LEFT JOIN) so the GC sees the lab exists
+  // but has nothing to reclaim, which keeps the runner uniform. Ordered by owner
+  // so the grouping below is a single linear pass.
+  const rows = (await sql`
+    SELECT s.lab_owner_key AS lab_owner_key,
+           p.path          AS path,
+           p.hosted_json   AS hosted_json
+    FROM lab_sites s
+    LEFT JOIN lab_site_pages p
+      ON p.lab_owner_key = s.lab_owner_key
+     AND p.hosted_json IS NOT NULL
+    ORDER BY s.lab_owner_key
+  `) as Array<{
+    lab_owner_key: string;
+    path: string | null;
+    hosted_json: string | null;
+  }>;
+
+  const byOwner = new Map<string, LabSiteHostedManifests>();
+  for (const r of rows) {
+    let entry = byOwner.get(r.lab_owner_key);
+    if (!entry) {
+      entry = { labOwnerKey: r.lab_owner_key, hostedJsonByPath: [] };
+      byOwner.set(r.lab_owner_key, entry);
+    }
+    if (r.hosted_json != null && r.path != null) {
+      entry.hostedJsonByPath.push({ path: r.path, hostedJson: r.hosted_json });
+    }
+  }
+  return Array.from(byOwner.values());
+}
 
 /** Fetches the site for a lab owner-key, or null if none exists yet. */
 export async function getSiteByOwner(
@@ -236,7 +320,7 @@ export async function getPage(
   const p = normalizePagePath(path);
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json
+    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
     FROM lab_site_pages
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
     LIMIT 1
@@ -278,18 +362,20 @@ export async function upsertPage(input: {
   await ensureLabSiteSchema();
   const p = normalizePagePath(input.path);
   const sql = getSql();
-  // A draft edit clears any stored snapshots: the body may have changed, so the
-  // previous bake is stale and must never resurface on the public page. The next
-  // publish re-bakes from the new body. (snapshots_json = NULL = "no baked
-  // blocks", the public render then shows the calm unavailable card per embed.)
+  // A draft edit clears any stored snapshots AND hosted-asset manifest: the body
+  // may have changed, so the previous bake / hosted-data pointers are stale and
+  // must never resurface on the public page. The next publish re-bakes + re-uploads
+  // from the new body. (Both columns NULL = "no baked blocks / no hosted data", so
+  // the public render shows the calm unavailable card per embed until re-published.)
   await sql`
-    INSERT INTO lab_site_pages (lab_owner_key, path, title, body_md, status, snapshots_json, updated_at)
-    VALUES (${input.labOwnerKey}, ${p}, ${input.title}, ${input.bodyMd}, 'draft', NULL, now())
+    INSERT INTO lab_site_pages (lab_owner_key, path, title, body_md, status, snapshots_json, hosted_json, updated_at)
+    VALUES (${input.labOwnerKey}, ${p}, ${input.title}, ${input.bodyMd}, 'draft', NULL, NULL, now())
     ON CONFLICT (lab_owner_key, path) DO UPDATE SET
       title = EXCLUDED.title,
       body_md = EXCLUDED.body_md,
       status = 'draft',
       snapshots_json = NULL,
+      hosted_json = NULL,
       updated_at = now()
   `;
   return getPage(input.labOwnerKey, p);
@@ -300,6 +386,12 @@ export async function upsertPage(input: {
  * frozen baked-block snapshots (Phase 3b). Returns the updated row, or null if
  * the page does not exist (publish only acts on an already-created draft). The
  * page must be created via upsertPage first.
+ *
+ * `hostedJson` is the already-validated, already-serialized hosted dataset-asset
+ * manifest (Phase 4a): the author uploaded each dataset's Parquet to R2 CLIENT-
+ * SIDE and the route validated the manifest via parseHostedManifest. Pass null
+ * when no datasets are hosted. The column is always written so a re-publish never
+ * leaves a previous manifest behind a newer body.
  *
  * `snapshotsJson` is the already-validated, already-serialized snapshot bundle
  * (the author baked the embeds CLIENT-SIDE, the route validated the bundle via
@@ -313,6 +405,7 @@ export async function publishPage(
   labOwnerKey: string,
   path: string,
   snapshotsJson: string | null = null,
+  hostedJson: string | null = null,
 ): Promise<LabSitePageRow | null> {
   await ensureLabSiteSchema();
   const p = normalizePagePath(path);
@@ -322,9 +415,10 @@ export async function publishPage(
     SET status = 'published',
         version = version + 1,
         snapshots_json = ${snapshotsJson},
+        hosted_json = ${hostedJson},
         updated_at = now()
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
-    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json
+    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
   `) as RawPageRow[];
   return rows[0] ? rowToPage(rows[0]) : null;
 }
