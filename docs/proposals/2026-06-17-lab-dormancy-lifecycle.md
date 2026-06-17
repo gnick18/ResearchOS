@@ -69,5 +69,5 @@ While dormant, `lab_sites` serves a calm "this lab is currently inactive" page (
 ## Open micro-decisions (recommend, not blocking)
 
 - Trial length = 30 days (Grant, earlier). Adjustable constant.
-- Grace between a failed charge and flipping to dormant = recommend a short 7 day "we could not charge your card" grace with retries before dormancy, so a transient card failure does not dormantize a paying lab. (Stripe Smart Retries handles the dunning.)
+- Grace between a failed charge and flipping to dormant = CONFIRMED (Grant, 2026-06-17): a 7 day "we could not charge your card" grace with retries before dormancy, so a transient card failure never dormantizes a paying lab. Stripe Smart Retries handles the dunning, and the lab stays fully active during the grace.
 - Trial applies to Lab tier (the countdown is a lab-head surface). Solo has no trial (it is cheap + pay-as-you-go from day one).
