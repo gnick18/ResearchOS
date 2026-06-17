@@ -32,6 +32,10 @@ import {
   patchUserSettings,
   type UserSettings,
 } from "@/lib/settings/user-settings";
+import {
+  isRequireAccountEnabled,
+  isStandaloneLocalKeypairCreateVisible,
+} from "@/lib/account/require-account";
 
 export default function ProfileSettingsContent() {
   const { currentUser, isConnected } = useFileSystem();
@@ -79,6 +83,21 @@ export default function ProfileSettingsContent() {
     sharingInbox.data !== undefined
       ? sharingInbox.data.length
       : null;
+
+  // Account-creation reconciliation under require-account (docs/proposals/
+  // 2026-06-16-require-account-local-first.md). The keypair is NEVER retired,
+  // it is the E2E identity that keeps data local and encrypted. What changes is
+  // HOW a solo (unclaimed) user mints it. Under require-account the keypair is
+  // created through the OAuth claim flow (a published identity from the start),
+  // so the standalone "offline keypair now, publish later optionally" card is
+  // gated off and the transitional local-only user is routed into the same
+  // claim/publish migration the pivot names (SharingSetupWizard). The offline
+  // create stays as the fallback whenever no OAuth claim path exists, so a
+  // no-OAuth build never soft-locks a user out of setting up their account.
+  const showStandaloneCreate = isStandaloneLocalKeypairCreateVisible({
+    requireAccount: isRequireAccountEnabled(),
+    oauthPublishAvailable: caps.oauthAvailable,
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -175,26 +194,58 @@ export default function ProfileSettingsContent() {
           profile (OAuth, or email) becomes the optional secondary step, offered
           by SharingSection once the keypair exists. */}
       {caps.mode === "solo" ? (
-        <section className="bg-surface-raised rounded-xl border border-border p-6">
-          <div className="mb-4">
-            <h2 className="text-title font-semibold text-foreground">
-              Set up your account
-            </h2>
-            <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
-              Your account is a keypair created on this device. It works offline,
-              with no password and no sign-in, and it is what proves it is you
-              when you share work. You can publish a findable profile later so
-              colleagues can look you up, that part is optional.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setCreateOpen(true)}
-            className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg font-medium shadow-sm"
-          >
-            Create your account
-          </button>
-        </section>
+        showStandaloneCreate ? (
+          <section className="bg-surface-raised rounded-xl border border-border p-6">
+            <div className="mb-4">
+              <h2 className="text-title font-semibold text-foreground">
+                Set up your account
+              </h2>
+              <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+                Your account is a keypair created on this device. It works
+                offline, with no password and no sign-in, and it is what proves
+                it is you when you share work. You can publish a findable profile
+                later so colleagues can look you up, that part is optional.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setCreateOpen(true)}
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg font-medium shadow-sm"
+            >
+              Create your account
+            </button>
+          </section>
+        ) : (
+          // Require-account: this folder predates the pivot (a local-only user
+          // with no claimed identity). Route into the OAuth claim/publish
+          // migration so the keypair is minted as a published identity, rather
+          // than the standalone offline-keypair card. Data is untouched, the
+          // private key still never leaves this device, so E2E is preserved.
+          <section className="bg-surface-raised rounded-xl border border-border p-6">
+            <div className="mb-4">
+              <h2 className="text-title font-semibold text-foreground">
+                Finish setting up your account
+              </h2>
+              <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+                Your account is a keypair on this device, so your work stays
+                encrypted and on your own machine even after you sign in. Sign in
+                to claim your account and publish a findable profile so
+                colleagues can look you up. Your private key never leaves this
+                device.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                setWizardStep("choose");
+                setWizardOpen(true);
+              }}
+              className="bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg font-medium shadow-sm"
+            >
+              Sign in to set up your account
+            </button>
+          </section>
+        )
       ) : (
         <SharingSection
           currentUser={currentUser}

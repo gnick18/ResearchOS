@@ -36,3 +36,29 @@ export function isLocalPathVisible(opts: {
 }): boolean {
   return !opts.requireAccount || !opts.hasAccountTier;
 }
+
+/**
+ * Whether the standalone "create a local keypair with no sign-in, publish a
+ * findable profile later" account-creation entry should be offered.
+ *
+ * The keypair itself is NEVER retired. It is the end-to-end identity that
+ * encrypts the data and proves who you are, and it is exactly why the data can
+ * stay local and E2E. Under require-account what changes is HOW it is minted:
+ * the keypair is created as part of the OAuth claim flow (SharingClaimResume ->
+ * SharingSetupWizard), so it is a published identity from the start. The
+ * standalone offline-keypair-first entry, framed as "no sign-in, publishing is
+ * optional later", contradicts require-account, so it is gated off when the flag
+ * is on and a claim path actually exists.
+ *
+ * The carve-out mirrors isLocalPathVisible: when OAuth publish is NOT available
+ * in this build (dev with no AUTH_ env, or a deployment with sharing off), the
+ * standalone local-keypair create is the only way to mint an identity at all, so
+ * it stays available rather than soft-locking a transitional local-only user
+ * with no way to set up their account. See the no-soft-locks rule.
+ */
+export function isStandaloneLocalKeypairCreateVisible(opts: {
+  requireAccount: boolean;
+  oauthPublishAvailable: boolean;
+}): boolean {
+  return !opts.requireAccount || !opts.oauthPublishAvailable;
+}

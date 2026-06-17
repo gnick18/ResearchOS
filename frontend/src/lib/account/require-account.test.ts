@@ -1,7 +1,11 @@
 // Require-account entry flag + the no-soft-lock local-path fallback.
 
 import { describe, it, expect, afterEach } from "vitest";
-import { isRequireAccountEnabled, isLocalPathVisible } from "./require-account";
+import {
+  isRequireAccountEnabled,
+  isLocalPathVisible,
+  isStandaloneLocalKeypairCreateVisible,
+} from "./require-account";
 
 describe("isRequireAccountEnabled", () => {
   const orig = process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT;
@@ -51,6 +55,41 @@ describe("isLocalPathVisible (no-soft-lock fallback)", () => {
   it("KEEPS the local path when require-account is on but no account tier is available (never strands the visitor)", () => {
     expect(
       isLocalPathVisible({ requireAccount: true, hasAccountTier: false }),
+    ).toBe(true);
+  });
+});
+
+describe("isStandaloneLocalKeypairCreateVisible (keypair stays, standalone entry gated)", () => {
+  it("shows the standalone offline-keypair create when require-account is off", () => {
+    expect(
+      isStandaloneLocalKeypairCreateVisible({
+        requireAccount: false,
+        oauthPublishAvailable: true,
+      }),
+    ).toBe(true);
+    expect(
+      isStandaloneLocalKeypairCreateVisible({
+        requireAccount: false,
+        oauthPublishAvailable: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("gates the standalone create when require-account is on AND the OAuth claim path exists (keypair is minted via the claim flow instead)", () => {
+    expect(
+      isStandaloneLocalKeypairCreateVisible({
+        requireAccount: true,
+        oauthPublishAvailable: true,
+      }),
+    ).toBe(false);
+  });
+
+  it("KEEPS the standalone create when require-account is on but OAuth publish is unavailable (the only way to mint an identity, never soft-locks)", () => {
+    expect(
+      isStandaloneLocalKeypairCreateVisible({
+        requireAccount: true,
+        oauthPublishAvailable: false,
+      }),
     ).toBe(true);
   });
 });
