@@ -24,17 +24,24 @@ export function accrualIdemKey(ownerKey: string, period: string): string {
   return `accrue:${ownerKey}:${period}`;
 }
 
+export interface AccrueResult {
+  /** Whether this call actually appended an accrual row (false on a period re-run). */
+  accrued: boolean;
+  /** The payer's balance after (unchanged on a re-run). */
+  balanceCents: number;
+}
+
 /**
  * Accrue one payer's marked-up charge for one period onto their running balance.
- * Idempotent on (ownerKey, period): a re-run inserts no second ledger row and
- * does not move the balance. Returns the balance after (unchanged on a re-run).
+ * Idempotent on (ownerKey, period): a re-run inserts no second ledger row, does
+ * not move the balance, and reports accrued=false so callers can report honestly.
  */
 export async function accruePeriodCharge(
   ownerKey: string,
   period: string,
   charge: PeriodCharge,
   sql: Sql = getSql(),
-): Promise<number> {
+): Promise<AccrueResult> {
   await ensureCloudLedgerSchema(sql);
   const idem = accrualIdemKey(ownerKey, period);
 
@@ -51,7 +58,7 @@ export async function accruePeriodCharge(
 
   // Step 2: only move the balance if the ledger row was actually inserted.
   if (inserted.length === 0) {
-    return getCloudBalance(ownerKey, sql);
+    return { accrued: false, balanceCents: await getCloudBalance(ownerKey, sql) };
   }
   const rows = (await sql`
     INSERT INTO cloud_balance (owner_key, accrued_cents)
@@ -61,7 +68,7 @@ export async function accruePeriodCharge(
           updated_at = now()
     RETURNING accrued_cents
   `) as Array<{ accrued_cents: number }>;
-  return Number(rows[0]?.accrued_cents ?? charge.totalCents);
+  return { accrued: true, balanceCents: Number(rows[0]?.accrued_cents ?? charge.totalCents) };
 }
 
 /**

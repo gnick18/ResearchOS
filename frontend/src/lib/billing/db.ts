@@ -140,6 +140,22 @@ export async function getSubscriptionByStripeId(
 }
 
 /**
+ * The active subscriptions, owner key + plan id only. The Model-A accrual cron
+ * enumerates these and resolves each to a Model-A plan (solo/lab) before rolling
+ * up its usage. Free/inactive owners are excluded (they accrue nothing).
+ */
+export async function listActiveSubscriptions(): Promise<
+  Array<{ ownerKey: string; planId: string }>
+> {
+  await ensureBillingSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT owner_key, plan_id FROM billing_subscriptions WHERE status = 'active'
+  `) as Array<{ owner_key: string; plan_id: string }>;
+  return rows.map((r) => ({ ownerKey: r.owner_key, planId: r.plan_id }));
+}
+
+/**
  * Inserts or updates an owner's Stripe + status state. Does NOT touch cap_bytes
  * or lab_billing, both are the user's own choices (setCapBytes / setLabBilling),
  * so a webhook sync never overwrites them.

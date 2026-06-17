@@ -101,7 +101,8 @@ describe("cloud ledger accrual", () => {
     const { sql, ledger } = makeMockSql();
     const charge = periodCharge(MODEL_A_PLANS.solo, usage);
     const bal = await accruePeriodCharge("payer-a", "2026-06", charge, sql);
-    expect(bal).toBe(charge.totalCents);
+    expect(bal.accrued).toBe(true);
+    expect(bal.balanceCents).toBe(charge.totalCents);
     expect(ledger.filter((r) => r.kind === "accrual")).toHaveLength(1);
   });
 
@@ -110,7 +111,8 @@ describe("cloud ledger accrual", () => {
     const charge = periodCharge(MODEL_A_PLANS.solo, usage);
     await accruePeriodCharge("payer-a", "2026-06", charge, sql);
     const second = await accruePeriodCharge("payer-a", "2026-06", charge, sql);
-    expect(second).toBe(charge.totalCents);
+    expect(second.accrued).toBe(false);
+    expect(second.balanceCents).toBe(charge.totalCents);
     expect(ledger.filter((r) => r.kind === "accrual")).toHaveLength(1);
   });
 
@@ -119,7 +121,7 @@ describe("cloud ledger accrual", () => {
     const c = periodCharge(MODEL_A_PLANS.solo, usage);
     await accruePeriodCharge("payer-a", "2026-06", c, sql);
     const bal = await accruePeriodCharge("payer-a", "2026-07", c, sql);
-    expect(bal).toBe(c.totalCents * 2);
+    expect(bal.balanceCents).toBe(c.totalCents * 2);
   });
 
   it("accrues per payer independently", async () => {
@@ -127,7 +129,7 @@ describe("cloud ledger accrual", () => {
     const c = periodCharge(MODEL_A_PLANS.lab, { ...usage, labCount: 2 });
     await accruePeriodCharge("payer-a", "2026-06", c, sql);
     const balB = await accruePeriodCharge("payer-b", "2026-06", c, sql);
-    expect(balB).toBe(c.totalCents);
+    expect(balB.balanceCents).toBe(c.totalCents);
     expect(await getCloudBalance("payer-a", sql)).toBe(c.totalCents);
   });
 });

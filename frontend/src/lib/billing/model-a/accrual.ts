@@ -88,6 +88,10 @@ export async function accrueOwnerForPeriod(
   if (charge.totalCents <= 0) {
     return { accrued: false, chargedCents: 0, balanceCents: await getCloudBalance(ownerKey, opts.sql) };
   }
-  const balanceCents = await accruePeriodCharge(ownerKey, period, charge, opts.sql);
-  return { accrued: true, chargedCents: charge.totalCents, balanceCents };
+  const res = await accruePeriodCharge(ownerKey, period, charge, opts.sql);
+  return {
+    accrued: res.accrued,
+    chargedCents: res.accrued ? charge.totalCents : 0,
+    balanceCents: res.balanceCents,
+  };
 }

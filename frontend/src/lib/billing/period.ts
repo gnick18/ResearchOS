@@ -13,3 +13,19 @@ export function currentWritePeriod(now: Date = new Date()): string {
   const month = String(now.getUTCMonth() + 1).padStart(2, "0");
   return `${year}-${month}`;
 }
+
+/** The YYYY-MM period immediately before the given one, handling year rollover.
+ *  Pure string math so it needs no clock. e.g. "2026-01" -> "2025-12". */
+export function priorPeriod(period: string): string {
+  const [yStr, mStr] = period.split("-");
+  const year = Number(yStr);
+  const month = Number(mStr);
+  if (month <= 1) return `${year - 1}-12`;
+  return `${year}-${String(month - 1).padStart(2, "0")}`;
+}
+
+/** The just-closed billing period (last month), the one the monthly accrual cron
+ *  rolls up. */
+export function previousWritePeriod(now: Date = new Date()): string {
+  return priorPeriod(currentWritePeriod(now));
+}
