@@ -262,6 +262,13 @@ export default function TaskDetailPopup({
     dirty: boolean;
     saving: boolean;
   } | null>(null);
+  // "Latest value" ref so the close handler always reads the current dirty state
+  // without needing to capture it in a closure (avoids stale-closure bugs when
+  // the X button or Escape fires).
+  const activeEditorStateRef = useRef(activeEditorState);
+  useEffect(() => {
+    activeEditorStateRef.current = activeEditorState;
+  });
   const registerActiveTabDirtyState = useCallback(
     (state: { dirty: boolean; saving: boolean } | null) => {
       setActiveEditorState(state);
@@ -319,6 +326,23 @@ export default function TaskDetailPopup({
   // expanded shell is never soft-locked. This handler runs after that flush, so
   // there is no extra work for it to do.
   const handleDone = useCallback(() => {}, []);
+  // Guarded close: when the active editor tab has unsaved changes (Lab Notes or
+  // Results is dirty and the user has not yet saved), ask before discarding. This
+  // covers the X button, the Escape key path, and any other caller that invokes
+  // `handleClose` instead of the raw `onClose`. The save model is EXPLICIT (no
+  // auto-save debounce) so there is no flush to attempt — we just confirm or
+  // cancel. Read-only views and non-editor tabs (activeEditorStateRef is null or
+  // dirty=false) pass straight through.
+  const handleClose = useCallback(() => {
+    const editorState = activeEditorStateRef.current;
+    if (editorState?.dirty) {
+      const ok = window.confirm(
+        "You have unsaved changes in this experiment. Discard them and close?",
+      );
+      if (!ok) return;
+    }
+    onClose();
+  }, [onClose]);
   // Phase 2: append-line handle. The active tab (LabNotesTab or ResultsTab)
   // registers a function that appends a plain text line via Loro (pilot) or
   // via legacy state + handleSave. Null when no editor tab is mounted.
@@ -1479,7 +1503,7 @@ export default function TaskDetailPopup({
     <UniversalDuplicateDialog />
     <CalmPopupShell
       open
-      onClose={onClose}
+      onClose={handleClose}
       label="Task"
       title={titleSlot}
       meta={metaSlot}
