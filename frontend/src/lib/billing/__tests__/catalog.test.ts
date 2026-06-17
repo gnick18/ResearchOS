@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { usd, PLAN_PRICES, AI_PACK_DOLLARS } from "../catalog";
+import {
+  usd,
+  PLAN_PRICES,
+  AI_PACK_DOLLARS,
+  DEPT_PER_LAB_DISCOUNT_CENTS,
+  DEPT_USAGE_DISCOUNT_PCT,
+} from "../catalog";
 import { MODEL_A_PLANS } from "../model-a/pricing";
 
 describe("usd", () => {
@@ -32,5 +38,18 @@ describe("PLAN_PRICES", () => {
 describe("AI_PACK_DOLLARS", () => {
   it("is the three prepaid tiers", () => {
     expect(AI_PACK_DOLLARS).toEqual([10, 25, 50]);
+  });
+});
+
+describe("department volume discount (derived, customer-facing)", () => {
+  it("is the per-lab dollars off the lab base", () => {
+    expect(DEPT_PER_LAB_DISCOUNT_CENTS).toBe(
+      PLAN_PRICES.lab.baseCents - PLAN_PRICES.dept.baseCents,
+    );
+    expect(usd(DEPT_PER_LAB_DISCOUNT_CENTS)).toBe("$5");
+  });
+
+  it("is the percent off cloud usage from the lower multiplier (about 14%)", () => {
+    expect(DEPT_USAGE_DISCOUNT_PCT).toBe(14);
   });
 });

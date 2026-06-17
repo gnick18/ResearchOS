@@ -62,3 +62,18 @@ export const SPONSOR_TIERS = {
   labMonthly: 25,
   instituteMonthly: 100,
 } as const;
+
+// Department is the institutional volume tier, priced BELOW a standalone lab.
+// Customer-facing copy frames that as a DISCOUNT off the lab rate, never as an
+// internal markup. Both figures derive from the plan config, so the copy stays
+// truthful automatically if a price moves.
+
+/** Dollars off the per-lab base a department pays vs a standalone lab (e.g. $5). */
+export const DEPT_PER_LAB_DISCOUNT_CENTS =
+  PLAN_PRICES.lab.baseCents - PLAN_PRICES.dept.baseCents;
+
+/** Percent off cloud usage a department gets vs a standalone lab, from the lower
+ *  usage multiplier (lab 7x vs dept 6x -> about 14% off). Rounded for copy. */
+export const DEPT_USAGE_DISCOUNT_PCT = Math.round(
+  (1 - MODEL_A_PLANS.dept.usageMarkup / MODEL_A_PLANS.lab.usageMarkup) * 100,
+);
