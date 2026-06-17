@@ -59,6 +59,7 @@ import {
 } from "@/lib/phylo/layout";
 import {
   renderTreeSvg,
+  rectLabelGutterExtra,
   type RenderSpec,
 } from "@/lib/phylo/render";
 import {
@@ -364,9 +365,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // The figure height depends on the layout (square for the radial family), so the
   // tree gets the full radius instead of being starved by the landscape height.
   const figH = figHeightFor(layout);
-  // The figure width also depends on the layout (the rooted circular layout gets a
-  // right callout gutter), so the aspect is taken against the layout-aware width.
-  const figW = figWidthFor(layout);
+  // The figure width depends on both layout and tree content:
+  //   - Radial callout layouts add RADIAL_CALLOUT_GUTTER for the right-side ring labels.
+  //   - Rectangular layouts with long tip names (e.g. 40+ char HPV accession strings)
+  //     add extra width so labels are never clipped at the SVG canvas edge. The layout
+  //     engine already reserves 220 px for labels inside FIG_W; rectLabelGutterExtra
+  //     returns the px by which the longest label exceeds that budget (0 when it fits).
+  const figW =
+    figWidthFor(layout) +
+    (!CALLOUT_GUTTER_LAYOUTS.has(layout) && tree
+      ? rectLabelGutterExtra(tree, panels)
+      : 0);
   const figHIn = figWIn * (figH / figW);
   const onArtboardChange = (patch: Partial<ArtboardState>) =>
     setArtboard((s) => {
@@ -512,7 +521,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         alignment,
         branchColorColumn,
       },
-      { width: figWidthFor(layout), height: figHeightFor(layout) },
+      { width: figW, height: figH },
     );
     // Phase 4: the resolved Data Hub plot inputs are live figure state, supplied
     // on the spec the same way figureToRenderSpec resolves alignment to msaTrack.
