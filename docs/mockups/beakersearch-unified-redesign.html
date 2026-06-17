@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch, unified redesign</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --r:14px; --rm:9px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .howto b{color:#fff;}
+  .wrap{max-width:780px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:32px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.55;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--sunken);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;padding:30px 18px;display:flex;justify-content:center;}
+  .mock.dark{background:#0f172a;}
+  .mock *{pointer-events:none;}
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+  svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  /* The one unified surface */
+  .surface{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,.30);transition:min-height .4s cubic-bezier(.4,0,.2,1);}
+  /* Ask mode grows the SAME container into a chat workspace. */
+  .surface.chat{min-height:472px;}
+  .chathead{display:flex;align-items:center;gap:9px;padding:10px 13px;border-bottom:1px solid var(--border);}
+  .chathead .back{display:inline-flex;align-items:center;gap:4px;color:var(--sky-deep);font-size:12px;}
+  .chathead .ctitle{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;}
+  .chathead .ctitle .ai{width:18px;height:18px;display:inline-flex;color:var(--sky-deep);}
+  .chathead .cacts{margin-left:auto;display:inline-flex;align-items:center;gap:8px;}
+  .cact{width:24px;height:24px;border-radius:6px;border:1px solid var(--border);color:var(--text-3);display:inline-flex;align-items:center;justify-content:center;}
+  .amini{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:10.5px;}
+  .amini span{padding:3px 8px;color:var(--text-3);}
+  .amini .on{background:var(--sky-chip);color:var(--sky-deep);font-weight:600;}
+  .credit{font-size:11px;color:var(--text-2);}
+  /* cross-fade the body content so the morph is smooth, not a hard swap */
+  #searchBody,#convoBody{transition:opacity .2s ease, transform .2s ease;}
+  .sbar{display:flex;align-items:center;gap:11px;padding:14px 15px;border-bottom:1px solid var(--border);}
+  .bbico{width:26px;height:26px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .sinput{flex:1;font-size:16px;color:var(--text);} .sinput .cur{color:var(--text-3);}
+  .modetoggle{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;flex:none;}
+  .modetoggle span{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;color:var(--text-3);}
+  .modetoggle .on{background:var(--sky-chip);color:var(--sky-deep);font-weight:600;}
+  .esc{font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:5px;padding:2px 6px;flex:none;}
+
+  /* shared body bits */
+  .grp{font-size:10.5px;letter-spacing:.06em;color:var(--text-3);padding:11px 16px 5px;text-transform:uppercase;}
+  .row{display:flex;align-items:center;gap:11px;padding:8px 16px;}
+  .row .ic{width:18px;height:18px;color:var(--text-3);display:inline-flex;flex:none;}
+  .row .nm{flex:1;font-size:13.5px;} .row .ty{font-size:11px;color:var(--text-3);}
+  .askrow{display:flex;align-items:center;gap:11px;padding:13px 16px;background:var(--sky-soft);border-bottom:1px solid var(--border);cursor:pointer;}
+  .askrow .ai{width:24px;height:24px;border-radius:7px;background:var(--sky);color:#06243a;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .askrow .txt{flex:1;font-size:14px;} .askrow .txt b{font-weight:600;} .askrow .meta{font-size:11px;color:var(--text-3);display:block;margin-top:1px;}
+  .askrow .go{font-size:11px;color:var(--sky-deep);border:1px solid rgba(56,189,248,0.4);border-radius:5px;padding:2px 7px;}
+  .sfoot{display:flex;align-items:center;gap:6px;padding:9px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);}
+
+  /* conversation body, same container */
+  .convtop{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--text-2);}
+  .convtop .back{display:inline-flex;align-items:center;gap:5px;color:var(--sky-deep);}
+  .convtop .q{color:var(--text);font-weight:600;}
+  .thread{padding:14px 16px;display:flex;flex-direction:column;gap:12px;min-height:150px;}
+  .um{align-self:flex-end;max-width:82%;padding:8px 11px;border-radius:9px;background:var(--sunken);font-size:13px;}
+  .bm{font-size:13px;color:var(--text-2);line-height:1.6;}
+  .bm .bbline{display:flex;align-items:center;gap:7px;margin-bottom:5px;color:var(--sky-deep);font-size:12px;font-weight:600;}
+  .bbline .ai{width:18px;height:18px;display:inline-flex;}
+  .draft{border:1px solid var(--sky);border-radius:var(--rm);overflow:hidden;font-size:12px;margin-top:2px;}
+  .draft .add{padding:7px 10px;background:var(--ok-bg);color:var(--ok);line-height:1.55;}
+  .draft .add + .add{border-top:1px solid var(--border);}
+  .draft .acts{display:flex;gap:7px;padding:8px;background:#fff;border-top:1px solid var(--border);}
+  .draft .acts span{flex:1;text-align:center;padding:6px;border-radius:6px;font-size:11px;font-weight:600;}
+  .draft .ok{background:var(--sky);color:#06243a;} .draft .no{border:1px solid var(--border-2);color:var(--text-2);}
+  .tile{display:inline-flex;align-items:center;gap:6px;margin-top:3px;border:1px solid rgba(56,189,248,0.45);background:var(--sky-chip);color:var(--sky-deep);border-radius:999px;padding:4px 11px;font-size:12px;font-weight:500;}
+  .tile .ic{width:14px;height:14px;display:inline-flex;}
+  .composer{display:flex;align-items:center;gap:10px;padding:12px 15px;border-top:1px solid var(--border);}
+  .composer .field{flex:1;font-size:13px;color:var(--text-3);}
+  .composer .send{width:30px;height:30px;border-radius:8px;background:var(--sky);color:#06243a;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+
+  /* before strip */
+  .before{display:flex;gap:12px;align-items:stretch;}
+  .bcol{flex:1;border:1px dashed var(--border-2);border-radius:var(--rm);padding:10px;background:#fff;font-size:11px;color:var(--text-2);min-height:120px;}
+  .bcol .h{font-weight:600;color:var(--text);font-size:12px;margin-bottom:6px;}
+  .busy{font-size:10.5px;color:var(--text-3);line-height:1.8;}
+  .splitarrow{display:flex;align-items:center;color:var(--warn);font-size:18px;}
+  .toggle-live{display:inline-flex;align-items:center;gap:7px;font-size:12px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:4px 11px;cursor:pointer;}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient></defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+
+<div class="topbar">
+  <span class="title">BeakerSearch, unified redesign</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there (auto-saves as you type). Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>. The big mockup is LIVE, click the toggle inside it to feel search and BeakerBot in one surface.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <section class="rs" data-name="The problem (what shipped)">
+    <header><h3>0. What is wrong now, two GUIs bolted together</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock">
+      <div class="before">
+        <div class="bcol"><div class="h">The busy command palette</div><div class="busy">Go to Workbench<br>Go to Methods<br>Go to Sequences<br>New task &middot; New method<br>Recent: ...<br>Tasks &middot; Projects &middot; Notes ...<br>+ an "Ask BeakerBot" row tacked on top</div></div>
+        <div class="splitarrow"><svg width="22" height="22" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></div>
+        <div class="bcol"><div class="h">...opens a SECOND GUI</div><div class="busy">Pressing enter closes the palette and a whole separate docked panel slides in from the side. The search you were in is gone. Two surfaces, a hard handoff, not one bar.</div></div>
+      </div>
+    </div></div>
+    <p class="note">The miss. The escalation row lives in the old cluttered palette, and choosing it tears down the palette and pulls up the separate dock. That is gating the AI behind a different surface, the opposite of one seamless bar.</p>
+  </section>
+
+  <section class="rs" data-name="Unified surface, LIVE (search and BeakerBot in one)">
+    <header><h3>1. The fix, ONE surface that glides between search and BeakerBot</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock">
+      <div class="surface" id="surface">
+
+        <!-- the one bar -->
+        <div class="sbar">
+          <span class="bbico"><svg width="17" height="17" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+          <span class="sinput" id="barText">qpcr expression<span class="cur"> |</span></span>
+          <span class="modetoggle" id="modeToggle">
+            <span id="mSearch" class="on"><svg width="12" height="12" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg> Search</span>
+            <span id="mAsk"><svg width="12" height="12" viewBox="8 3 24 31"><use href="#bbmark"/></svg> Ask</span>
+          </span>
+          <span class="esc">esc</span>
+        </div>
+
+        <!-- SEARCH BODY -->
+        <div id="searchBody">
+          <div class="askrow" id="askRow">
+            <span class="ai"><svg width="15" height="15" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+            <span class="txt"><b>Ask BeakerBot about "qpcr expression"</b><span class="meta">answer, analyze, plot, or write it up &middot; uses credit</span></span>
+            <span class="go">enter</span>
+          </div>
+          <div class="grp">Your work</div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nm">qPCR, fakeGFP expression vs control</span><span class="ty">experiment</span></div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6"/></svg></span><span class="nm">qPCR analysis, Cq and standard curve</span><span class="ty">method</span></div>
+          <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span><span class="nm">fakeGFP qPCR expression</span><span class="ty">Data Hub</span></div>
+          <div class="sfoot"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg> Instant, searched on your device. Type, or press enter to hand it to BeakerBot.</div>
+        </div>
+
+        <!-- CONVERSATION BODY, same container -->
+        <div id="convoBody" style="display:none;">
+          <div class="chathead">
+            <span class="back" id="backRow"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg> search</span>
+            <span class="ctitle"><span class="ai"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span> BeakerBot</span>
+            <span class="cacts">
+              <span class="cact" title="New chat"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg></span>
+              <span class="cact" title="History, your past chats"><svg width="13" height="13" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+              <span class="amini"><span class="on">Ask</span><span>Auto</span></span>
+              <span class="credit">$4.10</span>
+            </span>
+          </div>
+          <div class="thread">
+            <div class="um">what test fits Control vs three FakeYeast strains</div>
+            <div class="bm"><span class="bbline"><span class="ai"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span> BeakerBot</span>Four groups, so a one-way ANOVA with Tukey for the pairwise follow-ups. Want me to run it on your fakeGFP table?</div>
+            <div class="um">summarize the qPCR t-test into a note called qPCR summary</div>
+            <div class="bm">
+              <span class="bbline"><span class="ai"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span> BeakerBot</span>
+              I read the stored one-way ANOVA on your fakeGFP strains and drafted a summary. Review before I write it:
+              <div class="draft">
+                <div class="add">+ Analysis: one-way ANOVA, F(3,16) = 274.28, p &lt; 0.0001.</div>
+                <div class="add">+ All six pairwise comparisons significant after Tukey.</div>
+                <div class="acts"><span class="ok">Approve</span><span class="no">Reject</span></div>
+              </div>
+            </div>
+            <div class="bm">
+              Saved it. <span class="tile"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6M9 16h3"/></svg></span> qPCR summary</span> click to open it here, no page change.
+            </div>
+          </div>
+          <div class="composer">
+            <span class="bbico"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+            <span class="field">Ask a follow-up, or start a new search...</span>
+            <span class="send"><svg width="15" height="15" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg></span>
+          </div>
+        </div>
+
+      </div>
+    </div></div>
+    <p class="note">One container. The search bar is the anchor, it never moves. Pressing enter on the ask row (or the toggle) GROWS the same surface into a full BeakerBot chat, the body cross-fades from results to the thread, and the modern chat chrome fades in, New chat, History (your past chats, the old log), the Ask / Auto autonomy toggle, and the credit. None of that crowds the calm search view, it only shows once you are in Ask. "back to search" shrinks it back to the result list and keeps your conversation. Click the Search / Ask toggle in the mockup to feel the grow and see the chat chrome (answers your #1 markup).</p>
+  </section>
+
+  <section class="rs" data-name="De-clutter (what leaves the default view)">
+    <header><h3>2. Calmer by default, the command list stops shouting</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock">
+      <div class="surface" style="max-width:520px;">
+        <div class="sbar">
+          <span class="bbico"><svg width="17" height="17" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+          <span class="sinput"><span class="cur">|</span> <span style="color:var(--text-3)">Search your work, or ask BeakerBot</span></span>
+          <span class="esc">&#8984;K</span>
+        </div>
+        <div class="askrow" style="cursor:default;">
+          <span class="ai"><svg width="15" height="15" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+          <span class="txt"><b>Ask BeakerBot</b><span class="meta">your coworker for analysis, plots, and write-ups</span></span>
+        </div>
+        <div class="grp">Recent</div>
+        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span><span class="nm">fakeGFP qPCR expression</span><span class="ty">Data Hub</span></div>
+        <div class="row"><span class="ic"><svg viewBox="0 0 24 24"><path d="M6 3h12v18H6z"/><path d="M9 8h6M9 12h6"/></svg></span><span class="nm">Cloning plan, FakeYeast strains</span><span class="ty">note</span></div>
+        <div class="sfoot"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M5 12h14"/></svg> Page jumps and commands still live here, tucked under a key (type "&gt;") instead of crowding the front.</div>
+      </div>
+    </div></div>
+    <p class="note">Empty state leads with your work and BeakerBot, not a wall of "Go to" rows. Navigation and commands move behind a "&gt;" prefix so they are one keystroke away without dominating. Open question for you, is hiding commands behind "&gt;" right, or do you want a couple of them visible.</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  // live mode toggle on the main surface
+  var morphing=false;
+  function setMode(mode){
+    var sb=document.getElementById('searchBody'), cb=document.getElementById('convoBody');
+    var ms=document.getElementById('mSearch'), ma=document.getElementById('mAsk');
+    var surf=document.getElementById('surface');
+    var ask=(mode==='ask');
+    var cur=ask?sb:cb, nxt=ask?cb:sb;
+    if(nxt.style.display!=='none'&&morphing) return; // ignore double clicks mid-morph
+    // Flip the bar state and grow/shrink the container immediately, so the height
+    // animates alongside the cross-fade for one continuous morph.
+    if(ask){ ma.classList.add('on'); ms.classList.remove('on'); surf.classList.add('chat'); }
+    else { ms.classList.add('on'); ma.classList.remove('on'); surf.classList.remove('chat'); }
+    // Fade the current body out, then swap and fade the next body in.
+    morphing=true;
+    cur.style.opacity='0'; cur.style.transform='translateY(5px)';
+    setTimeout(function(){
+      cur.style.display='none';
+      nxt.style.display='block'; nxt.style.opacity='0'; nxt.style.transform='translateY(5px)';
+      void nxt.offsetWidth; // force reflow so the fade-in transition runs
+      nxt.style.opacity='1'; nxt.style.transform='translateY(0)';
+      morphing=false;
+    },190);
+  }
+  // these live controls must receive clicks even though .mock * is pointer-events:none.
+  // Re-enable the exact clickable elements; their child svg/text inherit none and so
+  // pass the click up to the handler element, which is what we want.
+  ['mSearch','mAsk','askRow','backRow'].forEach(function(id){
+    var el=document.getElementById(id); if(!el) return;
+    el.style.pointerEvents='auto'; el.style.cursor='pointer';
+  });
+  document.getElementById('mSearch').addEventListener('click',function(e){e.stopPropagation();setMode('search');});
+  document.getElementById('mAsk').addEventListener('click',function(e){e.stopPropagation();setMode('ask');});
+  document.getElementById('askRow').addEventListener('click',function(e){e.stopPropagation();setMode('ask');});
+  document.getElementById('backRow').addEventListener('click',function(e){e.stopPropagation();setMode('search');});
+
+  // comment + approve harness
+  var comments=[]; var counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(ev){
+        ev.stopPropagation();
+        var v=b.getAttribute('data-v');
+        var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;} else {delete sec.dataset.state;}
+        renderSum();
+      });
+    });
+  });
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor')) return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100;
+      var y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;
+      var c={id:counter, section:mock.closest('.rs').getAttribute('data-name'), text:'', x:x, y:y, mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');
+      pin.className='pin'; pin.textContent=c.id; pin.style.left=x+'%'; pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin); c.pin=pin;
+      openEditor(c,pin); renderSum();
+    });
+  });
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div'); ed.className='editor';
+    var left=Math.min(c.x,72); var top=Math.min(c.y+4,80);
+    ed.style.left=left+'%'; ed.style.top=top+'%';
+    ed.innerHTML='<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea'); ta.value=c.text;
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ta.addEventListener('click',function(e){e.stopPropagation();});
+    ed.addEventListener('click',function(e){e.stopPropagation();});
+    ed.querySelector('.esave').addEventListener('click',function(e){e.stopPropagation();c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(e){
+      e.stopPropagation();
+      if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);
+      comments=comments.filter(function(x){return x.id!==c.id;}); ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed); setTimeout(function(){ta.focus();},0);
+  }
+  function renderSum(){
+    var ok=0,warn=0; sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerSearch unified redesign feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');
+      else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beakersearch-unified-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+  renderSum();
+})();
+</script>
+</body>
+</html>

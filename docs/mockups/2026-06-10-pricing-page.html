@@ -1,0 +1,1003 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS pricing page, proposed</title>
+<style>
+  /* Faithful to the live design tokens (frontend/src/app/globals.css) and the
+     marketing deck (docs/marketing/researchos-deck.html). Copy pulled strictly
+     from docs/branding/BILLING_FACTS.md. House voice: no em-dashes, no emojis,
+     no mid-sentence colons, state the why. No Plus or Pro prices printed. */
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --ok: #16a34a;
+    --pin: #e11d48;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255, 255, 255, 0.16);
+    --page-bg: #060a13;
+    --brand-ink: #f1f5f9;
+    --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background: var(--page-bg);
+    color: var(--foreground);
+    transition: background 0.2s;
+  }
+  .topbar {
+    position: sticky; top: 0; z-index: 30;
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 22px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn {
+    appearance: none; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken);
+    color: var(--foreground); border-radius: 8px;
+    padding: 7px 12px; font-size: 12.5px; font-weight: 600;
+  }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 80ch; margin: 4px 0 18px; }
+  .lead b { color: var(--foreground); }
+
+  /* proposed-changes strip (one verdict per page section) */
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 13px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  /* the rendered page mockup */
+  .page { border: 1px solid var(--border); border-radius: 18px; background: var(--surface); overflow: hidden; }
+  .sec { position: relative; padding: 30px 32px; border-bottom: 1px solid var(--border); }
+  .sec:last-child { border-bottom: none; }
+  @media (max-width: 720px) { .sec { padding: 24px 18px; } }
+
+  /* hero */
+  .hero { text-align: center; background: var(--surface-raised); }
+  .hero .rbar { height: 6px; width: 132px; margin: 0 auto 18px; border-radius: 999px; background-image: var(--rainbow); }
+  .eyebrow { font-size: 11.5px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--brand-action); }
+  .h1 { font-size: 32px; line-height: 1.12; font-weight: 800; color: var(--brand-ink); margin: 10px auto 12px; max-width: 18ch; }
+  @media (max-width: 720px) { .h1 { font-size: 25px; } }
+  .hsub { font-size: 14.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 60ch; margin: 0 auto 18px; }
+  .hctas { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .cta { cursor: pointer; appearance: none; border-radius: 11px; padding: 11px 20px; font-size: 13.5px; font-weight: 700; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); }
+  .cta.primary { background: linear-gradient(135deg, #1283c9, #5B47D6); border-color: transparent; color: #fff; }
+  .cta:hover { transform: translateY(-1px); }
+  .betapill { display: inline-flex; align-items: center; gap: 7px; margin-top: 16px; font-size: 12px; font-weight: 600; color: var(--ok); background: color-mix(in srgb, var(--ok) 11%, transparent); border: 1px solid color-mix(in srgb, var(--ok) 30%, transparent); border-radius: 999px; padding: 5px 13px; }
+  .betadot { width: 7px; height: 7px; border-radius: 999px; background: var(--ok); }
+
+  .sectitle { font-size: 19px; font-weight: 800; color: var(--brand-ink); margin: 0 0 4px; text-align: center; }
+  .sectsub { font-size: 13px; color: var(--foreground-muted); line-height: 1.55; text-align: center; max-width: 64ch; margin: 0 auto 20px; }
+
+  /* two-part model */
+  .twocard { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 880px; margin: 0 auto; }
+  @media (max-width: 720px) { .twocard { grid-template-columns: 1fr; } }
+  .mcard { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-raised); padding: 20px; }
+  .mcard.free { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ok) 25%, transparent); }
+  .mcard .ico { width: 34px; height: 34px; border-radius: 9px; display: inline-flex; align-items: center; justify-content: center; font-weight: 800; font-size: 15px; color: #fff; margin-bottom: 11px; }
+  .mcard.free .ico { background: var(--ok); }
+  .mcard.cloud .ico { background: var(--brand-action); }
+  .mcard .ico svg { width: 19px; height: 19px; display: block; }
+  .mcard h3 { font-size: 15px; font-weight: 800; color: var(--foreground); margin: 0 0 4px; }
+  .mcard .tagline { font-size: 12px; font-weight: 700; margin: 0 0 8px; }
+  .mcard.free .tagline { color: var(--ok); }
+  .mcard.cloud .tagline { color: var(--brand-action); }
+  .mcard p { font-size: 13px; color: var(--foreground-muted); line-height: 1.6; margin: 0; }
+
+  /* plan toggle + cards */
+  .seg { display: inline-flex; padding: 3px; gap: 3px; border-radius: 11px; background: var(--surface-sunken); border: 1px solid var(--border); margin: 0 auto 22px; }
+  .segwrap { text-align: center; }
+  .seg button { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 13px; font-weight: 700; padding: 7px 18px; border-radius: 8px; }
+  .seg button.on { background: var(--surface-raised); color: var(--foreground); box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .plans { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; max-width: 920px; margin: 0 auto; }
+  @media (max-width: 720px) { .plans { grid-template-columns: 1fr; } }
+  .plan { border: 1px solid var(--border); border-radius: 15px; background: var(--surface-raised); padding: 20px 18px; display: flex; flex-direction: column; }
+  .plan.feature { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
+  .plan .pname { font-size: 14px; font-weight: 800; color: var(--foreground); display: flex; align-items: center; gap: 8px; }
+  .ribbon { font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: #fff; background: var(--brand-action); border-radius: 999px; padding: 2px 8px; }
+  .ribbon.rec { background: var(--ok); }
+  .ribbon.soft { color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 13%, transparent); }
+  .price { margin: 12px 0 2px; font-size: 30px; font-weight: 800; color: var(--brand-ink); letter-spacing: -0.01em; }
+  .price .per { font-size: 13px; font-weight: 600; color: var(--foreground-muted); }
+  .pricenote { font-size: 11.5px; color: var(--foreground-muted); min-height: 30px; line-height: 1.4; }
+  .feats { list-style: none; margin: 14px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+  .feats li { font-size: 12.5px; color: var(--foreground); line-height: 1.45; display: flex; gap: 8px; align-items: flex-start; }
+  .feats li::before { content: ""; flex: 0 0 16px; height: 16px; margin-top: 1px; border-radius: 999px; background: color-mix(in srgb, var(--ok) 16%, transparent); background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M6.5 11L3.5 8l1-1 2 2 4.5-4.5 1 1z' fill='%2316a34a'/%3E%3C/svg%3E"); }
+  .planfoot { margin-top: 16px; }
+  .planfoot .cta { width: 100%; text-align: center; }
+  .plansnote { max-width: 760px; margin: 18px auto 0; font-size: 12px; color: var(--foreground-muted); line-height: 1.6; text-align: center; border-top: 1px dashed var(--border); padding-top: 14px; }
+  .plansnote b { color: var(--foreground); }
+  .deptintro { max-width: 720px; margin: 0 auto 18px; text-align: center; font-size: 13px; color: var(--foreground-muted); line-height: 1.6; }
+  .trustpacket { max-width: 820px; margin: 16px auto 0; padding-top: 16px; border-top: 1px dashed var(--border); }
+  .tpitems { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px; }
+  .tpitem { display: inline-flex; align-items: center; gap: 7px; border: 1px solid var(--border); background: var(--surface-raised); border-radius: 9px; padding: 8px 12px; font-size: 12px; font-weight: 600; color: var(--foreground); cursor: pointer; }
+  .tpitem:hover { border-color: var(--brand-action); }
+  .tpitem .dot { width: 7px; height: 7px; border-radius: 999px; background: var(--ok); flex: 0 0 7px; }
+  .tpcallout { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.6; text-align: center; max-width: 700px; margin: 0 auto; }
+  .tpcallout b { color: var(--foreground); }
+
+  /* cost-transparency calculator + optimization diagram */
+  .calcwrap { max-width: 820px; margin: 0 auto; }
+  .calcgrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: stretch; }
+  @media (max-width: 720px) { .calcgrid { grid-template-columns: 1fr; } }
+  .calcbox { border: 1px solid var(--border); border-radius: 14px; background: var(--surface-raised); padding: 18px 20px; }
+  .calcbox h4 { font-size: 13px; font-weight: 800; margin: 0 0 14px; color: var(--foreground); }
+  .tier { margin-bottom: 13px; }
+  .tierlabel { display: flex; justify-content: space-between; align-items: baseline; font-size: 12px; margin-bottom: 5px; gap: 8px; }
+  .tierlabel b { color: var(--foreground); font-weight: 700; }
+  .tierlabel span { color: var(--foreground-muted); font-variant-numeric: tabular-nums; }
+  .tierbar { height: 14px; border-radius: 7px; background: var(--surface-sunken); overflow: hidden; }
+  .tierbar i { display: block; height: 100%; border-radius: 7px; transform-origin: left center; animation: growx 0.9s cubic-bezier(.22,.61,.36,1) both; }
+  .tierbar i.cold { background: var(--ok); }
+  .tierbar i.hot { background: var(--brand-action); animation-delay: 0.12s; }
+  @keyframes growx { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+  @media (prefers-reduced-motion: reduce) { .tierbar i { animation: none; } }
+  .blendline { margin: 14px 0 0; padding-top: 13px; border-top: 1px dashed var(--border); font-size: 12.5px; color: var(--foreground-muted); line-height: 1.55; }
+  .whatmeans { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.6; margin: 0 0 11px; }
+  .whatmeans b { color: var(--foreground); }
+  .blendline b { color: var(--foreground); }
+  .sliderrow { margin-bottom: 14px; }
+  .sliderrow label { display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 600; color: var(--foreground); margin-bottom: 9px; }
+  .sliderrow .gbval { color: var(--brand-action); font-weight: 800; font-variant-numeric: tabular-nums; }
+  .gbslider { width: 100%; accent-color: var(--brand-action); cursor: pointer; }
+  .calcrow { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; font-size: 12.5px; color: var(--foreground-muted); padding: 5px 0; }
+  .calcrow b { color: var(--foreground); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .calcrow.total { border-top: 1px solid var(--border); margin-top: 6px; padding-top: 11px; color: var(--foreground); }
+  .calcrow.total .amt { font-size: 23px; font-weight: 800; color: var(--brand-ink); font-variant-numeric: tabular-nums; }
+  .planpill { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; border-radius: 999px; padding: 5px 13px; margin-top: 11px; transition: color 0.2s, background 0.2s; }
+  .planpill .dot { width: 8px; height: 8px; border-radius: 999px; flex: 0 0 8px; }
+  .planpill.free { color: #047857; background: rgba(16,163,74,0.12); }
+  .planpill.free .dot { background: var(--ok); }
+  .planpill.plus { color: var(--brand-action); background: rgba(18,131,201,0.12); }
+  .planpill.plus .dot { background: var(--brand-action); }
+  .planpill.pro { color: var(--brand-purple); background: rgba(91,71,214,0.13); }
+  .planpill.pro .dot { background: var(--brand-purple); }
+  .calcrow.total .amt { transition: color 0.2s; }
+  .calcnote { font-size: 11.5px; color: var(--foreground-muted); margin-top: 10px; line-height: 1.55; }
+  /* usage-estimator wizard */
+  .wizq { margin-bottom: 13px; }
+  .wizlabel { font-size: 12.5px; font-weight: 600; color: var(--foreground); margin-bottom: 8px; }
+  .wizchips { display: flex; flex-wrap: wrap; gap: 7px; }
+  .wizchip { cursor: pointer; appearance: none; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 9px; padding: 7px 11px; font-size: 11.5px; font-weight: 600; }
+  .wizchip:hover { border-color: var(--foreground-muted); }
+  .wizchip.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .wizout { font-size: 12.5px; color: var(--foreground-muted); margin: 2px 0 12px; padding: 9px 12px; border-radius: 9px; background: var(--surface-sunken); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+  .wizout b { color: var(--brand-ink); font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .calcsub { font-size: 11px; font-weight: 700; letter-spacing: 0.03em; text-transform: uppercase; color: var(--foreground-muted); margin: 16px 0 9px; }
+  /* competitor "what you pay today" selector */
+  .toolrows { display: flex; flex-direction: column; gap: 8px; }
+  .toolrow { cursor: pointer; appearance: none; display: flex; align-items: center; gap: 11px; text-align: left; border: 1px solid var(--border); background: var(--surface-raised); border-radius: 10px; padding: 10px 13px; }
+  .toolrow:hover { border-color: var(--foreground-muted); }
+  .toolrow.on { border-color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 7%, var(--surface-raised)); }
+  .tcheck { flex: 0 0 18px; width: 18px; height: 18px; border-radius: 5px; border: 1.5px solid var(--border); display: inline-flex; align-items: center; justify-content: center; }
+  .toolrow.on .tcheck { background: var(--brand-action); border-color: var(--brand-action); }
+  .toolrow.on .tcheck::after { content: ""; width: 9px; height: 9px; background: #fff; clip-path: polygon(14% 47%, 0 61%, 40% 100%, 100% 22%, 86% 9%, 39% 71%); }
+  .tinfo { flex: 1; min-width: 0; }
+  .tinfo b { display: block; font-size: 13px; font-weight: 700; color: var(--foreground); }
+  .tinfo span { font-size: 11.5px; color: var(--foreground-muted); }
+  .tprice { font-size: 12px; font-weight: 700; color: var(--foreground); text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tprice.free { color: var(--ok); }
+  .alsorepl { font-size: 11.5px; color: var(--foreground-muted); margin-top: 11px; line-height: 1.5; }
+  .saveamt { font-size: 30px; font-weight: 800; color: var(--ok); letter-spacing: -0.01em; font-variant-numeric: tabular-nums; }
+
+  /* feature rows (metering, labs, guardrails) */
+  .frow { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; max-width: 880px; margin: 0 auto; }
+  @media (max-width: 720px) { .frow { grid-template-columns: 1fr; } }
+  .fbox { border: 1px solid var(--border); border-radius: 13px; background: var(--surface-raised); padding: 18px; }
+  .fbicon { width: 36px; height: 36px; border-radius: 9px; background: color-mix(in srgb, var(--brand-action) 11%, transparent); color: var(--brand-action); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 11px; }
+  .fbicon svg { width: 19px; height: 19px; display: block; }
+  .fbox h4 { font-size: 14px; font-weight: 800; margin: 0 0 6px; color: var(--foreground); }
+  .fbox p { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.6; margin: 0; }
+  .fbox p + p { margin-top: 8px; }
+  .single { max-width: 760px; margin: 0 auto; }
+
+  .quote { max-width: 720px; margin: 16px auto 0; text-align: center; font-size: 14px; font-weight: 700; color: var(--brand-purple); line-height: 1.5; }
+
+  .trust { text-align: center; background: var(--surface-raised); }
+  .trustline { font-size: 12.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 64ch; margin: 0 auto; }
+  .trustline b { color: var(--foreground); }
+  /* our own Built in Wisconsin badge (not the trademarked SSfW logo) */
+  .wibadge { display: inline-flex; align-items: center; gap: 12px; border: 1px solid var(--border); background: var(--surface); border-radius: 12px; padding: 10px 16px; margin: 0 auto 18px; text-align: left; }
+  .wishape { width: 34px; height: 34px; flex: 0 0 34px; }
+  .wishape .wistate { fill: url(#wiGrad); fill-opacity: 0.2; stroke: url(#wiGrad); stroke-width: 1.1; stroke-linejoin: round; }
+  .wishape .wistar { fill: #FFB81C; stroke: #1e7d3a; stroke-width: 0.5; stroke-linejoin: round; }
+  .witext b { display: block; font-size: 13px; font-weight: 800; color: var(--foreground); }
+  .witext span { font-size: 11.5px; color: var(--foreground-muted); }
+  /* "Madison" in Green Bay Packers green-and-gold (the gradient is the text) */
+  .madison { background-image: linear-gradient(100deg, #2E8B45, #FFB81C); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; color: transparent; }
+
+  /* comment harness pieces (verbatim from the entry-flow mockup) */
+  body.cmt-on .sec { cursor: crosshair; }
+  body.cmt-on .sec:hover { box-shadow: inset 0 0 0 2px var(--brand-sky); }
+  .pin { position: absolute; top: 10px; left: 10px; min-width: 19px; height: 19px; padding: 0 4px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; z-index: 6; cursor: pointer; box-shadow: 0 1px 3px rgba(0,0,0,0.3); }
+  .pin.hl { animation: pop 0.6s ease; }
+  @keyframes pop { 0%,100% { transform: scale(1); } 50% { transform: scale(1.5); } }
+
+  .panel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 13px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); z-index: 40; overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 8px; padding: 11px 13px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { color: var(--foreground-muted); font-size: 12px; }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelFoot { display: flex; gap: 8px; padding: 9px 11px; border-top: 1px solid var(--border); }
+  .empty { color: var(--foreground-muted); font-size: 12px; padding: 16px; text-align: center; }
+  .citem { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border-radius: 9px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: 0 0 20px; height: 20px; border-radius: 999px; background: var(--pin); color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; color: var(--foreground-muted); font-weight: 600; }
+  .citem .txt { font-size: 12.5px; color: var(--foreground); margin-top: 1px; }
+  .citem .x { margin-left: auto; appearance: none; border: none; background: none; color: var(--foreground-muted); font-size: 16px; cursor: pointer; line-height: 1; }
+  .vbadge { font-size: 9.5px; font-weight: 800; letter-spacing: 0.04em; }
+
+  .editor { position: fixed; width: 272px; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 14px 44px rgba(0,0,0,0.32); z-index: 60; padding: 11px; }
+  .editor .lbl { font-size: 11px; color: var(--foreground-muted); font-weight: 700; margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); font: inherit; font-size: 12.5px; padding: 8px; }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .acts { display: flex; gap: 6px; align-items: center; }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); background: var(--brand-ink); color: #fff; font-size: 12.5px; font-weight: 600; padding: 9px 16px; border-radius: 999px; opacity: 0; pointer-events: none; transition: all 0.25s; z-index: 70; }
+  html[data-theme="dark"] .toast { background: var(--surface-overlay); border: 1px solid var(--border); }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>ResearchOS pricing page, proposed</h1>
+      <p>The first full pricing page. Set a verdict per section, click any section to pin a note, Export and paste back.</p>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      We have never built a real pricing page, so this is it. Every word comes from <b>BILLING_FACTS.md</b> in the house voice, and it follows the rules we set, <b>no Plus or Pro dollar figures are printed</b> because those are still provisional, and nothing claims billing is live since it is off during the beta. The structure is locked, six plans under one picker, Free at 5 GB and zero dollars. Turn on Comment mode and click any section to leave a note, or set Approve and Disapprove per section above.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="page">
+
+      <!-- HERO -->
+      <section class="sec hero cmt" data-clabel="Hero, the core promise">
+        <div class="rbar"></div>
+        <div class="eyebrow">Pricing</div>
+        <div class="h1">The notebook is free. You pay only for optional cloud storage.</div>
+        <p class="hsub">ResearchOS runs on your own computer, so your everyday research never touches our servers. The local notebook is free and open source forever. Cloud storage is the one optional add on, priced to cover what it costs us. Larger institutions pay a little above that, and the surplus keeps ResearchOS free for individual researchers.</p>
+        <div class="hctas">
+          <button class="cta primary">Start free</button>
+          <button class="cta">See the plans</button>
+        </div>
+        <div><span class="betapill"><span class="betadot"></span>Billing is off during the beta, so every plan is free right now.</span></div>
+      </section>
+
+      <!-- TWO-PART MODEL -->
+      <section class="sec cmt" data-clabel="Two part model, free notebook vs paid cloud">
+        <div class="sectitle">Two parts, and only one of them ever costs money</div>
+        <p class="sectsub">Knowing which part is which is the whole pricing model. The reason cloud stays cheap is the local-first design, your daily work never leaves your disk.</p>
+        <div class="twocard">
+          <div class="mcard free">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7.5a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.4.6l1 1a2 2 0 0 0 1.4.6H19a2 2 0 0 1 2 2v6.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg></div>
+            <h3>Your local notebook</h3>
+            <p class="tagline">Free and open source forever</p>
+            <p>Your notes, methods, experiments and files live in a folder on your own disk, under the AGPLv3 license. No account, no internet, nothing to pay. This is the whole app, not a limited trial.</p>
+          </div>
+          <div class="mcard cloud">
+            <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18.5a4.5 4.5 0 0 1-.6-8.96 5.5 5.5 0 0 1 10.66-1.2A4 4 0 0 1 17.5 18.5z"/></svg></div>
+            <h3>Optional cloud storage</h3>
+            <p class="tagline">Low cost, only what it costs us</p>
+            <p>Only the documents you choose to share or co-edit in real time get a synced cloud copy. That copy is the one thing we charge for, and only to cover the storage. Local-first keeps those costs small, so the price stays small too.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- WHAT YOU PAY TODAY -->
+      <section class="sec cmt" data-clabel="What you pay today, the competitor stack">
+        <div class="sectitle">What you are paying for today</div>
+        <p class="sectsub">Tick the tools your lab already pays for. These are academic list prices from the vendors, and ResearchOS replaces all of them in one app. Benchling is shown free because its academic tier is, we are not padding the number.</p>
+        <div class="calcwrap">
+          <div class="calcgrid">
+            <div class="calcbox">
+              <h4>Your current stack</h4>
+              <div class="sliderrow">
+                <label>People in your lab <span class="gbval" id="cPeopleVal">8</span></label>
+                <input type="range" min="1" max="40" value="8" step="1" class="gbslider" id="cPeople" aria-label="People in your lab" />
+              </div>
+              <div class="toolrows" id="toolRows">
+                <button type="button" class="toolrow on" data-cost="330" data-mode="user">
+                  <span class="tcheck"></span><span class="tinfo"><b>LabArchives</b><span>Electronic lab notebook</span></span><span class="tprice">$330 / user / yr</span>
+                </button>
+                <button type="button" class="toolrow on" data-cost="1625" data-mode="lab">
+                  <span class="tcheck"></span><span class="tinfo"><b>SnapGene</b><span>Sequence editing and cloning</span></span><span class="tprice">$1,625 / yr, 5 seats</span>
+                </button>
+                <button type="button" class="toolrow" data-cost="1908" data-mode="lab">
+                  <span class="tcheck"></span><span class="tinfo"><b>Quartzy</b><span>Inventory and ordering</span></span><span class="tprice">from $159 / mo</span>
+                </button>
+                <button type="button" class="toolrow" data-cost="0" data-mode="lab">
+                  <span class="tcheck"></span><span class="tinfo"><b>Benchling</b><span>R and D notebook</span></span><span class="tprice free">free, academic</span>
+                </button>
+              </div>
+              <p class="alsorepl">ResearchOS also replaces GraphPad Prism, ChemDraw, and your file-sharing cloud. We will add those here once we have their academic prices cited.</p>
+            </div>
+            <div class="calcbox">
+              <h4>What it costs you</h4>
+              <div class="calcrow"><span>Your tools today</span><b id="stackTotal">$4,265 / yr</b></div>
+              <div class="calcrow"><span>ResearchOS, the notebook, sequences and inventory, on your disk</span><b style="color:var(--ok)">$0</b></div>
+              <div class="calcrow"><span>Optional cloud for sharing, if your lab shares heavily</span><b id="rosCloud">~$144 / yr</b></div>
+              <div class="calcrow total"><span>You save</span><span class="saveamt" id="saveYr">$4,121 / yr</span></div>
+              <div class="planpill plus" id="save5wrap"><span class="dot"></span><span id="save5">about $20,605 over 5 years</span></div>
+              <p class="calcnote">List prices, so a negotiated campus license runs lower per seat, but the gap stays large. The ResearchOS notebook is free and runs on your disk. The one thing you might pay for is optional cloud sharing, free up to the 5 GB pool, then a few dollars a month per person. We subtract a heavy-use estimate of that here rather than pretend ResearchOS is free.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- PLANS -->
+      <section class="sec cmt" data-clabel="The plan cards, Individuals, Labs, Departments, Institutions">
+        <div class="sectitle">One plan covers your storage and your editing, on one invoice</div>
+        <p class="sectsub">Pick a plan, not a pile of meters. Each plan bundles a storage allowance and an editing allowance into a single monthly price. Most people stay on Free.</p>
+        <div class="segwrap">
+          <div class="seg">
+            <button class="on" data-seg="ind" id="segInd">For individuals</button>
+            <button data-seg="lab" id="segLab">For labs</button>
+            <button data-seg="dept" id="segDept">For departments</button>
+            <button data-seg="inst" id="segInst">For institutions</button>
+          </div>
+        </div>
+
+        <!-- individuals -->
+        <div class="plans" id="plansInd">
+          <div class="plan feature">
+            <div class="pname">Free <span class="ribbon rec">Recommended</span></div>
+            <div class="price">$0<span class="per"> /mo</span></div>
+            <div class="pricenote">A real working tier, not a trial.</div>
+            <ul class="feats">
+              <li>5 GB of shared-document storage</li>
+              <li>A generous editing allowance</li>
+              <li>Everything in the app, no features held back</li>
+              <li>Your local notebook stays free either way</li>
+            </ul>
+            <div class="planfoot"><button class="cta primary">Start free</button></div>
+          </div>
+          <div class="plan">
+            <div class="pname">Plus <span class="ribbon soft">Coming at launch</span></div>
+            <div class="price">Low monthly price</div>
+            <div class="pricenote">Price set after the beta, see the note below.</div>
+            <ul class="feats">
+              <li>More storage for people who share a lot</li>
+              <li>A higher editing allowance</li>
+              <li>Everything in Free, with more room</li>
+            </ul>
+            <div class="planfoot"><button class="cta">Notify me at launch</button></div>
+          </div>
+          <div class="plan">
+            <div class="pname">Pro <span class="ribbon soft">Coming at launch</span></div>
+            <div class="price">Low monthly price</div>
+            <div class="pricenote">Price set after the beta, see the note below.</div>
+            <ul class="feats">
+              <li>The most storage for heavy collaborators</li>
+              <li>The highest editing allowance</li>
+              <li>Same cost-recovery pricing</li>
+            </ul>
+            <div class="planfoot"><button class="cta">Notify me at launch</button></div>
+          </div>
+        </div>
+
+        <!-- labs -->
+        <div class="plans" id="plansLab" style="display:none">
+          <div class="plan feature">
+            <div class="pname">Lab Free <span class="ribbon rec">Recommended</span></div>
+            <div class="price">$0<span class="per"> /mo</span></div>
+            <div class="pricenote">A shared pool for the whole lab.</div>
+            <ul class="feats">
+              <li>5 GB pooled across the whole lab</li>
+              <li>Real-time co-editing for the team</li>
+              <li>Only the PI sets it up, members never enter a card</li>
+            </ul>
+            <div class="planfoot"><button class="cta primary">Start your lab free</button></div>
+          </div>
+          <div class="plan">
+            <div class="pname">Lab Plus <span class="ribbon soft">Coming at launch</span></div>
+            <div class="price">Low monthly price</div>
+            <div class="pricenote">Price set after the beta, see the note below.</div>
+            <ul class="feats">
+              <li>A larger shared pool, pooled across everyone</li>
+              <li>A higher pooled editing allowance</li>
+              <li>One invoice, only the PI pays</li>
+            </ul>
+            <div class="planfoot"><button class="cta">Notify me at launch</button></div>
+          </div>
+          <div class="plan">
+            <div class="pname">Lab Pro <span class="ribbon soft">Coming at launch</span></div>
+            <div class="price">Low monthly price</div>
+            <div class="pricenote">Price set after the beta, see the note below.</div>
+            <ul class="feats">
+              <li>The largest shared pool for big or busy labs</li>
+              <li>The highest pooled editing allowance</li>
+              <li>Still one invoice, still cost-recovery</li>
+            </ul>
+            <div class="planfoot"><button class="cta">Notify me at launch</button></div>
+          </div>
+        </div>
+
+        <!-- departments -->
+        <div id="plansDept" style="display:none">
+          <p class="deptintro">A department is a container of labs, one plan above several lab pools. Build yours from your own numbers below. It bills as a single automatic invoice to your procurement office, and you can change the amount any month, no lock-in and no annual contract.</p>
+          <div class="calcwrap">
+            <div class="calcgrid">
+              <div class="calcbox">
+                <h4>Tell us about your department</h4>
+                <div class="sliderrow">
+                  <label>Labs, the PIs in the department <span class="gbval" id="dLabsVal">8</span></label>
+                  <input type="range" min="2" max="60" value="8" step="1" class="gbslider" id="dLabs" aria-label="Number of labs" />
+                </div>
+                <div class="sliderrow">
+                  <label>Average members per lab <span class="gbval" id="dMembersVal">6</span></label>
+                  <input type="range" min="2" max="30" value="6" step="1" class="gbslider" id="dMembers" aria-label="Average members per lab" />
+                </div>
+                <div class="sliderrow">
+                  <label>Estimated adoption <span class="gbval" id="dAdoptVal">60%</span></label>
+                  <input type="range" min="10" max="100" value="60" step="5" class="gbslider" id="dAdopt" aria-label="Estimated adoption" />
+                </div>
+                <div class="wizq" style="margin-bottom:0">
+                  <div class="wizlabel">What do labs mainly share? Pick any that apply.</div>
+                  <div class="wizchips" id="dSize">
+                    <button type="button" class="wizchip" data-pm="0.5">Notes and text</button>
+                    <button type="button" class="wizchip on" data-pm="3">Images, gels, microscopy</button>
+                    <button type="button" class="wizchip" data-pm="15">Large datasets</button>
+                  </div>
+                </div>
+              </div>
+              <div class="calcbox">
+                <h4>Your department plan</h4>
+                <div class="calcrow"><span>Active members covered</span><b id="dActive">29</b></div>
+                <div class="calcrow"><span>Estimated department storage</span><b id="dStorage">~86 GB</b></div>
+                <div class="calcrow"><span>Free across <span id="dLabsN">8</span> lab pools</span><b id="dFree">40 GB</b></div>
+                <div class="calcrow"><span>Billable storage at ~$0.05/GB</span><b id="dBill">46 GB</b></div>
+                <div class="calcrow"><span>Our bare cost to run it</span><b id="dCost">$2.98</b></div>
+                <div class="calcrow"><span>Sustaining contribution, keeps it free for individual researchers</span><b id="dSustain">$60</b></div>
+                <div class="calcrow total"><span>Your department rate</span><span><span class="amt" id="dRate">$63</span><span class="per"> /mo</span></span></div>
+                <div class="planpill pro" id="dCovers"><span class="dot"></span><span id="dCoversText">Covers about 5 active labs</span></div>
+                <div class="planfoot"><button class="cta primary">Email this plan to your department</button></div>
+                <p class="calcnote">Departments and institutions pay a small sustaining rate above our bare cost. That surplus keeps ResearchOS free for individual researchers and funds the open-source development, and it is still a fraction of what you pay per seat elsewhere. One automatic recurring invoice to your procurement office on net terms, change it any month, no lock-in. An estimate, not a final price, and free during the beta.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- institutions -->
+        <div id="plansInst" style="display:none">
+          <p class="deptintro">An institution is a container of departments, the same model one more level up. The estimate and the invoice stay automated. The only normally-manual part, the security review and the agreement, is a self-serve packet you hand to procurement. Standard terms, no sales call.</p>
+          <div class="calcwrap">
+            <div class="calcgrid">
+              <div class="calcbox">
+                <h4>Tell us about your institution</h4>
+                <div class="sliderrow">
+                  <label>Departments <span class="gbval" id="iDeptsVal">6</span></label>
+                  <input type="range" min="2" max="40" value="6" step="1" class="gbslider" id="iDepts" aria-label="Number of departments" />
+                </div>
+                <div class="sliderrow">
+                  <label>Average labs per department <span class="gbval" id="iLabsVal">8</span></label>
+                  <input type="range" min="2" max="30" value="8" step="1" class="gbslider" id="iLabs" aria-label="Average labs per department" />
+                </div>
+                <div class="sliderrow">
+                  <label>Estimated adoption <span class="gbval" id="iAdoptVal">50%</span></label>
+                  <input type="range" min="10" max="100" value="50" step="5" class="gbslider" id="iAdopt" aria-label="Estimated adoption" />
+                </div>
+                <div class="wizq" style="margin-bottom:0">
+                  <div class="wizlabel">What do labs mainly share? Pick any that apply.</div>
+                  <div class="wizchips" id="iSize">
+                    <button type="button" class="wizchip" data-pm="0.5">Notes and text</button>
+                    <button type="button" class="wizchip on" data-pm="3">Images, gels, microscopy</button>
+                    <button type="button" class="wizchip" data-pm="15">Large datasets</button>
+                  </div>
+                </div>
+              </div>
+              <div class="calcbox">
+                <h4>Your institution plan</h4>
+                <div class="calcrow"><span>Total labs across the institution</span><b id="iTotalLabs">48</b></div>
+                <div class="calcrow"><span>Active members covered</span><b id="iActive">144</b></div>
+                <div class="calcrow"><span>Estimated storage</span><b id="iStorage">~432 GB</b></div>
+                <div class="calcrow"><span>Free across all lab pools</span><b id="iFree">240 GB</b></div>
+                <div class="calcrow"><span>Billable storage at ~$0.05/GB</span><b id="iBill">192 GB</b></div>
+                <div class="calcrow"><span>Our bare cost to run it</span><b id="iCost">$11.34</b></div>
+                <div class="calcrow"><span>Sustaining contribution, keeps it free for individual researchers</span><b id="iSustain">$288</b></div>
+                <div class="calcrow total"><span>Your institution rate</span><span><span class="amt" id="iRate">$299</span><span class="per"> /mo</span></span></div>
+                <div class="planpill pro" id="iCovers"><span class="dot"></span><span id="iCoversText">Covers about 3 departments, 24 active labs</span></div>
+                <div class="planfoot"><button class="cta primary">Send the institution plan to procurement</button></div>
+                <p class="calcnote">Larger institutions pay a sustaining rate above our bare cost. That surplus keeps ResearchOS free for individual researchers and funds the open-source development, and it is still a small fraction of the per-seat licenses you pay elsewhere. One automatic recurring invoice on net terms, no one quotes it by hand. An estimate, not a final price, and free during the beta. Assumes about 6 members per lab.</p>
+              </div>
+            </div>
+          </div>
+          <div class="trustpacket">
+            <div class="calcsub" style="text-align:center">Your security review, self-serve</div>
+            <div class="tpitems">
+              <span class="tpitem"><span class="dot"></span>Security architecture, one page</span>
+              <span class="tpitem"><span class="dot"></span>Pre-filled HECVAT</span>
+              <span class="tpitem"><span class="dot"></span>Open-source code to audit</span>
+              <span class="tpitem"><span class="dot"></span>Standard agreement</span>
+            </div>
+            <p class="tpcallout">Why the review is easy. We are <b>local-first and end-to-end encrypted</b>, so we hold almost none of your institution's data, and what we relay we cannot read. The code is <b>open source</b>, so your IT office can audit it, and sign-in already works through <b>Microsoft Entra</b>. A tool that stores everyone's research in one place has a far longer review than one that stores almost nothing.</p>
+          </div>
+        </div>
+
+        <p class="plansnote">
+          <b>Why no final Plus and Pro prices yet.</b> We hold the exact figure until a few weeks of real usage show what storage actually costs, so we set it from data instead of guessing high. The math below shows how we will get there, and during the beta every plan is free. The plan structure itself is final, six plans, one picker, Free at 5 GB and zero dollars.
+        </p>
+      </section>
+
+      <!-- COST MATH CALCULATOR -->
+      <section class="sec cmt" data-clabel="How we would price it, the cost math">
+        <div class="sectitle">How we would price it, our actual costs</div>
+        <p class="sectsub">No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers. Everything is free during the beta.</p>
+        <div class="calcwrap">
+          <div class="calcgrid">
+            <div class="calcbox">
+              <h4>How we keep the cost tiny</h4>
+              <div class="tier">
+                <div class="tierlabel"><b>Cold storage, Cloudflare R2</b><span>$0.015 / GB / mo</span></div>
+                <div class="tierbar"><i class="cold" style="width:90%"></i></div>
+              </div>
+              <div class="tier">
+                <div class="tierlabel"><b>Active sync layer, hot</b><span>$0.35 / GB / mo</span></div>
+                <div class="tierbar"><i class="hot" style="width:10%"></i></div>
+              </div>
+              <p class="blendline">Almost all of your synced data rests in cheap cold storage, with only a thin active layer on the faster, pricier tier. That blend puts our all-in cost near <b>$0.05 per GB per month</b>, far below either tier on its own. Local-first is why, your everyday work never leaves your disk, so very little ever needs the hot layer.</p>
+            </div>
+            <div class="calcbox">
+              <h4>What this means for you</h4>
+              <p class="whatmeans">Most individual researchers never pay. The free 5 GB pool covers typical note and image sharing, so you stay on Free. Share a lot of large datasets and it is a few dollars a month, never charged per keystroke.</p>
+              <p class="whatmeans">Labs pool that free tier across the whole team. Departments and institutions use the builders above, where the same blended cost scales up, plus a small sustaining contribution that keeps all of this free for the individual researchers.</p>
+              <p class="calcnote">An estimate, not a final price, and free today during the beta. Tax is added on top only where the LLC is registered to collect it, which for most universities is nowhere.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- METERING -->
+      <section class="sec cmt single" data-clabel="Your editing is never metered">
+        <div class="sectitle">Your editing is never metered</div>
+        <p class="sectsub">We never charge per keystroke or per sync. Other tools nickel and dime every action, and we built the opposite on purpose.</p>
+        <div class="frow">
+          <div class="fbox">
+            <div class="fbicon" data-ico="pencil"></div>
+            <h4>Editing is included, not billed</h4>
+            <p>Collaboration and editing come with your plan. There is no second meter watching what you type, and no per-edit charge ever appears on your invoice.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="gauge"></div>
+            <h4>A throttle, never a surprise bill</h4>
+            <p>If a very heavy month runs past your editing allowance, real-time sync slows to periodic sync. Your work keeps saving. If a lab keeps hitting it, the PI raises the plan, nobody gets a shock charge.</p>
+          </div>
+        </div>
+        <p class="quote">Your editing is never metered.</p>
+      </section>
+
+      <!-- LABS -->
+      <section class="sec cmt" data-clabel="How labs work, shared pool">
+        <div class="sectitle">Built for a whole lab, billed to one person</div>
+        <p class="sectsub">A lab plan is a shared pool for the team, not a charge per head. The PI runs it and members just use it.</p>
+        <div class="frow">
+          <div class="fbox">
+            <div class="fbicon" data-ico="receipt"></div>
+            <h4>One shared pool, one invoice</h4>
+            <p>The free tier and any paid plan are a single pool for the whole lab. Only the PI pays, on one consolidated invoice. Members are never billed and never enter a card.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="mail"></div>
+            <h4>Invite by email, member accepts</h4>
+            <p>The PI invites a member by email, and the member accepts before the lab starts covering them. We do not store the email address permanently.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="chart"></div>
+            <h4>The PI can manage the pool</h4>
+            <p>Because the PI pays, they can see each member's storage and activity use, so they can manage the shared pool. Members are told this when they accept.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="folder"></div>
+            <h4>Local-first for everyone</h4>
+            <p>Every member still keeps their own data in their own folder. The lab plan funds the shared, synced copies, not the local work, which stays free.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- GUARDRAILS -->
+      <section class="sec cmt" data-clabel="Guardrails, circuit breaker and the sustaining model">
+        <div class="sectitle">We cannot run up a bill and hand it to you</div>
+        <p class="sectsub">Two guardrails make that a promise we can keep, not a slogan.</p>
+        <div class="frow">
+          <div class="fbox">
+            <div class="fbicon" data-ico="shield"></div>
+            <h4>A cost circuit breaker</h4>
+            <p>We set a hard monthly budget. If cloud spend ever approaches it, cloud writes pause and the local-first app keeps working with zero interruption. There is no runaway bill that we then pass to you.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="scale"></div>
+            <h4>Priced to sustain, not to profit</h4>
+            <p>Individuals and labs pay what storage costs us, no more. Larger institutions pay a modest sustaining rate above cost, and that surplus keeps ResearchOS free for individual researchers and funds the open-source development. We are not extracting profit, we are keeping a public good alive.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- SUPPORT -->
+      <section class="sec cmt" data-clabel="Supporting us, storage and Sponsors">
+        <div class="sectitle">Want to support the project?</div>
+        <p class="sectsub">There are two good ways, and one of them sends more of your money to the actual work.</p>
+        <div class="frow">
+          <div class="fbox">
+            <div class="fbicon" data-ico="database"></div>
+            <h4>Buy only the storage you use</h4>
+            <p>The most direct support is to buy the cloud storage you actually use, and no more. That keeps us sustainable without overpaying for space you do not need.</p>
+          </div>
+          <div class="fbox">
+            <div class="fbicon" data-ico="heart"></div>
+            <h4>Sponsor us on GitHub Sponsors</h4>
+            <p>A sponsorship is a direct contribution that funds development. It is also not subject to sales tax the way a product purchase can be, so more of your money reaches the actual dev work.</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- TRUST -->
+      <section class="sec trust cmt" data-clabel="Credibility and the beta note">
+        <div class="sectitle">A real, accountable business</div>
+        <div class="wibadge">
+          <svg class="wishape" viewBox="4 -1 59.4 66" aria-label="Wisconsin">
+            <defs><linearGradient id="wiGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#2E8B45"/><stop offset="1" stop-color="#FFB81C"/></linearGradient></defs>
+            <path class="wistate" d="M61.6 24.48l-0.88 1.36-1.2 0.48-0.24 1.68-1.040 1.28-0.080 1.040 0.72 0.96 1.52-1.84-0.080-0.56 1.36-1.84-0.56-0.56 0.56 0.16-0.080-1.44 0.64-0.16-0.16-0.56h-0.48zM62.56 22.8l-0.32 0.96h1.040l0.080-0.88zM25.28 4.080l1.44-0.8-0.16-0.48-2 1.6zM27.040 2l0.24-0.32-1.28 0.48 1.040 0.24v-0.4zM24.48 1.84l-0.64-0.4-0.8 0.4-1.44 1.12-0.96-0.4-1.92 1.44-3.68 1.12-1.68 0.16-1.28-1.28-1.2 1.52h-0.64l-0.16 8.16-0.72 0.64h-0.72l-2.88 1.6-1.76 2.88v1.84l1.28 0.080 0.8 2.080-1.12 1.76v2.32l-0.48 0.72 0.48 2.080-0.72 2.48 2.16 2 1.92 0.4 1.040 1.52 1.84 0.64 1.6 1.44 1.28 2.56 1.52 1.36 2.48 0.72 1.12 1.28 0.4 2.72v3.68l0.4 1.44 1.12 0.8-0.8 2.16 0.8 5.12 0.8 1.2 3.2 0.8 0.48 2h29.6l0.080-4.080-1.36-3.36-0.16-3.36 1.92-6.24-0.4-3.28 0.88-2.32 1.44-1.44-0.64-1.76 1.92-6.72-1.12-1.12-1.28 0.56-1.76 2.64-1.6 1.6-0.64 0.16-0.64-0.48 1.92-4.8 1.92-1.12 0.48-1.6-1.28-1.12 0.4-2.72-2 0.16 0.72-1.68-0.080-2.72-0.88-0.88-2.16-0.56 0.16-1.12-0.96-1.040-3.44-0.96-2.96-0.16-2.72-1.44-9.84-2.64-1.040-2.48-1.52-0.4-0.24-0.72-1.6-0.16-1.76-1.36-0.24 0.88-1.52 0.4 1.76-4zM25.6 2.16v-0.32l-0.48-0.32-0.24 0.32zM23.2 1.44l0.24-0.32-0.24-0.24-0.32 0.4zM28.32 0.88v-0.88l-0.64 1.12z"/>
+            <path class="wistar" d="M38.00 51.90 L38.91 54.65 L41.80 54.66 L39.47 56.38 L40.35 59.14 L38.00 57.45 L35.65 59.14 L36.53 56.38 L34.20 54.66 L37.09 54.65 Z"/>
+          </svg>
+          <div class="witext"><b>Built in <span class="madison">Madison</span></b><span>A registered Wisconsin LLC, independent and Midwest based, not a California cloud.</span></div>
+        </div>
+        <p class="trustline">
+          We are the merchant of record, with real banking and Stripe set up, so paid storage, when it turns on, is a real and accountable business, not a hobby donation link. Until then we are in beta, and everything, including sharing and real-time collaboration, is <b>free right now</b>.
+        </p>
+      </section>
+
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s) { return (s || "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+  /* multi-select chip helpers: toggle, always keep at least one on, and the
+     effective value is the AVERAGE of the selected chips (a mix of share types). */
+  function multiToggle(chips, el) { el.classList.toggle("on"); if (!chips.some(c => c.classList.contains("on"))) el.classList.add("on"); }
+  function avgData(chips, key) { const on = chips.filter(c => c.classList.contains("on")); const use = on.length ? on : [chips[0]]; return use.reduce((s, c) => s + (+c.dataset[key]), 0) / use.length; }
+
+  const STORE = "ros-pricing-page-comments-v1";
+  let comments = [];
+  try { comments = JSON.parse(localStorage.getItem(STORE) || "[]"); } catch { comments = []; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(comments)); } catch {} }
+
+  function renderPins() {
+    document.querySelectorAll(".pin").forEach(p => p.remove());
+    const byTarget = {};
+    comments.forEach((c, i) => { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    document.querySelectorAll(".cmt").forEach(el => {
+      const lbl = el.getAttribute("data-clabel"); const nums = byTarget[lbl]; if (!nums) return;
+      const pin = document.createElement("span"); pin.className = "pin"; pin.textContent = nums.join(",");
+      pin.addEventListener("click", ev => { ev.stopPropagation(); const first = comments.findIndex(c => c.target === lbl); if (first >= 0) openEditor(el, first, ev); });
+      el.appendChild(pin);
+    });
+  }
+  function flashPin(target) { document.querySelectorAll(".pin").forEach(p => { const el = p.closest(".cmt"); if (el && el.getAttribute("data-clabel") === target) { p.classList.add("hl"); setTimeout(() => p.classList.remove("hl"), 700); } }); }
+  function renderPanel() {
+    const body = document.getElementById("panelBody");
+    document.getElementById("cCount").textContent = comments.length;
+    if (!comments.length) { body.innerHTML = '<div class="empty">No notes yet. Turn on Comment mode and click any section.</div>'; return; }
+    const vtag = v => v === "approve" ? '<span class="vbadge" style="color:var(--ok)">APPROVE</span> ' : v === "disapprove" ? '<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ' : "";
+    body.innerHTML = comments.map((c, i) => `<div class="citem" data-i="${i}"><span class="num">${i + 1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text) || "<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b => b.addEventListener("click", e => { e.stopPropagation(); comments.splice(+b.dataset.del, 1); save(); renderAll(); }));
+    body.querySelectorAll(".citem").forEach(it => it.addEventListener("click", e => { if (e.target.closest("[data-del]")) return; const i = +it.dataset.i; const el = [...document.querySelectorAll(".cmt")].find(x => x.getAttribute("data-clabel") === comments[i].target); if (el) { el.scrollIntoView({ block: "center", behavior: "smooth" }); flashPin(comments[i].target); } }));
+  }
+  function renderAll() { renderPins(); renderPanel(); }
+
+  const CHANGES = [
+    { id: "hero", tag: "1", title: "Hero, the core promise", desc: "Headline leads with the notebook being free and you paying only for optional cloud storage, plus the beta-is-free pill. This is the lead-with-this from BILLING_FACTS." },
+    { id: "model", tag: "2", title: "Two part model", desc: "A free local notebook card and an optional paid cloud card, with the why cloud stays cheap (local-first means daily work never hits our servers)." },
+    { id: "plans", tag: "3", title: "Plan cards + dept/institution builders", desc: "Four-segment toggle. Individuals and Labs (Free highlighted, Plus/Pro low monthly), plus automated For-departments and For-institutions builders, drag the inputs and they derive a rate that bills as one automatic recurring invoice to procurement. Solidarity pricing, dept/inst pay a per-active-lab SUSTAINING contribution above bare cost (the old voluntary support slider is gone), and that surplus subsidizes the free individual and lab tiers. Institution adds a self-serve trust packet (HECVAT, security one-pager, open-source, standard agreement) leaning on local-first/E2E as the easy-review edge. FLAGGED assumptions, the $12 per-active-lab sustaining rate, per-member GB by type (0.5 / 3 / 15), per-lab free 5 GB, ~6 members/lab, 15% buffer." },
+    { id: "costmath", tag: "4", title: "Cost math transparency", desc: "The optimization diagram (cheap R2 cold storage plus a thin hot layer = blended ~$0.05/GB) and a plain-English 'what this means for you' panel (individuals stay free, labs pool it, dept/inst use the builders). The per-individual usage wizard was removed as redundant. Flagged assumption, the 90/10 split and 15% buffer." },
+    { id: "paysave", tag: "5", title: "What you pay today, competitor stack", desc: "Tick the tools your lab pays for (LabArchives $330/user/yr, SnapGene $1,625/5-seat, Quartzy from $159/mo, Benchling free) and a people slider tallies your current annual spend against ResearchOS at $0 core, plus the 5-year savings. Academic list prices from the deck competitor-stack slide. Prism and ChemDraw are noted as also-replaced but not priced yet, need cited figures." },
+    { id: "metering", tag: "6", title: "Editing is never metered", desc: "The trust-flip section, editing is included and a throttle replaces a surprise bill past the allowance." },
+    { id: "labs", tag: "7", title: "How labs work", desc: "Shared pool, only the PI pays on one invoice, invite by email and accept, PI can see member usage, local-first for everyone." },
+    { id: "guardrails", tag: "8", title: "Guardrails", desc: "Cost circuit breaker, and the priced-to-sustain-not-profit model (individuals and labs at cost, institutions a sustaining bit more that funds free access)." },
+    { id: "support", tag: "9", title: "Supporting us", desc: "Buy only the storage you use, and GitHub Sponsors, with the sales-tax why for Sponsors." },
+    { id: "trust", tag: "10", title: "Credibility, beta note, Wisconsin badge", desc: "Registered Wisconsin LLC, merchant of record, Stripe, the reminder that billing is off and everything is free during beta, plus our own Built in Madison Wisconsin badge (Midwest not California). Note, the official Something Special from Wisconsin logo is members-only, so this is our own mark until we join." },
+  ];
+  const VSTORE = "ros-pricing-page-verdicts-v1";
+  let verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch { verdicts = {}; }
+  function saveVerdicts() { try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+  function renderChanges() {
+    const wrap = document.getElementById("changes");
+    wrap.innerHTML = CHANGES.map(c => {
+      const v = verdicts[c.id] || ""; const cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v === "approve" ? "on" : ""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v === "disapprove" ? "on" : ""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v ? `<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>` : ""}</div></div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b => b.addEventListener("click", () => {
+      const id = b.dataset.c, v = b.dataset.v;
+      if (v === "clear") delete verdicts[id]; else verdicts[id] = verdicts[id] === v ? undefined : v;
+      if (!verdicts[id]) delete verdicts[id];
+      saveVerdicts(); renderChanges();
+    }));
+  }
+
+  let editorEl = null;
+  function closeEditor() { if (editorEl) { editorEl.remove(); editorEl = null; } }
+  function openEditor(targetEl, existingIndex, ev) {
+    closeEditor();
+    const target = targetEl.getAttribute("data-clabel") || "Page";
+    const existing = existingIndex != null ? comments[existingIndex] : null;
+    let pv = existing ? (existing.verdict || "") : "";
+    const ed = document.createElement("div"); ed.className = "editor";
+    ed.innerHTML = `<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing ? esc(existing.text) : ""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing ? '<button class="btn danger" data-act="del">Delete</button>' : ""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed); editorEl = ed;
+    const paint = () => ed.querySelectorAll("[data-vc]").forEach(b => b.classList.toggle("on", (b.dataset.vc === "note" && !pv) || b.dataset.vc === pv));
+    ed.querySelectorAll("[data-vc]").forEach(b => b.addEventListener("click", () => { pv = b.dataset.vc === "note" ? "" : b.dataset.vc; paint(); }));
+    paint();
+    const x = ev ? ev.clientX : targetEl.getBoundingClientRect().left;
+    const y = ev ? ev.clientY : targetEl.getBoundingClientRect().bottom;
+    ed.style.left = Math.min(Math.max(8, x - 20), window.innerWidth - 288) + "px";
+    ed.style.top = Math.min(y + 10, window.innerHeight - 210) + "px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b => b.addEventListener("click", () => {
+      const act = b.dataset.act;
+      if (act === "cancel") return closeEditor();
+      if (act === "del") { if (existingIndex != null) { comments.splice(existingIndex, 1); save(); renderAll(); } return closeEditor(); }
+      if (act === "save") { const text = ed.querySelector("textarea").value.trim(); if (!text && !pv) return closeEditor(); if (existing) { existing.text = text; existing.verdict = pv; } else comments.push({ target, text, verdict: pv }); save(); renderAll(); closeEditor(); }
+    }));
+    ed.addEventListener("keydown", e => { if (e.key === "Escape") closeEditor(); if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) ed.querySelector('[data-act="save"]').click(); });
+  }
+  document.addEventListener("click", e => {
+    if (!document.body.classList.contains("cmt-on")) return;
+    if (e.target.closest(".editor") || e.target.closest(".panel") || e.target.closest(".topbar") || e.target.closest(".pin") || e.target.closest(".changes")) return;
+    const cmt = e.target.closest(".cmt"); if (!cmt) return;
+    e.preventDefault(); openEditor(cmt, null, e);
+  });
+
+  /* plan toggle, individuals vs labs */
+  function setSeg(which) {
+    document.getElementById("segInd").classList.toggle("on", which === "ind");
+    document.getElementById("segLab").classList.toggle("on", which === "lab");
+    document.getElementById("segDept").classList.toggle("on", which === "dept");
+    document.getElementById("segInst").classList.toggle("on", which === "inst");
+    document.getElementById("plansInd").style.display = which === "ind" ? "grid" : "none";
+    document.getElementById("plansLab").style.display = which === "lab" ? "grid" : "none";
+    document.getElementById("plansDept").style.display = which === "dept" ? "block" : "none";
+    document.getElementById("plansInst").style.display = which === "inst" ? "block" : "none";
+  }
+  document.querySelectorAll("[data-seg]").forEach(b => b.addEventListener("click", () => {
+    if (document.body.classList.contains("cmt-on")) return;
+    setSeg(b.dataset.seg);
+  }));
+
+  const cBtn = document.getElementById("commentToggle");
+  cBtn.addEventListener("click", () => { const on = document.body.classList.toggle("cmt-on"); cBtn.classList.toggle("on", on); cBtn.textContent = "Comment mode: " + (on ? "on" : "off"); if (!on) closeEditor(); });
+  const tBtn = document.getElementById("themeToggle");
+  tBtn.addEventListener("click", () => { const dark = document.documentElement.getAttribute("data-theme") === "dark"; document.documentElement.setAttribute("data-theme", dark ? "light" : "dark"); tBtn.textContent = dark ? "Switch to dark" : "Switch to light"; });
+  document.getElementById("panelHead").addEventListener("click", () => { const p = document.getElementById("panel"); const col = p.classList.toggle("collapsed"); document.getElementById("chev").textContent = col ? "show" : "hide"; });
+
+  function buildMarkdown() {
+    let out = "ResearchOS pricing page, feedback\n\n";
+    out += "Verdicts on the ten sections\n";
+    CHANGES.forEach(c => { const v = verdicts[c.id]; out += `- ${c.title}: ${v === "approve" ? "APPROVE" : v === "disapprove" ? "DISAPPROVE" : "undecided"}\n`; });
+    out += "\nNotes\n";
+    if (!comments.length) out += "- none\n";
+    comments.forEach((c, i) => { const tag = c.verdict === "approve" ? "[APPROVE] " : c.verdict === "disapprove" ? "[DISAPPROVE] " : ""; out += `${i + 1}. ${tag}[${c.target}] ${c.text}\n`; });
+    return out;
+  }
+  function toast(msg) { const t = document.getElementById("toast"); t.textContent = msg; t.classList.add("show"); setTimeout(() => t.classList.remove("show"), 1500); }
+  async function doCopy() { const md = buildMarkdown(); try { await navigator.clipboard.writeText(md); toast("Feedback copied, paste it back to me"); } catch { window.prompt("Copy your feedback", md); } }
+  function doDownload() { const blob = new Blob([buildMarkdown()], { type: "text/markdown" }); const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "pricing-page-feedback.md"; a.click(); URL.revokeObjectURL(a.href); }
+  document.getElementById("exportBtn").addEventListener("click", doCopy);
+  document.getElementById("exportBtn2").addEventListener("click", doCopy);
+  document.getElementById("downloadBtn").addEventListener("click", doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click", doDownload);
+  document.getElementById("clearBtn").addEventListener("click", () => { if (comments.length && !confirm("Delete all notes?")) return; comments = []; save(); renderAll(); });
+
+  /* (the per-individual usage wizard was removed as redundant; the optimization
+     diagram stays as the cost-transparency proof, and the dept/institution
+     builders below carry the estimator pattern.) */
+
+  /* department plan builder. Same blended cost-recovery math, aggregated up one
+     level. FLAGGED assumptions for Grant, the per-active-member GB by share type
+     (0.5 / 3 / 15), the per-lab free 5 GB pool, the 15% buffer, and adoption as
+     a simple share of labs that turn on cloud sync. */
+  (function () {
+    const FREE_PER_LAB = 5, COLD = 0.015, HOT = 0.35, COLD_SHARE = 0.9, BUFFER = 0.15, STRIPE_PCT = 0.029, STRIPE_FIX = 0.30;
+    const BLEND = COLD_SHARE * COLD + (1 - COLD_SHARE) * HOT;
+    // SUSTAIN_PER_LAB is the per-active-lab sustaining contribution above bare
+    // cost. FLAGGED, tunable, the larger tiers subsidize the free individual and
+    // lab tiers. Still a tiny fraction of competitor per-seat pricing.
+    const SUSTAIN_PER_LAB = 12;
+    const labs = document.getElementById("dLabs");
+    if (!labs) return;
+    const members = document.getElementById("dMembers");
+    const adopt = document.getElementById("dAdopt");
+    const sizeChips = [...document.querySelectorAll("#dSize .wizchip")];
+    const usd = n => "$" + n.toFixed(2);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    function recalc() {
+      const perMemberGB = avgData(sizeChips, "pm");
+      const L = +labs.value, M = +members.value, A = +adopt.value / 100;
+      const active = L * M * A;
+      const activeLabs = L * A;
+      const storage = active * perMemberGB;
+      const free = L * FREE_PER_LAB;
+      const bill = Math.max(0, storage - free);
+      const raw = bill * BLEND, buf = raw * BUFFER, pre = raw + buf;
+      const rec = bill <= 0 ? 0 : (pre + STRIPE_FIX) / (1 - STRIPE_PCT);
+      const sustain = Math.round(activeLabs) * SUSTAIN_PER_LAB;
+      const rate = rec + sustain;
+      set("dLabsVal", L); set("dMembersVal", M); set("dAdoptVal", adopt.value + "%");
+      set("dActive", Math.round(active));
+      set("dStorage", "~" + Math.round(storage) + " GB");
+      set("dLabsN", L); set("dFree", free + " GB");
+      set("dBill", Math.round(bill) + " GB");
+      set("dCost", usd(rec));
+      set("dSustain", usd(sustain));
+      set("dRate", usd(rate));
+      set("dCoversText", "Covers about " + Math.max(1, Math.round(activeLabs)) + " active labs");
+    }
+    [labs, members, adopt].forEach(s => s.addEventListener("input", recalc));
+    sizeChips.forEach(c => c.addEventListener("click", () => {
+      if (document.body.classList.contains("cmt-on")) return;
+      multiToggle(sizeChips, c); recalc();
+    }));
+    recalc();
+  })();
+
+  /* institution plan builder, the department model one level up. Same FLAGGED
+     assumptions plus a fixed ~6 members per lab. */
+  (function () {
+    const FREE_PER_LAB = 5, COLD = 0.015, HOT = 0.35, COLD_SHARE = 0.9, BUFFER = 0.15, STRIPE_PCT = 0.029, STRIPE_FIX = 0.30, AVG_MEMBERS = 6;
+    const SUSTAIN_PER_LAB = 12; // FLAGGED, same per-active-lab sustaining rate as the department builder
+    const BLEND = COLD_SHARE * COLD + (1 - COLD_SHARE) * HOT;
+    const depts = document.getElementById("iDepts");
+    if (!depts) return;
+    const labsPer = document.getElementById("iLabs");
+    const adopt = document.getElementById("iAdopt");
+    const sizeChips = [...document.querySelectorAll("#iSize .wizchip")];
+    const usd = n => "$" + n.toFixed(2);
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    function recalc() {
+      const perMemberGB = avgData(sizeChips, "pm");
+      const D = +depts.value, LpD = +labsPer.value, A = +adopt.value / 100;
+      const totalLabs = D * LpD;
+      const activeLabs = totalLabs * A;
+      const activeMembers = activeLabs * AVG_MEMBERS;
+      const storage = activeMembers * perMemberGB;
+      const free = totalLabs * FREE_PER_LAB;
+      const bill = Math.max(0, storage - free);
+      const raw = bill * BLEND, buf = raw * BUFFER, pre = raw + buf;
+      const rec = bill <= 0 ? 0 : (pre + STRIPE_FIX) / (1 - STRIPE_PCT);
+      const sustain = Math.round(activeLabs) * SUSTAIN_PER_LAB;
+      const rate = rec + sustain;
+      set("iDeptsVal", D); set("iLabsVal", LpD); set("iAdoptVal", adopt.value + "%");
+      set("iTotalLabs", totalLabs);
+      set("iActive", Math.round(activeMembers));
+      set("iStorage", "~" + Math.round(storage) + " GB");
+      set("iFree", free + " GB");
+      set("iBill", Math.round(bill) + " GB");
+      set("iCost", usd(rec));
+      set("iSustain", usd(sustain));
+      set("iRate", usd(rate));
+      set("iCoversText", "Covers about " + Math.max(1, Math.round(D * A)) + " departments, " + Math.max(1, Math.round(activeLabs)) + " active labs");
+    }
+    [depts, labsPer, adopt].forEach(s => s.addEventListener("input", recalc));
+    sizeChips.forEach(c => c.addEventListener("click", () => {
+      if (document.body.classList.contains("cmt-on")) return;
+      multiToggle(sizeChips, c); recalc();
+    }));
+    recalc();
+  })();
+
+  /* competitor "what you pay today" tally. Prices are academic list prices from
+     the deck competitor-stack slide (LabArchives $330/user/yr, SnapGene 5-seat
+     tier $1,625, Quartzy from $159/mo, Benchling free). */
+  (function () {
+    const people = document.getElementById("cPeople");
+    if (!people) return;
+    const rows = [...document.querySelectorAll("#toolRows .toolrow")];
+    // FLAGGED, a conservative heavy-share optional-cloud estimate per person per
+    // year, so the savings subtracts ResearchOS's real possible cost instead of
+    // claiming zero. Tunable.
+    const CLOUD_PER_PERSON_YR = 18;
+    const usd0 = n => "$" + Math.round(n).toLocaleString("en-US");
+    const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    function recalc() {
+      const ppl = +people.value;
+      let total = 0;
+      rows.forEach(r => {
+        if (!r.classList.contains("on")) return;
+        const cost = +r.dataset.cost;
+        total += r.dataset.mode === "user" ? cost * ppl : cost;
+      });
+      const rosCloud = ppl * CLOUD_PER_PERSON_YR;
+      const save = Math.max(0, total - rosCloud);
+      set("cPeopleVal", ppl);
+      set("stackTotal", usd0(total) + " / yr");
+      set("rosCloud", "~" + usd0(rosCloud) + " / yr");
+      set("saveYr", usd0(save) + " / yr");
+      set("save5", "about " + usd0(save * 5) + " over 5 years");
+    }
+    people.addEventListener("input", recalc);
+    rows.forEach(r => r.addEventListener("click", () => {
+      if (document.body.classList.contains("cmt-on")) return;
+      r.classList.toggle("on"); recalc();
+    }));
+    recalc();
+  })();
+
+  /* simple branded line icons for the feature cards, to break up the text */
+  const FBICONS = {
+    pencil: '<path d="M15.5 4.5l4 4L9 19l-5 1 1-5z"/><path d="M13.5 6.5l4 4"/>',
+    gauge: '<path d="M4.5 18a7.5 7.5 0 1 1 15 0"/><path d="M12 18l3.5-4"/>',
+    receipt: '<path d="M6 3h12v17l-2-1.4-2 1.4-2-1.4-2 1.4-2-1.4V3z"/><path d="M9 8h6"/><path d="M9 12h6"/>',
+    mail: '<rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3.5 7l8.5 6 8.5-6"/>',
+    chart: '<path d="M3 21h18"/><rect x="5" y="11" width="3.2" height="7" rx="0.6"/><rect x="10.4" y="7" width="3.2" height="11" rx="0.6"/><rect x="15.8" y="14" width="3.2" height="4" rx="0.6"/>',
+    folder: '<path d="M3 7.5a2 2 0 0 1 2-2h3.6a2 2 0 0 1 1.4.6l1 1a2 2 0 0 0 1.4.6H19a2 2 0 0 1 2 2v6.8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    shield: '<path d="M12 3l7 3v5c0 4.5-3 7.6-7 9-4-1.4-7-4.5-7-9V6z"/>',
+    scale: '<path d="M12 4v16"/><path d="M6 20h12"/><path d="M5 8h14"/><path d="M5 8l-2.5 5.5a3 3 0 0 0 5 0z"/><path d="M19 8l-2.5 5.5a3 3 0 0 0 5 0z"/>',
+    database: '<ellipse cx="12" cy="6" rx="7" ry="3"/><path d="M5 6v12c0 1.7 3.1 3 7 3s7-1.3 7-3V6"/><path d="M5 12c0 1.6 3.1 3 7 3s7-1.4 7-3"/>',
+    heart: '<path d="M12 20s-6.5-4.3-6.5-9A3.5 3.5 0 0 1 12 8a3.5 3.5 0 0 1 6.5 3C18.5 15.7 12 20 12 20z"/>',
+  };
+  document.querySelectorAll(".fbicon[data-ico]").forEach(el => {
+    const p = FBICONS[el.dataset.ico];
+    if (p) el.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' + p + '</svg>';
+  });
+
+  renderChanges();
+  renderAll();
+</script>
+</body>
+</html>

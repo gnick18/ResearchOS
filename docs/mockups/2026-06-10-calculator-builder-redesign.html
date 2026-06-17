@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Calculator builder, two redesign directions</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9; --foreground: #171717; --foreground-muted: #6b7280;
+    --border: #e5e7eb; --brand-sky: #1AA0E6; --brand-action: #1283C9;
+    --brand-purple: #5B47D6; --coral: #FF6F61; --amber: #F59E0B;
+    --green: #1a9f5a; --red: #d9483b;
+  }
+  html.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --surface-sunken: #0d1424; --foreground: #f1f5f9; --foreground-muted: #b4bfd0;
+    --border: rgba(255,255,255,0.16); --green: #34d27e; --red: #f0857a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--surface); color: var(--foreground); -webkit-font-smoothing: antialiased; }
+  .topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px;
+    flex-wrap: wrap; padding: 11px 18px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  .topbar h1 { font-size: 15px; font-weight: 800; margin: 0; }
+  .topbar .sub { font-size: 12px; color: var(--foreground-muted); margin-right: auto; }
+  .ctrl { font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface-overlay); color: var(--foreground); cursor: pointer; transition: all .12s; }
+  .ctrl:hover { border-color: var(--brand-action); }
+  .ctrl.on { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .seg button { border: none; border-radius: 0; }
+  .seg button + button { border-left: 1px solid var(--border); }
+
+  .layout { display: grid; grid-template-columns: minmax(0,1fr) 372px; }
+  .stage { padding: 24px 22px 90px; min-height: 84vh; }
+  @media (max-width: 1120px){ .layout { grid-template-columns: 1fr; } .panel { display: none; } }
+  .stagewrap { position: relative; }
+
+  .card { max-width: 880px; margin: 0 auto; background: var(--surface-overlay); border: 1px solid var(--border);
+    border-radius: 16px; box-shadow: 0 18px 50px rgba(0,0,0,.14); overflow: hidden; }
+  .card-head { display: flex; align-items: center; gap: 10px; padding: 16px 22px; border-bottom: 1px solid var(--border); }
+  .card-head h2 { font-size: 19px; font-weight: 800; margin: 0; }
+  .card-head .right { margin-left: auto; display: flex; gap: 8px; }
+  .body { padding: 20px 22px; }
+
+  .lbl { display: block; font-size: 11px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--foreground-muted); margin-bottom: 5px; }
+  .hint { font-size: 12px; color: var(--foreground-muted); margin: 2px 0 10px; line-height: 1.45; }
+  .inp { width: 100%; padding: 9px 11px; font-size: 13.5px; background: var(--surface-sunken);
+    border: 1px solid var(--border); border-radius: 9px; color: var(--foreground); font-family: inherit; }
+  .inp::placeholder { color: var(--foreground-muted); opacity: .8; }
+  .inp:focus { outline: none; border-color: var(--brand-action); }
+  .mono { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12.5px; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .sec { margin-top: 18px; }
+  .sec-h { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--foreground-muted); }
+  .addbtn { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; font-size: 13px; font-weight: 700;
+    color: var(--brand-action); background: none; border: none; cursor: pointer; }
+  .addbtn .p { font-size: 16px; }
+
+  .btn-brand { background: linear-gradient(135deg, var(--brand-action), var(--brand-purple)); color: #fff;
+    border: none; font-weight: 700; padding: 9px 16px; border-radius: 10px; cursor: pointer; font-size: 13.5px;
+    display: inline-flex; align-items: center; gap: 7px; }
+
+  /* today / blank */
+  .blank-note { text-align: center; font-size: 12.5px; color: var(--coral); font-weight: 600; padding: 10px 18px 0; }
+  .footnote { font-size: 11.5px; color: var(--foreground-muted); padding: 10px 22px 16px; }
+
+  /* example row */
+  .inrow { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 9px; align-items: center; margin-bottom: 8px; }
+  .inrow .pill { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em;
+    color: var(--brand-purple); white-space: nowrap; }
+  .keyname { font-size: 11px; color: var(--foreground-muted); }
+  .keyname b { color: var(--brand-action); font-family: ui-monospace, Menlo, monospace; font-weight: 700; }
+  .delx { border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+
+  /* chips */
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+  .chip { font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 999px; cursor: pointer;
+    border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); }
+  .chip:hover { border-color: var(--brand-action); color: var(--brand-action); }
+  .chip.fn { color: var(--brand-purple); }
+  .chips .chl { font-size: 11px; color: var(--foreground-muted); align-self: center; margin-right: 2px; }
+
+  .result { margin-top: 10px; border: 1px solid var(--border); border-radius: 11px; overflow: hidden; }
+  .result .r { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 11px 14px; }
+  .result .lab { font-size: 12.5px; color: var(--foreground-muted); }
+  .result .val { font-size: 20px; font-weight: 800; color: var(--brand-action); font-variant-numeric: tabular-nums; }
+
+  /* advanced disclosure */
+  .adv { margin-top: 18px; border-top: 1px dashed var(--border); padding-top: 12px; }
+  .adv-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 13px; font-weight: 700; color: var(--foreground); }
+  .adv-toggle .chev { transition: transform .15s; color: var(--foreground-muted); }
+  .adv.open .chev { transform: rotate(90deg); }
+  .adv-body { display: none; padding-top: 12px; }
+  .adv.open .adv-body { display: block; }
+  .adv .why { font-size: 12px; color: var(--foreground-muted); margin: 4px 0 0; }
+
+  .start-banner { display: flex; align-items: center; gap: 10px; background: rgba(18,131,201,.08);
+    border: 1px solid rgba(18,131,201,.25); border-radius: 11px; padding: 10px 13px; font-size: 12.5px; margin-bottom: 16px; }
+  html.dark .start-banner { background: rgba(26,160,230,.12); }
+  .start-banner b { font-weight: 800; }
+  .start-banner .alt { margin-left: auto; font-size: 12px; font-weight: 700; color: var(--brand-action); cursor: pointer; }
+
+  /* wizard */
+  .wiz-dots { display: flex; gap: 7px; padding: 16px 22px 0; }
+  .wiz-dots .d { height: 6px; flex: 1; border-radius: 999px; background: var(--surface-sunken); }
+  .wiz-dots .d.done { background: var(--brand-action); }
+  .wiz-dots .d.cur { background: var(--brand-purple); }
+  .wiz-step { font-size: 11.5px; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+    color: var(--foreground-muted); margin: 4px 0 2px; }
+  .wiz-q { font-size: 22px; font-weight: 800; margin: 0 0 4px; letter-spacing: -0.01em; }
+  .wiz-sub { font-size: 13px; color: var(--foreground-muted); margin: 0 0 16px; line-height: 1.5; }
+  .wiz-nav { display: flex; gap: 10px; margin-top: 22px; }
+  .wiz-list { margin: 0 0 6px; }
+  .wiz-li { display: flex; align-items: center; gap: 9px; padding: 9px 11px; background: var(--surface-sunken);
+    border: 1px solid var(--border); border-radius: 9px; margin-bottom: 7px; font-size: 13px; }
+  .wiz-li b { font-family: ui-monospace, Menlo, monospace; color: var(--brand-action); }
+  .wiz-li .t { color: var(--foreground-muted); margin-left: auto; font-size: 12px; }
+  .review { border: 1px solid var(--border); border-radius: 11px; padding: 14px; background: var(--surface-sunken); font-size: 13px; }
+  .review .rl { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--border); }
+  .review .rl:last-child { border: none; }
+  .review .rl span:first-child { color: var(--foreground-muted); }
+  .review .rl .mono { color: var(--foreground); }
+
+  /* right panel */
+  .panel { border-left: 1px solid var(--border); background: var(--surface-raised); height: calc(100vh - 47px);
+    position: sticky; top: 47px; overflow-y: auto; }
+  .panel-tabs { display: flex; padding: 10px 12px 0; gap: 6px; position: sticky; top: 0; background: var(--surface-raised); z-index: 2; }
+  .panel-tabs button { flex: 1; font-size: 12px; font-weight: 700; padding: 7px; border: 1px solid var(--border);
+    border-bottom: none; border-radius: 9px 9px 0 0; background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .panel-tabs button.on { background: var(--surface-raised); color: var(--foreground); }
+  .panel-body { padding: 13px; }
+
+  .dirbox { border: 1px solid var(--border); border-radius: 11px; padding: 12px; margin-bottom: 14px; background: var(--surface-overlay); }
+  .dirbox h3 { font-size: 13px; font-weight: 800; margin: 0 0 4px; }
+  .dirbox p { font-size: 11.5px; color: var(--foreground-muted); margin: 0 0 10px; line-height: 1.45; }
+  .dirbtns { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; }
+  .dirbtns button { font-size: 11px; font-weight: 800; padding: 7px 4px; border-radius: 8px; border: 1px solid var(--border);
+    background: var(--surface-sunken); color: var(--foreground); cursor: pointer; }
+  .dirbtns button.sel { background: var(--brand-purple); color: #fff; border-color: var(--brand-purple); }
+
+  .change { border: 1px solid var(--border); border-left: 3px solid var(--border); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 10px; background: var(--surface-overlay); }
+  .change.agree { border-left-color: var(--green); }
+  .change.disagree { border-left-color: var(--red); }
+  .change.discuss { border-left-color: var(--amber); }
+  .change h4 { font-size: 12.5px; font-weight: 800; margin: 0 0 4px; }
+  .change p { font-size: 11.5px; color: var(--foreground-muted); margin: 0 0 8px; line-height: 1.45; }
+  .verds { display: flex; gap: 5px; margin-bottom: 6px; }
+  .verds button { flex: 1; font-size: 10.5px; font-weight: 700; padding: 5px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .verds button.aon { background: var(--green); color: #fff; border-color: var(--green); }
+  .verds button.don { background: var(--red); color: #fff; border-color: var(--red); }
+  .verds button.qon { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .change textarea { width: 100%; font-family: inherit; font-size: 11.5px; padding: 6px 8px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); resize: vertical; min-height: 30px; }
+
+  .pin { position: absolute; width: 22px; height: 22px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg);
+    background: var(--brand-purple); color: #fff; font-size: 11px; font-weight: 800; display: flex; align-items: center;
+    justify-content: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,.3); z-index: 30; }
+  .pin span { transform: rotate(45deg); }
+  body.commenting [data-pin] { cursor: crosshair; }
+  body.commenting [data-pin]:hover { outline: 2px dashed var(--brand-purple); outline-offset: -2px; }
+  .commentcard { border: 1px solid var(--border); border-radius: 9px; padding: 9px 10px; margin-bottom: 9px; background: var(--surface-overlay); }
+  .commentcard .cn { font-size: 10.5px; font-weight: 800; color: var(--brand-purple); }
+  .commentcard .ct { font-size: 11px; color: var(--foreground-muted); }
+  .commentcard textarea { width: 100%; font-size: 11.5px; font-family: inherit; margin-top: 5px; border: 1px solid var(--border);
+    border-radius: 6px; background: var(--surface-sunken); color: var(--foreground); padding: 5px; min-height: 28px; }
+  .commentcard .del2 { float: right; color: var(--foreground-muted); cursor: pointer; }
+  .hide { display: none !important; }
+  .export-summary { white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+    background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 340px; overflow-y: auto; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Calculator builder, two directions</h1>
+  <span class="sub">You said the blank builder is confusing. Compare the two fixes, mark the direction + each improvement, hit Export.</span>
+  <div class="seg">
+    <button class="ctrl" id="vToday" onclick="setView('today')">Today</button>
+    <button class="ctrl on" id="vA" onclick="setView('a')">A. Simplified form</button>
+    <button class="ctrl" id="vB" onclick="setView('b')">B. Wizard</button>
+  </div>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="ctrl" id="commentBtn" onclick="toggleComment()">Comment mode</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+</div>
+
+<div class="layout">
+  <div class="stage">
+    <div class="stagewrap" id="stagewrap">
+
+      <!-- ============ TODAY (the confusing one) ============ -->
+      <div id="view-today" class="hide">
+        <div class="card">
+          <div class="card-head">
+            <h2>Build your own</h2>
+            <div class="right"><button class="ctrl">Cancel</button><button class="btn-brand">Save</button></div>
+          </div>
+          <div class="body">
+            <div class="grid2">
+              <div><span class="lbl">Name</span><input class="inp" placeholder="e.g. CFU per mL"></div>
+              <div><span class="lbl">Field (optional)</span><input class="inp" placeholder="e.g. Microbiology"></div>
+            </div>
+            <div class="sec"><span class="lbl">Description (optional)</span><input class="inp" placeholder="One line on what this computes and why."></div>
+            <div class="sec"><div class="sec-h">Inputs</div><button class="addbtn"><span class="p">+</span> Add input</button></div>
+            <div class="sec"><div class="sec-h">Steps (intermediate values)</div><button class="addbtn"><span class="p">+</span> Add step</button></div>
+            <div class="sec"><div class="sec-h">Guidance (conditionals)</div><button class="addbtn"><span class="p">+</span> Add guidance</button></div>
+            <div class="sec"><div class="sec-h">Outputs</div><button class="addbtn"><span class="p">+</span> Add output</button></div>
+          </div>
+          <div class="blank-note">Four empty jargon-labeled sections, no example, no idea where to start. This is the problem.</div>
+          <div class="footnote">Built-in calculators are not saved. Calculators you build are saved to your folder.</div>
+        </div>
+      </div>
+
+      <!-- ============ OPTION A: simplified form ============ -->
+      <div id="view-a">
+        <div class="card">
+          <div class="card-head">
+            <h2>Build a calculator</h2>
+            <div class="right">
+              <button class="ctrl" data-pin="A: Start from a template (front door)">Start from a template</button>
+              <button class="btn-brand">Save</button>
+            </div>
+          </div>
+          <div class="body">
+            <div class="start-banner" data-pin="A: never opens blank">
+              <span>Opened from the <b>CFU per mL</b> template. Edit any part and save it as your own.</span>
+              <span class="alt">Pick a different template</span>
+            </div>
+
+            <div class="grid2">
+              <div><span class="lbl">Name</span><input class="inp" value="CFU per mL"></div>
+              <div><span class="lbl">Field (optional)</span><input class="inp" value="Microbiology"></div>
+            </div>
+
+            <div class="sec" data-pin="A: friendly inputs with auto short-names">
+              <span class="lbl">Inputs &nbsp;<span style="text-transform:none;font-weight:600;color:var(--foreground-muted)">the boxes you type measurements into</span></span>
+              <div class="inrow">
+                <input class="inp" value="Colonies counted">
+                <span class="keyname">used in formulas as <b>colonies</b></span>
+                <button class="delx">&times;</button>
+              </div>
+              <div class="inrow">
+                <input class="inp" value="Dilution plated (fraction)">
+                <span class="keyname">used as <b>dilution</b></span>
+                <button class="delx">&times;</button>
+              </div>
+              <div class="inrow">
+                <input class="inp" value="Volume plated (mL)">
+                <span class="keyname">used as <b>platedVol</b></span>
+                <button class="delx">&times;</button>
+              </div>
+              <button class="addbtn"><span class="p">+</span> Add input</button>
+            </div>
+
+            <div class="sec" data-pin="A: formula with clickable variable + helper chips, live result">
+              <span class="lbl">Result &nbsp;<span style="text-transform:none;font-weight:600;color:var(--foreground-muted)">the answer, as a formula using the names above</span></span>
+              <div class="chips">
+                <span class="chl">Click to insert:</span>
+                <span class="chip" onclick="insertChip('colonies')">colonies</span>
+                <span class="chip" onclick="insertChip('dilution')">dilution</span>
+                <span class="chip" onclick="insertChip('platedVol')">platedVol</span>
+                <span class="chip fn" onclick="insertChip('mean(')">mean( )</span>
+                <span class="chip fn" onclick="insertChip('sum(')">sum( )</span>
+              </div>
+              <input class="inp mono" id="aFormula" value="colonies / (dilution * platedVol)" oninput="recalcA()">
+              <div class="result"><div class="r"><span class="lab">CFU per mL (colonies 150, dilution 1e-5, volume 0.1)</span><span class="val" id="aResult">-</span></div></div>
+            </div>
+
+            <div class="adv" id="advA" data-pin="A: Steps + Guidance hidden under Advanced">
+              <div class="adv-toggle" onclick="document.getElementById('advA').classList.toggle('open')">
+                <span class="chev">&#9656;</span> Advanced logic (optional)
+              </div>
+              <p class="why">Most calculators do not need this. Open it only if you want a named intermediate value (a Step) or a warning message (Guidance), like a "count is too low" note.</p>
+              <div class="adv-body">
+                <div class="sec"><div class="sec-h">Steps (intermediate values)</div><button class="addbtn"><span class="p">+</span> Add step</button></div>
+                <div class="sec"><div class="sec-h">Guidance (warnings)</div><button class="addbtn"><span class="p">+</span> Add guidance</button></div>
+              </div>
+            </div>
+
+            <div class="sec" data-pin="A: sharing stays simple"><span class="lbl">Sharing</span>
+              <div class="seg"><button class="ctrl on">Just me</button><button class="ctrl">My lab</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ OPTION B: wizard ============ -->
+      <div id="view-b" class="hide">
+        <div class="card">
+          <div class="wiz-dots" id="wizDots"></div>
+          <div class="body" id="wizBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- right panel -->
+  <div class="panel">
+    <div class="panel-tabs">
+      <button class="on" id="ptDecide" onclick="setPanel('decide')">Decisions</button>
+      <button id="ptComments" onclick="setPanel('comments')">Comments</button>
+    </div>
+    <div class="panel-body">
+      <div id="panelDecide">
+        <div class="dirbox">
+          <h3>Which direction?</h3>
+          <p>Pick the one that would feel least confusing to you. The improvements below apply to whichever you choose.</p>
+          <div class="dirbtns">
+            <button id="dir-a" onclick="setDir('a')">A. Form</button>
+            <button id="dir-b" onclick="setDir('b')">B. Wizard</button>
+            <button id="dir-hybrid" onclick="setDir('hybrid')">Hybrid</button>
+          </div>
+        </div>
+        <div id="changeList"></div>
+      </div>
+      <div id="panelComments" class="hide"></div>
+    </div>
+  </div>
+</div>
+
+<div id="exportOverlay" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;max-width:620px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decisions and comments</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="ctrl" onclick="downloadExport()">Download .md</button>
+      <button class="ctrl" onclick="closeExport()">Close</button>
+    </div>
+    <div class="export-summary" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+const CHANGES = [
+  { id:"c1", title:"Never open blank", body:"The builder always starts from the closest template or a small worked example you edit, instead of four empty sections. This is the single biggest fix for being lost." },
+  { id:"c2", title:"Simple by default", body:"A basic calculator is just Inputs plus a Result formula. Steps and Guidance move under an Advanced disclosure, so they stop staring at you when you do not need them." },
+  { id:"c3", title:"Clickable variable + helper chips, live result", body:"Above the formula box, the input names and helpers (mean, sum) are clickable chips that insert into the formula, and the result updates live so you can see it working." },
+  { id:"c4", title:"Plain-language labels + auto short-names", body:"Each section gets a one-line plain explanation, and naming an input 'Colonies counted' auto-suggests the short name 'colonies' you use in formulas, so you never hand-edit a separate key field." },
+  { id:"c5", title:"Start from a template, front and center", body:"A 'Start from a template' button is the prominent entry, and your Spore concentration template is in there. Cloning and tweaking becomes the default path, blank build is the rare advanced one." },
+];
+
+const STORE = "calc-builder-redesign-2026-06-10";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE)) || {dark:false,dir:"",verdicts:{},notes:{},comments:[]}; } catch(e){ return {dark:false,dir:"",verdicts:{},notes:{},comments:[]}; } }
+function save(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+
+function setView(v){
+  document.getElementById('view-today').classList.toggle('hide', v!=='today');
+  document.getElementById('view-a').classList.toggle('hide', v!=='a');
+  document.getElementById('view-b').classList.toggle('hide', v!=='b');
+  document.getElementById('vToday').classList.toggle('on', v==='today');
+  document.getElementById('vA').classList.toggle('on', v==='a');
+  document.getElementById('vB').classList.toggle('on', v==='b');
+  if (v==='b') renderWizard();
+  renderPins();
+}
+function toggleTheme(){ state.dark=!state.dark; applyTheme(); save(); }
+function applyTheme(){ document.documentElement.classList.toggle('dark', state.dark); document.getElementById('themeBtn').textContent = state.dark?"Light":"Dark"; }
+
+/* ---- tiny evaluator so the formula feels live (mockup only) ---- */
+function evalFormula(expr, scope){
+  try {
+    const clean = String(expr).replace(/\^/g, "**");
+    if (/[^0-9a-zA-Z_+\-*/(). ,]/.test(clean)) return NaN;
+    const names = Object.keys(scope);
+    const fn = new Function(...names, "mean", "sum", "with(Math){return (" + clean + ")}");
+    const mean = a => Array.isArray(a) ? a.reduce((x,y)=>x+ +y,0)/a.length : a;
+    const sum = a => Array.isArray(a) ? a.reduce((x,y)=>x+ +y,0) : a;
+    return fn(...names.map(n=>scope[n]), mean, sum);
+  } catch(e){ return NaN; }
+}
+function fmt(n){ if(!Number.isFinite(n)) return "-"; if(Math.abs(n)>=1e5) return n.toExponential(2); return (Math.round(n*1000)/1000).toLocaleString(); }
+const A_SCOPE = { colonies:150, dilution:1e-5, platedVol:0.1 };
+function insertChip(t){ const f=document.getElementById('aFormula'); f.value += (f.value && !f.value.endsWith(" ") ? " " : "") + t; recalcA(); f.focus(); }
+function recalcA(){ document.getElementById('aResult').textContent = fmt(evalFormula(document.getElementById('aFormula').value, A_SCOPE)) + " /mL"; }
+
+/* ---- wizard ---- */
+let wizStep = 1;
+const WIZ = [
+  { tag:"Step 1 of 5", q:"What does this calculator work out?", sub:"Give it a name in plain words. You can add the field of science too, it is optional.",
+    body:`<span class="lbl">Name</span><input class="inp" value="CFU per mL">
+          <div class="sec"><span class="lbl">Field (optional)</span><input class="inp" value="Microbiology"></div>` },
+  { tag:"Step 2 of 5", q:"What do you measure or type in?", sub:"List each number you enter at the bench. Name it in plain words, we set the short name you use in the formula for you.",
+    body:`<div class="wiz-list">
+            <div class="wiz-li">Colonies counted <b>colonies</b><span class="t">number</span></div>
+            <div class="wiz-li">Dilution plated <b>dilution</b><span class="t">number</span></div>
+            <div class="wiz-li">Volume plated (mL) <b>platedVol</b><span class="t">number</span></div>
+          </div>
+          <button class="addbtn"><span class="p">+</span> Add another measurement</button>` },
+  { tag:"Step 3 of 5", q:"What is the formula for the answer?", sub:"Tap a name or helper to drop it in, then add the math. The answer updates as you type.",
+    body:`<div class="chips"><span class="chl">Tap to insert:</span>
+            <span class="chip" onclick="wizInsert('colonies')">colonies</span>
+            <span class="chip" onclick="wizInsert('dilution')">dilution</span>
+            <span class="chip" onclick="wizInsert('platedVol')">platedVol</span>
+            <span class="chip fn" onclick="wizInsert('mean(')">mean( )</span>
+            <span class="chip fn" onclick="wizInsert('sum(')">sum( )</span></div>
+          <input class="inp mono" id="wizFormula" value="colonies / (dilution * platedVol)" oninput="wizRecalc()">
+          <div class="result"><div class="r"><span class="lab">Answer, with your example values</span><span class="val" id="wizResult">-</span></div></div>` },
+  { tag:"Step 4 of 5", q:"Add a warning or extra step? (optional)", sub:"Skip this unless you want a heads-up message (like 'count is too low') or a named intermediate value. You can always add it later.",
+    body:`<button class="addbtn"><span class="p">+</span> Add a warning</button><br>
+          <button class="addbtn"><span class="p">+</span> Add an intermediate value</button>
+          <p class="hint" style="margin-top:12px">Nothing here is required. Most calculators skip this step.</p>` },
+  { tag:"Step 5 of 5", q:"Name the answer and review", sub:"Give the result a label and a unit, then save. It lands in My calculators and syncs to your paired phone.",
+    body:`<div class="grid2"><div><span class="lbl">Answer label</span><input class="inp" value="CFU per mL"></div>
+            <div><span class="lbl">Unit (optional)</span><input class="inp" value="CFU/mL"></div></div>
+          <div class="sec review">
+            <div class="rl"><span>Name</span><span class="mono">CFU per mL</span></div>
+            <div class="rl"><span>Inputs</span><span class="mono">colonies, dilution, platedVol</span></div>
+            <div class="rl"><span>Result</span><span class="mono">colonies / (dilution * platedVol)</span></div>
+            <div class="rl"><span>Example answer</span><span class="mono">1.50e+8 CFU/mL</span></div>
+          </div>` },
+];
+function renderWizard(){
+  const dots = WIZ.map((_,i)=>`<div class="d ${i+1<wizStep?'done':''} ${i+1===wizStep?'cur':''}"></div>`).join('');
+  document.getElementById('wizDots').innerHTML = dots;
+  const s = WIZ[wizStep-1];
+  document.getElementById('wizBody').innerHTML = `
+    <div class="wiz-step" data-pin="B: one plain question per step">${s.tag}</div>
+    <h2 class="wiz-q">${s.q}</h2>
+    <p class="wiz-sub">${s.sub}</p>
+    ${s.body}
+    <div class="wiz-nav">
+      ${wizStep>1?'<button class="ctrl" onclick="wizGo(-1)">Back</button>':''}
+      ${wizStep<WIZ.length?'<button class="btn-brand" onclick="wizGo(1)">Next</button>':'<button class="btn-brand">Save calculator</button>'}
+    </div>`;
+  if (wizStep===3) wizRecalc();
+  renderPins();
+}
+function wizGo(d){ wizStep = Math.min(WIZ.length, Math.max(1, wizStep+d)); renderWizard(); }
+function wizInsert(t){ const f=document.getElementById('wizFormula'); f.value += (f.value && !f.value.endsWith(" ")?" ":"")+t; wizRecalc(); f.focus(); }
+function wizRecalc(){ const el=document.getElementById('wizResult'); if(el) el.textContent = fmt(evalFormula(document.getElementById('wizFormula').value, A_SCOPE)) + " /mL"; }
+
+/* ---- decisions ---- */
+function setDir(d){ state.dir = (state.dir===d?"":d); save(); renderDir(); }
+function renderDir(){
+  for (const d of ["a","b","hybrid"]) document.getElementById("dir-"+d).classList.toggle("sel", state.dir===d);
+}
+function renderChanges(){
+  document.getElementById('changeList').innerHTML = CHANGES.map((c,i)=>{
+    const v = state.verdicts[c.id]||"";
+    return `<div class="change ${v}">
+      <h4>${i+1}. ${c.title}</h4><p>${c.body}</p>
+      <div class="verds">
+        <button class="${v==='agree'?'aon':''}" onclick="setV('${c.id}','agree')">Agree</button>
+        <button class="${v==='disagree'?'don':''}" onclick="setV('${c.id}','disagree')">Disagree</button>
+        <button class="${v==='discuss'?'qon':''}" onclick="setV('${c.id}','discuss')">Discuss</button>
+      </div>
+      <textarea placeholder="note (optional)" oninput="setN('${c.id}',this.value)">${state.notes[c.id]||''}</textarea>
+    </div>`;
+  }).join('');
+}
+function setV(id,v){ state.verdicts[id]=(state.verdicts[id]===v?"":v); save(); renderChanges(); }
+function setN(id,v){ state.notes[id]=v; save(); }
+
+/* ---- comments ---- */
+let commenting=false;
+function toggleComment(){ commenting=!commenting; document.body.classList.toggle('commenting',commenting); document.getElementById('commentBtn').classList.toggle('on',commenting); }
+function onStageClick(e){
+  if(!commenting) return;
+  const t=e.target.closest('[data-pin]'); if(!t) return;
+  e.preventDefault(); e.stopPropagation();
+  const wrap=document.getElementById('stagewrap'), wr=wrap.getBoundingClientRect(), tr=t.getBoundingClientRect();
+  state.comments.push({ n:state.comments.length+1, label:t.getAttribute('data-pin'), x:tr.left-wr.left+6, y:tr.top-wr.top+6, text:"" });
+  save(); renderPins(); renderComments(); setPanel('comments');
+}
+function renderPins(){
+  const wrap=document.getElementById('stagewrap');
+  [...wrap.querySelectorAll('.pin')].forEach(p=>p.remove());
+  state.comments.forEach(c=>{
+    const visible = document.elementsFromPoint ? true : true;
+    const el=document.createElement('div'); el.className='pin'; el.style.left=c.x+'px'; el.style.top=c.y+'px';
+    el.innerHTML='<span>'+c.n+'</span>'; el.title=c.label;
+    el.onclick=()=>{ setPanel('comments'); const ta=document.getElementById('cmt-'+c.n); if(ta) ta.focus(); };
+    wrap.appendChild(el);
+  });
+}
+function renderComments(){
+  const host=document.getElementById('panelComments');
+  if(!state.comments.length){ host.innerHTML='<p style="font-size:11.5px;color:var(--foreground-muted)">Turn on Comment mode, then click any highlighted area to drop a pin.</p>'; return; }
+  host.innerHTML = state.comments.map(c=>`<div class="commentcard"><span class="del2" onclick="delC(${c.n})">&times;</span>
+    <div class="cn">PIN ${c.n}</div><div class="ct">${c.label}</div>
+    <textarea id="cmt-${c.n}" placeholder="your comment" oninput="setC(${c.n},this.value)">${c.text||''}</textarea></div>`).join('');
+}
+function setC(n,v){ const c=state.comments.find(x=>x.n===n); if(c){c.text=v; save();} }
+function delC(n){ state.comments=state.comments.filter(x=>x.n!==n); state.comments.forEach((c,i)=>c.n=i+1); save(); renderPins(); renderComments(); }
+
+function setPanel(p){
+  document.getElementById('panelDecide').classList.toggle('hide', p!=='decide');
+  document.getElementById('panelComments').classList.toggle('hide', p!=='comments');
+  document.getElementById('ptDecide').classList.toggle('on', p==='decide');
+  document.getElementById('ptComments').classList.toggle('on', p==='comments');
+}
+
+/* ---- export ---- */
+function buildExport(){
+  const dirLabel = {a:"A. Simplified form", b:"B. Wizard", hybrid:"Hybrid (wizard first time, form after)"}[state.dir] || "(not chosen)";
+  let out = "# Calculator builder redesign - review\n\n";
+  out += "## Direction chosen\n" + dirLabel + "\n\n## Improvements\n\n";
+  CHANGES.forEach((c,i)=>{ const v=state.verdicts[c.id]||"(no decision)"; out += `${i+1}. [${v.toUpperCase()}] ${c.title}\n`; if(state.notes[c.id]) out += `   note: ${state.notes[c.id]}\n`; });
+  out += "\n## Comments\n\n";
+  if(!state.comments.length) out += "(none)\n";
+  state.comments.forEach(c=>{ out += `- Pin ${c.n} (${c.label}): ${c.text||'(empty)'}\n`; });
+  return out;
+}
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').classList.remove('hide'); }
+function closeExport(){ document.getElementById('exportOverlay').classList.add('hide'); }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+function downloadExport(){ const b=new Blob([buildExport()],{type:"text/markdown"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="calculator-builder-redesign-review.md"; a.click(); }
+
+document.getElementById('stagewrap').addEventListener('click', onStageClick, true);
+applyTheme(); renderDir(); renderChanges(); renderComments(); renderPins(); recalcA();
+</script>
+</body>
+</html>

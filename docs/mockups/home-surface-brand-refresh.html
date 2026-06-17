@@ -1,0 +1,389 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS home-surface brand refresh, before and after</title>
+<style>
+  /* Tokens mirror frontend/src/app/globals.css and the brand rulebook. Review
+     harness (comment pins + per-change approve/disapprove + export) reused from
+     docs/mockups/2026-06-10-entry-flow-oauth-first.html. */
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-sunken: #f1f5f9;
+    --foreground: #171717; --foreground-muted: #6b7280; --border: #e5e7eb;
+    --page-bg: #e2e8f0;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-ink: #111827; --brand-purple: #5B47D6;
+    --pkr-green: #2E8B45; --pkr-gold: #FFB81C;
+    --ok: #16a34a; --pin: #e11d48;
+    --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-sunken: #0d1424;
+    --foreground: #f1f5f9; --foreground-muted: #b4bfd0; --border: rgba(255,255,255,0.16);
+    --page-bg: #060a13; --brand-ink: #f1f5f9; --pin: #fb7185;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--page-bg); color: var(--foreground); transition: background .2s; }
+  .topbar { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 12px; padding: 12px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .topbar h1 { font-size: 15px; margin: 0; font-weight: 800; }
+  .topbar p { margin: 0; font-size: 12px; color: var(--foreground-muted); }
+  .spacer { flex: 1; }
+  .btn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 12.5px; font-weight: 600; }
+  .btn:hover { border-color: var(--foreground-muted); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 22px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.6; max-width: 84ch; margin: 4px 0 18px; }
+  .lead b { color: var(--foreground); }
+
+  .changes { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; margin-bottom: 24px; }
+  .change { border: 1px solid var(--border); background: var(--surface-raised); border-radius: 12px; padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; }
+  .change.approved { border-color: var(--ok); box-shadow: inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color: var(--pin); box-shadow: inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight: 700; font-size: 13px; }
+  .ctitle .tag { font-size: 10px; font-weight: 700; color: var(--brand-action); background: var(--surface-sunken); border-radius: 5px; padding: 1px 5px; margin-right: 6px; }
+  .cdesc { font-size: 12px; color: var(--foreground-muted); line-height: 1.55; }
+  .verdict { display: flex; align-items: center; gap: 8px; }
+  .vbtn { appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 10px; font-size: 11.5px; font-weight: 700; }
+  .vbtn.app.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .vclear { appearance: none; cursor: pointer; border: none; background: none; color: var(--foreground-muted); font-size: 11px; text-decoration: underline; }
+
+  .secblock { margin: 0 0 30px; }
+  .secblock > h2 { font-size: 13px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--brand-action); margin: 0 0 2px; }
+  .secblock > .sub { font-size: 12px; color: var(--foreground-muted); margin: 0 0 12px; }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 920px) { .cols { grid-template-columns: 1fr; } }
+  .col h3 { font-size: 12px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 8px; }
+  .screen { position: relative; border: 1px solid var(--border); border-radius: 16px; background: var(--surface-raised); padding: 22px 20px; overflow: hidden; min-height: 240px; }
+  .tagstrip { position: absolute; top: 10px; right: 10px; font-size: 10px; font-weight: 700; border-radius: 6px; padding: 2px 7px; z-index: 4; }
+  .tag-old { color: var(--pin); background: color-mix(in srgb, var(--pin) 12%, transparent); }
+  .tag-new { color: var(--brand-action); background: color-mix(in srgb, var(--brand-action) 12%, transparent); }
+  .rb { height: 6px; background: var(--rainbow); border-radius: 99px; }
+
+  /* landing deck look */
+  .deck { background: radial-gradient(520px 320px at 50% 4%, #ffffff 0%, #f6f9ff 55%, #eef4ff 100%); text-align: center; }
+  html[data-theme="dark"] .deck { background: radial-gradient(520px 320px at 50% 4%, #142033 0%, #0e1626 60%, #0a0e1a 100%); }
+  .beaker { width: 92px; display: block; margin: 6px auto 4px; }
+  .word { font-size: 30px; font-weight: 800; letter-spacing: -.03em; color: var(--brand-ink); }
+  .tagline { font-size: 13px; font-weight: 600; color: var(--brand-action); margin: 4px 0 12px; }
+  .ctaRow { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .cta { border-radius: 10px; padding: 8px 16px; font-size: 12.5px; font-weight: 700; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); }
+  .cta.primary { background: linear-gradient(135deg,#1283c9,#5B47D6); border-color: transparent; color: #fff; }
+  .sig { position: absolute; top: 10px; left: 12px; font-size: 9.5px; color: var(--foreground-muted); display: flex; align-items: center; gap: 6px; }
+  .sigpip { width: 7px; height: 7px; border-radius: 99px; background: #1AA0E6; }
+
+  /* pillars */
+  .pillars { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-top: 16px; }
+  .pill { border: 1px solid var(--border); border-radius: 10px; padding: 9px 8px; background: var(--surface-raised); text-align: left; }
+  .pill .pt { font-size: 11.5px; font-weight: 800; color: var(--brand-ink); }
+  .pill .pd { font-size: 10px; color: var(--foreground-muted); line-height: 1.4; margin-top: 2px; }
+
+  /* madison + fellowship credit */
+  .madison { background: linear-gradient(100deg, var(--pkr-green), var(--pkr-gold)); -webkit-background-clip: text; background-clip: text; color: transparent; font-weight: 800; }
+  .credit { margin-top: 14px; font-size: 10.5px; color: var(--foreground-muted); line-height: 1.5; border-top: 1px dashed var(--border); padding-top: 10px; }
+  .badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; }
+
+  /* app-home before/after */
+  .apphome { min-height: 240px; display: flex; align-items: center; justify-content: center; }
+  .spinner { width: 26px; height: 26px; border: 3px solid var(--border); border-top-color: var(--brand-action); border-radius: 99px; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .welcome { text-align: center; }
+  .welcome .hi { font-size: 18px; font-weight: 800; color: var(--brand-ink); margin-top: 6px; }
+  .welcome .where { font-size: 12px; color: var(--foreground-muted); margin: 4px 0 12px; }
+  .quick { display: flex; gap: 7px; justify-content: center; flex-wrap: wrap; }
+  .qchip { border: 1px solid var(--border); border-radius: 8px; padding: 6px 10px; font-size: 11.5px; font-weight: 600; background: var(--surface-raised); }
+
+  /* trust band */
+  .trust { display: grid; grid-template-columns: repeat(2,1fr); gap: 8px; }
+  .tcard { border: 1px solid var(--border); border-radius: 10px; padding: 10px; background: var(--surface-raised); }
+  .tcard .th { font-size: 12px; font-weight: 800; color: var(--brand-ink); }
+  .tcard .tb { font-size: 10.5px; color: var(--foreground-muted); line-height: 1.45; margin-top: 2px; }
+  .scatter { font-size: 12px; color: var(--foreground-muted); line-height: 1.6; }
+
+  /* comment pins + editor + panel + toast (reused harness) */
+  body.cmt-on .cmt { cursor: crosshair; outline: 1px dashed transparent; }
+  body.cmt-on .cmt:hover { outline-color: var(--brand-action); }
+  .pin { position: absolute; top: 8px; left: 8px; z-index: 6; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,.3); }
+  .pin.hl { animation: pulse .7s; } @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4); } }
+  .editor { position: fixed; z-index: 60; width: 270px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 8px 30px rgba(0,0,0,.25); padding: 12px; }
+  .editor .lbl { font-size: 11px; font-weight: 700; color: var(--foreground-muted); margin-bottom: 6px; }
+  .editor textarea { width: 100%; min-height: 64px; resize: vertical; border: 1px solid var(--border); border-radius: 8px; padding: 8px; font: inherit; font-size: 12px; background: var(--surface); color: var(--foreground); }
+  .editor .vchoice { display: flex; gap: 6px; margin: 8px 0; }
+  .editor .vchoice .vbtn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .editor .vchoice .vbtn.app.on { background: var(--ok); border-color: var(--ok); }
+  .editor .vchoice .vbtn.dis.on { background: var(--pin); border-color: var(--pin); }
+  .editor .acts { display: flex; align-items: center; gap: 6px; }
+  .panel { position: fixed; right: 16px; bottom: 16px; z-index: 50; width: 310px; max-height: 60vh; display: flex; flex-direction: column; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 10px 36px rgba(0,0,0,.25); overflow: hidden; }
+  .panel.collapsed .panelBody, .panel.collapsed .panelFoot { display: none; }
+  .panelHead { display: flex; align-items: center; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 13px; }
+  .panelHead .cnt { font-size: 11px; color: var(--foreground-muted); }
+  .panelBody { overflow-y: auto; padding: 6px; }
+  .panelBody .empty { font-size: 11.5px; color: var(--foreground-muted); padding: 14px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 8px; cursor: pointer; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { width: 18px; height: 18px; flex: none; border-radius: 99px; background: var(--pin); color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center; }
+  .citem .tgt { font-size: 11px; font-weight: 700; }
+  .citem .txt { font-size: 11.5px; color: var(--foreground-muted); }
+  .citem .vbadge { font-size: 9.5px; font-weight: 800; }
+  .citem .x { margin-left: auto; border: none; background: none; color: var(--foreground-muted); cursor: pointer; font-size: 15px; }
+  .panelFoot { display: flex; gap: 6px; padding: 8px; border-top: 1px solid var(--border); }
+  .toast { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(20px); opacity: 0; background: var(--brand-ink); color: #fff; padding: 9px 16px; border-radius: 99px; font-size: 12.5px; font-weight: 600; z-index: 70; transition: all .2s; pointer-events: none; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Home-surface brand refresh</h1><p>Before and after. Approve or disapprove each change, click any screen to pin a note, then Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn" id="downloadBtn">Download .md</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">The foundations are set (<b>POSITIONING.md</b>, <b>MESSAGING.md</b>, the brand rulebook) and the funding acknowledgment is corrected. This refresh puts the brand on the three home surfaces, the <b>landing</b>, the <b>logged-in app home</b>, and the <b>marketing scroll</b>. Nothing here is built yet. Review change by change, the real pages stay untouched until you approve.</p>
+
+    <div class="changes" id="changes"></div>
+
+    <!-- LANDING -->
+    <div class="secblock">
+      <h2>Surface 1, the landing (front door)</h2>
+      <p class="sub">The hero is already strong. The refresh adds the pillars, the Made in Madison badge, and the corrected fellowship credit.</p>
+      <div class="cols">
+        <div class="col">
+          <h3>Before</h3>
+          <div class="screen deck cmt" data-clabel="Landing, before">
+            <span class="tagstrip tag-old">current</span>
+            <div class="sig"><span class="sigpip"></span> Dr. Grant Nickles, University of Wisconsin-Madison</div>
+            <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="lq1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/><path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#lq1)" stroke="none"/><path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/></svg>
+            <div class="word">ResearchOS</div>
+            <div class="tagline">Own your research. Try it today.</div>
+            <div class="ctaRow"><button class="cta primary">Create account</button><button class="cta">Sign in</button></div>
+            <p class="scatter" style="margin-top:14px">Pills below (tour, demo, transparency), then the scroll-down. No pillars, no Madison badge, the support is only the upper-left signature.</p>
+          </div>
+        </div>
+        <div class="col">
+          <h3>After</h3>
+          <div class="screen deck cmt" data-clabel="Landing, after">
+            <span class="tagstrip tag-new">changes 1, 2</span>
+            <div class="sig"><span class="sigpip"></span> Dr. Grant Nickles, University of Wisconsin-Madison</div>
+            <svg class="beaker" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="lq2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/><path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#lq2)" stroke="none"/><path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/></svg>
+            <div class="word">ResearchOS</div>
+            <div class="tagline">Own your research. Try it today.</div>
+            <div class="ctaRow"><button class="cta primary">Create account</button><button class="cta">Sign in</button></div>
+            <div class="pillars">
+              <div class="pill"><div class="pt">Ownership</div><div class="pd">Your data in a folder you own.</div></div>
+              <div class="pill"><div class="pt">One Workspace</div><div class="pd">Notebook, chemistry, stats, free.</div></div>
+              <div class="pill"><div class="pt">Trust</div><div class="pd">Open source, validated in public.</div></div>
+            </div>
+            <div class="credit">
+              <span class="badge">Built in <span class="madison">Madison</span>, Wisconsin</span><br/>
+              Supported by a UW Distinguished Research Fellowship at UW-Madison (OVCR, with WARF funding).
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- APP HOME -->
+    <div class="secblock">
+      <h2>Surface 2, the logged-in app home</h2>
+      <p class="sub">Today the home route (/workbench or /lab-overview) is a bare spinner while it redirects. The refresh makes landing in the app a short branded moment.</p>
+      <div class="cols">
+        <div class="col">
+          <h3>Before</h3>
+          <div class="screen cmt" data-clabel="App home, before">
+            <span class="tagstrip tag-old">current</span>
+            <div class="apphome"><div class="spinner"></div></div>
+            <p class="scatter" style="text-align:center">A blank spinner, then a redirect. No branding, no welcome, no sense of place.</p>
+          </div>
+        </div>
+        <div class="col">
+          <h3>After</h3>
+          <div class="screen cmt" data-clabel="App home, after">
+            <span class="tagstrip tag-new">change 3</span>
+            <div class="apphome"><div class="welcome">
+              <svg class="beaker" style="width:60px;margin-bottom:0" viewBox="8 3 24 31" fill="none" stroke="#1AA0E6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><defs><linearGradient id="lq3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs><path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none"/><path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#lq3)" stroke="none"/><path d="M22 8 C 22 6, 24 4, 26 6"/><path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12"/><path d="M11 12 L29 12"/><circle cx="17" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="#1AA0E6" stroke="none"/><path d="M18 22 Q 20 24, 22 22"/><path d="M14 26 L15.5 26"/><path d="M24.5 26 L26 26"/></svg>
+              <div class="hi">Welcome back, Mira</div>
+              <div class="where">Taking you to your Workbench.</div>
+              <div class="quick"><span class="qchip">New experiment</span><span class="qchip">Open notebook</span><span class="qchip">Lab overview</span></div>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETING TRUST BAND -->
+    <div class="secblock">
+      <h2>Surface 3, the marketing scroll</h2>
+      <p class="sub">The sell page is already rich. The refresh adds one explicit Trust band so the hardest objection (can I trust a free tool with my research) is answered in one place.</p>
+      <div class="cols">
+        <div class="col">
+          <h3>Before</h3>
+          <div class="screen cmt" data-clabel="Trust band, before">
+            <span class="tagstrip tag-old">current</span>
+            <p class="scatter">Trust signals are scattered across sections. Open source is mentioned in one place, the transparency page in another, ownership in the hero, the fellowship in a small card. A reader has to assemble the case themselves.</p>
+          </div>
+        </div>
+        <div class="col">
+          <h3>After</h3>
+          <div class="screen cmt" data-clabel="Trust band, after">
+            <span class="tagstrip tag-new">change 4</span>
+            <div class="rb" style="margin-bottom:12px"></div>
+            <div class="trust">
+              <div class="tcard"><div class="th">Your data is yours</div><div class="tb">Plain files on your own disk. Leaving is just closing a folder.</div></div>
+              <div class="tcard"><div class="th">Open source</div><div class="tb">AGPLv3. Read exactly how your data is stored and computed.</div></div>
+              <div class="tcard"><div class="th">Science you can check</div><div class="tb">A public page proves our math against Biopython, primer3, R, and Prism.</div></div>
+              <div class="tcard"><div class="th">Funded as research</div><div class="tb">A UW Distinguished Research Fellowship, not venture capital.</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER STANDARD -->
+    <div class="secblock">
+      <h2>Surface-wide, the footer acknowledgment</h2>
+      <p class="sub">Already corrected in code. Shown here as the standard the refresh keeps, text acknowledgment, Made in Madison, no RISE logo until OVCR clears logo use.</p>
+      <div class="cols">
+        <div class="col">
+          <h3>Before</h3>
+          <div class="screen cmt" data-clabel="Footer, before">
+            <span class="tagstrip tag-old">retired</span>
+            <p class="scatter" style="text-align:center">[ RISE Initiative logo ]<br/>Funded by the UW-Madison RISE Initiative.</p>
+          </div>
+        </div>
+        <div class="col">
+          <h3>After</h3>
+          <div class="screen cmt" data-clabel="Footer, after">
+            <span class="tagstrip tag-new">change 5, done</span>
+            <p class="scatter" style="text-align:center">Supported by a UW Distinguished Research Fellowship at UW-Madison (Office of the Vice Chancellor for Research, with funding from the Wisconsin Alumni Research Foundation). Free and open source on GitHub.<br/><br/><span class="badge">Built in <span class="madison">Madison</span>, Wisconsin</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panelHead" id="panelHead"><b>Notes</b><span class="cnt">(<span id="cCount">0</span>)</span><span class="spacer"></span><span class="cnt" id="chev">hide</span></div>
+    <div class="panelBody" id="panelBody"></div>
+    <div class="panelFoot"><button class="btn" id="exportBtn2">Copy</button><button class="btn" id="downloadBtn2">.md</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+  const STORE="ros-home-brand-comments-v1";
+  let comments=[]; try{comments=JSON.parse(localStorage.getItem(STORE)||"[]");}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+
+  function renderPins(){
+    document.querySelectorAll(".pin").forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll(".cmt").forEach(el=>{
+      const lbl=el.getAttribute("data-clabel"); const nums=byT[lbl]; if(!nums)return;
+      const pin=document.createElement("span"); pin.className="pin"; pin.textContent=nums.join(",");
+      pin.addEventListener("click",ev=>{ev.stopPropagation();const first=comments.findIndex(c=>c.target===lbl);if(first>=0)openEditor(el,first,ev);});
+      el.appendChild(pin);
+    });
+  }
+  function flashPin(t){document.querySelectorAll(".pin").forEach(p=>{const el=p.closest(".cmt");if(el&&el.getAttribute("data-clabel")===t){p.classList.add("hl");setTimeout(()=>p.classList.remove("hl"),700);}});}
+  function renderPanel(){
+    const body=document.getElementById("panelBody");
+    document.getElementById("cCount").textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any screen.</div>';return;}
+    const vtag=v=>v==="approve"?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==="disapprove"?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':"";
+    body.innerHTML=comments.map((c,i)=>`<div class="citem" data-i="${i}"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vtag(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||"<i>no text</i>"}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join("");
+    body.querySelectorAll("[data-del]").forEach(b=>b.addEventListener("click",e=>{e.stopPropagation();comments.splice(+b.dataset.del,1);save();renderAll();}));
+    body.querySelectorAll(".citem").forEach(it=>it.addEventListener("click",e=>{if(e.target.closest("[data-del]"))return;const i=+it.dataset.i;const el=[...document.querySelectorAll(".cmt")].find(x=>x.getAttribute("data-clabel")===comments[i].target);if(el){el.scrollIntoView({block:"center",behavior:"smooth"});flashPin(comments[i].target);}}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+
+  const CHANGES=[
+    {id:"pillars",tag:"1",title:"Pillars strip on the landing",desc:"Add an Ownership / One Workspace / Trust three-pillar row under the hero buttons, so the positioning is stated, not implied. One line each, links into the marketing scroll."},
+    {id:"madison",tag:"2",title:"Made in Madison + fellowship credit on the landing",desc:"Add the Made in Madison badge and the corrected fellowship acknowledgment as a quiet trust signal at the foot of the hero, alongside the existing signature."},
+    {id:"apphome",tag:"3",title:"Branded welcome on the app home",desc:"Replace the bare spinner-then-redirect on /workbench and /lab-overview with a short BeakerBot welcome (Welcome back, name), a line on where you are headed, and a few quick links."},
+    {id:"trustband",tag:"4",title:"One Trust band on the marketing scroll",desc:"Collect the scattered trust signals (your data is yours, open source, validated science, funded as research) into one band so the trust case is made in a single place."},
+    {id:"footer",tag:"5",title:"Footer acknowledgment standard (already done)",desc:"Keep the corrected footer, text acknowledgment with OVCR + WARF, Made in Madison, and no RISE logo until OVCR clears logo use. Shown for sign-off, already shipped."},
+  ];
+  const VSTORE="ros-home-brand-verdicts-v1";
+  let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||"{}");}catch{verdicts={};}
+  function saveVerdicts(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=document.getElementById("changes");
+    wrap.innerHTML=CHANGES.map(c=>{
+      const v=verdicts[c.id]||""; const cls=v==="approve"?"approved":v==="disapprove"?"disapproved":"";
+      return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==="approve"?"on":""}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==="disapprove"?"on":""}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:""}</div></div>`;
+    }).join("");
+    wrap.querySelectorAll("[data-v]").forEach(b=>b.addEventListener("click",()=>{
+      const id=b.dataset.c,v=b.dataset.v;
+      if(v==="clear")delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;
+      if(!verdicts[id])delete verdicts[id];
+      saveVerdicts();renderChanges();
+    }));
+  }
+
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor();
+    const target=targetEl.getAttribute("data-clabel")||"Page";
+    const existing=existingIndex!=null?comments[existingIndex]:null;
+    let pv=existing?(existing.verdict||""):"";
+    const ed=document.createElement("div");ed.className="editor";
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note, suggestion, or change request">${existing?esc(existing.text):""}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':""}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll("[data-vc]").forEach(b=>b.classList.toggle("on",(b.dataset.vc==="note"&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll("[data-vc]").forEach(b=>b.addEventListener("click",()=>{pv=b.dataset.vc==="note"?"":b.dataset.vc;paint();}));
+    paint();
+    const x=ev?ev.clientX:targetEl.getBoundingClientRect().left;
+    const y=ev?ev.clientY:targetEl.getBoundingClientRect().bottom;
+    ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-288)+"px";
+    ed.style.top=Math.min(y+10,window.innerHeight-220)+"px";
+    ed.querySelector("textarea").focus();
+    ed.querySelectorAll("[data-act]").forEach(b=>b.addEventListener("click",()=>{
+      const act=b.dataset.act;
+      if(act==="cancel")return closeEditor();
+      if(act==="del"){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}
+      if(act==="save"){const text=ed.querySelector("textarea").value.trim();if(!text&&!pv)return closeEditor();if(existing){existing.text=text;existing.verdict=pv;}else comments.push({target,text,verdict:pv});save();renderAll();closeEditor();}
+    }));
+    ed.addEventListener("keydown",e=>{if(e.key==="Escape")closeEditor();if(e.key==="Enter"&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click();});
+  }
+  document.addEventListener("click",e=>{
+    if(!document.body.classList.contains("cmt-on"))return;
+    if(e.target.closest(".editor")||e.target.closest(".panel")||e.target.closest(".topbar")||e.target.closest(".pin")||e.target.closest(".changes"))return;
+    const cmt=e.target.closest(".cmt");if(!cmt)return;
+    e.preventDefault();openEditor(cmt,null,e);
+  });
+
+  const cBtn=document.getElementById("commentToggle");
+  cBtn.addEventListener("click",()=>{const on=document.body.classList.toggle("cmt-on");cBtn.classList.toggle("on",on);cBtn.textContent="Comment mode: "+(on?"on":"off");if(!on)closeEditor();});
+  const tBtn=document.getElementById("themeToggle");
+  tBtn.addEventListener("click",()=>{const dark=document.documentElement.getAttribute("data-theme")==="dark";document.documentElement.setAttribute("data-theme",dark?"light":"dark");tBtn.textContent=dark?"Switch to dark":"Switch to light";});
+  document.getElementById("panelHead").addEventListener("click",()=>{const p=document.getElementById("panel");const col=p.classList.toggle("collapsed");document.getElementById("chev").textContent=col?"show":"hide";});
+
+  function buildMarkdown(){
+    let out="ResearchOS home-surface brand refresh, feedback\n\nVerdicts\n";
+    CHANGES.forEach(c=>{const v=verdicts[c.id];out+=`- ${c.title}: ${v==="approve"?"APPROVE":v==="disapprove"?"DISAPPROVE":"undecided"}\n`;});
+    out+="\nNotes\n";
+    if(!comments.length)out+="- none\n";
+    comments.forEach((c,i)=>{const tag=c.verdict==="approve"?"[APPROVE] ":c.verdict==="disapprove"?"[DISAPPROVE] ":"";out+=`${i+1}. ${tag}[${c.target}] ${c.text}\n`;});
+    return out;
+  }
+  function toast(msg){const t=document.getElementById("toast");t.textContent=msg;t.classList.add("show");setTimeout(()=>t.classList.remove("show"),1500);}
+  async function doCopy(){const md=buildMarkdown();try{await navigator.clipboard.writeText(md);toast("Feedback copied, paste it back to me");}catch{window.prompt("Copy your feedback",md);}}
+  function doDownload(){const blob=new Blob([buildMarkdown()],{type:"text/markdown"});const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="home-brand-refresh-feedback.md";a.click();URL.revokeObjectURL(a.href);}
+  document.getElementById("exportBtn").addEventListener("click",doCopy);
+  document.getElementById("exportBtn2").addEventListener("click",doCopy);
+  document.getElementById("downloadBtn").addEventListener("click",doDownload);
+  document.getElementById("downloadBtn2").addEventListener("click",doDownload);
+  document.getElementById("clearBtn").addEventListener("click",()=>{if(comments.length&&!confirm("Delete all notes?"))return;comments=[];save();renderAll();});
+
+  renderChanges();
+  renderAll();
+</script>
+</body>
+</html>

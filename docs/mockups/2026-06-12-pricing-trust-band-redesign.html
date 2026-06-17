@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Pricing trust band, 5/10 to 10/10 (review)</title>
+<style>
+  :root{
+    --ink:#0f2350;--muted:#516079;--line:#dbe6f3;--tint:#f4f8fd;--card:#fff;
+    --action:#1aa0e6;--purple:#7c5cff;--green:#16a34a;--amber:#f59e0b;--bg:#fbfcfe;
+    --rainbow:linear-gradient(90deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0);
+  }
+  [data-theme="dark"]{--ink:#e8eefb;--muted:#9fb2cc;--line:#22324c;--tint:#0f1a2c;--card:#0f1a2c;--bg:#0a1120;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  .ribbon{height:8px;background:var(--rainbow)}
+  .bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:10px 18px;
+    background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .toggle-ba{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .toggle-ba button{font-size:12px;font-weight:800;border:0;background:var(--card);color:var(--muted);padding:7px 15px;cursor:pointer}
+  .toggle-ba button.on{background:var(--ink);color:#fff}
+  .tool{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .estat{font-size:12px;color:var(--muted)}
+  .pane{display:none;padding:28px 22px 60px}.pane.on{display:block}
+  .pwrap{max-width:1120px;margin:0 auto}
+  .eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:700;color:var(--action);letter-spacing:.04em;text-align:center}
+  h2.sec{font-size:30px;font-weight:800;letter-spacing:-.02em;text-align:center;margin:8px auto 6px;max-width:22ch;line-height:1.12}
+  .sub{font-size:15px;color:var(--muted);text-align:center;max-width:58ch;margin:0 auto 26px;line-height:1.6}
+  /* ---- BEFORE (current) ---- */
+  .b-sec{margin:0 auto 30px;max-width:768px}
+  .b-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media(max-width:640px){.b-grid{grid-template-columns:1fr}}
+  .b-card{border:1px solid var(--line);background:var(--card);border-radius:16px;padding:20px}
+  .b-ic{width:36px;height:36px;border-radius:9px;background:#1aa0e61c;color:var(--action);display:flex;align-items:center;justify-content:center;margin-bottom:12px;font-weight:900}
+  .b-card h3{font-size:14px;font-weight:800;margin:0 0 6px}.b-card p{font-size:12.5px;color:var(--muted);line-height:1.55;margin:0}
+  .b-h{font-size:20px;font-weight:800;text-align:center;margin:0 0 4px}.b-s{font-size:13px;color:var(--muted);text-align:center;max-width:52ch;margin:0 auto 16px}
+  /* ---- AFTER (redesign): bento + mechanics ---- */
+  .band{border:1px solid var(--line);border-radius:26px;overflow:hidden;background:var(--card);box-shadow:0 30px 60px -40px rgba(15,40,80,.4)}
+  .band-top{padding:34px 30px 8px;text-align:center;background:radial-gradient(120% 120% at 50% -10%,#1aa0e610,transparent)}
+  .bento{display:grid;grid-template-columns:repeat(6,1fr);gap:14px;padding:22px 24px 30px}
+  @media(max-width:760px){.bento{grid-template-columns:repeat(2,1fr)}}
+  .tile{border:1px solid var(--line);border-radius:18px;padding:20px;background:var(--bg);position:relative;overflow:hidden}
+  .tile.span6{grid-column:span 6}.tile.span4{grid-column:span 4}.tile.span3{grid-column:span 3}.tile.span2{grid-column:span 2}
+  @media(max-width:760px){.tile.span6,.tile.span4,.tile.span3,.tile.span2{grid-column:span 2}}
+  .tile.hero{background:linear-gradient(135deg,#1aa0e60e,#7c5cff0e);border-color:#1aa0e633}
+  .tag{font-family:ui-monospace,monospace;font-size:11px;font-weight:700;color:var(--action)}
+  .tile h3{font-size:16px;font-weight:800;margin:8px 0 6px;letter-spacing:-.01em}
+  .tile.span6 h3{font-size:22px}
+  .tile p{font-size:13px;color:var(--muted);line-height:1.55;margin:0}
+  .chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:700;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:99px;padding:4px 10px;margin:3px 4px 0 0}
+  .chip .dot{width:6px;height:6px;border-radius:50%;background:var(--green)}
+  /* mechanic: meter-with-line / autosave */
+  .mech{display:flex;align-items:center;gap:14px;margin-top:14px;flex-wrap:wrap}
+  .keys{font-family:ui-monospace,monospace;font-size:12px;color:var(--ink);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:7px 10px}
+  .arrow{color:var(--muted);font-weight:900}
+  .save{display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:12px;font-weight:800}
+  .save svg{width:15px;height:15px}
+  .meter-x{position:relative;display:inline-flex;align-items:center;gap:7px;color:var(--muted);font-size:12px;font-weight:700}
+  .meter-x .gauge{width:46px;height:9px;border-radius:99px;background:var(--line);overflow:hidden}
+  .meter-x .gauge i{display:block;height:100%;width:100%;background:repeating-linear-gradient(90deg,#cbd5e1,#cbd5e1 4px,transparent 4px,transparent 8px)}
+  .strike{position:absolute;left:-4px;right:-4px;top:50%;height:2px;background:var(--red,#dc2626);transform:rotate(-8deg)}
+  /* lab pool diagram */
+  .pool{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:6px;flex-wrap:wrap}
+  .pi-node{background:linear-gradient(90deg,#3b8bff22,#a06bff22);border:1px solid #3b8bff55;border-radius:12px;padding:10px 13px;font-size:12.5px;font-weight:800}
+  .invoice{border:1px dashed var(--action);border-radius:10px;padding:8px 11px;font-size:11.5px;font-weight:800;color:var(--action)}
+  .members{display:flex;gap:6px}.mem{width:30px;height:30px;border-radius:8px;background:var(--card);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:var(--muted)}
+  /* guardrail mechanics */
+  .breaker{margin-top:12px}
+  .budget{height:11px;border-radius:99px;background:var(--line);overflow:hidden;position:relative}
+  .budget i{display:block;height:100%;width:88%;background:linear-gradient(90deg,#16a34a,#f59e0b)}
+  .budget .cap{position:absolute;right:8%;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
+  .breaker .row{display:flex;justify-content:space-between;margin-top:8px;font-size:11.5px;font-weight:700}
+  .breaker .pause{color:var(--amber)}.breaker .local{color:var(--green)}
+  .costbar{margin-top:12px;display:flex;flex-direction:column;gap:9px}
+  .cbrow{display:flex;align-items:center;gap:9px;font-size:11.5px;font-weight:700}
+  .cbrow .lab{width:78px;color:var(--muted);text-align:right}
+  .cbrow .track{flex:1;height:13px;border-radius:7px;background:var(--line);overflow:hidden;position:relative}
+  .cbrow .cost{position:absolute;left:0;top:0;bottom:0;background:var(--action);border-radius:7px}
+  .cbrow .surplus{position:absolute;top:0;bottom:0;background:repeating-linear-gradient(45deg,#7c5cff,#7c5cff 5px,#a98bff 5px,#a98bff 10px)}
+  .closer{text-align:center;padding:6px 24px 30px}
+  .closer .big{font-size:21px;font-weight:800;letter-spacing:-.01em;max-width:30ch;margin:0 auto}
+  .closer .en{font-family:ui-monospace,monospace;font-size:12px;color:var(--purple);font-weight:700;margin-top:6px}
+  .movetag{display:flex;align-items:center;gap:8px;justify-content:center;margin:30px 0 12px}
+  .movetag span{font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .movetag .ln{height:1px;width:40px;background:var(--line)}
+  /* ---- premium polish: numbered movement badges + motion ---- */
+  .numbadge{display:inline-flex;align-items:center;gap:9px;margin-bottom:2px}
+  .numbadge .n{display:grid;place-items:center;width:26px;height:26px;border-radius:50%;background:linear-gradient(135deg,var(--action),var(--purple));color:#fff;font-size:12px;font-weight:800;box-shadow:0 4px 12px -3px rgba(26,160,230,.6)}
+  .numbadge .lbl{font-family:ui-monospace,monospace;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .band-top.div{border-top:1px solid var(--line);margin-top:8px}
+  .tile.hero::after{content:"";position:absolute;inset:0;border-radius:18px;pointer-events:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.55)}
+  /* motion: one-shot grow on load + a couple of gentle loops; off for reduced-motion */
+  @keyframes grow-x{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes pop-in{0%{opacity:0;transform:scale(.7)}60%{transform:scale(1.12)}100%{opacity:1;transform:scale(1)}}
+  @keyframes dash-shift{to{background-position:16px 0}}
+  @keyframes flow{0%{left:4%;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:90%;opacity:0}}
+  .budget i,.cbrow .cost,.cbrow .surplus{transform-origin:left center;animation:grow-x .9s cubic-bezier(.4,0,.2,1) both}
+  .cbrow .surplus{animation-delay:.55s}
+  .meter-x .gauge i{background-size:16px 9px;animation:dash-shift 1s linear infinite}
+  .save{animation:pop-in .5s .55s both}
+  .pool .spark{position:absolute;top:50%;width:7px;height:7px;border-radius:50%;background:var(--action);box-shadow:0 0 10px 2px #1aa0e6aa;transform:translateY(-50%);animation:flow 2.8s ease-in-out infinite}
+  @media(prefers-reduced-motion:reduce){
+    .budget i,.cbrow .cost,.cbrow .surplus,.meter-x .gauge i,.save{animation:none}
+    .pool .spark{display:none}
+  }
+  /* decisions */
+  .decision{max-width:780px;margin:16px auto;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .decision .q{font-size:13.5px;font-weight:800;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font-size:12px;font-weight:700;border:0;background:var(--card);color:var(--ink);padding:6px 13px;cursor:pointer}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}.seg button.on[data-v="reject"]{background:#dc2626;color:#fff}
+  textarea.note{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;padding:8px;min-height:42px;resize:vertical;font-family:inherit}
+  dialog{border:0;border-radius:12px;max-width:560px;width:92%;padding:0;background:var(--card);color:var(--ink)}
+  dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px}
+  dialog textarea{width:100%;border:0;background:var(--bg);color:var(--ink);min-height:300px;padding:14px;font-family:ui-monospace,monospace;font-size:12px}
+  dialog .df{padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="ribbon"></div>
+<div class="bar">
+  <div><h1>Pricing trust band, 5/10 to 10/10</h1><div class="sub">The metering + labs + guardrails sections, reimagined as one designed band.</div></div>
+  <div class="spacer"></div>
+  <div class="toggle-ba" id="ba"><button data-p="after" class="on">After</button><button data-p="before">Before</button></div>
+  <button class="tool" id="themeBtn">Dark</button>
+  <span class="estat" id="estat">No decisions</span>
+  <button class="tool" id="exportBtn">Export</button>
+</div>
+
+<!-- ================= BEFORE ================= -->
+<div class="pane" id="pane-before">
+  <div class="pwrap">
+    <p style="text-align:center;color:var(--muted);font-size:12.5px;margin-bottom:18px">Current, three stacked sections of identical 2-column cards. Reads fine, feels flat and repetitive.</p>
+    <div class="b-sec"><div class="b-h">Your editing is never metered</div><div class="b-s">We never charge per keystroke or per sync.</div>
+      <div class="b-grid">
+        <div class="b-card"><div class="b-ic">P</div><h3>Editing is included, not billed</h3><p>Collaboration and editing come with your plan. No second meter watching what you type.</p></div>
+        <div class="b-card"><div class="b-ic">G</div><h3>A throttle, never a surprise bill</h3><p>If a heavy month runs past your allowance, real-time sync slows to periodic. Your work keeps saving.</p></div>
+      </div>
+    </div>
+    <div class="b-sec"><div class="b-h">Built for a whole lab, billed to one person</div><div class="b-s">A lab plan is a shared pool, not a charge per head.</div>
+      <div class="b-grid">
+        <div class="b-card"><div class="b-ic">R</div><h3>One shared pool, one invoice</h3><p>A single pool for the whole lab. Only the PI pays, on one invoice.</p></div>
+        <div class="b-card"><div class="b-ic">M</div><h3>Invite by email, member accepts</h3><p>The PI invites by email and the member accepts before the lab covers them.</p></div>
+        <div class="b-card"><div class="b-ic">C</div><h3>The PI can manage the pool</h3><p>The PI can see each member's storage and activity use.</p></div>
+        <div class="b-card"><div class="b-ic">F</div><h3>Local-first for everyone</h3><p>Every member keeps their own data in their own folder.</p></div>
+      </div>
+    </div>
+    <div class="b-sec"><div class="b-h">We cannot run up a bill and hand it to you</div><div class="b-s">Two guardrails make that a promise.</div>
+      <div class="b-grid">
+        <div class="b-card"><div class="b-ic">S</div><h3>A cost circuit breaker</h3><p>A hard monthly budget. If cloud spend nears it, cloud writes pause and the local app keeps working.</p></div>
+        <div class="b-card"><div class="b-ic">=</div><h3>Priced to sustain, not to profit</h3><p>Individuals and labs pay what storage costs us. Institutions pay a small sustaining rate that funds the free tiers.</p></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ================= AFTER ================= -->
+<div class="pane on" id="pane-after">
+  <div class="pwrap">
+    <p class="eyebrow">// billing you can trust, by design</p>
+    <h2 class="sec">Pricing that can't surprise you</h2>
+    <p class="sub">Three promises, each enforced by how the product actually works, not by a sentence on a page.</p>
+
+    <div class="band">
+      <div class="band-top">
+        <div class="numbadge"><span class="n">01</span><span class="lbl">never metered</span></div>
+        <h2 class="sec" style="margin-top:6px">Your editing is never metered</h2>
+        <p class="sub" style="margin-bottom:6px">No per-keystroke charge, no per-sync fee. The opposite of nickel-and-diming, on purpose.</p>
+      </div>
+      <div class="bento">
+        <div class="tile hero span4">
+          <span class="tag">what you type</span>
+          <h3>Editing is included, not billed</h3>
+          <p>Editing and collaboration come with your plan. No second meter on your keystrokes, no per-edit line on your invoice.</p>
+          <div class="mech">
+            <span class="keys">cgtacc&hellip;</span><span class="arrow">&rarr;</span>
+            <span class="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M5 13l4 4L19 7"/></svg> saved, $0</span>
+            <span class="meter-x"><span class="gauge"><i></i><span class="strike"></span></span>no meter</span>
+          </div>
+        </div>
+        <div class="tile span2">
+          <span class="tag">heavy month</span>
+          <h3>A throttle, never a bill</h3>
+          <p>Past your allowance, live sync slows to periodic. Work keeps saving. The PI can raise the plan. No shock charge.</p>
+        </div>
+      </div>
+
+      <div class="band-top div" style="padding-top:18px">
+        <div class="numbadge"><span class="n">02</span><span class="lbl">one lab, one invoice</span></div>
+        <h2 class="sec" style="margin-top:6px">Built for a whole lab, billed to one person</h2>
+      </div>
+      <div class="bento" style="padding-top:8px">
+        <div class="tile hero span6">
+          <span class="tag">the structure</span>
+          <h3>One shared pool, one invoice</h3>
+          <p>Free or paid, the lab shares one pool. Only the PI pays, on one invoice. Members never get billed and never enter a card.</p>
+          <div class="pool">
+            <span class="spark"></span>
+            <span class="pi-node">PI pays once</span><span class="arrow">&rarr;</span>
+            <span class="invoice">1 invoice &middot; shared pool</span><span class="arrow">&rarr;</span>
+            <span class="members"><span class="mem">A</span><span class="mem">M</span><span class="mem">W</span><span class="mem">+</span></span>
+            <span style="font-size:11.5px;font-weight:800;color:var(--green)">members use it, $0</span>
+          </div>
+        </div>
+        <div class="tile span2"><span class="tag">join</span><h3>Invite by email</h3><p>The PI invites, the member accepts before the lab covers them. We don't store the address.</p></div>
+        <div class="tile span2"><span class="tag">manage</span><h3>The PI sees the pool</h3><p>Because the PI pays, they can see each member's storage and activity to manage it. Members are told on accept.</p></div>
+        <div class="tile span2"><span class="tag">always</span><h3>Local-first for all</h3><p>Every member keeps their own data in their own folder. The plan funds the synced copies, not the local work.</p></div>
+      </div>
+
+      <div class="band-top div" style="padding-top:18px">
+        <div class="numbadge"><span class="n">03</span><span class="lbl">the guarantee</span></div>
+        <h2 class="sec" style="margin-top:6px">We cannot run up a bill and hand it to you</h2>
+      </div>
+      <div class="bento" style="padding-top:8px">
+        <div class="tile span3">
+          <span class="tag">guardrail one</span>
+          <h3>A cost circuit breaker</h3>
+          <p>A hard monthly budget. If cloud spend nears it, cloud writes pause and the local-first app keeps working, uninterrupted.</p>
+          <div class="breaker">
+            <div class="budget"><i></i><span class="cap"></span></div>
+            <div class="row"><span class="pause">cloud writes pause at the cap</span><span class="local">local app keeps working</span></div>
+          </div>
+        </div>
+        <div class="tile span3">
+          <span class="tag">guardrail two</span>
+          <h3>Priced to sustain, not to profit</h3>
+          <p>You and your lab pay what storage costs us, no more. Institutions pay a small sustaining rate above cost, and that surplus keeps ResearchOS free for individual researchers.</p>
+          <div class="costbar">
+            <div class="cbrow"><span class="lab">you / lab</span><span class="track"><span class="cost" style="width:100%"></span></span><span>at cost</span></div>
+            <div class="cbrow"><span class="lab">institution</span><span class="track"><span class="cost" style="width:70%"></span><span class="surplus" style="left:70%;width:30%"></span></span><span style="color:var(--purple)">+ funds free tiers</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="closer">
+        <p class="big">We literally cannot run up a bill and hand it to you.</p>
+        <p class="en">// it is enforced in code, not just promised in copy</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- decisions -->
+<div class="pwrap">
+  <div class="decision"><div class="q">1. Overall direction, the unified band with mechanics?</div>
+    <div class="seg" data-id="direction"><button data-v="approve">Approve</button><button data-v="reject">Not it</button></div>
+    <textarea class="note" data-note="direction" placeholder="What works / what does not..."></textarea></div>
+  <div class="decision"><div class="q">2. The micro-illustrations (struck-through meter, lab pool flow, budget breaker, cost-vs-surplus bar)?</div>
+    <div class="seg" data-id="mechanics"><button data-v="approve">Approve</button><button data-v="reject">Too much</button></div>
+    <textarea class="note" data-note="mechanics" placeholder="Keep all, simplify, or swap any..."></textarea></div>
+  <div class="decision"><div class="q">3. Bento sizing / hierarchy (hero tiles + supporting tiles vs equal cards)?</div>
+    <div class="seg" data-id="bento"><button data-v="approve">Approve</button><button data-v="reject">Change</button></div>
+    <textarea class="note" data-note="bento" placeholder="Notes on layout..."></textarea></div>
+  <div class="decision"><div class="q">4. The closing line "enforced in code, not just promised in copy"?</div>
+    <div class="seg" data-id="closer"><button data-v="approve">Approve</button><button data-v="reject">Reword</button></div>
+    <textarea class="note" data-note="closer" placeholder="Optional reword..."></textarea></div>
+</div>
+
+<dialog id="exp"><div class="dh">Decisions, paste back into chat</div><textarea id="expText" readonly></textarea>
+  <div class="df"><button class="tool" id="copyExp">Copy</button><button class="tool" id="closeExp">Close</button></div></dialog>
+
+<script>
+const KEY="ros-pricing-trustband-review";
+const state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function render(){const n=Object.keys(state).filter(k=>state[k]).length;document.getElementById("estat").textContent=n?`${n} recorded`:"No decisions";}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+// before/after toggle
+document.querySelectorAll("#ba button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#ba button").forEach(x=>x.classList.remove("on"));b.classList.add("on");
+  const p=b.dataset.p;document.getElementById("pane-after").classList.toggle("on",p==="after");
+  document.getElementById("pane-before").classList.toggle("on",p==="before");});
+// segments
+document.querySelectorAll(".seg").forEach(seg=>{const id=seg.dataset.id;
+  seg.querySelectorAll("button").forEach(b=>{if(state[id]===b.dataset.v)b.classList.add("on");
+    b.onclick=()=>{seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");state[id]=b.dataset.v;save();};});});
+// notes
+document.querySelectorAll("[data-note]").forEach(t=>{const id="note:"+t.dataset.note;t.value=state[id]||"";t.oninput=()=>{state[id]=t.value;save();};});
+// theme
+document.getElementById("themeBtn").onclick=()=>{const d=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",d?"":"dark");document.getElementById("themeBtn").textContent=d?"Dark":"Light";};
+// export
+document.getElementById("exportBtn").onclick=()=>{const L=["Pricing trust band redesign, decisions",""];
+  const lab={direction:"1. Direction",mechanics:"2. Mechanics",bento:"3. Bento/hierarchy",closer:"4. Closing line"};
+  for(const k of ["direction","mechanics","bento","closer"])L.push(`${lab[k]}: ${state[k]||"(no answer)"}`);L.push("");
+  for(const k of Object.keys(state).filter(k=>k.startsWith("note:")&&state[k]))L.push(`Note [${k.slice(5)}]: ${state[k]}`);
+  document.getElementById("expText").value=L.join("\n");document.getElementById("exp").showModal();};
+document.getElementById("copyExp").onclick=()=>navigator.clipboard.writeText(document.getElementById("expText").value);
+document.getElementById("closeExp").onclick=()=>document.getElementById("exp").close();
+render();
+</script>
+</body>
+</html>

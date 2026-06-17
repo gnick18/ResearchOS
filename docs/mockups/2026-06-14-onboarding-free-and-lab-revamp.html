@@ -1,0 +1,1305 @@
+<!doctype html>
+<!--
+  MOCKUP: Onboarding Free Account + Lab Create/Join Revamp
+  =========================================================
+  What this mocks
+  ---------------
+  Two redesigned onboarding sub-screens, as design artifacts for human approval.
+  No real app code is touched.
+
+  SECTION 0 — FLOW COMPOSITION DIAGRAM
+  Shows how the two reusable popups (sign-in + folder) compose per tier at a
+  glance. LOCAL goes straight to the folder popup (no login). FREE/solo goes
+  login popup then folder popup. LAB navigates to its own split page which
+  internally recycles both popups. Demo buttons in the diagram let each popup
+  be previewed directly.
+
+  SECTION 1 — FREE ACCOUNT (in-place animated expansion)
+  Intent locked: clicking "Create free account" on the Free tile does NOT hard-
+  navigate. Instead a modal-card blows up over the chooser with CSS scale+fade.
+  Inside: Google / GitHub / Microsoft as equal-weight primary buttons, ORCID as a
+  real secondary alternative (not an afterthought), and a tertiary "email me a
+  sign-in code" OTP link. A visible X / back arrow prevents soft-lock.
+  THEN: after sign-in, the user lands on the folder popup. The folder popup is
+  a reusable modal (same popup pattern as the login popup) so the same component
+  serves LOCAL (direct), FREE (after login), and LAB (within its own page).
+  Folder selection is now a reusable popup too; onboarding is composed from two
+  reusable popups (sign-in + folder) plus the lab split page. Only Lab navigates
+  to its own page; both Local and Free resolve entirely via popups over the chooser.
+
+  SECTION 2 — LAB CREATE / JOIN (split layout)
+  Intent locked: replaces the old tiny two-button screen with a 50/50 split.
+  Left half = Join (invite-link input exposed immediately, plus "or search the
+  directory" affordance below). Right half = Create (what it means to be a lab
+  head, with a Create button). Equal visual weight, clearly self-explanatory.
+  Internally, the lab page recycles the sign-in popup and folder popup from
+  Section 1 at the appropriate steps in its own flow.
+
+  Open questions for Grant
+  ------------------------
+  1. ORCID button color: mocks use ORCID's official green (#A6CE39 on dark text).
+     OK to keep, or should it match the blue-button system?
+  2. OTP path text: "email me a sign-in code" assumes we have an email-OTP flow
+     implemented. If that flow isn't live yet, this link needs a different label
+     or should be hidden behind a flag.
+  3. Join placeholder URL: mocks use https://research-os.app/lab/join#... per the
+     brief. The real LabJoinSubStep uses /accept/... in its placeholder. Confirm
+     which format is canonical so validation logic matches.
+  4. Lab directory search in split view: the right-side Join half shows a small
+     "or search the directory" affordance below the inline input. Should clicking
+     it expand a search panel in-place (same column), or push to a full directory
+     page?
+  5. BeakerBot mascot in the lab split: both halves share the same "lab" mascot
+     silhouette. Should Create show a different scene (solo-at-desk?), or is one
+     shared mascot above the split header the right treatment?
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS onboarding revamp — free account + lab (2026-06-14)</title>
+<style>
+/* ── Design tokens (mirrors globals.css) ─────────────────────────────────── */
+:root {
+  --surface: #f8fafc;
+  --surface-raised: #ffffff;
+  --surface-sunken: #f1f5f9;
+  --surface-overlay: #ffffff;
+  --foreground: #171717;
+  --foreground-muted: #6b7280;
+  --border: #e5e7eb;
+  --accent: #1283c9;
+  --accent-hover: #0f6fa8;
+  --accent-soft: #eff6ff;
+  --brand-sky: #1AA0E6;
+  --brand-purple: #5B47D6;
+  --brand-ink: #111827;
+  --ok: #16a34a;
+  --orcid-green: #A6CE39;
+  --rainbow: linear-gradient(90deg,#ffd2b0 0%,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0 100%);
+  --rainbow-vivid: linear-gradient(95deg,#f97316 0%,#e8920b 22%,#16a34a 48%,#0284c7 72%,#9333ea 100%);
+
+  /* dark */
+  --page-bg: #e2e8f0;
+}
+
+[data-theme="dark"] {
+  --surface: #0d1117;
+  --surface-raised: #161b27;
+  --surface-sunken: #1e2535;
+  --surface-overlay: #1c2232;
+  --foreground: #f1f5f9;
+  --foreground-muted: #94a3b8;
+  --border: #2e3a50;
+  --accent: #38bdf8;
+  --accent-hover: #0ea5e9;
+  --accent-soft: rgba(56,189,248,.12);
+  --brand-ink: #f8fafc;
+  --page-bg: #090d18;
+  --rainbow: linear-gradient(90deg,#fb923c 0%,#fbbf24 25%,#4ade80 50%,#38bdf8 75%,#c084fc 100%);
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--page-bg);
+  color: var(--foreground);
+  min-height: 100vh;
+}
+
+/* ── Mockup chrome ─────────────────────────────────────────────────────────── */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 22px;
+  background: var(--surface-raised);
+  border-bottom: 1px solid var(--border);
+}
+.topbar h1 { font-size: 14px; font-weight: 800; color: var(--brand-ink); }
+.topbar span { font-size: 12px; color: var(--foreground-muted); }
+.spacer { flex: 1; }
+.toggle-btn {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-sunken); color: var(--foreground);
+  font-size: 12px; font-weight: 700; padding: 5px 12px;
+  transition: background .15s, border-color .15s;
+}
+.toggle-btn:hover { border-color: var(--accent); }
+
+.wrap { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; display: flex; flex-direction: column; gap: 56px; }
+
+/* section headers */
+.section-head {
+  display: flex; flex-direction: column; gap: 4px;
+  border-left: 3px solid var(--accent);
+  padding-left: 14px; margin-bottom: 20px;
+}
+.section-head .kicker {
+  font-size: 10px; font-weight: 800; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--accent);
+}
+.section-head h2 { font-size: 20px; font-weight: 800; color: var(--brand-ink); }
+.section-head p { font-size: 13px; color: var(--foreground-muted); line-height: 1.5; max-width: 70ch; }
+
+.annotation {
+  font-size: 11px; color: var(--foreground-muted);
+  background: var(--surface-sunken);
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  margin-top: 12px;
+  line-height: 1.5;
+}
+.annotation strong { color: var(--foreground); }
+
+/* ── Backdrop (the ambient gradient that live screen uses) ───────────────── */
+.landing-backdrop {
+  position: absolute; inset: 0; pointer-events: none; z-index: 0;
+  overflow: hidden;
+}
+.landing-backdrop::before {
+  content: "";
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(18,131,201,.08) 0%, transparent 70%),
+    radial-gradient(ellipse 60% 40% at 80% 70%, rgba(91,71,214,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 60% at 50% 0%, rgba(166,210,244,.12) 0%, transparent 65%);
+}
+
+/* ── BeakerBot mascot (SVG inline stand-in) ──────────────────────────────── */
+.mascot {
+  display: flex; align-items: center; justify-content: center;
+  width: 64px; height: 72px; flex: none;
+}
+.mascot svg { width: 100%; height: 100%; }
+
+/* ── Generic card ──────────────────────────────────────────────────────────── */
+.card {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  overflow: hidden;
+  position: relative;
+}
+.card-pad { padding: 28px 32px; }
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-primary {
+  appearance: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  width: 100%; padding: 12px 16px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 12px;
+  font-size: 14px; font-weight: 700;
+  transition: background .15s, transform .1s;
+}
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); }
+.btn-primary:active { transform: none; }
+
+.btn-secondary {
+  appearance: none; cursor: pointer; display: flex; align-items: center;
+  justify-content: center; gap: 8px;
+  width: 100%; padding: 11px 16px;
+  background: var(--surface-raised); color: var(--foreground);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-weight: 600;
+  transition: border-color .15s, background .15s, transform .1s;
+}
+.btn-secondary:hover { border-color: var(--accent); background: var(--accent-soft); transform: translateY(-1px); }
+
+.btn-ghost {
+  appearance: none; cursor: pointer; background: none; border: none;
+  color: var(--foreground-muted); font-size: 13px; font-weight: 500;
+  text-decoration: underline; text-underline-offset: 3px;
+  transition: color .15s;
+  padding: 0;
+}
+.btn-ghost:hover { color: var(--foreground); }
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  SECTION 1: FREE ACCOUNT — in-place expansion                             */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+.chooser-demo {
+  position: relative;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+}
+
+/* The 3-tile grid (dimmed when modal is open) */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  transition: filter .3s, opacity .3s;
+}
+.tile-grid.dimmed {
+  filter: blur(2px);
+  opacity: .35;
+  pointer-events: none;
+}
+.tile {
+  display: flex; flex-direction: column;
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 20px;
+  min-height: 240px;
+  cursor: pointer;
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.tile:hover { border-color: var(--accent); box-shadow: 0 4px 18px rgba(0,0,0,.07); transform: translateY(-2px); }
+.tile.highlighted { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), 0 4px 18px rgba(0,0,0,.08); }
+.tile-badge {
+  display: inline-flex; align-items: center;
+  font-size: 10px; font-weight: 800; letter-spacing: .03em;
+  padding: 2px 8px; border-radius: 999px; margin-bottom: 8px; align-self: flex-start;
+}
+.tile-badge.free { background: #dcfce7; color: #15803d; }
+.tile-badge.paid { background: #ede9fe; color: var(--brand-purple); }
+.tile h3 { font-size: 17px; font-weight: 800; color: var(--brand-ink); margin-bottom: 4px; }
+.tile p { font-size: 12px; color: var(--foreground-muted); line-height: 1.5; }
+.tile ul { margin: 10px 0 0 16px; font-size: 12px; color: var(--foreground-muted); line-height: 1.7; }
+.tile .tile-cta {
+  margin-top: auto; padding-top: 14px;
+}
+.tile-cta button {
+  appearance: none; cursor: pointer;
+  width: 100%; padding: 9px 14px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 700;
+  transition: background .15s;
+}
+.tile-cta button:hover { background: var(--accent-hover); }
+
+/* Modal overlay backdrop */
+.modal-backdrop {
+  position: absolute; inset: 0; z-index: 20;
+  background: rgba(0,0,0,.25);
+  border-radius: 20px;
+  display: none;
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+.modal-backdrop.open { display: flex; }
+
+/* Expansion card */
+.expansion-card {
+  background: var(--surface-overlay);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.08);
+  transform: scale(.88); opacity: 0;
+  transition: transform .28s cubic-bezier(.34,1.42,.6,1), opacity .22s ease;
+  overflow: hidden;
+}
+.expansion-card.visible {
+  transform: scale(1); opacity: 1;
+}
+.exp-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 22px 24px 0;
+}
+.exp-header .back-btn {
+  appearance: none; cursor: pointer; background: none; border: none;
+  color: var(--foreground-muted); font-size: 22px; line-height: 1;
+  width: 32px; height: 32px; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  transition: background .12s, color .12s; flex: none;
+}
+.exp-header .back-btn:hover { background: var(--surface-sunken); color: var(--foreground); }
+.exp-mascot-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; }
+.exp-mascot-wrap .mascot { width: 52px; height: 58px; }
+.exp-mascot-wrap h2 { font-size: 18px; font-weight: 800; color: var(--brand-ink); margin-top: 10px; }
+.exp-mascot-wrap p { font-size: 12px; color: var(--foreground-muted); text-align: center; margin-top: 4px; max-width: 28ch; line-height: 1.45; }
+.exp-body { padding: 20px 24px 24px; display: flex; flex-direction: column; gap: 10px; }
+
+/* Provider buttons */
+.provider-btn {
+  appearance: none; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 14px;
+  background: var(--surface-raised); color: var(--foreground);
+  border: 1px solid var(--border); border-radius: 12px;
+  font-size: 14px; font-weight: 600;
+  transition: border-color .14s, background .14s, box-shadow .14s, transform .1s;
+  text-align: left;
+}
+.provider-btn:hover {
+  border-color: var(--accent); background: var(--accent-soft);
+  box-shadow: 0 2px 8px rgba(18,131,201,.1); transform: translateY(-1px);
+}
+.provider-icon { width: 20px; height: 20px; flex: none; border-radius: 3px; }
+.provider-btn.google .provider-icon { background: #fff; display: flex; align-items: center; justify-content: center; }
+.provider-btn.github .provider-icon { background: #24292e; border-radius: 50%; }
+.provider-btn.microsoft .provider-icon { background: #fff; }
+
+/* ORCID divider */
+.orcid-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 2px 0;
+}
+.orcid-divider span { font-size: 11px; color: var(--foreground-muted); white-space: nowrap; }
+.orcid-divider::before, .orcid-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--border);
+}
+
+.orcid-btn {
+  appearance: none; cursor: pointer;
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 11px 14px;
+  background: var(--surface-raised); color: var(--foreground);
+  border: 1.5px solid #A6CE39; border-radius: 12px;
+  font-size: 14px; font-weight: 600;
+  transition: background .14s, box-shadow .14s, transform .1s;
+}
+.orcid-btn:hover {
+  background: #f8fce8; box-shadow: 0 2px 8px rgba(166,206,57,.2); transform: translateY(-1px);
+}
+.orcid-dot {
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #A6CE39;
+  display: flex; align-items: center; justify-content: center;
+  flex: none;
+}
+.orcid-dot svg { width: 13px; height: 13px; }
+.orcid-blurb { font-size: 11px; color: var(--foreground-muted); line-height: 1.4; margin-top: -4px; }
+
+.otp-link-row { text-align: center; padding-top: 4px; }
+.otp-link-row a {
+  font-size: 12px; color: var(--foreground-muted);
+  text-decoration: underline; text-underline-offset: 3px;
+  cursor: pointer;
+  transition: color .12s;
+}
+.otp-link-row a:hover { color: var(--foreground); }
+
+/* ── Folder popup card (reusable popup, replaces old inline folder-card) ── */
+/* Actual styles live in the .folder-popup-card block further below.        */
+/* This comment block kept as a landmark for diff reviewers.                */
+
+/* ── Simulated progress state for demo ──────────────────────────────────── */
+#s1-demo { position: relative; }
+#s1-state-chooser { font-size: 12px; color: var(--foreground-muted); }
+.demo-controls {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px;
+}
+.dc-btn {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-raised); color: var(--foreground);
+  font-size: 12px; font-weight: 600; padding: 5px 11px;
+  transition: background .12s, border-color .12s;
+}
+.dc-btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.dc-btn:hover:not(.active) { border-color: var(--accent); }
+
+/* ─────────────────────────────────────────────────────────────────────────── */
+/*  SECTION 2: LAB SPLIT LAYOUT                                               */
+/* ─────────────────────────────────────────────────────────────────────────── */
+
+.lab-header {
+  display: flex; flex-direction: column; align-items: center;
+  gap: 6px; padding: 28px 28px 20px;
+  border-bottom: 1px solid var(--border);
+  text-align: center;
+  background: var(--surface-raised);
+}
+.lab-header .back-row {
+  align-self: flex-start; display: flex; align-items: center; gap: 6px;
+}
+.lab-header .back-row button {
+  appearance: none; cursor: pointer; background: none; border: none;
+  color: var(--foreground-muted); font-size: 13px; font-weight: 600;
+  display: flex; align-items: center; gap: 4px;
+  text-decoration: underline; text-underline-offset: 3px;
+  padding: 0;
+  transition: color .12s;
+}
+.lab-header .back-row button:hover { color: var(--foreground); }
+.lab-header .mascot { width: 56px; height: 62px; }
+.lab-header h1 { font-size: 22px; font-weight: 800; color: var(--brand-ink); }
+.lab-header p { font-size: 13px; color: var(--foreground-muted); max-width: 44ch; line-height: 1.5; }
+
+.lab-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+.lab-half {
+  padding: 28px 32px 32px;
+  display: flex; flex-direction: column; gap: 16px;
+  position: relative;
+}
+.lab-half + .lab-half {
+  border-left: 1px solid var(--border);
+}
+
+.lab-half .half-mascot {
+  width: 48px; height: 52px;
+}
+.lab-half h2 {
+  font-size: 18px; font-weight: 800; color: var(--brand-ink);
+}
+.lab-half .half-desc {
+  font-size: 13px; color: var(--foreground-muted); line-height: 1.55;
+}
+.lab-half ul.half-bullets {
+  padding-left: 18px; margin: -4px 0 0;
+  font-size: 12.5px; color: var(--foreground-muted); line-height: 1.75;
+}
+
+/* Join inputs */
+.join-input-group { display: flex; flex-direction: column; gap: 6px; }
+.join-input-label {
+  font-size: 11px; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--foreground-muted);
+}
+.join-input-row { display: flex; gap: 8px; }
+.join-input {
+  flex: 1; padding: 10px 13px;
+  background: var(--surface-sunken); color: var(--foreground);
+  border: 1px solid var(--border); border-radius: 11px;
+  font-size: 13.5px;
+  transition: border-color .14s, box-shadow .14s;
+  outline: none;
+}
+.join-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.join-input::placeholder { color: var(--foreground-muted); opacity: .7; }
+.join-btn {
+  appearance: none; cursor: pointer; flex: none;
+  padding: 10px 16px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 11px;
+  font-size: 13.5px; font-weight: 700;
+  transition: background .14s;
+}
+.join-btn:hover { background: var(--accent-hover); }
+.join-error { font-size: 11.5px; color: #dc2626; display: none; }
+.join-error.shown { display: block; }
+
+.or-search-link {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; color: var(--foreground-muted);
+}
+.or-search-link::before { content: ""; flex: 1; height: 1px; background: var(--border); }
+.or-search-link::after { content: ""; flex: 1; height: 1px; background: var(--border); }
+.or-search-link a {
+  cursor: pointer; color: var(--accent); font-weight: 600;
+  text-decoration: underline; text-underline-offset: 3px;
+  white-space: nowrap;
+}
+
+/* Directory search panel (expandable) */
+.dir-search { display: none; flex-direction: column; gap: 8px; }
+.dir-search.open { display: flex; }
+.dir-search-row { display: flex; gap: 6px; }
+.dir-input {
+  flex: 1; padding: 8px 11px;
+  background: var(--surface-sunken); color: var(--foreground);
+  border: 1px solid var(--border); border-radius: 9px;
+  font-size: 13px; outline: none;
+  transition: border-color .14s;
+}
+.dir-input:focus { border-color: var(--accent); }
+.dir-input::placeholder { color: var(--foreground-muted); opacity: .7; }
+.dir-search-btn {
+  appearance: none; cursor: pointer;
+  padding: 8px 12px;
+  background: var(--surface-sunken); color: var(--foreground);
+  border: 1px solid var(--border); border-radius: 9px;
+  font-size: 12px; font-weight: 700;
+  transition: border-color .14s, background .14s;
+}
+.dir-search-btn:hover { border-color: var(--accent); background: var(--accent-soft); }
+.dir-result {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--surface-sunken); border: 1px solid var(--border);
+  border-radius: 10px; padding: 10px 12px;
+}
+.dir-result-info .name { font-size: 13px; font-weight: 700; color: var(--foreground); }
+.dir-result-info .meta { font-size: 11px; color: var(--foreground-muted); margin-top: 1px; }
+.dir-req-btn {
+  appearance: none; cursor: pointer; flex: none;
+  padding: 5px 10px;
+  background: var(--accent); color: #fff;
+  border: none; border-radius: 7px;
+  font-size: 11.5px; font-weight: 700;
+  transition: background .13s;
+}
+.dir-req-btn:hover { background: var(--accent-hover); }
+
+/* Create half accent strip */
+.create-half { background: linear-gradient(160deg, color-mix(in srgb, var(--accent) 5%, var(--surface-raised)) 0%, var(--surface-raised) 60%); }
+.create-cta-wrap { margin-top: auto; padding-top: 8px; }
+
+/* ── Divider line between sections ─────────────────────────────────────────── */
+.section-divider {
+  height: 1px; background: var(--border); margin: 0 -0px;
+}
+
+/* ── Folder popup (reusable, mirrors login popup) ────────────────────────── */
+.folder-popup-card {
+  background: var(--surface-overlay);
+  border-radius: 20px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.18), 0 4px 16px rgba(0,0,0,.08);
+  transform: scale(.88); opacity: 0;
+  transition: transform .28s cubic-bezier(.34,1.42,.6,1), opacity .22s ease;
+  overflow: hidden;
+}
+.folder-popup-card.visible {
+  transform: scale(1); opacity: 1;
+}
+.folder-popup-inner {
+  padding: 22px 24px 24px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.folder-popup-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 4px;
+}
+.folder-popup-title-row {
+  display: flex; align-items: center; gap: 10px; flex: 1;
+}
+.folder-popup-title-row h2 {
+  font-size: 17px; font-weight: 800; color: var(--brand-ink);
+}
+.folder-popup-sub {
+  font-size: 12.5px; color: var(--foreground-muted); line-height: 1.5;
+}
+
+/* Drop zone */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  padding: 28px 20px;
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  cursor: pointer;
+  background: var(--surface-sunken);
+  transition: border-color .18s, background .18s, transform .12s;
+  text-align: center;
+  user-select: none;
+}
+.drop-zone:hover, .drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: scale(1.01);
+}
+.drop-zone svg { color: var(--foreground-muted); transition: color .15s; }
+.drop-zone:hover svg, .drop-zone.drag-over svg { color: var(--accent); }
+.drop-zone-label {
+  font-size: 14px; font-weight: 700; color: var(--foreground);
+  line-height: 1.35;
+}
+.drop-zone-sub {
+  font-size: 11.5px; color: var(--foreground-muted);
+}
+
+.folder-popup-reassure {
+  display: flex; gap: 8px;
+  font-size: 11.5px; color: var(--foreground-muted);
+  background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px;
+  padding: 10px 12px; line-height: 1.45;
+}
+[data-theme="dark"] .folder-popup-reassure {
+  background: rgba(22,163,74,.1); border-color: rgba(22,163,74,.25);
+}
+.folder-popup-reassure span { flex: none; font-size: 14px; }
+
+/* Drag-over simulate button */
+.drag-simulate-btn {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: var(--surface-raised); color: var(--foreground-muted);
+  font-size: 11px; font-weight: 600; padding: 4px 10px;
+  transition: background .12s, border-color .12s, color .12s;
+  align-self: flex-end;
+}
+.drag-simulate-btn:hover { border-color: var(--accent); color: var(--foreground); }
+
+/* ── Flow composition diagram ────────────────────────────────────────────── */
+.flow-diagram {
+  background: var(--surface-raised);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 20px 24px 22px;
+  max-width: 860px;
+  margin: 0 auto 0;
+}
+.flow-diagram-title {
+  font-size: 11px; font-weight: 800; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--accent);
+  margin-bottom: 14px;
+}
+.flow-rows {
+  display: flex; flex-direction: column; gap: 10px;
+}
+.flow-row {
+  display: flex; align-items: center; gap: 0;
+}
+.flow-cell {
+  display: flex; align-items: center; justify-content: center;
+  padding: 7px 13px;
+  border-radius: 10px;
+  font-size: 12px; font-weight: 700;
+  white-space: nowrap;
+  min-width: 110px;
+  text-align: center;
+  flex: none;
+}
+.flow-cell.tier-local { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+.flow-cell.tier-free  { background: #dcfce7; color: #15803d; border: 1px solid #bbf7d0; }
+.flow-cell.tier-lab   { background: #ede9fe; color: #5B47D6; border: 1px solid #ddd6fe; }
+.flow-cell.popup-login  { background: var(--accent-soft); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent); }
+.flow-cell.popup-folder { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+[data-theme="dark"] .flow-cell.popup-folder { background: rgba(251,191,36,.1); color: #fbbf24; border-color: rgba(251,191,36,.25); }
+.flow-cell.page-lab   { background: #ede9fe; color: #5B47D6; border: 1px dashed #c4b5fd; }
+.flow-cell.reuse-tag  { font-size: 10px; font-weight: 600; opacity: .75; font-style: italic; }
+.flow-arrow {
+  font-size: 14px; color: var(--foreground-muted);
+  padding: 0 6px; flex: none;
+}
+.flow-preview-btn {
+  appearance: none; cursor: pointer;
+  border: 1px solid var(--border); border-radius: 7px;
+  background: var(--surface-sunken); color: var(--foreground-muted);
+  font-size: 10px; font-weight: 700; padding: 3px 8px;
+  margin-left: 6px; flex: none;
+  transition: background .12s, border-color .12s, color .12s;
+}
+.flow-preview-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.flow-legend {
+  display: flex; gap: 14px; flex-wrap: wrap;
+  margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border);
+}
+.flow-legend-item {
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11px; color: var(--foreground-muted);
+}
+.flow-legend-dot {
+  width: 10px; height: 10px; border-radius: 3px; flex: none;
+}
+.flow-legend-dot.tile   { background: #e2e8f0; }
+.flow-legend-dot.popup  { background: #bfdbfe; }
+.flow-legend-dot.page   { border: 1.5px dashed #c4b5fd; background: transparent; }
+
+/* ── Standalone folder-popup demo (section 0) ──────────────────────────── */
+#s0-demo { position: relative; max-width: 860px; margin: 0 auto; }
+.s0-tile-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  transition: filter .3s, opacity .3s;
+}
+.s0-tile-grid.dimmed { filter: blur(2px); opacity: .35; pointer-events: none; }
+
+/* ── Responsive ─────────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+  .tile-grid { grid-template-columns: 1fr; }
+  .lab-split { grid-template-columns: 1fr; }
+  .lab-half + .lab-half { border-left: none; border-top: 1px solid var(--border); }
+  .flow-row { flex-wrap: wrap; }
+  .flow-cell { min-width: 80px; font-size: 11px; }
+}
+</style>
+</head>
+
+<body>
+
+<!-- ── Mockup chrome topbar ──────────────────────────────────────────────── -->
+<div class="topbar">
+  <div>
+    <h1>Onboarding revamp</h1>
+  </div>
+  <span>Free account in-place expansion + Lab create/join split (2026-06-14)</span>
+  <div class="spacer"></div>
+  <button class="toggle-btn" onclick="toggleDark()">Toggle dark</button>
+</div>
+
+<div class="wrap">
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       SECTION 0 — FLOW COMPOSITION DIAGRAM
+  ════════════════════════════════════════════════════════════════════════ -->
+  <section id="section-composition">
+    <div class="section-head">
+      <span class="kicker">Section 0</span>
+      <h2>Flow composition at a glance</h2>
+      <p>Onboarding is composed from two reusable popups (sign-in and folder) plus the lab split page. Each tier assembles them differently. Click a "preview" button to open that popup over the chooser below.</p>
+    </div>
+
+    <div class="flow-diagram">
+      <div class="flow-diagram-title">Per-tier popup composition</div>
+      <div class="flow-rows">
+
+        <!-- LOCAL row -->
+        <div class="flow-row">
+          <div class="flow-cell tier-local">LOCAL</div>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell popup-folder">Folder popup</div>
+          <button class="flow-preview-btn" onclick="setS1State('folder-standalone')">preview</button>
+        </div>
+
+        <!-- FREE row -->
+        <div class="flow-row">
+          <div class="flow-cell tier-free">FREE / solo</div>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell popup-login">Sign-in popup</div>
+          <button class="flow-preview-btn" onclick="setS1State('expansion')">preview</button>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell popup-folder">Folder popup</div>
+          <button class="flow-preview-btn" onclick="setS1State('folder')">preview</button>
+        </div>
+
+        <!-- LAB row -->
+        <div class="flow-row">
+          <div class="flow-cell tier-lab">LAB</div>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell page-lab">Lab split page</div>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell popup-login reuse-tag">sign-in popup (reused)</div>
+          <span class="flow-arrow">&#8594;</span>
+          <div class="flow-cell popup-folder reuse-tag">folder popup (reused)</div>
+        </div>
+
+      </div>
+      <div class="flow-legend">
+        <div class="flow-legend-item"><div class="flow-legend-dot tile"></div> Tile (chooser)</div>
+        <div class="flow-legend-item"><div class="flow-legend-dot popup"></div> Reusable popup</div>
+        <div class="flow-legend-item"><div class="flow-legend-dot page"></div> Dedicated page (Lab only)</div>
+      </div>
+    </div>
+
+    <p class="annotation" style="max-width:860px;margin:12px auto 0;">
+      <strong>Key idea.</strong> The sign-in popup and folder popup are independent reusable components. Local skips sign-in entirely. Free chains both popups in-place over the chooser without any navigation. Lab is the only tier that navigates to its own page, but it still recycles the same two popups within that page rather than inventing new ones.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       SECTION 1 — FREE ACCOUNT: in-place animated expansion
+  ════════════════════════════════════════════════════════════════════════ -->
+  <section id="section-free">
+    <div class="section-head">
+      <span class="kicker">Section 1</span>
+      <h2>Free account — in-place expansion</h2>
+      <p>Clicking "Create free account" on the Free tile blows up an animated modal card over the chooser rather than hard-navigating to a separate page. After sign-in, the user lands on the same data-folder picker as the local path.</p>
+    </div>
+
+    <!-- Demo state controls -->
+    <div class="demo-controls" id="s1-controls">
+      <span style="font-size:12px;color:var(--foreground-muted);align-self:center;">Preview state:</span>
+      <button class="dc-btn active" onclick="setS1State('tiles')">Tile chooser</button>
+      <button class="dc-btn" onclick="setS1State('expansion')">Sign-in popup</button>
+      <button class="dc-btn" onclick="setS1State('folder')">Folder popup (after sign-in)</button>
+      <button class="dc-btn" onclick="setS1State('folder-standalone')">Folder popup (LOCAL path)</button>
+    </div>
+
+    <!-- The actual demo surface -->
+    <div id="s1-demo" style="max-width:860px;margin:0 auto;">
+
+      <!-- The 3-tile chooser grid -->
+      <div class="tile-grid" id="tile-grid">
+        <!-- Local tile -->
+        <div class="tile">
+          <div class="mascot" style="margin-bottom:6px">
+            <!-- solo beaker mascot approximation -->
+            <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="32" cy="28" rx="14" ry="16" fill="#ffd2b0"/>
+              <ellipse cx="32" cy="24" rx="9" ry="9" fill="#FFB347"/>
+              <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+              <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+              <rect x="26" y="38" width="12" height="18" rx="4" fill="#a6d2f4"/>
+              <rect x="22" y="52" width="20" height="6" rx="3" fill="#7bb8e8"/>
+            </svg>
+          </div>
+          <span class="tile-badge free">Free</span>
+          <h3>Just me, local</h3>
+          <p>Everything stays on your computer. No account, no login, nothing leaves your disk.</p>
+          <ul>
+            <li>Full app, offline</li>
+            <li>No sign-in ever</li>
+            <li>Most private</li>
+          </ul>
+          <div class="tile-cta"><button onclick="setS1State('tiles')">Start local</button></div>
+        </div>
+
+        <!-- Free account tile -->
+        <div class="tile highlighted" id="free-tile" onclick="setS1State('expansion')">
+          <div class="mascot" style="margin-bottom:6px">
+            <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="32" cy="28" rx="14" ry="16" fill="#b7ebb1"/>
+              <ellipse cx="32" cy="24" rx="9" ry="9" fill="#5abf5a"/>
+              <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+              <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+              <rect x="26" y="38" width="12" height="18" rx="4" fill="#a6d2f4"/>
+              <rect x="14" y="44" width="10" height="3" rx="1.5" fill="#1283c9"/>
+              <rect x="40" y="44" width="10" height="3" rx="1.5" fill="#1283c9"/>
+              <rect x="22" y="52" width="20" height="6" rx="3" fill="#7bb8e8"/>
+            </svg>
+          </div>
+          <span class="tile-badge free">Free</span>
+          <h3>Free account</h3>
+          <p>Local like above, plus a sign-in so you can share with researchers outside your folder.</p>
+          <ul>
+            <li>Data still on your disk</li>
+            <li>Findable in the directory</li>
+            <li>Send and receive externally</li>
+          </ul>
+          <div class="tile-cta"><button>Create free account</button></div>
+        </div>
+
+        <!-- Lab tile -->
+        <div class="tile">
+          <div class="mascot" style="margin-bottom:6px">
+            <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="32" cy="28" rx="14" ry="16" fill="#d6b5f0"/>
+              <ellipse cx="32" cy="24" rx="9" ry="9" fill="#9b72d8"/>
+              <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+              <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+              <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+              <rect x="26" y="38" width="12" height="18" rx="4" fill="#d6b5f0"/>
+              <circle cx="16" cy="52" r="7" fill="#b7ebb1"/>
+              <circle cx="48" cy="52" r="7" fill="#a6d2f4"/>
+              <rect x="22" y="52" width="20" height="6" rx="3" fill="#9b72d8"/>
+            </svg>
+          </div>
+          <span class="tile-badge paid">Lab</span>
+          <h3>Lab</h3>
+          <p>Run or join a lab. Real-time collaboration, PI oversight, cloud-backed team sync.</p>
+          <ul>
+            <li>Create or join a lab</li>
+            <li>Cloud sync (server-blind)</li>
+            <li>Everything in Free, too</li>
+          </ul>
+          <div class="tile-cta"><button style="background:var(--brand-purple)">Create or join a lab</button></div>
+        </div>
+      </div>
+
+      <!-- Modal overlay (expansion) -->
+      <div class="modal-backdrop" id="modal-backdrop">
+
+        <!-- Sign-in expansion card -->
+        <div class="expansion-card" id="expansion-card">
+          <div class="exp-header">
+            <button class="back-btn" onclick="setS1State('tiles')" title="Back to chooser" aria-label="Back">&#8592;</button>
+            <div class="exp-mascot-wrap">
+              <div class="mascot">
+                <svg viewBox="0 0 64 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <ellipse cx="32" cy="28" rx="14" ry="16" fill="#b7ebb1"/>
+                  <ellipse cx="32" cy="24" rx="9" ry="9" fill="#5abf5a"/>
+                  <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+                  <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+                  <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+                  <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+                  <rect x="26" y="38" width="12" height="18" rx="4" fill="#a6d2f4"/>
+                  <rect x="14" y="44" width="10" height="3" rx="1.5" fill="#1283c9"/>
+                  <rect x="40" y="44" width="10" height="3" rx="1.5" fill="#1283c9"/>
+                  <rect x="22" y="52" width="20" height="6" rx="3" fill="#7bb8e8"/>
+                </svg>
+              </div>
+              <h2>Create your free account</h2>
+              <p>Your data stays on your disk. The account is only used for sharing and the researcher directory.</p>
+            </div>
+            <button class="back-btn" onclick="setS1State('tiles')" title="Close" aria-label="Close" style="font-size:18px;">&#10005;</button>
+          </div>
+
+          <div class="exp-body">
+            <!-- Google -->
+            <button class="provider-btn google">
+              <span class="provider-icon">
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+                  <circle cx="10" cy="10" r="10" fill="#fff"/>
+                  <path d="M18.17 10.23c0-.64-.06-1.25-.17-1.84H10v3.47h4.59a3.93 3.93 0 01-1.7 2.58v2.14h2.74c1.6-1.47 2.54-3.64 2.54-6.35z" fill="#4285F4"/>
+                  <path d="M10 18.5c2.3 0 4.22-.76 5.63-2.06l-2.74-2.14c-.76.51-1.73.81-2.89.81-2.22 0-4.1-1.5-4.77-3.52H2.4v2.21A8.5 8.5 0 0010 18.5z" fill="#34A853"/>
+                  <path d="M5.23 11.59a5.1 5.1 0 010-3.18V6.2H2.4a8.5 8.5 0 000 7.6l2.83-2.21z" fill="#FBBC05"/>
+                  <path d="M10 4.75a4.6 4.6 0 013.25 1.27l2.43-2.43A8.18 8.18 0 0010 1.5 8.5 8.5 0 002.4 6.2l2.83 2.21C5.9 6.25 7.78 4.75 10 4.75z" fill="#EA4335"/>
+                </svg>
+              </span>
+              Continue with Google
+            </button>
+
+            <!-- GitHub -->
+            <button class="provider-btn github">
+              <span class="provider-icon" style="display:flex;align-items:center;justify-content:center;background:#24292e;border-radius:50%;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="#fff">
+                  <path d="M12 .3A12 12 0 000 12.3c0 5.3 3.4 9.8 8.2 11.4.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.5-1.4-1.3-1.7-1.3-1.7-1.1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 .1-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.5.1-3.2 0 0 1-.3 3.4 1.3a11.7 11.7 0 016 0C17 3.8 18 4.1 18 4.1c.7 1.7.2 2.8.1 3.2.8.8 1.2 1.9 1.2 3.2 0 4.6-2.8 5.6-5.5 5.9.5.4.9 1.2.9 2.3v3.3c0 .4.2.7.8.6A12 12 0 0024 12.3 12 12 0 0012 .3z"/>
+                </svg>
+              </span>
+              Continue with GitHub
+            </button>
+
+            <!-- Microsoft -->
+            <button class="provider-btn microsoft">
+              <span class="provider-icon" style="display:flex;align-items:center;justify-content:center;background:#fff;border-radius:3px;">
+                <svg width="16" height="16" viewBox="0 0 21 21" fill="none">
+                  <rect width="10" height="10" fill="#F25022"/>
+                  <rect x="11" width="10" height="10" fill="#7FBA00"/>
+                  <rect y="11" width="10" height="10" fill="#00A4EF"/>
+                  <rect x="11" y="11" width="10" height="10" fill="#FFB900"/>
+                </svg>
+              </span>
+              Continue with Microsoft
+            </button>
+
+            <!-- ORCID divider + button -->
+            <div class="orcid-divider"><span>privacy-friendly academic alternative</span></div>
+
+            <div style="display:flex;flex-direction:column;gap:5px;">
+              <button class="orcid-btn">
+                <span class="orcid-dot">
+                  <svg viewBox="0 0 32 32" fill="none"><circle cx="16" cy="16" r="16" fill="#A6CE39"/><path d="M11 9h2v14h-2zm4 0h5a7 7 0 010 14h-5V9zm2 2v10h3a5 5 0 000-10h-3z" fill="#fff"/></svg>
+                </span>
+                Sign in with ORCID
+              </button>
+              <p class="orcid-blurb">ORCID is the researcher identifier used by publishers and funders. No big-tech login required.</p>
+            </div>
+
+            <!-- OTP tertiary link -->
+            <div class="otp-link-row">
+              <a onclick="void(0)">Email me a sign-in code instead</a>
+            </div>
+          </div>
+        </div>
+
+        <!-- Folder picker popup (reusable — shown after sign-in for FREE, or directly for LOCAL) -->
+        <div class="folder-popup-card" id="folder-card">
+          <div class="folder-popup-inner">
+            <div class="folder-popup-header">
+              <button class="back-btn" id="folder-back-btn" onclick="setS1State('expansion')" style="font-size:16px;" title="Back">&#8592;</button>
+              <div style="flex:1"></div>
+              <button class="back-btn" onclick="setS1State('tiles')" title="Close" style="font-size:18px;">&#10005;</button>
+            </div>
+
+            <div class="folder-popup-title-row">
+              <div class="mascot" style="width:40px;height:44px;flex:none;">
+                <svg viewBox="0 0 64 72" fill="none">
+                  <ellipse cx="32" cy="28" rx="14" ry="16" fill="#ffd2b0"/>
+                  <ellipse cx="32" cy="24" rx="9" ry="9" fill="#FFB347"/>
+                  <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+                  <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+                  <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+                  <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+                  <rect x="26" y="38" width="12" height="18" rx="4" fill="#a6d2f4"/>
+                  <rect x="22" y="52" width="20" height="6" rx="3" fill="#7bb8e8"/>
+                </svg>
+              </div>
+              <h2>Choose your data folder</h2>
+            </div>
+
+            <p class="folder-popup-sub">Your research data lives in this folder on your own computer. Nothing is uploaded. ResearchOS never sees your files.</p>
+
+            <!-- Drop zone -->
+            <div class="drop-zone" id="folder-drop-zone"
+              ondragover="handleDragOver(event)"
+              ondragleave="handleDragLeave(event)"
+              ondrop="handleDrop(event)"
+              onclick="simulateChoose()">
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/>
+              </svg>
+              <div class="drop-zone-label">Drag a folder here, or click to choose</div>
+              <div class="drop-zone-sub">Supports any folder on your computer</div>
+            </div>
+
+            <button class="drag-simulate-btn" onclick="toggleDragOver()" title="Simulate drag-over state">Simulate drag-over</button>
+
+            <button class="btn-primary" style="gap:8px;" onclick="simulateChoose()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 19a2 2 0 01-2 2H4a2 2 0 01-2-2V5a2 2 0 012-2h5l2 3h9a2 2 0 012 2z"/></svg>
+              Choose folder
+            </button>
+
+            <div class="folder-popup-reassure">
+              <span>&#128274;</span>
+              <span>Your research data lives in this folder on your own computer. Nothing is uploaded and ResearchOS never sees it.</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /modal-backdrop -->
+
+    </div><!-- /s1-demo -->
+
+    <p class="annotation">
+      <strong>Layout intent.</strong> The tile grid stays visible and blurs behind the overlay so users understand exactly where they are in the flow. Both popups use the same CSS <code>scale + opacity</code> spring easing (cubic-bezier .34 1.42 .6 1) so they feel like a matched pair. The sign-in popup has a back arrow and an X; the folder popup mirrors the same affordances. When the folder popup is reached from the FREE path the back arrow returns to the sign-in popup; when it is reached from the LOCAL path directly the back arrow is hidden (there is no prior step) and only the X is shown, so neither path is a soft-lock. The folder drop zone highlights on hover and drag-over; the "Simulate drag-over" button lets reviewers inspect that state without needing a real drag. ORCID gets its own row with a light green border to distinguish it from the big-tech row without demoting it to a footnote.
+    </p>
+  </section>
+
+  <!-- ════════════════════════════════════════════════════════════════════════
+       SECTION 2 — LAB SPLIT LAYOUT
+  ════════════════════════════════════════════════════════════════════════ -->
+  <section id="section-lab">
+    <div class="section-head">
+      <span class="kicker">Section 2</span>
+      <h2>Lab — create or join (split layout)</h2>
+      <p>Replaces the current two-button stub with a full 50/50 split. Join (left) exposes the invite-link input immediately; Create (right) explains what lab-head means before asking for commitment. Both halves read as equal paths at a glance.</p>
+    </div>
+
+    <div class="card" style="max-width:860px;margin:0 auto;">
+      <div class="landing-backdrop"></div>
+
+      <!-- Card header with mascot + back -->
+      <div class="lab-header">
+        <div class="back-row">
+          <button>&#8592; Back</button>
+        </div>
+        <div class="mascot" style="width:56px;height:62px;">
+          <svg viewBox="0 0 64 72" fill="none">
+            <ellipse cx="32" cy="28" rx="14" ry="16" fill="#d6b5f0"/>
+            <ellipse cx="32" cy="24" rx="9" ry="9" fill="#9b72d8"/>
+            <circle cx="28" cy="22" r="2.5" fill="#fff"/>
+            <circle cx="36" cy="22" r="2.5" fill="#fff"/>
+            <circle cx="28.8" cy="22.8" r="1" fill="#333"/>
+            <circle cx="36.8" cy="22.8" r="1" fill="#333"/>
+            <rect x="26" y="38" width="12" height="18" rx="4" fill="#d6b5f0"/>
+            <circle cx="16" cy="52" r="7" fill="#b7ebb1"/>
+            <circle cx="48" cy="52" r="7" fill="#a6d2f4"/>
+            <rect x="22" y="52" width="20" height="6" rx="3" fill="#9b72d8"/>
+          </svg>
+        </div>
+        <h1>Set up a lab</h1>
+        <p>Join a lab you have been invited to, or create a new one and become the lab head.</p>
+      </div>
+
+      <!-- 50/50 split -->
+      <div class="lab-split">
+
+        <!-- ── LEFT: Join a lab ─────────────────────────────────────────── -->
+        <div class="lab-half">
+          <!-- icon -->
+          <div style="width:40px;height:40px;border-radius:10px;background:var(--accent-soft);display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/>
+              <circle cx="9" cy="7" r="4"/>
+              <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75"/>
+            </svg>
+          </div>
+
+          <h2>Join a lab</h2>
+          <p class="half-desc">
+            Your PI or lab manager sent you an invite link. Paste it below to join instantly. Or search the lab directory and send a join request.
+          </p>
+
+          <!-- Inline invite-link input -->
+          <div class="join-input-group">
+            <span class="join-input-label">Invite link</span>
+            <div class="join-input-row">
+              <input
+                class="join-input"
+                type="url"
+                id="invite-link-input"
+                placeholder="https://research-os.app/lab/join#..."
+                oninput="clearJoinError()"
+              />
+              <button class="join-btn" onclick="handleJoin()">Join</button>
+            </div>
+            <span class="join-error" id="join-error">That does not look like a valid invite link. Paste the full URL from your invitation.</span>
+          </div>
+
+          <!-- Directory search affordance -->
+          <div class="or-search-link">
+            <a onclick="toggleDirSearch()">or search the lab directory</a>
+          </div>
+
+          <!-- Expandable directory search -->
+          <div class="dir-search" id="dir-search">
+            <div class="dir-search-row">
+              <input class="dir-input" type="search" placeholder="Lab name or institution..." />
+              <button class="dir-search-btn" onclick="showFakeResults()">Search</button>
+            </div>
+            <!-- Fake results (demo only) -->
+            <div id="dir-results" style="display:none;flex-direction:column;gap:6px;">
+              <div class="dir-result">
+                <div class="dir-result-info">
+                  <div class="name">Nickles Lab</div>
+                  <div class="meta">UW-Madison &middot; PI: Dr. Grant Nickles &middot; 4 members</div>
+                </div>
+                <button class="dir-req-btn">Request to join</button>
+              </div>
+              <div class="dir-result">
+                <div class="dir-result-info">
+                  <div class="name">Synthetic Biology Collective</div>
+                  <div class="meta">MIT &middot; PI: Dr. J. Lee &middot; 12 members</div>
+                </div>
+                <button class="dir-req-btn">Request to join</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── RIGHT: Create a lab ─────────────────────────────────────── -->
+        <div class="lab-half create-half">
+          <!-- icon -->
+          <div style="width:40px;height:40px;border-radius:10px;background:#ede9fe;display:flex;align-items:center;justify-content:center;flex:none;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="var(--brand-purple)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </div>
+
+          <h2>Create a lab</h2>
+          <p class="half-desc">
+            You become the lab head. You invite members, manage the workspace, and hold the lab's billing. Every member's data stays on their own disk; the cloud is only an intermediary for team sync.
+          </p>
+
+          <ul class="half-bullets">
+            <li>Real-time co-editing for the whole team</li>
+            <li>PI oversight dashboard and check-ins</li>
+            <li>Shared methods, protocols, and inventory</li>
+            <li>Server-blind: encrypted before it leaves any machine</li>
+            <li>Free to create (1 GB pooled per member included)</li>
+          </ul>
+
+          <div class="create-cta-wrap">
+            <button class="btn-primary" style="background:var(--brand-purple);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 5v14M5 12h14"/></svg>
+              Create a lab
+            </button>
+            <p style="font-size:11px;color:var(--foreground-muted);margin-top:8px;text-align:center;line-height:1.4;">
+              You will sign in with a provider on the next step. Lab creation is free.
+            </p>
+          </div>
+        </div>
+
+      </div><!-- /lab-split -->
+    </div><!-- /card -->
+
+    <p class="annotation">
+      <strong>Layout intent.</strong> The left/right halves have equal width and equal visual start-weight so neither path looks like the "real" one and neither looks like an afterthought. The invite-link input is exposed immediately (no "have an invite link?" chevron to expand first) because users who arrive with a link should be able to paste and go with zero extra clicks. The directory search is a secondary affordance below the fold of the left half so it does not crowd the primary path. The right half has a subtle directional gradient to give Create a slightly elevated visual tier matching that it is the "starting something new" path.
+    </p>
+  </section>
+
+</div><!-- /wrap -->
+
+<script>
+/* ── Dark toggle ─────────────────────────────────────────────────────────── */
+function toggleDark() {
+  const html = document.documentElement;
+  html.setAttribute('data-theme', html.getAttribute('data-theme') === 'dark' ? '' : 'dark');
+}
+
+/* ── Section 1 state machine ─────────────────────────────────────────────── */
+function setS1State(state) {
+  const grid = document.getElementById('tile-grid');
+  const backdrop = document.getElementById('modal-backdrop');
+  const expansionCard = document.getElementById('expansion-card');
+  const folderCard = document.getElementById('folder-card');
+  const folderBackBtn = document.getElementById('folder-back-btn');
+  const controls = document.querySelectorAll('#s1-controls .dc-btn');
+
+  // Update control buttons
+  const stateMap = { tiles: 0, expansion: 1, folder: 2, 'folder-standalone': 3 };
+  controls.forEach((btn, i) => btn.classList.toggle('active', i === stateMap[state]));
+
+  if (state === 'tiles') {
+    grid.classList.remove('dimmed');
+    backdrop.classList.remove('open');
+    expansionCard.classList.remove('visible');
+    folderCard.classList.remove('visible');
+  } else if (state === 'expansion') {
+    grid.classList.add('dimmed');
+    backdrop.classList.add('open');
+    folderCard.classList.remove('visible');
+    // slight delay so the backdrop renders before the card animates
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => expansionCard.classList.add('visible'));
+    });
+  } else if (state === 'folder') {
+    // After sign-in: back goes to expansion, X closes to tiles
+    if (folderBackBtn) {
+      folderBackBtn.style.display = '';
+      folderBackBtn.onclick = () => setS1State('expansion');
+    }
+    grid.classList.add('dimmed');
+    backdrop.classList.add('open');
+    expansionCard.classList.remove('visible');
+    requestAnimationFrame(() => {
+      folderCard.classList.add('visible');
+    });
+  } else if (state === 'folder-standalone') {
+    // LOCAL path: back goes directly to tiles, no sign-in step to return to
+    if (folderBackBtn) {
+      folderBackBtn.style.display = 'none';
+    }
+    grid.classList.add('dimmed');
+    backdrop.classList.add('open');
+    expansionCard.classList.remove('visible');
+    requestAnimationFrame(() => {
+      folderCard.classList.add('visible');
+    });
+  }
+}
+
+/* ── Drop zone interactions ──────────────────────────────────────────────── */
+function handleDragOver(e) {
+  e.preventDefault();
+  document.getElementById('folder-drop-zone').classList.add('drag-over');
+}
+
+function handleDragLeave(e) {
+  document.getElementById('folder-drop-zone').classList.remove('drag-over');
+}
+
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('folder-drop-zone').classList.remove('drag-over');
+  alert('(demo) Folder dropped. Would open OS folder picker or accept the dropped folder.');
+}
+
+function simulateChoose() {
+  alert('(demo) Would open OS file picker. User selects a folder and ResearchOS opens inside it.');
+}
+
+let dragOverActive = false;
+function toggleDragOver() {
+  const zone = document.getElementById('folder-drop-zone');
+  dragOverActive = !dragOverActive;
+  zone.classList.toggle('drag-over', dragOverActive);
+}
+
+/* ── Join input validation (demo) ────────────────────────────────────────── */
+function handleJoin() {
+  const input = document.getElementById('invite-link-input');
+  const errEl = document.getElementById('join-error');
+  const val = input.value.trim();
+  if (!val) {
+    errEl.textContent = 'Paste an invite link to continue.';
+    errEl.classList.add('shown');
+    return;
+  }
+  const looksValid = val.startsWith('https://research-os.app/') || val.startsWith('/lab/join') || val.startsWith('/accept/');
+  if (!looksValid) {
+    errEl.textContent = 'That does not look like a valid invite link. Paste the full URL from your invitation.';
+    errEl.classList.add('shown');
+    return;
+  }
+  errEl.classList.remove('shown');
+  alert('(demo) Would navigate to: ' + val);
+}
+
+function clearJoinError() {
+  document.getElementById('join-error').classList.remove('shown');
+}
+
+/* ── Directory search toggle (demo) ─────────────────────────────────────── */
+function toggleDirSearch() {
+  const panel = document.getElementById('dir-search');
+  panel.classList.toggle('open');
+}
+
+function showFakeResults() {
+  const results = document.getElementById('dir-results');
+  results.style.display = 'flex';
+}
+</script>
+</body>
+</html>

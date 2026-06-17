@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub, table + results screen audit vs Prism</title>
+<style>
+  :root { --surface:#eef1f5; --raised:#fff; --sunken:#e7ebf1; --fg:#1c2430; --muted:#6b7785; --header:#7c8694;
+    --border:#d4dae2; --action:#1283C9; --green:#1a9f5a; --amber:#e8932a; --blue:#2b6cb0; --red:#d9483b;
+    --have:#1a9f5a; --partial:#e8932a; --new:#1283C9; }
+  html.dark { --surface:#0b0f18; --raised:#161e2b; --sunken:#1f2937; --fg:#eef2f7; --muted:#9aa6b6; --header:#8893a2; --border:#2a3547; --action:#3aa6e6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif; background:var(--surface); color:var(--fg); font-size:13px; -webkit-font-smoothing:antialiased; }
+  .top { display:flex; align-items:center; gap:12px; padding:11px 16px; background:var(--raised); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
+  .top h1 { font-size:14px; font-weight:800; margin:0; }
+  .top .sub { font-size:11.5px; color:var(--muted); margin-right:auto; max-width:560px; }
+  .btn { font-size:12px; font-weight:700; padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:var(--raised); color:var(--fg); cursor:pointer; }
+  .switch { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .switch button { font-size:12px; font-weight:800; padding:6px 13px; border:none; background:var(--raised); color:var(--muted); cursor:pointer; }
+  .switch button.on { background:var(--action); color:#fff; }
+  .wrap { max-width:1080px; margin:0 auto; padding:18px 18px 90px; }
+
+  .legend { display:flex; gap:14px; align-items:center; font-size:11px; color:var(--muted); margin-bottom:12px; flex-wrap:wrap; }
+  .tag { font-size:9.5px; font-weight:800; padding:2px 7px; border-radius:999px; text-transform:uppercase; letter-spacing:.04em; }
+  .tag.have { background:rgba(26,159,90,.15); color:var(--have); }
+  .tag.partial { background:rgba(232,147,42,.16); color:var(--partial); }
+  .tag.new { background:rgba(18,131,201,.14); color:var(--new); }
+  .prio { font-size:9.5px; font-weight:800; color:var(--muted); }
+
+  /* mock screen */
+  .screen { border:1px solid var(--border); border-radius:12px; overflow:hidden; background:var(--raised); margin-bottom:18px; }
+  .toolbar { display:flex; gap:6px; align-items:center; flex-wrap:wrap; padding:9px 12px; background:var(--sunken); border-bottom:1px solid var(--border); }
+  .tbtn { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--raised); color:var(--fg); cursor:pointer; position:relative; }
+  .tbtn .dot { width:7px; height:7px; border-radius:50%; }
+  .tbtn.have .dot { background:var(--have); } .tbtn.partial .dot { background:var(--partial); } .tbtn.new .dot { background:var(--new); }
+  .tbtn.sel { outline:2px solid var(--action); outline-offset:1px; }
+  .screenbody { display:flex; gap:0; min-height:210px; }
+  .nav { width:172px; flex-shrink:0; border-right:1px solid var(--border); padding:10px; background:var(--raised); }
+  .nav .navh { font-size:9.5px; font-weight:800; color:var(--header); text-transform:uppercase; letter-spacing:.07em; margin:8px 0 4px; }
+  .nav .it { font-size:11.5px; padding:3px 6px; border-radius:5px; color:var(--fg); }
+  .nav .it.ind { margin-left:14px; color:var(--muted); border-left:2px solid var(--border); }
+  .nav .it.sel { background:rgba(18,131,201,.12); color:var(--action); font-weight:700; }
+  .canvas { flex:1; padding:14px; }
+  table.demo { border-collapse:collapse; font-size:12px; width:100%; }
+  table.demo th, table.demo td { border:1px solid var(--border); padding:4px 10px; text-align:center; }
+  table.demo th { background:var(--sunken); font-weight:700; }
+  .restabs { display:flex; gap:0; border-bottom:1px solid var(--border); margin-bottom:10px; }
+  .restabs span { font-size:11.5px; font-weight:700; padding:6px 11px; color:var(--muted); border-bottom:2px solid transparent; }
+  .restabs span.on { color:var(--action); border-bottom-color:var(--action); }
+  .verdict { font-size:12.5px; background:rgba(26,159,90,.08); border:1px solid rgba(26,159,90,.25); border-radius:8px; padding:9px 11px; margin-bottom:8px; }
+
+  /* audit list */
+  .audit { border:1px solid var(--border); border-radius:12px; background:var(--raised); }
+  .audit .ah { padding:11px 14px; border-bottom:1px solid var(--border); font-size:12px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .item { padding:11px 14px; border-bottom:1px solid var(--border); }
+  .item:last-child { border-bottom:none; }
+  .item.hl { background:rgba(18,131,201,.06); }
+  .item .head { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .item .name { font-size:12.5px; font-weight:700; }
+  .item .desc { font-size:11.5px; color:var(--muted); margin-top:3px; line-height:1.45; }
+  .item .verds { margin-left:auto; display:flex; gap:5px; }
+  .item .verds button { font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:6px; border:1px solid var(--border); background:var(--sunken); color:var(--muted); cursor:pointer; }
+  .item .verds button.aon { background:var(--green); color:#fff; border-color:var(--green); }
+  .item .verds button.don { background:var(--red); color:#fff; border-color:var(--red); }
+  .item .verds button.qon { background:var(--amber); color:#fff; border-color:var(--amber); }
+  .item input.note { width:100%; margin-top:7px; font-size:11px; padding:5px 8px; border:1px solid var(--border); border-radius:7px; background:var(--sunken); color:var(--fg); }
+
+  .bar { display:flex; align-items:center; gap:12px; padding:9px 16px; background:var(--raised); border-top:1px solid var(--border); position:sticky; bottom:0; z-index:20; }
+  .bar .count { font-size:12px; color:var(--muted); margin-right:auto; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Data Hub audit</h1>
+  <span class="sub">What Prism/GraphPad users expect on the table + results screens vs what we have. Approve the additions you want, change-by-change.</span>
+  <div class="switch" id="screenSwitch">
+    <button class="on" onclick="setScreen('table')">Data table</button>
+    <button onclick="setScreen('results')">Results</button>
+  </div>
+  <button class="btn" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="btn" onclick="openExport()">Export decisions</button>
+</div>
+
+<div class="wrap">
+  <div class="legend">
+    <span><span class="tag have">have</span> already in Data Hub</span>
+    <span><span class="tag partial">partial</span> exists but not surfaced here</span>
+    <span><span class="tag new">new</span> not built</span>
+    <span style="margin-left:auto;">priority: core / common / niche</span>
+  </div>
+
+  <div class="screen" id="screen"></div>
+  <div class="audit" id="audit"></div>
+</div>
+
+<div class="bar">
+  <span class="count" id="count"></span>
+  <button class="btn" onclick="approveAllNew()">Approve all new (core+common)</button>
+  <button class="btn" onclick="openExport()">Export decisions</button>
+</div>
+
+<div id="exportOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;max-width:620px;width:100%;padding:18px;max-height:80vh;overflow:auto;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Audit decisions</strong>
+      <button class="btn" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="btn" onclick="closeExport()">Close</button>
+    </div>
+    <div style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:10px;" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+// status: have | partial | new ; prio: core | common | niche
+const ITEMS = {
+  table: [
+    { id:"analyze",   name:"Analyze button (top bar)", status:"partial", prio:"core", tb:"Analyze", desc:"Surface the existing Choose-an-analysis chooser as a prominent toolbar action on the data table. Prism's single most-used button." },
+    { id:"newgraph",  name:"New Graph (top bar)", status:"partial", prio:"core", tb:"New graph", desc:"Jump straight from a table to a figure; graph types constrained by the table type. We have the dialog, not the toolbar button." },
+    { id:"newanalysis",name:"New Analysis (top bar)", status:"partial", prio:"common", tb:"New analysis", desc:"Run another analysis on the same table without leaving it." },
+    { id:"tableformat",name:"Table format / subcolumns", status:"new", prio:"core", tb:"Table format", desc:"Choose how replicates are entered: raw replicates side-by-side, OR enter pre-averaged Mean+SD+N / Mean+SEM+N directly. Migrants with summarized data need this." },
+    { id:"transforms",name:"Transforms", status:"new", prio:"common", tb:"Transform", desc:"Normalize, transpose X/Y, remove baseline, fraction of total. In Prism these are analyses that yield a linked result, not raw table edits." },
+    { id:"duplicate", name:"Duplicate / delete table", status:"new", prio:"common", tb:"Duplicate", desc:"Duplicate a table (and its analyses/graphs) or delete it, from the toolbar." },
+    { id:"export",    name:"Export / copy table", status:"partial", prio:"common", tb:"Export", desc:"Copy the table or export it (CSV/image). Figures already export; tables should too." },
+    { id:"nav",       name:"Navigator: results nested under data", status:"new", prio:"common", tb:null, desc:"In the left rail, indent each result and figure UNDER the table it came from (a family tree), instead of three flat lists." },
+    { id:"types",     name:"More table types", status:"new", prio:"common", tb:null, desc:"We have Column / Grouped / XY / Survival. Add Contingency (chi-square), Multiple variables (multiple/logistic regression, ties to v2 stats), and the niche Parts-of-whole + Nested." },
+    { id:"info",      name:"Info sheet (constants + notes)", status:"new", prio:"niche", tb:null, desc:"A per-table sheet of constants (concentrations, lot numbers) plus free notes, hookable into analyses. We have notebooks elsewhere, so this may be redundant." },
+  ],
+  results: [
+    { id:"changeparams",name:"Change parameters + re-run", status:"new", prio:"core", tb:"Edit analysis", desc:"Edit the test options (tails, correction, CI level, post-hoc) right from the results and auto re-run. Today results are read-only. This is the core Prism results move." },
+    { id:"changedata", name:"Change data analyzed", status:"new", prio:"common", tb:"Change data", desc:"Re-point the analysis at different columns/data sets without rebuilding it." },
+    { id:"restabs",    name:"Results tabs (subpages)", status:"new", prio:"core", tb:null, desc:"Split the result into tabs the way Prism does: Tabular results, the ANOVA table (SS/df/MS), Multiple comparisons, Assumptions. We stack them all now." },
+    { id:"livecue",    name:"Live-link indicator", status:"partial", prio:"common", tb:null, desc:"We already recompute when the data changes; add a visible 'Updates live from the table' cue so users trust it (Prism's green-grid signal)." },
+    { id:"makegraph",  name:"Make graph of results (top bar)", status:"partial", prio:"common", tb:"Graph result", desc:"Turn a result into a figure, and embed result labels (P values, bars) onto the plot. Brackets exist; the toolbar action does not." },
+    { id:"newanalysis2",name:"New analysis on same data (top bar)", status:"partial", prio:"common", tb:"New analysis", desc:"Add another analysis to the same table from the results toolbar." },
+    { id:"exportres",  name:"Export / copy results", status:"partial", prio:"common", tb:"Export", desc:"Copy the results table with formatting, or export. Ties into /transparency show-the-code which we already have." },
+    { id:"method",     name:"Save as Method (recipe)", status:"new", prio:"niche", tb:"Save method", desc:"Save an analysis recipe to replay on new data. Loved by batch users, niche otherwise." },
+  ],
+};
+const TABLE_TB_EXTRA = ["Add row","Add group"]; // existing, shown as 'have'
+
+const STORE="datahub-audit-2026-06-11";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE))||{dark:false,screen:"table",sel:null,v:{},notes:{}}; } catch(e){ return {dark:false,screen:"table",sel:null,v:{},notes:{}}; } }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; document.documentElement.classList.toggle('dark',state.dark); document.getElementById('themeBtn').textContent=state.dark?"Light":"Dark"; save(); }
+function setScreen(s){ state.screen=s; state.sel=null; save(); render(); }
+
+function screenMock(){
+  const items=ITEMS[state.screen];
+  const tbBtns = items.filter(i=>i.tb).map(i=>
+    `<button class="tbtn ${i.status} ${state.sel===i.id?'sel':''}" onclick="selectItem('${i.id}')"><span class="dot"></span>${i.tb}</button>`).join('');
+  if(state.screen==="table"){
+    const extra = TABLE_TB_EXTRA.map(t=>`<button class="tbtn have"><span class="dot"></span>${t}</button>`).join('');
+    return `<div class="toolbar">${tbBtns}<span style="width:1px;height:18px;background:var(--border);margin:0 4px;"></span>${extra}</div>
+      <div class="screenbody">
+        <div class="nav">
+          <div class="navh">Heat-shock survival</div>
+          <div class="it sel">Data table</div>
+          <div class="it ind">+ one-way ANOVA result</div>
+          <div class="it ind">+ Figure</div>
+          <div class="navh">Growth curve</div>
+          <div class="it">XY table</div>
+        </div>
+        <div class="canvas">
+          <table class="demo"><tr><th>#</th><th>Control (WT)</th><th>FakeYeast-001</th><th>FakeYeast-002</th></tr>
+          <tr><td>1</td><td>42.1</td><td>61.4</td><td>55.8</td></tr><tr><td>2</td><td>38.7</td><td>58.9</td><td>52.3</td></tr>
+          <tr><td>3</td><td>40.4</td><td>60.1</td><td>54.0</td></tr></table>
+          <p style="font-size:11px;color:var(--muted);margin-top:10px;">Toolbar buttons above are color-coded by status. Click any to review it.</p>
+        </div>
+      </div>`;
+  }
+  return `<div class="toolbar">${tbBtns}</div>
+    <div class="screenbody">
+      <div class="nav">
+        <div class="navh">Heat-shock survival</div>
+        <div class="it">Data table</div>
+        <div class="it ind sel">+ one-way ANOVA</div>
+        <div class="it ind">+ Figure</div>
+      </div>
+      <div class="canvas">
+        <div class="restabs"><span class="on">Tabular results</span><span>ANOVA table</span><span>Multiple comparisons</span><span>Assumptions</span></div>
+        <div class="verdict">FakeYeast-001 and -002 survive heat shock significantly better than wild type (one-way ANOVA, p &lt; 0.001).</div>
+        <table class="demo"><tr><th>Comparison</th><th>Mean diff</th><th>p (adj)</th><th></th></tr>
+        <tr><td>001 vs WT</td><td>20.4</td><td>&lt;0.001</td><td>***</td></tr>
+        <tr><td>002 vs WT</td><td>13.8</td><td>0.002</td><td>**</td></tr></table>
+      </div>
+    </div>`;
+}
+
+function auditList(){
+  const items=ITEMS[state.screen];
+  return `<div class="ah">Proposed for the ${state.screen==='table'?'Data table':'Results'} screen</div>`+
+    items.map(i=>{
+      const v=state.v[i.id]||""; const note=state.notes[i.id]||"";
+      return `<div class="item ${state.sel===i.id?'hl':''}" id="item-${i.id}">
+        <div class="head">
+          <span class="tag ${i.status}">${i.status}</span>
+          <span class="prio">${i.prio}</span>
+          <span class="name">${i.name}</span>
+          <span class="verds">
+            <button class="${v==='a'?'aon':''}" onclick="setV('${i.id}','a')">Add</button>
+            <button class="${v==='q'?'qon':''}" onclick="setV('${i.id}','q')">Later</button>
+            <button class="${v==='d'?'don':''}" onclick="setV('${i.id}','d')">Skip</button>
+          </span>
+        </div>
+        <div class="desc">${i.desc}</div>
+        <input class="note" placeholder="notes" value="${note.replace(/"/g,'&quot;')}" oninput="setNote('${i.id}',this.value)" />
+      </div>`;
+    }).join('');
+}
+
+function render(){
+  document.documentElement.classList.toggle('dark',state.dark);
+  [...document.querySelectorAll('#screenSwitch button')].forEach((b,idx)=>b.classList.toggle('on',(idx===0)===(state.screen==='table')));
+  document.getElementById('screen').innerHTML=screenMock();
+  document.getElementById('audit').innerHTML=auditList();
+  const all=[...ITEMS.table,...ITEMS.results]; const decided=all.filter(i=>state.v[i.id]).length;
+  document.getElementById('count').textContent=`${decided} of ${all.length} items decided`;
+}
+function selectItem(id){ state.sel=id; save(); render(); const el=document.getElementById('item-'+id); if(el) el.scrollIntoView({behavior:'smooth',block:'center'}); }
+function setV(id,v){ state.v[id]=(state.v[id]===v?"":v); save(); render(); }
+function setNote(id,v){ state.notes[id]=v; save(); document.getElementById('count').textContent=document.getElementById('count').textContent; }
+function approveAllNew(){ [...ITEMS.table,...ITEMS.results].forEach(i=>{ if((i.status==='new'||i.status==='partial') && (i.prio==='core'||i.prio==='common')) state.v[i.id]='a'; }); save(); render(); }
+function buildExport(){
+  let out="# Data Hub table + results audit decisions\n\n";
+  for(const scr of ['table','results']){ out+=`## ${scr==='table'?'Data table':'Results'}\n`;
+    ITEMS[scr].forEach(i=>{ const v=state.v[i.id]; const verd=v==='a'?'ADD':v==='q'?'LATER':v==='d'?'SKIP':'(undecided)';
+      out+=`- [${verd}] ${i.name} (${i.status}, ${i.prio})${state.notes[i.id]?` -- ${state.notes[i.id]}`:''}\n`; }); out+="\n"; }
+  return out;
+}
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').style.display='flex'; }
+function closeExport(){ document.getElementById('exportOverlay').style.display='none'; }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+render();
+</script>
+</body>
+</html>

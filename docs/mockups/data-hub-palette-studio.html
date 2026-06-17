@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub palette studio</title>
+<style>
+  :root { --surface:#f8fafc; --raised:#fff; --sunken:#f1f5f9; --fg:#171717; --muted:#6b7280; --border:#e5e7eb;
+    --action:#1283C9; --purple:#5B47D6; --green:#1a9f5a; --red:#d9483b; --amber:#F59E0B; }
+  html.dark { --surface:#0a0e1a; --raised:#1c2638; --sunken:#0d1424; --fg:#f1f5f9; --muted:#b4bfd0;
+    --border:rgba(255,255,255,.16); --green:#34d27e; --red:#f0857a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--surface); color:var(--fg); -webkit-font-smoothing:antialiased; }
+  .top { position:sticky; top:0; z-index:10; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:11px 18px; background:var(--raised); border-bottom:1px solid var(--border); }
+  .top h1 { font-size:15px; font-weight:800; margin:0; }
+  .top .sub { font-size:12px; color:var(--muted); margin-right:auto; }
+  .ctrl { font-size:12px; font-weight:600; padding:6px 11px; border-radius:9px; border:1px solid var(--border);
+    background:var(--raised); color:var(--fg); cursor:pointer; }
+  .ctrl:hover { border-color:var(--action); }
+  .ctrl.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .wrap { max-width:1000px; margin:0 auto; padding:18px 18px 80px; }
+
+  .preview { position:sticky; top:50px; z-index:5; background:var(--raised); border:1px solid var(--border);
+    border-radius:13px; padding:12px 14px; margin-bottom:14px; display:flex; gap:16px; align-items:center; flex-wrap:wrap; }
+  .preview .name { font-size:13px; font-weight:800; }
+  .preview .tags { font-size:11px; color:var(--muted); }
+  .preview .swrow { display:flex; gap:0; border-radius:7px; overflow:hidden; border:1px solid var(--border); }
+  .preview .swrow div { width:22px; height:22px; }
+
+  .controls { display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; }
+  .nstep { display:flex; align-items:center; gap:6px; background:var(--raised); border:1px solid var(--border); border-radius:10px; padding:5px 8px; }
+  .nstep b { font-size:12px; }
+  .nstep button { width:24px; height:24px; border-radius:7px; border:1px solid var(--border); background:var(--sunken); color:var(--fg); cursor:pointer; font-weight:800; }
+  .nstep .v { font-size:15px; font-weight:800; min-width:22px; text-align:center; }
+  .seg { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .seg button { font-size:11.5px; font-weight:700; padding:6px 10px; border:none; background:var(--raised); color:var(--muted); cursor:pointer; }
+  .seg button + button { border-left:1px solid var(--border); }
+  .seg button.on { background:var(--action); color:#fff; }
+  .toggle { font-size:11.5px; font-weight:700; padding:6px 10px; border-radius:9px; border:1px solid var(--border); background:var(--raised); color:var(--muted); cursor:pointer; }
+  .toggle.on { background:var(--green); color:#fff; border-color:var(--green); }
+  .count { font-size:11.5px; color:var(--muted); margin-left:auto; }
+
+  .grid { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+  @media (max-width:680px){ .grid { grid-template-columns:1fr; } }
+  .pcard { border:1px solid var(--border); border-radius:11px; padding:10px 11px; background:var(--raised); cursor:pointer; transition:border-color .12s; }
+  .pcard:hover { border-color:var(--action); }
+  .pcard.active { border-color:var(--action); box-shadow:0 0 0 2px rgba(18,131,201,.25); }
+  .pcard .ph { display:flex; align-items:center; gap:8px; margin-bottom:7px; }
+  .pcard .pn { font-size:12.5px; font-weight:800; }
+  .pcard .badges { margin-left:auto; display:flex; gap:4px; }
+  .badge { font-size:9px; font-weight:800; padding:2px 6px; border-radius:999px; }
+  .badge.cb { background:rgba(26,159,90,.16); color:var(--green); }
+  .badge.print { background:rgba(18,131,201,.14); color:var(--action); }
+  .badge.seq { background:rgba(91,71,214,.14); color:var(--purple); }
+  .badge.n { background:var(--sunken); color:var(--muted); }
+  .pcard .swrow { display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); }
+  .pcard .swrow div { flex:1; height:26px; }
+
+  .studio { margin-top:18px; border:1px solid var(--border); border-radius:12px; padding:13px 14px; background:var(--raised); }
+  .studio h3 { font-size:13px; font-weight:800; margin:0 0 8px; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; }
+  .chip { text-align:center; }
+  .chip .box { width:46px; height:46px; border-radius:9px; border:1px solid var(--border); cursor:pointer; position:relative; }
+  .chip .lock { font-size:11px; margin-top:3px; cursor:pointer; color:var(--muted); }
+  .chip .lock.on { color:var(--action); font-weight:800; }
+  .chip .hex { font-size:9px; font-family:ui-monospace,Menlo,monospace; color:var(--muted); }
+  .studio .row { display:flex; gap:9px; align-items:center; margin-top:11px; flex-wrap:wrap; }
+  .studio input[type=text] { flex:1; min-width:200px; font-size:12px; padding:7px 9px; border-radius:9px; border:1px solid var(--border); background:var(--sunken); color:var(--fg); font-family:ui-monospace,Menlo,monospace; }
+  .hint { font-size:11px; color:var(--muted); margin-top:6px; }
+
+  .decide { margin-top:18px; border:1px solid var(--border); border-radius:12px; padding:13px 14px; background:var(--raised); }
+  .verds { display:flex; gap:6px; max-width:340px; margin-top:4px; }
+  .verds button { flex:1; font-size:11px; font-weight:700; padding:6px; border-radius:7px; border:1px solid var(--border); background:var(--sunken); color:var(--muted); cursor:pointer; }
+  .verds button.aon { background:var(--green); color:#fff; } .verds button.don { background:var(--red); color:#fff; } .verds button.qon { background:var(--amber); color:#fff; }
+  .decide textarea { width:100%; font-family:inherit; font-size:11.5px; padding:7px 9px; border-radius:8px; border:1px solid var(--border); background:var(--sunken); color:var(--fg); resize:vertical; min-height:46px; margin-top:9px; }
+  svg text { font-family:-apple-system,system-ui,sans-serif; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Data Hub palette studio</h1>
+  <span class="sub">Filter by how many series your plot has, browse with live preview, generate + lock, or import from Coolors.</span>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+</div>
+<div class="wrap">
+  <div class="preview" id="preview"></div>
+
+  <div class="controls">
+    <div class="nstep">
+      <b>Series in your plot</b>
+      <button onclick="bumpN(-1)">-</button><span class="v" id="nVal">5</span><button onclick="bumpN(1)">+</button>
+    </div>
+    <div class="seg" id="catSeg">
+      <button data-c="all" class="on" onclick="setCat('all')">All</button>
+      <button data-c="qualitative" onclick="setCat('qualitative')">Qualitative</button>
+      <button data-c="sequential" onclick="setCat('sequential')">Sequential</button>
+      <button data-c="mono" onclick="setCat('mono')">Mono</button>
+    </div>
+    <button class="toggle" id="cbT" onclick="toggleFlag('cb')">Color-blind safe</button>
+    <button class="toggle" id="prT" onclick="toggleFlag('print')">Print safe</button>
+    <span class="count" id="count"></span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="studio">
+    <h3>Generate and lock (build your own)</h3>
+    <div class="chips" id="genChips"></div>
+    <div class="row">
+      <button class="ctrl" onclick="generate()">Generate unlocked</button>
+      <button class="ctrl" onclick="applyGenerated()">Apply this palette</button>
+      <span class="hint">Click a swatch to recolor it, the lock keeps it while you regenerate the rest. This is the Coolors move.</span>
+    </div>
+    <div class="row">
+      <input type="text" id="importInput" placeholder="Paste hexes or a coolors.co URL, e.g. 264653-2a9d8f-e9c46a-f4a261-e76f51" />
+      <button class="ctrl" onclick="importColors()">Import</button>
+    </div>
+    <div class="hint">Custom mode and double-click / right-click editing on the plot itself are already locked in, this studio feeds the same color set.</div>
+  </div>
+
+  <div class="decide">
+    <h3 style="margin:0 0 6px;font-size:13px;font-weight:800;">Does this studio feel right?</h3>
+    <div class="verds">
+      <button id="va" onclick="setV('agree')">Approve</button>
+      <button id="vd" onclick="setV('disagree')">Disapprove</button>
+      <button id="vq" onclick="setV('discuss')">Discuss</button>
+    </div>
+    <textarea id="note" placeholder="notes (filter behavior, which features matter most, the library categories, anything to change)" oninput="saveNote(this.value)"></textarea>
+  </div>
+</div>
+
+<div id="exportOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;max-width:600px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decision and notes</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="ctrl" onclick="closeExport()">Close</button>
+    </div>
+    <div style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:10px;" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+// --- seeded library (ColorBrewer + Paul Tol + viz + our approved). cb/print flags per ColorBrewer where known. ---
+const LIB = [
+  // qualitative, color-blind safe
+  { name:"Okabe-Ito", cat:"qualitative", cb:true, print:true, colors:["#000000","#E69F00","#56B4E9","#009E73","#F0E442","#0072B2","#D55E00","#CC79A7"] },
+  { name:"Paul Tol bright", cat:"qualitative", cb:true, print:true, colors:["#4477AA","#EE6677","#228833","#CCBB44","#66CCEE","#AA3377","#BBBBBB"] },
+  { name:"Paul Tol muted", cat:"qualitative", cb:true, print:true, colors:["#CC6677","#DDCC77","#117733","#88CCEE","#882255","#44AA99","#999933","#AA4499"] },
+  { name:"Paul Tol vibrant", cat:"qualitative", cb:true, print:false, colors:["#EE7733","#0077BB","#33BBEE","#EE3377","#CC3311","#009988","#BBBBBB"] },
+  { name:"ColorBrewer Dark2", cat:"qualitative", cb:true, print:true, colors:["#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E","#E6AB02","#A6761D","#666666"] },
+  { name:"ColorBrewer Set2", cat:"qualitative", cb:true, print:false, colors:["#66C2A5","#FC8D62","#8DA0CB","#E78AC3","#A6D854","#FFD92F","#E5C494","#B3B3B3"] },
+  // qualitative, not cb-safe but lots of colors
+  { name:"ColorBrewer Paired", cat:"qualitative", cb:false, print:false, colors:["#A6CEE3","#1F78B4","#B2DF8A","#33A02C","#FB9A99","#E31A1C","#FDBF6F","#FF7F00","#CAB2D6","#6A3D9A","#FFFF99","#B15928"] },
+  { name:"ColorBrewer Set1", cat:"qualitative", cb:false, print:false, colors:["#E41A1C","#377EB8","#4DAF4A","#984EA3","#FF7F00","#FFFF33","#A65628","#F781BF","#999999"] },
+  { name:"ColorBrewer Pastel1", cat:"qualitative", cb:false, print:false, colors:["#FBB4AE","#B3CDE3","#CCEBC5","#DECBE4","#FED9A6","#FFFFCC","#E5D8BD","#FDDAEC"] },
+  // our approved
+  { name:"Pastel (fun)", cat:"qualitative", cb:false, print:false, colors:["#F8AD9D","#FFD6A5","#FDFFB6","#CAFFBF","#9BF6FF","#A0C4FF","#BDB2FF","#FFC6FF"] },
+  { name:"Your figures (ICS paper)", cat:"qualitative", cb:false, print:true, colors:["#BE6C9C","#E0A23C","#3FA468","#2E6CB0","#C0613E","#6FB3DD","#000000"] },
+  { name:"Coolors classic", cat:"qualitative", cb:false, print:true, colors:["#264653","#2A9D8F","#E9C46A","#F4A261","#E76F51"] },
+  // sequential ramps (provide any N)
+  { name:"Viridis", cat:"sequential", cb:true, print:true, colors:["#440154","#414487","#2A788E","#22A884","#7AD151","#FDE725"] },
+  { name:"Sky (Blues)", cat:"sequential", cb:true, print:true, colors:["#D6ECFA","#9DD3F2","#5FB6EA","#1AA0E6","#1283C9","#0C5E94","#083E62"] },
+  { name:"Red", cat:"sequential", cb:true, print:true, colors:["#FBD5CE","#F6A99D","#F47C6B","#FF6F61","#E23B2A","#B71C0F","#7F1108"] },
+  { name:"ColorBrewer Greens", cat:"sequential", cb:true, print:true, colors:["#E5F5E0","#A1D99B","#41AB5D","#238B45","#005A32"] },
+  // mono / pattern
+  { name:"Mono (B&W patterns)", cat:"mono", cb:true, print:true, colors:["#c2c7cf","#c2c7cf","#c2c7cf","#c2c7cf","#c2c7cf"], pattern:true },
+];
+
+const STORE="datahub-studio-2026-06-11";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE)) || {dark:false,n:5,cat:"all",cb:false,print:false,active:0,v:"",note:"",locks:[false,false,false,false,false],gen:null}; } catch(e){ return {dark:false,n:5,cat:"all",cb:false,print:false,active:0,v:"",note:"",locks:[],gen:null}; } }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; document.documentElement.classList.toggle('dark',state.dark); document.getElementById('themeBtn').textContent=state.dark?"Light":"Dark"; save(); }
+
+function usable(p,n){ return p.cat==="sequential" || p.colors.length>=n; }
+function sampleN(p,n){
+  if(p.pattern) return Array.from({length:n},()=>p.colors[0]);
+  if(p.cat==="sequential"){ if(n===1) return [p.colors[Math.floor(p.colors.length/2)]];
+    return Array.from({length:n},(_,i)=>p.colors[Math.round(i*(p.colors.length-1)/(n-1))]); }
+  return p.colors.slice(0,n);
+}
+function filtered(){
+  return LIB.filter(p=>
+    (state.cat==="all" || p.cat===state.cat) &&
+    (!state.cb || p.cb) && (!state.print || p.print) && usable(p,state.n));
+}
+function activePalette(){ const f=filtered(); return f[Math.min(state.active,f.length-1)] || LIB[0]; }
+
+function barSvg(colors){
+  const vals=[70,55,82,48,63,75,60,68,52,77,58,64]; const n=colors.length;
+  const w=Math.max(160,n*26+40),h=120,pad=20, gap=(w-2*pad)/n, bw=gap*0.64;
+  let bars=''; for(let i=0;i<n;i++){ const v=vals[i%vals.length]; const bh=(v/90)*(h-2*pad), y=h-pad-bh, x=pad+i*gap+gap*0.18;
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${colors[i]}" stroke="#333" stroke-width="0.7"/>`; }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#fff"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#94a3b8"/><line x1="${pad}" y1="${pad-4}" x2="${pad}" y2="${h-pad}" stroke="#94a3b8"/>${bars}</svg>`;
+}
+function swrow(colors,cls){ return `<div class="${cls}">`+colors.map(c=>`<div style="background:${c}"></div>`).join('')+`</div>`; }
+
+function render(){
+  document.documentElement.classList.toggle('dark',state.dark);
+  document.getElementById('nVal').textContent=state.n;
+  [...document.querySelectorAll('#catSeg button')].forEach(b=>b.classList.toggle('on',b.dataset.c===state.cat));
+  document.getElementById('cbT').classList.toggle('on',state.cb);
+  document.getElementById('prT').classList.toggle('on',state.print);
+  const f=filtered();
+  document.getElementById('count').textContent=`${f.length} palettes give ${state.n}+ distinct colors`;
+  // preview
+  const ap=activePalette(); const cols=sampleN(ap,state.n);
+  document.getElementById('preview').innerHTML=`<div>${barSvg(cols)}</div>
+    <div><div class="name">${ap.name}</div>
+      <div class="tags">${ap.cat}${ap.cb?" · color-blind safe":""}${ap.print?" · print safe":""} · ${state.n} bars shown</div>
+      <div style="margin-top:6px;">${swrow(cols,"swrow")}</div></div>`;
+  // grid
+  document.getElementById('grid').innerHTML=f.map((p,i)=>{
+    const cols=sampleN(p,state.n);
+    return `<div class="pcard ${i===Math.min(state.active,f.length-1)?'active':''}" onclick="pick(${i})">
+      <div class="ph"><span class="pn">${p.name}</span><div class="badges">
+        ${p.cb?'<span class="badge cb">CB</span>':''}${p.print?'<span class="badge print">print</span>':''}
+        ${p.cat==="sequential"?'<span class="badge seq">any N</span>':`<span class="badge n">${p.colors.length}</span>`}</div></div>
+      ${swrow(cols,"swrow")}</div>`;
+  }).join('');
+  renderChips();
+  document.getElementById('note').value=state.note||"";
+  ["agree","disagree","discuss"].forEach(k=>{ const b=document.getElementById({agree:"va",disagree:"vd",discuss:"vq"}[k]); b.classList.toggle(k==='agree'?'aon':k==='disagree'?'don':'qon',state.v===k); });
+}
+function renderChips(){
+  if(!state.gen) state.gen=sampleN(activePalette(),state.n).slice();
+  while(state.gen.length<state.n) state.gen.push("#cccccc"); state.gen=state.gen.slice(0,state.n);
+  while(state.locks.length<state.n) state.locks.push(false);
+  document.getElementById('genChips').innerHTML=state.gen.map((c,i)=>
+    `<div class="chip"><div class="box" style="background:${c}" onclick="cycleChip(${i})"></div>
+      <div class="lock ${state.locks[i]?'on':''}" onclick="toggleLock(${i})">${state.locks[i]?'locked':'lock'}</div>
+      <div class="hex">${c}</div></div>`).join('');
+}
+function bumpN(d){ state.n=Math.max(1,Math.min(12,state.n+d)); state.gen=null; save(); render(); }
+function setCat(c){ state.cat=c; state.active=0; save(); render(); }
+function toggleFlag(f){ state[f]=!state[f]; state.active=0; save(); render(); }
+function pick(i){ state.active=i; state.gen=null; save(); render(); }
+function toggleLock(i){ state.locks[i]=!state.locks[i]; save(); renderChips(); }
+function cycleChip(i){ state.gen[i]=randColor(); save(); renderChips(); }
+function randColor(){ const h=Math.floor(Math.abs(Math.sin(performance.now()*0.7+Math.random()*9))*360); const s=45+Math.floor(Math.random()*35), l=42+Math.floor(Math.random()*22); return hsl(h,s,l); }
+function hsl(h,s,l){ s/=100;l/=100; const k=n=>(n+h/30)%12, a=s*Math.min(l,1-l), f=n=>l-a*Math.max(-1,Math.min(k(n)-3,Math.min(9-k(n),1)));
+  const to=x=>Math.round(255*x).toString(16).padStart(2,'0'); return "#"+to(f(0))+to(f(8))+to(f(4)); }
+function generate(){ for(let i=0;i<state.n;i++){ if(!state.locks[i]) state.gen[i]=randColor(); } save(); renderChips(); }
+function applyGenerated(){ // make a one-off palette from the generated chips, apply by prepending to LIB
+  LIB.unshift({name:"My generated palette", cat:"qualitative", cb:false, print:false, colors:state.gen.slice()});
+  state.cat="all"; state.active=0; save(); render();
+}
+function importColors(){
+  const raw=document.getElementById('importInput').value;
+  const hexes=(raw.match(/#?[0-9a-fA-F]{6}/g)||[]).map(h=>h.startsWith('#')?h:'#'+h);
+  if(hexes.length<2){ alert("Paste at least two hex colors or a coolors.co URL like coolors.co/264653-2a9d8f-..."); return; }
+  LIB.unshift({name:"Imported from Coolors", cat:"qualitative", cb:false, print:false, colors:hexes});
+  state.cat="all"; state.active=0; document.getElementById('importInput').value=""; save(); render();
+}
+function setV(v){ state.v=(state.v===v?"":v); save(); render(); }
+function saveNote(v){ state.note=v; save(); }
+function buildExport(){ return `# Palette studio decision\n\nVerdict: ${state.v||"(none)"}\nNote: ${state.note||"(none)"}\n`; }
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').style.display='flex'; }
+function closeExport(){ document.getElementById('exportOverlay').style.display='none'; }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+render();
+</script>
+</body>
+</html>

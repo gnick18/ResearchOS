@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub, transform palette readability</title>
+<style>
+  :root {
+    --bg:#f2f3f7; --surface:#fff; --raised:#f7f8fb; --ink:#111827; --muted:#5b6472;
+    --border:#e5e7eb; --soft:#eef0f4; --sky:#1AA0E6; --action:#1283C9; --purple:#5B47D6;
+    --coral:#FF6F61; --amber:#F59E0B; --green:#18a558;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  body.dark { --bg:#0a0e1a; --surface:#1c2638; --raised:#28344c; --ink:#f3f5f9; --muted:#9aa6ba; --border:#2c3a52; --soft:#243047; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; padding-bottom:78px; }
+  .brandbar { height:6px; background:linear-gradient(90deg,#FF6F61,#F59E0B,#18a558,#1AA0E6,#5B47D6); }
+  header.top { position:sticky; top:0; z-index:40; background:var(--surface); border-bottom:1px solid var(--border); padding:13px 22px; display:flex; gap:14px; align-items:center; }
+  h1 { font-size:16px; font-weight:800; margin:0; }
+  .sub { color:var(--muted); font-size:12px; }
+  .spacer { flex:1; }
+  .ctrl { font:inherit; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .ctrl:hover { border-color:var(--action); } .ctrl.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .wrap { max-width:1240px; margin:0 auto; padding:24px 22px; }
+  .lede { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; margin-bottom:22px; }
+  .lede h2 { margin:0 0 6px; font-size:18px; } .lede p { margin:6px 0 0; color:var(--muted); max-width:84ch; }
+
+  .sec { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:22px; overflow:hidden; }
+  .sec.ok { border-color:var(--green); } .sec.no { border-color:var(--coral); opacity:.9; }
+  .shead { padding:16px 22px 12px; display:flex; gap:12px; align-items:flex-start; }
+  .snum { flex:none; width:28px; height:28px; border-radius:8px; background:var(--action); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .stitle { font-size:15.5px; font-weight:800; margin:1px 0; } .stag { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--purple); }
+  .sbody { padding:0 22px 18px; } .why { color:var(--muted); margin:14px 0 0; max-width:84ch; } .why b { color:var(--ink); }
+
+  .cols { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; align-items:start; }
+  .panel { border:1px solid var(--border); border-radius:12px; background:var(--raised); padding:10px; max-height:600px; overflow:auto; }
+  .panlabel { font-size:11px; font-weight:800; color:var(--muted); text-transform:uppercase; letter-spacing:.05em; margin:0 0 9px 2px; }
+
+  /* shared op-row */
+  .pop { display:flex; align-items:center; gap:8px; width:100%; text-align:left; font:inherit; font-size:12.5px; padding:6px 9px; border:none; background:none; color:var(--ink); border-radius:7px; cursor:pointer; }
+  .pop .ico { flex:none; width:15px; height:15px; color:var(--muted); }
+  .pop:hover { background:color-mix(in srgb,var(--action) 14%,transparent); color:var(--action); }
+  .pop:hover .ico { color:var(--action); }
+  .pop.disabled { color:color-mix(in srgb,var(--muted) 60%,transparent); cursor:not-allowed; }
+  .pop.disabled:hover { background:none; }
+
+  /* BEFORE: flat wall */
+  .before .pgroup { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:8px 4px 2px; }
+  .before .pop { font-size:12px; padding:4px 9px; gap:0; }
+  .before .pop .ico { display:none; }
+
+  /* OPTION A: rules + category icons + spacing */
+  .optA .pgroup { display:flex; align-items:center; gap:7px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.07em; color:var(--purple); margin:16px 2px 6px; padding-top:11px; border-top:1px solid var(--soft); }
+  .optA .pgroup:first-child { margin-top:2px; border-top:none; padding-top:0; }
+  .optA .pgroup .ico { width:13px; height:13px; color:var(--purple); flex:none; }
+  .optA .pop { padding-left:13px; }
+
+  /* OPTION B: collapsible accordion + counts */
+  .optB .grp { border-bottom:1px solid var(--soft); }
+  .optB .grp:last-child { border-bottom:none; }
+  .optB .ghead { display:flex; align-items:center; gap:8px; width:100%; font:inherit; font-size:12px; font-weight:800; color:var(--ink); padding:9px 6px; border:none; background:none; cursor:pointer; text-align:left; }
+  .optB .ghead .ico { width:14px; height:14px; color:var(--action); flex:none; }
+  .optB .ghead .cnt { margin-left:auto; font-size:10px; font-weight:700; color:var(--muted); background:var(--soft); border-radius:99px; padding:1px 7px; }
+  .optB .ghead .chev { transition:transform .15s; color:var(--muted); }
+  .optB .grp.open .ghead .chev { transform:rotate(90deg); }
+  .optB .gops { display:none; padding:0 0 7px 6px; }
+  .optB .grp.open .gops { display:block; }
+
+  /* OPTION C: search-first + tinted card headers */
+  .optC .csearch { width:100%; font:inherit; font-size:12.5px; padding:8px 11px; border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--ink); margin-bottom:10px; }
+  .optC .card { border:1px solid var(--soft); border-radius:10px; overflow:hidden; margin-bottom:9px; background:var(--surface); }
+  .optC .chead { display:flex; align-items:center; gap:8px; font-size:10.5px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--action); padding:7px 11px; background:color-mix(in srgb,var(--action) 8%,var(--surface)); border-bottom:1px solid var(--soft); }
+  .optC .chead .ico { width:13px; height:13px; flex:none; }
+  .optC .cops { padding:4px; }
+
+  .why ul { margin:9px 0 0; padding-left:18px; color:var(--muted); } .why li { margin:3px 0; }
+  .key { font-size:11.5px; color:var(--muted); margin:0 0 10px; }
+  .key b { color:var(--ink); }
+
+  .verdict { display:flex; align-items:center; gap:8px; padding:11px 22px; border-top:1px solid var(--soft); background:var(--raised); flex-wrap:wrap; }
+  .vbtn { font:inherit; font-size:12px; font-weight:800; padding:6px 13px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .vbtn.approve.sel { background:var(--green); border-color:var(--green); color:#fff; }
+  .vbtn.deny.sel { background:var(--coral); border-color:var(--coral); color:#fff; }
+  .vnote { flex:1; min-width:160px; font:inherit; font-size:12px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); }
+  body.commenting [data-pin] { cursor:crosshair; } body.commenting [data-pin]:hover { outline:2px dashed var(--purple); outline-offset:2px; }
+  .pin { position:absolute; width:20px; height:20px; border-radius:99px 99px 99px 2px; background:var(--purple); color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-100%); z-index:30; }
+  #pinPanel { position:fixed; right:0; top:0; bottom:0; width:300px; background:var(--surface); border-left:1px solid var(--border); transform:translateX(100%); transition:.2s; z-index:50; padding:16px; overflow:auto; }
+  #pinPanel.show { transform:none; }
+  .ccard { border:1px solid var(--border); border-radius:10px; padding:9px; margin-bottom:8px; font-size:12px; } .ccard .cn { font-weight:800; color:var(--purple); font-size:11px; }
+  .footbar { position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:11px 22px; display:flex; gap:10px; align-items:center; z-index:45; }
+  textarea#exp { width:100%; height:200px; font-family:var(--mono); font-size:11px; margin-top:10px; display:none; }
+</style>
+</head>
+<body>
+<div class="brandbar"></div>
+<header class="top">
+  <div><h1>Data Hub, transform palette readability</h1>
+    <div class="sub">2026-06-13. The op palette reads as a sea of text. Three redesigns. Mark up, approve or flag each, Export.</div></div>
+  <div class="spacer"></div>
+  <button class="ctrl" id="commentBtn" onclick="toggleComment()">Comment mode</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+</header>
+
+<div class="wrap">
+  <div class="lede">
+    <h2>What you are reviewing</h2>
+    <p>The transform builder's left palette lists every operation under category headings (Filter &amp; select, Edit values, Missing data, Strings, Compute, Type &amp; schema, Reshape &amp; summarize). Today the headings are tiny and muted, so they read at nearly the same weight as the clickable ops below them, and 30+ items in one scroll feels like a wall. Below: the current build, then three ways to fix the hierarchy. Each option is independently approvable so you can mix and match (for example, take A's category icons with B's collapsing).</p>
+    <p class="key" style="margin-top:12px"><b>Note on icons:</b> the glyphs here are sketches. The real build uses only registry glyphs via the Icon component (one glyph per meaning), so the category set would be drawn from existing icons or flagged for your sign-off before build.</p>
+  </div>
+
+  <!-- BEFORE -->
+  <div class="sec">
+    <div class="shead"><div class="snum" style="background:var(--muted)">0</div>
+      <div><div class="stag">Current build</div><div class="stitle">Before, the flat wall</div></div></div>
+    <div class="sbody">
+      <p class="why">Headings are 10px muted uppercase with 2px of separation, the same left edge as the ops. Nothing visually says "this is a label, those are buttons." Scanning to the group you want means reading most of the list.</p>
+      <div class="cols" style="grid-template-columns:240px" data-pin>
+        <div class="panel before" id="paneBefore"><div class="panel-inner"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPTION A -->
+  <div class="sec" data-sec="optA">
+    <div class="shead"><div class="snum">A</div>
+      <div><div class="stag">Lowest lift</div><div class="stitle">Headings that look like headings</div></div></div>
+    <div class="sbody">
+      <p class="why">Each category gets a hairline rule above it, real breathing room, a category glyph, and a distinct color and weight (purple, the accent we use for section tags). Ops indent slightly so the eye reads header then items. Pure CSS, no behavior change, no scroll change.</p>
+      <ul class="why" style="margin-top:0"><li>Fastest to ship, lowest risk.</li><li>Still one long scroll, just far easier to scan.</li></ul>
+      <div class="cols" style="grid-template-columns:240px" data-pin>
+        <div class="panel optA" id="paneA"></div>
+      </div>
+    </div>
+    <div class="verdict" data-verdict="optA"></div>
+  </div>
+
+  <!-- OPTION B -->
+  <div class="sec" data-sec="optB">
+    <div class="shead"><div class="snum">B</div>
+      <div><div class="stag">Kills the wall</div><div class="stitle">Collapsible categories with counts</div></div></div>
+    <div class="sbody">
+      <p class="why">Each category is a collapsible header with an icon, a count badge, and a chevron. Common groups open by default, the rest collapsed, so the palette is short and you expand what you need. Typing in the search (top) auto-expands matching groups. This is how Notion, Linear, and most modern command palettes handle a long verb list.</p>
+      <ul class="why" style="margin-top:0"><li>The 30-item wall becomes 7 lines until you open a group.</li><li>One extra click to reach a collapsed op (mitigated by search and remembered open-state).</li></ul>
+      <div class="cols" style="grid-template-columns:240px" data-pin>
+        <div class="panel optB" id="paneB"></div>
+      </div>
+    </div>
+    <div class="verdict" data-verdict="optB"></div>
+  </div>
+
+  <!-- OPTION C -->
+  <div class="sec" data-sec="optC">
+    <div class="shead"><div class="snum">C</div>
+      <div><div class="stag">Most polished</div><div class="stitle">Search-first with tinted category cards</div></div></div>
+    <div class="sbody">
+      <p class="why">A prominent search box leads (filter ops by name as you type), and each category is a soft card with a tinted header bar so groups are visually chunked, not just spaced. Most scannable and most "designed," slightly more vertical space per group.</p>
+      <ul class="why" style="margin-top:0"><li>Search-first matches how people actually look for a known op.</li><li>Card chrome costs a little height per group versus A.</li></ul>
+      <div class="cols" style="grid-template-columns:260px" data-pin>
+        <div class="panel optC" id="paneC"></div>
+      </div>
+    </div>
+    <div class="verdict" data-verdict="optC"></div>
+  </div>
+
+</div>
+
+<div id="pinPanel"><h3 style="margin:0 0 10px;font-size:14px">Comment pins</h3><div id="pinList"></div><textarea id="exp"></textarea></div>
+<div class="footbar">
+  <button class="ctrl" onclick="document.getElementById('pinPanel').classList.toggle('show')">Pins</button>
+  <span style="font-size:12px;color:var(--muted)" id="footstat">0 approved, 0 flagged</span>
+  <div class="spacer"></div>
+  <span style="font-size:11.5px;color:var(--muted)">Click a panel region in Comment mode to drop a pin.</span>
+</div>
+
+<script>
+// ---- the real op palette (mirrors TransformBuilder PALETTE) ----
+const ICONS = {
+  filter:'M3 4h14l-5 6v5l-4 2v-7z',
+  edit:'M4 13l8-8 3 3-8 8H4z M11 4l3 3',
+  missing:'M10 3c3 4 4 6 4 8a4 4 0 11-8 0c0-2 1-4 4-8z',
+  strings:'M4 5h12 M10 5v11 M6 16h8',
+  compute:'M5 4h10v3H5z M5 9h3v3H5z M9 9h3v3H9z M13 9v6 M5 13h3v2H5z',
+  schema:'M4 4h12v4H4z M4 10h12v4H4z M7 6h0 M7 12h0',
+  reshape:'M3 4h6v6H3z M11 10h6v6h-6z M9 7h2 M9 13H7'
+};
+const GROUPS = [
+  { key:'filter', name:'Filter & select', ico:'filter', ops:[
+    ['keep rows where',1],['keep columns',1],['drop columns',1],['keep rows in set',1],['keep rows between',1],['top N by column',1],['random sample',1]]},
+  { key:'edit', name:'Edit values', ico:'edit', ops:[
+    ['set value where',1],['clip to range',1],['round',1],['map via lookup',1]]},
+  { key:'missing', name:'Missing data', ico:'missing', ops:[
+    ['fill empty with',1],['drop empty rows',1],['interpolate',0]]},
+  { key:'strings', name:'Strings', ico:'strings', ops:[
+    ['slice characters',1],['replace text / regex',1],['extract regex group',1],['split into columns',1],['upper / lower / title',1],['trim whitespace',1],['concatenate columns',1]]},
+  { key:'compute', name:'Compute', ico:'compute', ops:[
+    ['new column from formula',1],['bin into categories',1],['rank',1],['running total',1],['shift / diff / pct change',1],['rolling window',1]]},
+  { key:'schema', name:'Type & schema', ico:'schema', ops:[
+    ['rename column',1],['cast type',1],['parse date',1],['extract date parts',1]]},
+  { key:'reshape', name:'Reshape & summarize', ico:'reshape', ops:[
+    ['sort',1],['drop duplicates',1],['group + aggregate',1],['value counts',1],['describe',1],['cross-tabulate',1],['pivot table',1]]}
+];
+function svg(d){ return '<svg class="ico" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="'+d+'"/></svg>'; }
+function opRow(label, ready, withIco, icoPath){
+  return '<div class="pop'+(ready?'':' disabled')+'">'+(withIco?svg(icoPath):'')+'<span>'+label+'</span></div>';
+}
+
+// BEFORE
+(function(){
+  let h='';
+  GROUPS.forEach(g=>{ h+='<div class="pgroup">'+g.name+'</div>'; g.ops.forEach(o=>h+=opRow(o[0],o[1],false)); });
+  document.querySelector('#paneBefore').innerHTML=h;
+})();
+// OPTION A
+(function(){
+  let h='';
+  GROUPS.forEach(g=>{ h+='<div class="pgroup">'+svg(ICONS[g.ico])+g.name+'</div>'; g.ops.forEach(o=>h+=opRow(o[0],o[1],false)); });
+  document.querySelector('#paneA').innerHTML=h;
+})();
+// OPTION B (collapsible)
+(function(){
+  const openByDefault=['filter','edit','missing'];
+  let h='';
+  GROUPS.forEach(g=>{
+    const open=openByDefault.includes(g.key);
+    h+='<div class="grp'+(open?' open':'')+'" data-grp="'+g.key+'">';
+    h+='<button class="ghead" onclick="this.parentNode.classList.toggle(\'open\')">'+svg(ICONS[g.ico])+'<span>'+g.name+'</span><span class="cnt">'+g.ops.length+'</span><span class="chev">&#9656;</span></button>';
+    h+='<div class="gops">'; g.ops.forEach(o=>h+=opRow(o[0],o[1],false)); h+='</div></div>';
+  });
+  document.querySelector('#paneB').innerHTML=h;
+})();
+// OPTION C (search-first cards)
+(function(){
+  let h='<input class="csearch" placeholder="Search operations..." oninput="filterC(this.value)">';
+  GROUPS.forEach(g=>{
+    h+='<div class="card" data-card="'+g.key+'"><div class="chead">'+svg(ICONS[g.ico])+g.name+'</div><div class="cops">';
+    g.ops.forEach(o=>h+='<div class="popwrap" data-label="'+o[0].toLowerCase()+'">'+opRow(o[0],o[1],false)+'</div>');
+    h+='</div></div>';
+  });
+  document.querySelector('#paneC').innerHTML=h;
+})();
+function filterC(q){
+  q=q.trim().toLowerCase();
+  document.querySelectorAll('#paneC .popwrap').forEach(w=>{ w.style.display=(!q||w.dataset.label.includes(q))?'':'none'; });
+  document.querySelectorAll('#paneC .card').forEach(c=>{ const any=[...c.querySelectorAll('.popwrap')].some(w=>w.style.display!=='none'); c.style.display=any?'':'none'; });
+}
+
+// ---- review harness ----
+const SECS=['optA','optB','optC'];
+const TITLES={optA:'A, headings that look like headings',optB:'B, collapsible categories',optC:'C, search-first cards'};
+const state=JSON.parse(localStorage.getItem('paletteReview')||'{}');
+state.verdicts=state.verdicts||{}; state.notes=state.notes||{}; state.comments=state.comments||[];
+function save(){ localStorage.setItem('paletteReview',JSON.stringify(state)); }
+function mkBtn(txt,cls,id){ const b=document.createElement('button'); b.className='vbtn '+cls; b.textContent=txt; b.onclick=()=>{ state.verdicts[id]=(state.verdicts[id]===cls?null:cls); save(); refresh(); }; return b; }
+function buildVerdicts(){ SECS.forEach(id=>{ const el=document.querySelector('[data-verdict="'+id+'"]'); el.innerHTML=''; el.append(mkBtn('Approve','approve',id),mkBtn('Flag / discuss','deny',id)); const n=document.createElement('input'); n.className='vnote'; n.placeholder='optional note...'; n.value=state.notes[id]||''; n.oninput=()=>{state.notes[id]=n.value;save();}; el.append(n); }); refresh(); }
+function refresh(){ let a=0,d=0; SECS.forEach(id=>{const v=state.verdicts[id]; const s=document.querySelector('[data-sec="'+id+'"]'); s.classList.toggle('ok',v==='approve'); s.classList.toggle('no',v==='deny'); const el=document.querySelector('[data-verdict="'+id+'"]'); el.querySelector('.approve').classList.toggle('sel',v==='approve'); el.querySelector('.deny').classList.toggle('sel',v==='deny'); if(v==='approve')a++; if(v==='deny')d++;}); document.getElementById('footstat').textContent=a+' approved, '+d+' flagged'; }
+buildVerdicts();
+
+// comment pins
+let commenting=false;
+function toggleComment(){ commenting=!commenting; document.body.classList.toggle('commenting',commenting); document.getElementById('commentBtn').classList.toggle('on',commenting); }
+document.querySelectorAll('[data-pin]').forEach(z=>{ z.style.position='relative'; z.addEventListener('click',e=>{ if(!commenting)return; const r=z.getBoundingClientRect(); const txt=prompt('Comment:'); if(!txt)return; const n=state.comments.length+1; state.comments.push({n,txt}); const p=document.createElement('div'); p.className='pin'; p.textContent=n; p.style.left=(e.clientX-r.left)+'px'; p.style.top=(e.clientY-r.top)+'px'; z.appendChild(p); save(); renderPins(); }); });
+function renderPins(){ const l=document.getElementById('pinList'); l.innerHTML=state.comments.map(c=>'<div class="ccard"><div class="cn">Pin '+c.n+'</div>'+c.txt+'</div>').join('')||'<p style="color:var(--muted);font-size:12px">No pins yet.</p>'; }
+renderPins();
+function openExport(){ const ta=document.getElementById('exp'); ta.style.display='block'; document.getElementById('pinPanel').classList.add('show'); let o='# Data Hub transform palette readability, decisions\n\n'; SECS.forEach(id=>{const v=state.verdicts[id]; o+='## '+TITLES[id]+'\n- Verdict: '+(v==='approve'?'APPROVE':v==='deny'?'FLAG':'(none)')+'\n'; if(state.notes[id])o+='- Note: '+state.notes[id]+'\n'; o+='\n';}); if(state.comments.length){o+='## Comment pins\n'; state.comments.forEach(c=>o+='- Pin '+c.n+': '+c.txt+'\n');} ta.value=o; navigator.clipboard&&navigator.clipboard.writeText(o).then(()=>{},()=>{}); ta.focus(); ta.select(); }
+function toggleTheme(){ document.body.classList.toggle('dark'); document.getElementById('themeBtn').textContent=document.body.classList.contains('dark')?'Light':'Dark'; }
+</script>
+</body>
+</html>

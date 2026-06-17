@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot transform pipeline, block approval</title>
+<style>
+  :root{
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --r:13px; --rm:9px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap;}
+  .howto b{color:#fff;}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:30px;}
+  .rs>header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.55;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--sunken);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;padding:26px 18px;display:flex;justify-content:center;}
+  .mock *{pointer-events:none;}
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:30;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:31;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+  svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  .surface{width:100%;max-width:560px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;box-shadow:0 22px 54px rgba(0,0,0,.28);}
+  .chathead{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border);}
+  .chathead .ai{width:20px;height:20px;color:var(--sky-deep);display:inline-flex;}
+  .chathead .t{font-size:13px;font-weight:600;}
+  .body{padding:14px 15px;display:flex;flex-direction:column;gap:12px;}
+  .um{align-self:flex-end;max-width:84%;padding:8px 11px;border-radius:9px;background:var(--sunken);font-size:13px;}
+  .bm{font-size:13px;color:var(--text-2);line-height:1.55;}
+  .bm .bbline{display:flex;align-items:center;gap:7px;margin-bottom:5px;color:var(--sky-deep);font-size:12px;font-weight:600;}
+  .bbline .ai{width:16px;height:16px;display:inline-flex;}
+
+  /* the pipeline of blocks */
+  .pipe{border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;background:var(--surface);}
+  .piphead{display:flex;align-items:center;gap:7px;padding:9px 12px;background:var(--sky-soft);border-bottom:1px solid var(--border);font-size:12px;color:var(--sky-deep);font-weight:600;}
+  .piphead .src{margin-left:auto;color:var(--text-3);font-weight:400;}
+  .blocks{padding:6px 0;}
+  .block{position:relative;display:flex;gap:11px;padding:10px 13px;cursor:pointer;}
+  .block:not(:last-child)::after{content:"";position:absolute;left:25px;top:34px;bottom:-4px;width:2px;background:var(--border);}
+  .block .num{width:24px;height:24px;border-radius:999px;border:2px solid var(--border-2);color:var(--text-3);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex:none;background:var(--surface);z-index:1;transition:all .2s;}
+  .block.done .num{background:var(--ok);border-color:var(--ok);color:#fff;}
+  .block .bd{flex:1;min-width:0;}
+  .block .nm{font-size:13.5px;font-weight:600;color:var(--text);}
+  .block .blurb{font-size:12px;color:var(--text-2);margin-top:1px;}
+  .block .params{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px;}
+  .pill{font-size:11px;color:var(--text-2);background:var(--sunken);border:1px solid var(--border);border-radius:999px;padding:2px 8px;}
+  .pill b{color:var(--text);font-weight:600;}
+  .block .right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none;}
+  .block .edit{font-size:11px;color:var(--sky-deep);display:inline-flex;align-items:center;gap:3px;}
+  .block .appr{font-size:11px;border:1px solid var(--border-2);border-radius:6px;padding:3px 9px;color:var(--text-2);}
+  .block.done .appr{background:var(--ok-bg);border-color:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .prev{margin-top:7px;border:1px solid var(--border);border-radius:7px;overflow:hidden;}
+  .prev .pl{font-size:10.5px;color:var(--text-3);padding:4px 8px;background:var(--sunken);border-bottom:1px solid var(--border);}
+  .prev table{width:100%;border-collapse:collapse;font-size:11px;}
+  .prev td,.prev th{padding:3px 8px;border-bottom:1px solid var(--border);text-align:left;color:var(--text-2);}
+  .prev th{color:var(--text-3);font-weight:600;font-size:10px;}
+  .pipfoot{display:flex;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--border);}
+  .pipfoot .rn{flex:1;font-size:12px;color:var(--text-2);} .pipfoot .rn b{color:var(--text);}
+  .create{font-size:12px;font-weight:600;border-radius:7px;padding:7px 13px;background:var(--border);color:var(--text-3);}
+  .create.ready{background:var(--sky);color:#06243a;}
+  .live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:4px 11px;cursor:pointer;margin-bottom:12px;}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient></defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+
+<div class="topbar">
+  <span class="title">BeakerBot transform pipeline, block approval</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto"><b>To comment:</b> click anywhere on the mockup (auto-saves). Approve / Needs work, then Export. The mockup is LIVE, click each step block to approve it, then Create lights up.</div>
+
+<div class="wrap" id="wrap">
+  <section class="rs" data-name="Transform pipeline as approvable blocks">
+    <header><h3>1. BeakerBot stacks transforms as blocks you approve, step by step</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock">
+      <div class="surface">
+        <div class="chathead"><span class="ai"><svg width="18" height="18" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span><span class="t">BeakerBot</span></div>
+        <div class="body">
+          <div class="um">normalize my growth curves to percent of max, then flip it so the strains are the rows</div>
+          <div class="bm">
+            <span class="bbline"><span class="ai"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span> BeakerBot</span>
+            Here is the plan, two steps. Each is a transform you could run by hand. Approve each, then I will build the table.
+          </div>
+
+          <div class="pipe">
+            <div class="piphead"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h10"/></svg> Transform pipeline <span class="src">from "Growth curves, glucose"</span></div>
+            <div class="blocks">
+
+              <div class="block" id="b1">
+                <div class="num">1</div>
+                <div class="bd">
+                  <div class="nm">Normalize</div>
+                  <div class="blurb">Rescale each column to a percent of its own maximum.</div>
+                  <div class="params"><span class="pill">mode <b>max</b></span></div>
+                  <div class="prev"><div class="pl">preview, first rows</div><table><tr><th>time</th><th>WT</th><th>mutA</th></tr><tr><td>0</td><td>4.1%</td><td>3.8%</td></tr><tr><td>2</td><td>38%</td><td>31%</td></tr><tr><td>4</td><td>100%</td><td>86%</td></tr></table></div>
+                </div>
+                <div class="right"><span class="edit"><svg width="11" height="11" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16z"/></svg> edit</span><span class="appr">Approve</span></div>
+              </div>
+
+              <div class="block" id="b2">
+                <div class="num">2</div>
+                <div class="bd">
+                  <div class="nm">Transpose</div>
+                  <div class="blurb">Swap rows and columns, strains become the rows.</div>
+                  <div class="params"><span class="pill">header column <b>Strain</b></span></div>
+                  <div class="prev"><div class="pl">preview, first rows</div><table><tr><th>strain</th><th>t0</th><th>t2</th><th>t4</th></tr><tr><td>WT</td><td>4.1%</td><td>38%</td><td>100%</td></tr><tr><td>mutA</td><td>3.8%</td><td>31%</td><td>86%</td></tr></table></div>
+                </div>
+                <div class="right"><span class="edit"><svg width="11" height="11" viewBox="0 0 24 24"><path d="M4 20h4L18 10l-4-4L4 16z"/></svg> edit</span><span class="appr">Approve</span></div>
+              </div>
+
+            </div>
+            <div class="pipfoot"><span class="rn">New table <b id="rname">Growth curves (normalized, transposed)</b></span><span class="create" id="create">Create table</span></div>
+          </div>
+        </div>
+      </div>
+    </div></div>
+    <p class="note">Each block is a real Data Hub transform (the same 5 ops a user can run by hand from the table page, normalize / transpose / per-cell function / remove baseline / fraction of total), shown in the SAME block language as the manual TransformDialog, name, plain-language blurb, the params, and a LIVE preview computed by the real engine (never a guess). You approve each step (or edit its params), then Create builds one derived table with the recipe attached. Today the engine does single ops, so v1 is one block per table; this stacks into a multi-step pipeline the moment the Data Hub agent lands the recipe generalization, same UI. The result opens as an inline embed in the chat.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  // live block approval
+  var approved={b1:false,b2:false};
+  function refresh(){
+    var all=approved.b1&&approved.b2;
+    var c=document.getElementById('create'); c.classList.toggle('ready',all);
+    c.textContent=all?'Create table':'Approve both steps';
+  }
+  ['b1','b2'].forEach(function(id){
+    var el=document.getElementById(id); el.style.pointerEvents='auto'; el.style.cursor='pointer';
+    el.addEventListener('click',function(e){
+      e.stopPropagation();
+      approved[id]=!approved[id];
+      el.classList.toggle('done',approved[id]);
+      el.querySelector('.appr').textContent=approved[id]?'Approved':'Approve';
+      refresh();
+    });
+  });
+  refresh();
+
+  // comment + approve harness
+  var comments=[],counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(ev){ev.stopPropagation();
+        var v=b.getAttribute('data-v');var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;}else{delete sec.dataset.state;}
+        renderSum();});
+    });
+  });
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor'))return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100,y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;var c={id:counter,section:mock.closest('.rs').getAttribute('data-name'),text:'',x:x,y:y,mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');pin.className='pin';pin.textContent=c.id;pin.style.left=x+'%';pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin);c.pin=pin;openEditor(c,pin);renderSum();
+    });
+  });
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div');ed.className='editor';
+    ed.style.left=Math.min(c.x,72)+'%';ed.style.top=Math.min(c.y+4,80)+'%';
+    ed.innerHTML='<textarea placeholder="Your note..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea');ta.value=c.text;
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ta.addEventListener('click',function(e){e.stopPropagation();});ed.addEventListener('click',function(e){e.stopPropagation();});
+    ed.querySelector('.esave').addEventListener('click',function(e){e.stopPropagation();c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(e){e.stopPropagation();if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);comments=comments.filter(function(x){return x.id!==c.id;});ed.remove();renderSum();});
+    c.mock.appendChild(ed);setTimeout(function(){ta.focus();},0);
+  }
+  function renderSum(){
+    var ok=0,warn=0;sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerBot transform blocks feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='beakerbot-transform-blocks-feedback.md';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+  });
+  renderSum();
+})();
+</script>
+</body>
+</html>

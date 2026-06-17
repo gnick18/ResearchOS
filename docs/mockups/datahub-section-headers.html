@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub panel, section header treatments</title>
+<style>
+  :root { --surface:#eef1f5; --raised:#fff; --sunken:#e7ebf1; --fg:#1c2430; --muted:#6b7785; --header:#7c8694;
+    --border:#d4dae2; --action:#1283C9; --action-tint:#eaf4fb; --action-text:#0c5e94; }
+  html.dark { --surface:#0b0f18; --raised:#161e2b; --sunken:#1f2937; --fg:#eef2f7; --muted:#9aa6b6; --header:#8893a2;
+    --border:#2a3547; --action:#3aa6e6; --action-tint:#11304a; --action-text:#7fc4ef; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif; background:var(--surface); color:var(--fg); font-size:13px; -webkit-font-smoothing:antialiased; }
+  .top { display:flex; align-items:center; gap:12px; padding:11px 16px; background:var(--raised); border-bottom:1px solid var(--border); }
+  .top h1 { font-size:14px; font-weight:800; margin:0; margin-right:auto; }
+  .switch { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .switch button { font-size:12px; font-weight:800; padding:6px 12px; border:none; background:var(--raised); color:var(--muted); cursor:pointer; }
+  .switch button.on { background:var(--action); color:#fff; }
+  .btn { font-size:12px; font-weight:700; padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:var(--raised); color:var(--fg); cursor:pointer; }
+
+  .stage { display:flex; gap:30px; justify-content:center; padding:28px; flex-wrap:wrap; }
+  .col { text-align:center; }
+  .col .cap { font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--muted); text-transform:uppercase; margin-bottom:10px; }
+  .dock { width:300px; background:var(--raised); border:1px solid var(--border); border-radius:10px; overflow:hidden; text-align:left; box-shadow:0 2px 14px rgba(0,0,0,.07); }
+  .sec { border-top:1px solid var(--border); }
+  .sec:first-child { border-top:none; }
+  .body { padding:11px 14px 14px; }
+  .row { display:flex; align-items:center; min-height:26px; margin:6px 0; }
+  .row .lab { font-size:12px; color:var(--muted); }
+  .row .ctl { margin-left:auto; }
+  .tg { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .tg button { font-size:11px; font-weight:700; padding:4px 9px; border:none; background:var(--raised); color:var(--muted); }
+  .tg button.on { background:var(--action); color:#fff; }
+  .sw { display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); width:130px; }
+  .sw div { flex:1; height:22px; } .pbtn { font-size:11px; font-weight:700; padding:4px 10px; border:1px solid var(--border); border-radius:7px; background:var(--raised); color:var(--action); }
+  .num { width:54px; font-size:12px; padding:4px 6px; border:1px solid var(--border); border-radius:6px; background:var(--raised); color:var(--fg); text-align:right; }
+
+  /* --- header treatments --- */
+  /* CURRENT: plain muted text, no band */
+  .h-current { font-size:10.5px; font-weight:800; letter-spacing:.09em; color:var(--header); text-transform:uppercase; padding:12px 14px 2px; }
+  /* NEUTRAL: filled gray band */
+  .h-neutral { font-size:10.5px; font-weight:800; letter-spacing:.09em; color:var(--fg); text-transform:uppercase; padding:8px 14px; background:var(--sunken); border-bottom:1px solid var(--border); }
+  /* ACCENT: brand-tinted band + accent text */
+  .h-accent { font-size:10.5px; font-weight:800; letter-spacing:.09em; color:var(--action-text); text-transform:uppercase; padding:8px 14px; background:var(--action-tint); border-bottom:1px solid var(--border); }
+
+  .pickbar { display:flex; align-items:center; gap:10px; padding:9px 16px; background:var(--raised); border-top:1px solid var(--border); position:sticky; bottom:0; }
+  .pickbar .verds button { font-size:11px; font-weight:700; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--raised); color:var(--muted); cursor:pointer; margin-right:5px; }
+  .pickbar .verds button.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .pickbar input { flex:1; font-size:12px; padding:6px 9px; border:1px solid var(--border); border-radius:8px; background:var(--sunken); color:var(--fg); }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Section header treatments</h1>
+  <button class="btn" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="btn" onclick="copyPick()">Copy choice</button>
+</div>
+
+<div class="stage" id="stage"></div>
+
+<div class="pickbar">
+  <span style="font-size:12px;color:var(--muted);font-weight:700;">My pick</span>
+  <div class="verds" id="verds">
+    <button onclick="pick('neutral')" id="p-neutral">Neutral gray</button>
+    <button onclick="pick('accent')" id="p-accent">Accent tinted</button>
+    <button onclick="pick('current')" id="p-current">Keep current</button>
+  </div>
+  <input id="note" placeholder="notes (tint strength, text color, light vs dark)" oninput="saveNote(this.value)" />
+</div>
+
+<script>
+const STORE="datahub-section-headers-2026-06-11";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE))||{dark:false,pick:"",note:""}; } catch(e){ return {dark:false,pick:"",note:""}; } }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; document.documentElement.classList.toggle('dark',state.dark); document.getElementById('themeBtn').textContent=state.dark?"Light":"Dark"; save(); }
+
+const SECTIONS=[
+  {t:"Graph style", body:`<div class="row"><span class="lab">Chart type</span><span class="ctl"><span class="tg"><button>Scatter</button><button class="on">Bar</button></span></span></div>
+    <div class="row"><span class="lab">Error bars</span><span class="ctl"><span class="tg"><button class="on">SEM</button><button>SD</button><button>None</button></span></span></div>`},
+  {t:"Colors", body:`<div class="row"><span class="lab">Palette</span><span class="ctl"><span class="sw"><div style="background:#1B9E77"></div><div style="background:#D95F02"></div><div style="background:#7570B3"></div><div style="background:#E7298A"></div></span></span></div>
+    <div class="row"><span class="lab"></span><span class="ctl"><button class="pbtn">Palette ...</button></span></div>`},
+  {t:"Figure size", body:`<div class="row"><span class="lab">Width</span><span class="ctl"><input class="num" value="3.5"></span></div>
+    <div class="row"><span class="lab">Height</span><span class="ctl"><input class="num" value="2.6"></span></div>
+    <div class="row"><span class="lab">Units</span><span class="ctl"><span class="tg"><button>px</button><button class="on">in</button><button>cm</button></span></span></div>`},
+  {t:"Labels and text", body:`<div class="row"><span class="lab">Axis text</span><span class="ctl"><input type="range" style="width:110px"></span></div>`},
+  {t:"Export", body:`<div class="row"><span class="lab"></span><span class="ctl"><button class="btn">SVG</button> <button class="btn">PNG</button></span></div>`},
+];
+
+function dock(headerClass){
+  return `<div class="dock">`+SECTIONS.map(s=>`<div class="sec"><div class="${headerClass}">${s.t}</div><div class="body">${s.body}</div></div>`).join('')+`</div>`;
+}
+function render(){
+  document.documentElement.classList.toggle('dark',state.dark);
+  document.getElementById('stage').innerHTML=`
+    <div class="col"><div class="cap">Current</div>${dock('h-current')}</div>
+    <div class="col"><div class="cap">Neutral gray band</div>${dock('h-neutral')}</div>
+    <div class="col"><div class="cap">Accent tinted band</div>${dock('h-accent')}</div>`;
+  ["neutral","accent","current"].forEach(k=>document.getElementById('p-'+k).classList.toggle('on',state.pick===k));
+  document.getElementById('note').value=state.note||"";
+}
+function pick(k){ state.pick=(state.pick===k?"":k); save(); render(); }
+function saveNote(v){ state.note=v; save(); }
+function copyPick(){ navigator.clipboard.writeText(`Section header pick: ${state.pick||"(none)"}\nNote: ${state.note||"(none)"}`); }
+render();
+</script>
+</body>
+</html>

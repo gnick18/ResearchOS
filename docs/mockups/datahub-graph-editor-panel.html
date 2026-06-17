@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub graph editor, right-docked panel redesign</title>
+<style>
+  :root { --surface:#eef1f5; --raised:#fff; --sunken:#e2e6ec; --fg:#1c2430; --muted:#6b7785; --faint:#9aa6b4;
+    --border:#d4dae2; --line:#e6eaf0; --action:#1283C9; --action-soft:#e7f3fb; --green:#1a9f5a; --red:#d9483b; --amber:#e8932a;
+    --panel:#f7f8fa; --header:#8893a2; }
+  html.dark { --surface:#0b0f18; --raised:#1b2433; --sunken:#0e1420; --fg:#eef2f7; --muted:#9aa6b6; --faint:#6b7787;
+    --border:#2a3547; --line:#222c3c; --action-soft:#10314a; --panel:#141c28; --header:#7a8696; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif; background:var(--surface); color:var(--fg); -webkit-font-smoothing:antialiased; font-size:13px; }
+  .top { display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--raised); border-bottom:1px solid var(--border); position:sticky; top:0; z-index:20; }
+  .top h1 { font-size:14px; font-weight:800; margin:0; }
+  .top .sub { font-size:11.5px; color:var(--muted); margin-right:auto; max-width:520px; }
+  .btn { font-size:12px; font-weight:700; padding:6px 11px; border-radius:8px; border:1px solid var(--border); background:var(--raised); color:var(--fg); cursor:pointer; }
+  .btn:hover { border-color:var(--action); }
+  .switch { display:inline-flex; border:1px solid var(--border); border-radius:9px; overflow:hidden; }
+  .switch button { font-size:12px; font-weight:800; padding:6px 13px; border:none; background:var(--raised); color:var(--muted); cursor:pointer; }
+  .switch button.on { background:var(--action); color:#fff; }
+
+  /* app shell mock */
+  .app { display:flex; height:calc(100vh - 53px); }
+  .leftnav { width:48px; flex-shrink:0; background:var(--raised); border-right:1px solid var(--border); display:flex; flex-direction:column; align-items:center; padding-top:12px; gap:14px; }
+  .leftnav .dot { width:22px; height:22px; border-radius:6px; background:var(--sunken); }
+  .leftnav .dot.act { background:var(--action-soft); border:1px solid var(--action); }
+  .canvaswrap { flex:1; min-width:0; background:var(--sunken); display:flex; align-items:center; justify-content:center; position:relative; overflow:auto; }
+  .canvaswrap .hint { position:absolute; top:10px; left:14px; font-size:11px; color:var(--faint); font-weight:700; letter-spacing:.04em; }
+  .artboard { background:#fff; box-shadow:0 2px 18px rgba(0,0,0,.13); border-radius:3px; }
+
+  /* ===== redesigned right dock ===== */
+  .dock { width:300px; flex-shrink:0; background:var(--panel); border-left:1px solid var(--border); overflow-y:auto; }
+  .sec { border-bottom:1px solid var(--border); padding:12px 14px 14px; }
+  .sec h3 { font-size:10.5px; font-weight:800; letter-spacing:.09em; color:var(--header); margin:0 0 10px; text-transform:uppercase; }
+  .row { display:flex; align-items:center; min-height:28px; margin:7px 0; }
+  .row > .lab { font-size:12px; color:var(--muted); width:92px; flex-shrink:0; }
+  .row > .ctl { margin-left:auto; display:flex; gap:0; align-items:center; }
+  /* toggle group (Illustrator style) */
+  .tg { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; background:var(--raised); }
+  .tg button { font-size:11.5px; font-weight:700; padding:5px 10px; border:none; background:transparent; color:var(--muted); cursor:pointer; min-width:34px; }
+  .tg button + button { border-left:1px solid var(--border); }
+  .tg button.on { background:var(--action); color:#fff; }
+  .tg.icon button { padding:5px 8px; font-size:13px; }
+  .numbox { width:58px; font-size:12px; padding:5px 7px; border:1px solid var(--border); border-radius:7px; background:var(--raised); color:var(--fg); text-align:right; }
+  .unit { font-size:12px; padding:5px 7px; border:1px solid var(--border); border-radius:7px; background:var(--raised); color:var(--fg); }
+  .lockbtn { width:28px; height:28px; border:1px solid var(--border); border-radius:7px; background:var(--raised); color:var(--muted); cursor:pointer; font-size:13px; }
+  .lockbtn.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .swrow { display:flex; gap:0; border-radius:6px; overflow:hidden; border:1px solid var(--border); flex:1; }
+  .swrow div { flex:1; height:24px; }
+  .presets { display:flex; gap:6px; flex-wrap:wrap; margin-top:4px; }
+  .presets button { font-size:11px; font-weight:700; padding:5px 9px; border:1px solid var(--border); border-radius:999px; background:var(--raised); color:var(--muted); cursor:pointer; }
+  .presets button:hover { border-color:var(--action); color:var(--action); }
+  .help { font-size:10.5px; color:var(--faint); margin-top:7px; line-height:1.45; }
+  .slider { width:120px; }
+  .exprow { display:flex; gap:7px; }
+  .exprow .btn { flex:1; text-align:center; }
+  .pin { position:absolute; width:18px; height:18px; border-radius:50%; background:var(--amber); color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; cursor:pointer; box-shadow:0 1px 4px rgba(0,0,0,.3); }
+
+  /* ===== current (before) inline card ===== */
+  .oldwrap { flex:1; min-width:0; background:var(--sunken); display:flex; gap:18px; align-items:flex-start; justify-content:center; padding:26px; overflow:auto; }
+  .oldcard { width:280px; background:var(--raised); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .oldcard h4 { font-size:11px; font-weight:800; letter-spacing:.05em; color:var(--muted); text-transform:uppercase; margin:0 0 8px; }
+  .oldrow { display:flex; align-items:center; justify-content:space-between; margin:8px 0; font-size:12px; color:var(--muted); }
+  .oldsel { font-size:12px; padding:5px 8px; border:1px solid var(--border); border-radius:6px; background:var(--raised); }
+  .oldtabs { display:inline-flex; border:1px solid var(--border); border-radius:7px; overflow:hidden; }
+  .oldtabs span { font-size:11px; padding:4px 9px; color:var(--muted); } .oldtabs span.on { background:var(--action-soft); color:var(--action); font-weight:700; }
+  .oldpill { font-size:11px; padding:4px 9px; border:1px solid var(--border); border-radius:6px; color:var(--muted); display:inline-block; margin:3px 4px 0 0; }
+
+  /* review bar */
+  .review { display:flex; align-items:center; gap:10px; padding:8px 16px; background:var(--raised); border-top:1px solid var(--border); position:sticky; bottom:0; z-index:20; }
+  .review .verds button { font-size:11px; font-weight:700; padding:5px 10px; border-radius:7px; border:1px solid var(--border); background:var(--raised); color:var(--muted); cursor:pointer; margin-right:5px; }
+  .review .verds button.aon{background:var(--green);color:#fff;} .review .verds button.don{background:var(--red);color:#fff;} .review .verds button.qon{background:var(--amber);color:#fff;}
+  .review input { flex:1; font-size:12px; padding:6px 9px; border:1px solid var(--border); border-radius:8px; background:var(--sunken); color:var(--fg); }
+  svg text { font-family:-apple-system,system-ui,sans-serif; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Graph editor, right-docked panel</h1>
+  <span class="sub">Far-right dock so the canvas gets the screen, clear section dividers, and Illustrator-style toggle controls. Flip Current / Redesigned to compare.</span>
+  <div class="switch" id="modeSwitch">
+    <button class="on" onclick="setMode('new')">Redesigned</button>
+    <button onclick="setMode('old')">Current</button>
+  </div>
+  <button class="btn" onclick="toggleTheme()" id="themeBtn">Dark</button>
+  <button class="btn" onclick="openExport()">Export</button>
+</div>
+
+<div class="app" id="app"></div>
+
+<div class="review">
+  <div class="verds">
+    <button id="va" onclick="setV('agree')">Approve</button>
+    <button id="vd" onclick="setV('disagree')">Disapprove</button>
+    <button id="vq" onclick="setV('discuss')">Discuss</button>
+  </div>
+  <input id="note" placeholder="notes on the dock, the dividers, the toggles, anything to change" oninput="saveNote(this.value)" />
+</div>
+
+<div id="exportOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;max-width:560px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decision and notes</strong>
+      <button class="btn" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="btn" onclick="closeExport()">Close</button>
+    </div>
+    <div style="white-space:pre-wrap;font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:10px;" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+const STORE="datahub-editor-panel-2026-06-11";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE))||{dark:false,mode:"new",v:"",note:"",t:{}}; } catch(e){ return {dark:false,mode:"new",v:"",note:"",t:{}}; } }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; document.documentElement.classList.toggle('dark',state.dark); document.getElementById('themeBtn').textContent=state.dark?"Light":"Dark"; save(); }
+function setMode(m){ state.mode=m; save(); render(); }
+function tg(group, val){ state.t[group]=val; save(); render(); }
+function tgv(group, def){ return state.t[group]!==undefined?state.t[group]:def; }
+
+function sampleBars(){
+  const cols=["#1B9E77","#D95F02","#7570B3","#E7298A","#66A61E"]; const vals=[64,78,52,71,60];
+  const w=440,h=330,pad=46; const n=cols.length, gap=(w-2*pad)/n, bw=gap*0.56;
+  let bars=''; for(let i=0;i<n;i++){ const bh=(vals[i]/90)*(h-2*pad-10), y=h-pad-bh, x=pad+i*gap+gap*0.22;
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${cols[i]}"/>`+
+      `<line x1="${x+bw/2}" y1="${y-9}" x2="${x+bw/2}" y2="${y+9}" stroke="#333" stroke-width="1.4"/>`; }
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="${w}" height="${h}" fill="#fff"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#5b6675"/><line x1="${pad}" y1="${pad-6}" x2="${pad}" y2="${h-pad}" stroke="#5b6675"/>
+    <text x="${pad-12}" y="${h/2}" font-size="12" fill="#5b6675" text-anchor="middle" transform="rotate(-90 ${pad-12} ${h/2})">Spores / mL</text>
+    ${bars}<text x="${w/2}" y="${h-14}" font-size="12" fill="#5b6675" text-anchor="middle">Treatment</text></svg>`;
+}
+
+function toggleGroup(group, opts, def, icon){
+  return `<div class="tg ${icon?'icon':''}">`+opts.map(o=>`<button class="${tgv(group,def)===o.v?'on':''}" onclick="tg('${group}','${o.v}')">${o.l}</button>`).join('')+`</div>`;
+}
+
+function newDock(){
+  return `<div class="dock">
+    <div class="sec" style="position:relative;">
+      <span class="pin" style="right:10px;top:10px;" title="Clear divider + uppercase header per section">i</span>
+      <h3>Graph style</h3>
+      <div class="row"><span class="lab">Chart type</span><div class="ctl">${toggleGroup('kind',[{v:'scatter',l:'Scatter'},{v:'bar',l:'Bar'}],'bar')}</div></div>
+      <div class="row"><span class="lab">Error bars</span><div class="ctl">${toggleGroup('err',[{v:'sem',l:'SEM'},{v:'sd',l:'SD'},{v:'none',l:'None'}],'sem')}</div></div>
+      <div class="row"><span class="lab">Points</span><div class="ctl">${toggleGroup('pts',[{v:'on',l:'On'},{v:'off',l:'Off'}],'on')}</div></div>
+      <div class="row"><span class="lab">Brackets</span><div class="ctl">${toggleGroup('brk',[{v:'on',l:'On'},{v:'off',l:'Off'}],'off')}</div></div>
+    </div>
+
+    <div class="sec">
+      <h3>Colors</h3>
+      <div class="row"><span class="lab">Mode</span><div class="ctl">${toggleGroup('cmode',[{v:'lib',l:'Library'},{v:'cus',l:'Custom'},{v:'gen',l:'Generate'}],'lib')}</div></div>
+      <div class="row"><span class="lab">Palette</span><div class="ctl" style="flex:1;"><div class="swrow"><div style="background:#1B9E77"></div><div style="background:#D95F02"></div><div style="background:#7570B3"></div><div style="background:#E7298A"></div><div style="background:#66A61E"></div></div></div></div>
+      <div class="row"><span class="lab">Series</span><div class="ctl">${toggleGroup('ser',[{v:'-',l:'−'},{v:'5',l:'5'},{v:'+',l:'+'}],'5')}</div></div>
+      <div class="presets"><button>Browse all palettes</button><button>Color-blind safe</button><button>Print safe</button></div>
+    </div>
+
+    <div class="sec" style="position:relative;">
+      <span class="pin" style="right:10px;top:10px;" title="New: figure size, PowerPoint-style">2</span>
+      <h3>Figure size</h3>
+      <div class="row"><span class="lab">Width</span><div class="ctl"><input class="numbox" value="3.5"></div></div>
+      <div class="row"><span class="lab">Height</span><div class="ctl"><input class="numbox" value="2.6"></div></div>
+      <div class="row"><span class="lab">Units</span><div class="ctl">${toggleGroup('unit',[{v:'px',l:'px'},{v:'in',l:'in'},{v:'cm',l:'cm'}],'in')}</div></div>
+      <div class="row"><span class="lab">Lock ratio</span><div class="ctl"><button class="lockbtn ${tgv('lock','on')==='on'?'on':''}" onclick="tg('lock','${tgv('lock','on')==='on'?'off':'on'}')" title="Aspect lock">⚯</button></div></div>
+      <div class="row"><span class="lab">Resize</span><div class="ctl">${toggleGroup('rmode',[{v:'rel',l:'Re-layout'},{v:'sca',l:'Scale'}],'rel')}</div></div>
+      <div class="row"><span class="lab">Export DPI</span><div class="ctl"><input class="numbox" value="300"></div></div>
+      <div class="presets"><button>Single column</button><button>Double column</button><button>Slide 16:9</button></div>
+      <div class="help">Re-layout keeps text the size you set so the figure stays legible at journal dimensions. Scale zooms the whole figure like a slide image.</div>
+    </div>
+
+    <div class="sec">
+      <h3>Labels and text</h3>
+      <div class="row"><span class="lab">Axis text</span><div class="ctl"><input class="slider" type="range" min="10" max="16" value="12"></div></div>
+      <div class="row"><span class="lab">Y title</span><div class="ctl"><input class="numbox" style="width:120px;text-align:left;" value="Spores / mL"></div></div>
+    </div>
+
+    <div class="sec">
+      <h3>Export</h3>
+      <div class="exprow"><button class="btn">SVG</button><button class="btn">PNG</button><button class="btn">Copy</button></div>
+    </div>
+  </div>`;
+}
+
+function render(){
+  document.documentElement.classList.toggle('dark',state.dark);
+  [...document.querySelectorAll('#modeSwitch button')].forEach((b,i)=>b.classList.toggle('on',(i===0)===(state.mode==='new')));
+  const app=document.getElementById('app');
+  if(state.mode==='new'){
+    app.innerHTML=`<div class="leftnav"><div class="dot act"></div><div class="dot"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="canvaswrap"><span class="hint">CANVAS, full width</span><div class="artboard">${sampleBars()}</div></div>
+      ${newDock()}`;
+  } else {
+    app.innerHTML=`<div class="leftnav"><div class="dot act"></div><div class="dot"></div><div class="dot"></div></div>
+      <div class="oldwrap">
+        <div class="artboard" style="align-self:center;">${sampleBars()}</div>
+        <div class="oldcard">
+          <h4>Graph style</h4>
+          <div class="oldrow"><span>Fitted curve</span><select class="oldsel"><option>Linear</option></select></div>
+          <div style="height:1px;background:var(--line);margin:10px 0;"></div>
+          <h4>Colors</h4>
+          <div class="oldrow"><span></span><span class="oldtabs"><span class="on">Library</span><span>Custom</span><span>Generate</span></span></div>
+          <div class="oldrow"><span>Series &minus; 1 +</span></div>
+          <div><span class="oldpill">Color-blind safe</span><span class="oldpill">Print safe</span></div>
+        </div>
+      </div>`;
+  }
+  document.getElementById('note').value=state.note||"";
+  document.getElementById('va').classList.toggle('aon',state.v==='agree');
+  document.getElementById('vd').classList.toggle('don',state.v==='disagree');
+  document.getElementById('vq').classList.toggle('qon',state.v==='discuss');
+}
+function setV(v){ state.v=(state.v===v?"":v); save(); render(); }
+function saveNote(v){ state.note=v; save(); }
+function buildExport(){ return `# Graph editor panel redesign\n\nVerdict: ${state.v||"(none)"}\nNote: ${state.note||"(none)"}\n`; }
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').style.display='flex'; }
+function closeExport(){ document.getElementById('exportOverlay').style.display='none'; }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+render();
+</script>
+</body>
+</html>

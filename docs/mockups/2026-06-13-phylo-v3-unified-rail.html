@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tree Studio v3 — unified collection rail + action rail (before / after)</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff; --surface-sunken: #f1f5f9;
+    --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-purple: #5B47D6;
+    --pin: #e11d48; --ok: #16a34a;
+    --recycle: #0f766e; --recycle-soft: #e0f2ee;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c; --surface-sunken: #0d1424;
+    --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96;
+    --pin: #fb7185; --ok: #4ade80; --recycle: #5eead4; --recycle-soft: rgba(15,118,110,0.22);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  a { color: var(--brand-action); }
+
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--surface-overlay); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 920px; margin: 0 0 6px; }
+  .recycle-key { display: inline-block; font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; background: var(--recycle-soft); color: var(--recycle); }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+  @media (max-width: 1120px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .pane > .label { padding: 9px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); border-bottom: 1px solid var(--border); }
+  .pane.before > .label { background: var(--surface-sunken); }
+  .pane.after > .label { background: linear-gradient(90deg, rgba(18,131,201,0.12), rgba(91,71,214,0.10)); color: var(--brand-action); }
+
+  /* studio mock shared */
+  .studio { display: grid; min-height: 460px; }
+  .studio.before { grid-template-columns: 150px 1fr 132px; }
+  .studio.after { grid-template-columns: 168px 1fr 150px; }
+  .col { padding: 10px; min-width: 0; }
+  .col.left { background: var(--surface-sunken); border-right: 1px solid var(--border); }
+  .col.right { background: var(--surface-sunken); border-left: 1px solid var(--border); }
+  .col.center { display: flex; flex-direction: column; }
+
+  .sec-h { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); margin: 0 0 6px; }
+  .panel { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; padding: 8px; margin-bottom: 8px; }
+  .panel .pt { font-size: 12px; font-weight: 700; margin-bottom: 6px; }
+  .minibtns { display: flex; flex-wrap: wrap; gap: 4px; }
+  .mb { font-size: 10.5px; border: 1px solid var(--border); border-radius: 7px; padding: 3px 7px; background: var(--surface-raised); color: var(--fg-muted); }
+  .mb.brand { background: var(--brand-sky); border-color: var(--brand-sky); color: #fff; font-weight: 700; }
+
+  .canvas-toolbar { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; flex-wrap: wrap; }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+  .seg .s { font-size: 11px; padding: 4px 9px; color: var(--fg-muted); cursor: pointer; border-right: 1px solid var(--border); }
+  .seg .s:last-child { border-right: none; }
+  .seg .s.on { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .canvas { flex: 1; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; }
+
+  /* layers + export (before-right + action flyout) */
+  .layerrow { display: flex; align-items: center; gap: 6px; font-size: 11.5px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 8px; padding: 5px 7px; margin-bottom: 4px; }
+  .layerrow .eye { color: var(--fg-faint); flex: none; }
+
+  /* collection rail (after-left) */
+  .rail-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 7px; }
+  .rail-head .ttl { font-size: 13px; font-weight: 800; }
+  .rail-head .acts { display: flex; gap: 3px; }
+  .iconbtn { width: 22px; height: 22px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-raised); color: var(--fg-muted); display: grid; place-items: center; cursor: pointer; }
+  .iconbtn.brand { background: var(--brand-sky); border-color: var(--brand-sky); color: #fff; }
+  .rail-sel { width: 100%; font: inherit; font-size: 11.5px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--fg); margin-bottom: 6px; }
+  .rail-search { width: 100%; font-size: 11.5px; padding: 5px 7px 5px 24px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--fg); margin-bottom: 8px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='13' height='13' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='m21 21-4.3-4.3'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: 7px center; }
+  .trow { display: flex; align-items: center; gap: 6px; font-size: 11.5px; padding: 6px 7px; border-radius: 8px; color: var(--fg); cursor: pointer; }
+  .trow:hover { background: var(--surface-raised); }
+  .trow.sel { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .trow .tn { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
+  .trow .meta { font-size: 10px; color: var(--fg-faint); flex: none; }
+  .trow.sel .meta { color: rgba(255,255,255,0.8); }
+  .bulkbar { margin-top: 8px; font-size: 10.5px; color: var(--fg-faint); border-top: 1px dashed var(--border-strong); padding-top: 7px; }
+
+  /* action rail (after-right) */
+  .tabs { display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 8px; }
+  .tab { font-size: 10.5px; padding: 4px 7px; border-radius: 7px; color: var(--fg-muted); cursor: pointer; border: 1px solid transparent; }
+  .tab:hover { background: var(--surface-raised); }
+  .tab.on { background: var(--brand-action); color: #fff; font-weight: 700; }
+  .flyout { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; padding: 8px; min-height: 200px; }
+  .flyout .ft { font-size: 11px; font-weight: 800; color: var(--fg-faint); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 7px; }
+  .recycle-tag { display: block; font-size: 10px; color: var(--recycle); margin-top: 7px; line-height: 1.4; }
+
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .change .body .rk { margin-top: 6px; }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+
+  body.cmt-on { cursor: crosshair; }
+  body.cmt-on .trow, body.cmt-on .panel, body.cmt-on .tab, body.cmt-on .layerrow { cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; z-index: 50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .cpanel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); z-index: 55; overflow: hidden; }
+  .cpanel .ch { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .cpanel .ch h3 { margin: 0; font-size: 14px; font-weight: 800; flex: 1; }
+  .cbody { overflow: auto; padding: 8px; }
+  .cempty { color: var(--fg-faint); font-size: 12.5px; padding: 14px 8px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; }
+  .citem:hover { background: var(--surface-sunken); }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .ctxt { font-size: 12.5px; flex: 1; }
+  .citem .ctxt .tgt { color: var(--fg-faint); font-size: 11px; display: block; }
+  .citem .del { background: none; border: none; color: var(--fg-faint); cursor: pointer; font-size: 14px; }
+  .cfoot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .cfoot .btn { flex: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Tree Studio v3 — unified rail</h1>
+    <div class="sub">Before / after. Left becomes the recycled collection rail, right becomes a tabbed action rail.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="recycle-key">teal = recycled from another page</span>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Same Tree Studio, two frames. Left is today: a controls-first left column (Tree / Metadata / Alignment) and an always-on Layers + Export rail, with saved trees stranded in a separate Hub tab. Right is the proposal: the left becomes the same collection rail you already use on Sequences and Chemistry, and the right becomes a tabbed action rail (Layers / Setup / Export / Code) with a flyout, so the Studio controls move there and the canvas gets more room.</p>
+  <p class="lead"><strong>How to review:</strong> on the right pane, click a tree in the rail and click the action-rail tabs to swap the flyout. Turn on Comment mode to pin notes anywhere. Below, mark each decision Approve or Disapprove, then hit <em>Copy feedback</em> and paste it back to me.</p>
+
+  <div class="panes">
+    <!-- BEFORE -->
+    <div class="pane before">
+      <div class="label">Before — today</div>
+      <div class="studio before">
+        <div class="col left" data-cmt="before: left control panels">
+          <div class="sec-h">Studio controls</div>
+          <div class="panel"><div class="pt">Tree</div><div class="minibtns"><span class="mb">Change</span><span class="mb">Ladderize</span><span class="mb">Root</span></div></div>
+          <div class="panel"><div class="pt">Metadata</div><div class="minibtns"><span class="mb">Drop CSV</span><span class="mb">Sample</span></div></div>
+          <div class="panel"><div class="pt">Alignment</div><div class="minibtns"><span class="mb">Drop FASTA</span></div></div>
+        </div>
+        <div class="col center">
+          <div class="canvas-toolbar"><div class="seg"><span class="s on">Circular</span><span class="s">Rectangular</span></div><span style="flex:1"></span><div class="seg"><span class="s on">Cladogram</span></div></div>
+          <div class="canvas" id="canvasBefore"></div>
+        </div>
+        <div class="col right" data-cmt="before: layers + export rail">
+          <div class="sec-h">Layers</div>
+          <div id="layersBefore"></div>
+          <div class="sec-h" style="margin-top:10px">Export</div>
+          <div class="minibtns"><span class="mb">SVG</span><span class="mb">PNG</span><span class="mb">Copy</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="pane after">
+      <div class="label">After — unified rail</div>
+      <div class="studio after">
+        <div class="col left" data-cmt="after: collection rail">
+          <div class="rail-head"><span class="ttl">Trees</span><span class="acts"><span class="iconbtn brand" title="New">+</span><span class="iconbtn" title="Import">&uarr;</span></span></div>
+          <select class="rail-sel"><option>All trees (6)</option><option>Unfiled (2)</option><option>Projects&hellip;</option></select>
+          <input class="rail-search" placeholder="Search trees" />
+          <div id="treeList"></div>
+          <div class="bulkbar">Checkbox select + right-click menu (rename / duplicate / share / delete), same as Sequences.</div>
+        </div>
+        <div class="col center">
+          <div class="canvas-toolbar"><div class="seg"><span class="s on">Circular</span><span class="s">Rectangular</span></div><span style="flex:1"></span><div class="seg"><span class="s on">Cladogram</span></div></div>
+          <div class="canvas" id="canvasAfter"></div>
+        </div>
+        <div class="col right" data-cmt="after: action rail">
+          <div class="tabs" id="tabs">
+            <span class="tab on" data-tab="layers">Layers</span>
+            <span class="tab" data-tab="setup">Setup</span>
+            <span class="tab" data-tab="export">Export</span>
+            <span class="tab" data-tab="code">Code</span>
+          </div>
+          <div class="flyout" id="flyout"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Eight decisions. Mark each so I build only what you want. The teal tag shows what each one borrows from another page.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn danger" id="clearBtn">Clear</button></div>
+</div>
+
+<script>
+/* ---------- shared circular tree ---------- */
+function treeSvg(){
+  let spokes='', dots='';
+  for(let i=0;i<26;i++){const a=i/26*2*Math.PI;const x1=(95+26*Math.cos(a)).toFixed(1),y1=(95+26*Math.sin(a)).toFixed(1);const x2=(95+78*Math.cos(a)).toFixed(1),y2=(95+78*Math.sin(a)).toFixed(1);spokes+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'"/>';dots+='<circle cx="'+x2+'" cy="'+y2+'" r="2"/>';}
+  return '<svg viewBox="0 0 190 190" width="170" height="170" role="img" aria-label="circular phylogenetic tree placeholder">'
+    +'<circle cx="95" cy="95" r="26" fill="none" stroke="#85B7EB" stroke-width="1"/>'
+    +'<circle cx="95" cy="95" r="46" fill="none" stroke="#85B7EB" stroke-width="1"/>'
+    +'<circle cx="95" cy="95" r="64" fill="none" stroke="#B5D4F4" stroke-width="1"/>'
+    +'<circle cx="95" cy="95" r="78" fill="none" stroke="#B5D4F4" stroke-width="1" stroke-dasharray="2 3"/>'
+    +'<g stroke="#1283C9" stroke-width="1.3">'+spokes+'</g><g fill="#185FA5">'+dots+'</g></svg>';
+}
+document.getElementById('canvasBefore').innerHTML = treeSvg();
+document.getElementById('canvasAfter').innerHTML = treeSvg();
+
+/* ---------- before: layers list ---------- */
+const LAYERS = ['Tree','Tip points','Color strip','Heatmap','Point + error'];
+document.getElementById('layersBefore').innerHTML = LAYERS.map(l =>
+  '<div class="layerrow"><span class="eye">&#128065;</span>'+l+'</div>').join('');
+
+/* ---------- after: collection rail ---------- */
+const TREES = [
+  ['Candida auris','305 tips'],['E. coli core set','64 tips'],['Influenza HA','120 tips'],
+  ['SARS-CoV-2 lineages','88 tips'],['Yeast orthologs','210 tips'],['16S mock community','40 tips']
+];
+let selTree = 0;
+function renderTrees(){
+  document.getElementById('treeList').innerHTML = TREES.map((t,i) =>
+    '<div class="trow '+(i===selTree?'sel':'')+'" data-tree="'+i+'" data-cmt="tree row: '+t[0]+'"><span class="tn">'+t[0]+'</span><span class="meta">'+t[1]+'</span></div>').join('');
+}
+document.getElementById('treeList').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const r = e.target.closest('.trow'); if (!r) return; selTree = +r.dataset.tree; renderTrees();
+});
+
+/* ---------- after: action rail flyout ---------- */
+const FLY = {
+  layers: { t:'Layers', html: LAYERS.map(l=>'<div class="layerrow"><span class="eye">&#128065;</span>'+l+'</div>').join('')+'<span class="recycle-tag">Layers + reorder live in a tab now, freeing the canvas. Recycles the Sequence flyout pattern.</span>' },
+  setup: { t:'Setup', html: '<div class="panel"><div class="pt">Tree</div><div class="minibtns"><span class="mb">Change</span><span class="mb">Ladderize</span><span class="mb">Root</span></div></div><div class="panel"><div class="pt">Metadata</div><div class="minibtns"><span class="mb">Drop CSV</span><span class="mb">Sample</span></div></div><div class="panel"><div class="pt">Alignment</div><div class="minibtns"><span class="mb">Drop FASTA</span></div></div><span class="recycle-tag">The old left-column controls moved here, since the left is now the tree picker.</span>' },
+  export: { t:'Export', html: '<div class="minibtns" style="margin-bottom:8px"><span class="mb">SVG</span><span class="mb">PNG</span><span class="mb">Copy</span></div><div class="layerrow">Save to my trees</div><div class="layerrow">Copy reference for a note</div>' },
+  code: { t:'ggtree code', html: '<div style="font-size:10.5px;font-family:ui-monospace,monospace;color:var(--fg-muted);background:var(--surface-sunken);border-radius:8px;padding:8px;line-height:1.5">library(ggtree)<br>ggtree(tr, layout=<br>&nbsp;&nbsp;"circular") +<br>&nbsp;&nbsp;geom_tippoint()</div>' }
+};
+let activeTab = 'layers';
+function renderFlyout(){
+  const f = FLY[activeTab];
+  document.getElementById('flyout').innerHTML = '<div class="ft">'+f.t+'</div>'+f.html;
+}
+document.getElementById('tabs').addEventListener('click', e => {
+  if (document.body.classList.contains('cmt-on')) return;
+  const t = e.target.closest('.tab'); if (!t) return;
+  activeTab = t.dataset.tab;
+  document.querySelectorAll('#tabs .tab').forEach(x => x.classList.toggle('on', x===t));
+  renderFlyout();
+});
+
+/* ---------- changes list ---------- */
+const RK = (s) => '<span class="recycle-key">'+s+'</span>';
+const CHANGES = [
+  ['Left column becomes the shared collection rail','Saved trees move into a left rail with the same collection picker, search, selectable list, bulk-select and right-click menu you already use elsewhere. Picking a tree there opens it in the canvas, the way picking a sequence does.', 'recycles Sequence + Chemistry rail'],
+  ['Saved trees leave the separate Hub tab','Today the saved-trees list lives in its own Phylo Hub sub-tab, away from where you build. Folding it into the rail removes the duplicate list and the tab-hop.', 'unifies Phylo IA'],
+  ['Studio controls move to a right Setup tab','Since the left is now the tree picker, the Tree / Metadata / Alignment controls move into a Setup tab on the right action rail. Same controls, new home.', 'frees the left column'],
+  ['Right side becomes a tabbed action rail','The always-on Layers + Export stack becomes a tab bar (Layers / Setup / Export / Code) with a flyout, so only one panel shows at a time and the canvas gets more width.', 'recycles Sequence tab + flyout'],
+  ['Layers + reorder live in a flyout, not always-on','Layer list and draw-order reorder become the Layers tab. Still one click away, no longer permanently eating right-rail height.', 'recycles Sequence flyout'],
+  ['Shared split shell: resizable + collapse-to-focus','The page adopts the draggable divider, collapse-to-focus, and width-remembering shell that Sequences and Chemistry share, replacing the fixed three-column grid (this also kills the right-edge clipping I just fixed at the source).', 'recycles split-layout shell'],
+  ['Same collection picker semantics everywhere','All trees / Unfiled / Projects with live counts, identical to the other pages, so the dropdown behaves the same no matter which page you are on.', 'recycles collection model'],
+  ['Canvas and tree rendering stay untouched','Circular / rectangular, phylogram / cladogram, every panel and the figure itself render exactly as today. This is a frame change, not a feature change.', 'Phylo stays unique']
+];
+const VSTORE = 'phylo-v3-verdicts-v1';
+let verdicts = {};
+try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || '{}'); } catch { verdicts = {}; }
+function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch {} }
+function renderChanges(){
+  document.getElementById('changes').innerHTML = CHANGES.map((c,i) => {
+    const v = verdicts[i] || {};
+    const cls = v.verdict === 'ok' ? 'approved' : v.verdict === 'dis' ? 'disapproved' : '';
+    return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+      + '<div class="rk">'+RK(c[2])+'</div>'
+      + '<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||'')+'</textarea></div>'
+      + '<div class="verdict"><button class="vbtn ok '+(v.verdict==='ok'?'on':'')+'" data-v="ok" data-i="'+i+'">Approve</button>'
+      + '<button class="vbtn dis '+(v.verdict==='dis'?'on':'')+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+  }).join('');
+}
+document.getElementById('changes').addEventListener('click', e => {
+  const b = e.target.closest('.vbtn'); if (!b) return;
+  const i = b.dataset.i; verdicts[i] = verdicts[i] || {};
+  verdicts[i].verdict = verdicts[i].verdict === b.dataset.v ? null : b.dataset.v;
+  saveV(); renderChanges();
+});
+document.getElementById('changes').addEventListener('input', e => {
+  if (!e.target.dataset.note) return;
+  const i = e.target.dataset.note; verdicts[i] = verdicts[i] || {}; verdicts[i].note = e.target.value; saveV();
+});
+
+/* ---------- comment mode ---------- */
+const CSTORE = 'phylo-v3-comments-v1';
+let comments = [];
+try { comments = JSON.parse(localStorage.getItem(CSTORE) || '[]'); } catch { comments = []; }
+function saveC(){ try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch {} }
+const cpanel = document.getElementById('cpanel');
+document.getElementById('commentToggle').addEventListener('click', () => {
+  const on = document.body.classList.toggle('cmt-on');
+  document.getElementById('commentToggle').textContent = 'Comment mode: ' + (on ? 'on' : 'off');
+  document.getElementById('commentToggle').classList.toggle('on', on);
+  cpanel.style.display = on ? 'flex' : (comments.length ? 'flex' : 'none');
+});
+document.addEventListener('click', e => {
+  if (!document.body.classList.contains('cmt-on')) return;
+  if (e.target.closest('.cpanel') || e.target.closest('header.top')) return;
+  const host = e.target.closest('[data-cmt]');
+  const target = host ? host.dataset.cmt : 'page';
+  const note = prompt('Comment on "'+target+'":');
+  if (note){ comments.push({ x: e.pageX, y: e.pageY, target, note }); saveC(); renderComments(); }
+  e.preventDefault(); e.stopPropagation();
+}, true);
+function renderComments(){
+  document.querySelectorAll('.pin').forEach(p => p.remove());
+  comments.forEach((c,i) => {
+    const pin = document.createElement('span');
+    pin.className = 'pin'; pin.textContent = (i+1);
+    pin.style.left = c.x + 'px'; pin.style.top = c.y + 'px'; pin.title = c.note;
+    document.body.appendChild(pin);
+  });
+  document.getElementById('cCount').textContent = comments.length;
+  const body = document.getElementById('cbody');
+  if (!comments.length){ body.innerHTML = '<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+  body.innerHTML = comments.map((c,i) =>
+    '<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>').join('');
+}
+document.getElementById('cbody').addEventListener('click', e => {
+  const d = e.target.closest('.del'); if (!d) return;
+  comments.splice(+d.dataset.i, 1); saveC(); renderComments();
+});
+document.getElementById('clearBtn').addEventListener('click', () => {
+  if (confirm('Clear all comments?')){ comments = []; saveC(); renderComments(); }
+});
+document.getElementById('exportBtn').addEventListener('click', () => {
+  let out = 'TREE STUDIO v3 — UNIFIED RAIL — FEEDBACK\n========================================\n\nDECISIONS:\n';
+  CHANGES.forEach((c,i) => {
+    const v = verdicts[i] || {};
+    const mark = v.verdict === 'ok' ? '[APPROVE]' : v.verdict === 'dis' ? '[DISAPPROVE]' : '[ -- ]';
+    out += '\n'+mark+' '+(i+1)+'. '+c[0];
+    if (v.note) out += '\n      note: '+v.note;
+  });
+  out += '\n\nPINNED COMMENTS:\n';
+  if (!comments.length) out += '(none)\n';
+  comments.forEach((c,i) => { out += '\n'+(i+1)+'. ['+c.target+'] '+c.note; });
+  navigator.clipboard.writeText(out).then(() => {
+    const b = document.getElementById('exportBtn'); const t = b.textContent;
+    b.textContent = 'Copied!'; setTimeout(() => b.textContent = t, 1400);
+  });
+});
+
+/* ---------- theme ---------- */
+document.getElementById('themeBtn').addEventListener('click', () => {
+  const dark = document.body.classList.toggle('dark');
+  document.getElementById('themeBtn').textContent = dark ? 'Light' : 'Dark';
+  renderComments();
+});
+
+/* ---------- init ---------- */
+renderTrees(); renderFlyout(); renderChanges(); renderComments();
+if (comments.length) cpanel.style.display = 'flex';
+</script>
+</body>
+</html>

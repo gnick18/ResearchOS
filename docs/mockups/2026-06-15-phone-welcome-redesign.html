@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phone Welcome — redesign mockup (2026-06-15)</title>
+<!--
+  Phone-sized welcome page mockup (LIGHT by default, per Grant's rule).
+  Hybrid approach: responsive base + phone-tailored swaps for the heavy
+  desktop sections (the wide comparison TABLE becomes stacked cards).
+  Tri-purpose CTA: (1) capture the visitor, (2) push the companion app,
+  (3) send them to desktop for the full app + live demo.
+
+  This is a static mockup for direction approval, not production code.
+  Two phone frames are shown side by side: SCROLL 1 (hero + tri-CTA) and
+  SCROLL 2 (what-you-can-do + comparison-as-cards + credibility + footer).
+-->
+<style>
+  :root{
+    --accent:#1283c9;
+    --accent-deep:#0f6fa8;
+    --ink:#0f1722;
+    --ink-soft:#475569;
+    --ink-faint:#7c8aa0;
+    --line:#e4e9f0;
+    --surface:#ffffff;
+    --sunken:#f4f7fb;
+    --rainbow:linear-gradient(90deg,#f6a04d,#f6c343,#5bbf6a,#39a0d8,#9b7bd6);
+    --rainbow-soft:linear-gradient(90deg,#fbe2c6,#fbeec0,#cdeccf,#c5e3f1,#ddd2f0);
+    --radius:18px;
+    --shadow:0 18px 40px -22px rgba(15,23,34,.45);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:#eef2f7;
+    color:var(--ink);
+    -webkit-font-smoothing:antialiased;
+    padding:32px 18px 60px;
+  }
+  .page-title{
+    max-width:880px;margin:0 auto 6px;font-size:15px;font-weight:700;color:var(--ink);
+  }
+  .page-sub{
+    max-width:880px;margin:0 auto 26px;font-size:13px;color:var(--ink-soft);line-height:1.5;
+  }
+  .stage{
+    display:flex;gap:34px;justify-content:center;align-items:flex-start;flex-wrap:wrap;
+  }
+  .frame-wrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .frame-label{font-size:12px;font-weight:600;color:var(--ink-faint);letter-spacing:.02em}
+  /* phone frame */
+  .phone{
+    width:390px;height:780px;border-radius:42px;background:#0c121b;
+    padding:11px;box-shadow:0 30px 60px -28px rgba(12,18,27,.6);position:relative;flex:none;
+  }
+  .phone::before{content:"";position:absolute;top:20px;left:50%;transform:translateX(-50%);
+    width:120px;height:26px;background:#0c121b;border-radius:0 0 16px 16px;z-index:5}
+  .screen{
+    width:100%;height:100%;border-radius:32px;background:var(--surface);overflow-y:auto;overflow-x:hidden;
+    position:relative;
+  }
+  .screen::-webkit-scrollbar{width:0}
+  /* top bar */
+  .topbar{
+    position:sticky;top:0;z-index:4;display:flex;align-items:center;justify-content:space-between;
+    padding:13px 16px;background:rgba(255,255,255,.86);backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  .wordmark{font-size:17px;font-weight:800;letter-spacing:-.02em}
+  .wordmark .os{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .menu{width:30px;height:30px;border:1px solid var(--line);border-radius:9px;display:grid;place-items:center;color:var(--ink-soft)}
+  .menu div{width:14px;height:1.6px;background:currentColor;box-shadow:0 5px 0 currentColor,0 -5px 0 currentColor}
+  /* desktop notice */
+  .notice{
+    display:flex;gap:9px;align-items:flex-start;padding:11px 16px;background:#fff8ec;border-bottom:1px solid #f5e2bf;
+    font-size:11.5px;color:#8a6516;line-height:1.45;
+  }
+  .notice b{color:#6e4f10}
+  .notice .dot{flex:none;width:7px;height:7px;border-radius:50%;background:#e0a32a;margin-top:4px}
+  /* hero */
+  .hero{padding:26px 20px 8px;text-align:center;position:relative;overflow:hidden}
+  .hero .aurora{position:absolute;inset:-40% -20% auto;height:320px;
+    background:radial-gradient(60% 60% at 30% 20%,rgba(57,160,216,.18),transparent),
+               radial-gradient(50% 50% at 80% 10%,rgba(155,123,214,.16),transparent);filter:blur(8px);z-index:0}
+  .hero>*{position:relative;z-index:1}
+  .kicker{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);margin-bottom:12px}
+  h1{font-size:30px;line-height:1.08;font-weight:800;letter-spacing:-.025em;margin-bottom:12px}
+  h1 .grad{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .lede{font-size:14.5px;color:var(--ink-soft);line-height:1.5;max-width:32ch;margin:0 auto}
+  /* tri-CTA */
+  .cta{padding:22px 18px 8px;display:flex;flex-direction:column;gap:14px}
+  .cta-card{border:1px solid var(--line);border-radius:var(--radius);padding:16px;background:var(--surface);box-shadow:var(--shadow)}
+  .cta-card.primary{border:0;background:linear-gradient(180deg,#fbfdff,#eef5fc);position:relative}
+  .cta-card.primary::before{content:"";position:absolute;inset:0;border-radius:var(--radius);padding:1.5px;
+    background:var(--rainbow);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);
+    -webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none}
+  .cta-eyebrow{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-bottom:5px}
+  .cta-h{font-size:16px;font-weight:800;margin-bottom:4px}
+  .cta-p{font-size:12.5px;color:var(--ink-soft);line-height:1.45;margin-bottom:12px}
+  .badges{display:flex;gap:8px}
+  .badge{flex:1;display:flex;align-items:center;gap:8px;border:1px solid #1c2630;background:#0f1722;color:#fff;
+    border-radius:11px;padding:8px 10px}
+  .badge svg{flex:none}
+  .badge .b1{font-size:8.5px;opacity:.8;line-height:1}
+  .badge .b2{font-size:13px;font-weight:700;line-height:1.1}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border-radius:12px;
+    font-size:14px;font-weight:700;padding:13px;border:0;cursor:pointer;text-decoration:none}
+  .btn-primary{background:var(--accent);color:#fff}
+  .btn-ghost{background:var(--sunken);color:var(--ink);border:1px solid var(--line)}
+  .demo-tag{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;color:#5bbf6a;margin-top:9px}
+  .field{display:flex;gap:8px;margin-top:4px}
+  .field input{flex:1;border:1px solid var(--line);border-radius:11px;padding:11px 12px;font-size:13px;color:var(--ink);background:var(--sunken)}
+  .field input::placeholder{color:var(--ink-faint)}
+  .field button{border:0;border-radius:11px;background:var(--ink);color:#fff;font-size:13px;font-weight:700;padding:0 15px;cursor:pointer}
+  .micro{font-size:10.5px;color:var(--ink-faint);margin-top:8px;line-height:1.4}
+  /* trust row */
+  .trust{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;padding:18px 16px 4px}
+  .chip{font-size:10.5px;font-weight:600;color:var(--ink-soft);background:var(--sunken);border:1px solid var(--line);
+    border-radius:999px;padding:5px 10px}
+  /* section */
+  .sec{padding:24px 20px}
+  .sec.alt{background:var(--sunken);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .sec-kicker{font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--accent);margin-bottom:8px}
+  .sec h2{font-size:21px;font-weight:800;letter-spacing:-.02em;line-height:1.15;margin-bottom:8px}
+  .sec p.intro{font-size:13px;color:var(--ink-soft);line-height:1.5;margin-bottom:16px}
+  .feat{display:flex;gap:11px;padding:12px 0;border-top:1px solid var(--line)}
+  .feat:first-of-type{border-top:0}
+  .feat .ic{flex:none;width:34px;height:34px;border-radius:10px;background:var(--rainbow-soft);display:grid;place-items:center;font-size:17px}
+  .feat .ft{font-size:13.5px;font-weight:700;margin-bottom:2px}
+  .feat .fp{font-size:12px;color:var(--ink-soft);line-height:1.4}
+  /* comparison as cards (the heavy table, reflowed) */
+  .cmp{display:flex;flex-direction:column;gap:12px}
+  .cmp-card{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--surface)}
+  .cmp-card.ros{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+  .cmp-head{display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:var(--sunken);border-bottom:1px solid var(--line)}
+  .cmp-head.ros{background:linear-gradient(90deg,rgba(18,131,201,.10),rgba(155,123,214,.10))}
+  .cmp-name{font-size:14px;font-weight:800}
+  .cmp-price{font-size:11px;font-weight:700;color:var(--ink-soft)}
+  .cmp-row{display:flex;align-items:flex-start;gap:8px;padding:8px 14px;font-size:12px;color:var(--ink-soft);border-top:1px solid var(--line)}
+  .cmp-row:first-child{border-top:0}
+  .cmp-row .mk{flex:none;width:15px;height:15px;border-radius:50%;display:grid;place-items:center;font-size:9px;font-weight:800;color:#fff;margin-top:1px}
+  .yes{background:#5bbf6a}.no{background:#d8475b}.part{background:#e0a32a}
+  /* credibility */
+  .cred{text-align:center;padding:26px 20px}
+  .cred .big{font-size:13px;color:var(--ink-soft);line-height:1.55}
+  .cred .big b{color:var(--ink)}
+  /* footer */
+  .foot{background:#0c121b;color:#aeb9c8;padding:24px 20px 30px}
+  .foot .fw{font-size:16px;font-weight:800;color:#fff;margin-bottom:14px}
+  .foot .fw .os{background:var(--rainbow);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .foot .links{display:grid;grid-template-columns:1fr 1fr;gap:9px 14px;margin-bottom:18px}
+  .foot a{color:#aeb9c8;font-size:12.5px;text-decoration:none}
+  .foot .copy{font-size:11px;color:#5f6c7d;border-top:1px solid #1c2630;padding-top:14px;line-height:1.5}
+  .callout{max-width:880px;margin:28px auto 0;background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+  .callout h3{font-size:13.5px;margin-bottom:8px}
+  .callout ul{margin:0;padding-left:18px;color:var(--ink-soft);font-size:12.5px;line-height:1.7}
+  .callout b{color:var(--ink)}
+
+  /* ── Living BeakerBot (placeholder for the real <BeakerBot alive> + scenes) ──
+     Always pastel per the brand rule. Gentle sway + blink + wave + rising
+     bubbles to convey the "alive" idle. */
+  .bb{display:block;transform-origin:50% 92%;animation:bbSway 4.2s ease-in-out infinite}
+  .bb .arm-wave{transform-origin:74px 56px;animation:bbWave 1.7s ease-in-out infinite}
+  .bb .eye{animation:bbBlink 5.4s infinite}
+  .bb .bubble{animation:bbBubble 3s ease-in infinite}
+  .bb .bubble.b2{animation-delay:1s}.bb .bubble.b3{animation-delay:2s}
+  @keyframes bbSway{0%,100%{transform:rotate(-2.5deg)}50%{transform:rotate(2.5deg)}}
+  @keyframes bbWave{0%,100%{transform:rotate(-8deg)}50%{transform:rotate(14deg)}}
+  @keyframes bbBlink{0%,92%,100%{transform:scaleY(1)}96%{transform:scaleY(.1)}}
+  @keyframes bbBubble{0%{transform:translateY(0);opacity:0}30%{opacity:.7}100%{transform:translateY(-22px);opacity:0}}
+  .bb .eye{transform-origin:center;transform-box:fill-box}
+  /* hero mascot — big, like the onboarding living Beaker */
+  .hero-bot{width:150px;height:auto;margin:2px auto 14px}
+  /* mascot peeking over a card's top edge */
+  .peek{position:relative}
+  .peek .bb{position:absolute;top:-44px;right:14px;width:62px;z-index:3}
+  .cta-bot{width:54px;flex:none}
+</style>
+</head>
+<body>
+  <!-- shared pastel-rainbow liquid gradient for every BeakerBot instance -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+    <linearGradient id="bbLiq" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#f8c79a"/><stop offset="28%" stop-color="#f9e0a0"/>
+      <stop offset="55%" stop-color="#bfe6c2"/><stop offset="80%" stop-color="#bcdcf0"/>
+      <stop offset="100%" stop-color="#d8c9ef"/>
+    </linearGradient>
+  </defs></svg>
+
+  <div class="page-title">Phone welcome — direction mockup (light)</div>
+  <div class="page-sub">
+    Phones can't run the desktop notebook (File System Access API = Chrome/Edge desktop), so the phone visit becomes a
+    capture + companion-app + send-to-desktop surface instead of a dead end. The wide comparison table reflows into
+    stacked cards. Two scrolls of the same page shown side by side.
+  </div>
+
+  <div class="stage">
+
+    <!-- ───────────────────────── SCROLL 1 ───────────────────────── -->
+    <div class="frame-wrap">
+      <div class="frame-label">Scroll 1 — hero + tri-CTA</div>
+      <div class="phone"><div class="screen">
+
+        <div class="topbar">
+          <div class="wordmark">Research<span class="os">OS</span></div>
+          <div class="menu"><div></div></div>
+        </div>
+
+        <div class="notice">
+          <span class="dot"></span>
+          <span>The full <b>ResearchOS notebook</b> runs in Chrome or Edge on a desktop. Here's what you can do from your phone right now.</span>
+        </div>
+
+        <div class="hero">
+          <div class="aurora"></div>
+          <svg class="bb hero-bot" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BeakerBot waving">
+            <path d="M31 74 Q18 82 21 97" stroke="#cdd6e2" stroke-width="5" stroke-linecap="round"/>
+            <path class="arm-wave" d="M70 58 Q86 50 88 36" stroke="#cdd6e2" stroke-width="5" stroke-linecap="round"/>
+            <path d="M33 30 L67 30 L71 104 Q71 110 65 110 L35 110 Q29 110 29 104 Z" fill="#eef3f8" stroke="#cdd6e2" stroke-width="3"/>
+            <path d="M30 30 L70 30 M30 30 Q26 27 23 28" stroke="#cdd6e2" stroke-width="3" stroke-linecap="round"/>
+            <path d="M30 68 Q40 62 50 68 Q60 74 70 68 L70.5 104 Q70.5 109 65 109 L35 109 Q29.5 109 29.5 104 Z" fill="url(#bbLiq)"/>
+            <circle class="bubble" cx="42" cy="92" r="2.4" fill="#fff"/>
+            <circle class="bubble b2" cx="55" cy="96" r="1.8" fill="#fff"/>
+            <circle class="bubble b3" cx="60" cy="90" r="2.1" fill="#fff"/>
+            <ellipse class="eye" cx="43" cy="50" rx="3" ry="3.7" fill="#2a3340"/>
+            <ellipse class="eye" cx="57" cy="50" rx="3" ry="3.7" fill="#2a3340"/>
+            <path d="M44 58 Q50 63 56 58" stroke="#2a3340" stroke-width="2.4" stroke-linecap="round"/>
+            <circle cx="37" cy="56.5" r="3" fill="#f6a9b0" opacity=".6"/>
+            <circle cx="63" cy="56.5" r="3" fill="#f6a9b0" opacity=".6"/>
+          </svg>
+          <div class="kicker">The open lab notebook</div>
+          <h1>Your research,<br><span class="grad">on every screen</span></h1>
+          <p class="lede">Local-first notebook, sharing, and a Prism-class analysis suite. Capture at the bench from your phone; do the deep work on desktop.</p>
+        </div>
+
+        <div class="cta">
+          <!-- 1. companion app push -->
+          <div class="cta-card primary">
+            <div class="cta-eyebrow">Built for the bench</div>
+            <div class="cta-h">Get the companion app</div>
+            <div class="cta-p">Capture experiments, photos, timers and checklists at the bench. It syncs straight into your notebook.</div>
+            <div class="badges">
+              <div class="badge">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="#fff"><path d="M16.4 12.6c0-2 1.6-3 1.7-3-1-1.4-2.4-1.6-2.9-1.6-1.2-.1-2.4.7-3 .7-.6 0-1.6-.7-2.6-.7-1.3 0-2.6.8-3.2 2-1.4 2.4-.4 6 1 8 .6 1 1.4 2.1 2.4 2 1-.1 1.3-.6 2.5-.6s1.5.6 2.6.6 1.7-1 2.3-2c.7-1.1 1-2.1 1-2.2-.1 0-2.1-.8-2.1-3.4zM14.7 6.3c.5-.7.9-1.6.8-2.5-.8 0-1.7.5-2.3 1.2-.5.6-.9 1.5-.8 2.4.9.1 1.8-.4 2.3-1.1z"/></svg>
+                <div><div class="b1">Download on the</div><div class="b2">App Store</div></div>
+              </div>
+              <div class="badge">
+                <svg width="15" height="15" viewBox="0 0 24 24"><path fill="#39a0d8" d="M3.6 2.2l9.2 9.2-2.6 2.6z"/><path fill="#5bbf6a" d="M3.6 2.2L14.4 8 12 10.4z"/><path fill="#f6c343" d="M17.6 9.9l2.8 1.6c1 .6 1 1.4 0 2l-2.8 1.6-2.8-2.6z"/><path fill="#d8475b" d="M3.6 21.8l9.2-9.2 2.6 2.6z"/></svg>
+                <div><div class="b1">Get it on</div><div class="b2">Google Play</div></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. send to desktop + demo -->
+          <div class="cta-card">
+            <div class="cta-h">Want the full notebook?</div>
+            <div class="cta-p">The complete app — analysis, figures, the sequence and chemistry workbenches — runs on a desktop browser.</div>
+            <a href="#" class="btn btn-ghost">Email me a desktop link →</a>
+            <div class="demo-tag">▶ Or try the live demo — no account, on desktop</div>
+          </div>
+
+          <!-- 3. capture / notify -->
+          <div class="cta-card">
+            <div class="cta-h">Be first to know</div>
+            <div class="cta-p">New to ResearchOS? Drop your email and we'll send the desktop link plus launch updates.</div>
+            <div class="field">
+              <input placeholder="you@university.edu" />
+              <button>Notify me</button>
+            </div>
+            <div class="micro">Free to start. Your data stays on your own disk — the account is only for sharing and the researcher directory.</div>
+          </div>
+        </div>
+
+        <div class="trust">
+          <span class="chip">1 GB free cloud</span>
+          <span class="chip">Local-first</span>
+          <span class="chip">Open source</span>
+          <span class="chip">No lock-in</span>
+        </div>
+        <div style="height:18px"></div>
+
+      </div></div>
+    </div>
+
+    <!-- ───────────────────────── SCROLL 2 ───────────────────────── -->
+    <div class="frame-wrap">
+      <div class="frame-label">Scroll 2 — phone capabilities + comparison-as-cards + footer</div>
+      <div class="phone"><div class="screen">
+
+        <div class="sec">
+          <div class="sec-kicker">From your phone</div>
+          <h2>What you can do on mobile</h2>
+          <p class="intro">The companion app is the bench end of your notebook — quick capture now, deep work on desktop later.</p>
+          <div class="feat"><div class="ic">📸</div><div><div class="ft">Capture as it happens</div><div class="fp">Photos, readings and notes drop straight onto the right experiment.</div></div></div>
+          <div class="feat"><div class="ic">⏱️</div><div><div class="ft">Timers &amp; checklists</div><div class="fp">Run protocol steps and timers at the bench, ticked off in real time.</div></div></div>
+          <div class="feat"><div class="ic">🔔</div><div><div class="ft">Lab alarms &amp; today</div><div class="fp">Your day, alarms and reminders, wherever you are.</div></div></div>
+          <div class="feat"><div class="ic">🔄</div><div><div class="ft">Syncs offline</div><div class="fp">Works with no signal; everything flushes when you reconnect.</div></div></div>
+        </div>
+
+        <div class="sec alt">
+          <div class="sec-kicker">On desktop</div>
+          <h2>The full picture</h2>
+          <p class="intro">Open ResearchOS in Chrome or Edge for everything the bench feeds into.</p>
+          <div class="feat"><div class="ic">📊</div><div><div class="ft">Prism-class analysis</div><div class="fp">A validated stats engine and the Data Hub for big tables.</div></div></div>
+          <div class="feat"><div class="ic">🧬</div><div><div class="ft">Sequence &amp; chemistry</div><div class="fp">Sequence viewer, phylo tree studio, and a ChemDraw-style workbench.</div></div></div>
+          <div class="feat"><div class="ic">🖼️</div><div><div class="ft">Publication figures</div><div class="fp">Compose figures on a real page frame and export exact SVG.</div></div></div>
+          <a href="#" class="btn btn-primary" style="margin-top:14px">Open the live demo on desktop</a>
+        </div>
+
+        <div class="sec">
+          <div class="sec-kicker">How it compares</div>
+          <h2>One tool, not five subscriptions</h2>
+          <p class="intro">The desktop comparison table, reflowed for your thumb.</p>
+          <div class="cmp peek">
+            <svg class="bb" viewBox="0 0 100 120" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="BeakerBot peeking">
+              <path d="M34 92 Q28 104 31 114" stroke="#cdd6e2" stroke-width="5" stroke-linecap="round"/>
+              <path d="M66 92 Q72 104 69 114" stroke="#cdd6e2" stroke-width="5" stroke-linecap="round"/>
+              <path d="M33 30 L67 30 L71 104 Q71 110 65 110 L35 110 Q29 110 29 104 Z" fill="#eef3f8" stroke="#cdd6e2" stroke-width="3"/>
+              <path d="M30 30 L70 30 M30 30 Q26 27 23 28" stroke="#cdd6e2" stroke-width="3" stroke-linecap="round"/>
+              <path d="M30 70 Q40 64 50 70 Q60 76 70 70 L70.5 104 Q70.5 109 65 109 L35 109 Q29.5 109 29.5 104 Z" fill="url(#bbLiq)"/>
+              <ellipse class="eye" cx="43" cy="50" rx="3" ry="3.7" fill="#2a3340"/>
+              <ellipse class="eye" cx="57" cy="50" rx="3" ry="3.7" fill="#2a3340"/>
+              <path d="M44 58 Q50 62 56 58" stroke="#2a3340" stroke-width="2.4" stroke-linecap="round"/>
+              <circle cx="37" cy="56.5" r="3" fill="#f6a9b0" opacity=".6"/>
+              <circle cx="63" cy="56.5" r="3" fill="#f6a9b0" opacity=".6"/>
+            </svg>
+            <div class="cmp-card ros">
+              <div class="cmp-head ros"><span class="cmp-name">ResearchOS</span><span class="cmp-price">Free · 1 GB</span></div>
+              <div class="cmp-row"><span class="mk yes">✓</span><span>Notebook, analysis, sequence &amp; chem in one place</span></div>
+              <div class="cmp-row"><span class="mk yes">✓</span><span>Data stays on your disk; you own it</span></div>
+              <div class="cmp-row"><span class="mk yes">✓</span><span>Open source, no per-seat lock-in</span></div>
+            </div>
+            <div class="cmp-card">
+              <div class="cmp-head"><span class="cmp-name">SnapGene</span><span class="cmp-price">~$$$ / seat</span></div>
+              <div class="cmp-row"><span class="mk part">~</span><span>Sequence only — separate tools for the rest</span></div>
+              <div class="cmp-row"><span class="mk no">✕</span><span>Notebook + analysis not included</span></div>
+            </div>
+            <div class="cmp-card">
+              <div class="cmp-head"><span class="cmp-name">GraphPad Prism</span><span class="cmp-price">~$$ / seat</span></div>
+              <div class="cmp-row"><span class="mk part">~</span><span>Analysis only</span></div>
+              <div class="cmp-row"><span class="mk no">✕</span><span>No notebook, sequence or chemistry</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="cred">
+          <div class="big"><b>Built in the open.</b> ResearchOS uses vetted open-source science libraries and publishes its methods — every calculation is reproducible and checkable.</div>
+        </div>
+
+        <div class="foot">
+          <div class="fw">Research<span class="os">OS</span></div>
+          <div class="links">
+            <a href="#">Pricing</a>
+            <a href="#">AI assistant</a>
+            <a href="#">Transparency</a>
+            <a href="#">Wiki &amp; docs</a>
+            <a href="#">Companion app</a>
+            <a href="#">For labs &amp; depts</a>
+          </div>
+          <div class="copy">ResearchOS — the open lab notebook. Full app on desktop Chrome &amp; Edge. © 2026</div>
+        </div>
+
+      </div></div>
+    </div>
+
+  </div>
+
+  <div class="callout">
+    <h3>What this mockup is proposing (for your sign-off)</h3>
+    <ul>
+      <li><b>Tri-CTA, in priority order:</b> (1) companion app store badges, (2) "email me a desktop link" + live-demo tag, (3) email capture / notify. The dead-end "use desktop" banner becomes three real next steps.</li>
+      <li><b>Hybrid swap:</b> the wide comparison <b>table</b> (min-w 560–860px today) becomes <b>stacked cards</b> below the <code>sm</code> breakpoint; desktop keeps the table. Same for the fixed phone-mockup image and any multi-column grids.</li>
+      <li><b>Living BeakerBot kept:</b> big waving mascot in the hero (the onboarding "living Beaker" scale), peeking over the comparison cards, with the alive idle (sway / blink / rising bubbles). These SVGs are placeholders — the build wires the real <code>&lt;BeakerBot alive&gt;</code> + the scene components (so we can drop in a signature pose / welcome scene), always pastel per the brand rule.</li>
+      <li><b>Phone vs desktop framing:</b> "capture on phone, deep work on desktop" — honest about the FSA limitation while making the visit productive.</li>
+      <li><b>Decisions I need from you:</b> are the companion app store badges real yet (is it live on the stores, or should these say "coming soon" / TestFlight)? And does "email capture / notify me" need a real backend endpoint, or link to an existing form for now?</li>
+    </ul>
+  </div>
+</body>
+</html>

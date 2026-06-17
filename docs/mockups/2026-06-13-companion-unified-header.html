@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion unified header (all tabs)</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;--border:#e5e7eb;--page-bg:#e2e8f0;--sky:#1AA0E6;--action:#1283C9;--ink:#111827;--ok:#16a34a;--pin:#e11d48;--warn:#d97706;--amber:#f59e0b;}
+  html[data-theme="dark"]{--surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;--border:rgba(255,255,255,.16);--page-bg:#060a13;--ink:#eaf2fb;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}.topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}.btn.on{background:var(--action);border-color:var(--action);color:#fff;}.btn.danger{color:var(--pin);}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.6;max-width:84ch;margin:4px 0 16px;}.lead b{color:var(--fg);}
+  .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:20px;}
+  .change{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .change.approved{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok);}.change.disapproved{border-color:var(--pin);box-shadow:inset 3px 0 0 var(--pin);}
+  .ctitle{font-weight:700;font-size:13px;}.ctitle .tag{font-size:10px;font-weight:700;color:var(--action);background:var(--sunken);border-radius:5px;padding:1px 5px;margin-right:6px;}
+  .cdesc{font-size:12px;color:var(--muted);line-height:1.55;}
+  .verdict{display:flex;align-items:center;gap:8px;}
+  .vbtn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:11px;text-decoration:underline;}
+  .stage{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;}
+  .controls{flex:1;min-width:230px;}.controls h2{font-size:14px;font-weight:800;margin:0 0 8px;}
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12px;font-weight:700;padding:6px 12px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .controls ol{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7;}.controls ol b{color:var(--fg);}
+  .controls .tip{margin-top:12px;font-size:12px;color:var(--action);font-weight:700;}
+
+  .phone{position:relative;width:344px;height:730px;flex:0 0 344px;border-radius:46px;background:#0b1220;padding:12px;box-shadow:0 30px 70px rgba(8,30,60,.4);}
+  .screen{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:22px;background:#0b1220;border-radius:13px;z-index:9;}
+
+  /* ── the UNIFIED header (same on every tab) ── */
+  .uhead{padding:44px 14px 10px;background:var(--raised);display:flex;align-items:center;}
+  .uhead .ttl{font-size:25px;font-weight:800;color:var(--ink);letter-spacing:-.01em;}
+  .uhead .acts{margin-left:auto;display:flex;align-items:center;gap:4px;}
+  .hbtn{position:relative;width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:19px;color:var(--action);cursor:pointer;}
+  .hbtn:hover{background:var(--sunken);}
+  .hbadge{position:absolute;top:4px;right:4px;min-width:15px;height:15px;border-radius:999px;background:var(--pin);color:#fff;font-size:9px;font-weight:800;display:flex;align-items:center;justify-content:center;padding:0 3px;border:1.5px solid var(--raised);}
+  .hbadge.amber{background:var(--amber);}
+
+  /* contextual connection banner (under header, only when NOT synced) */
+  .connbar{display:flex;align-items:center;gap:8px;padding:7px 16px;font-size:11.5px;font-weight:700;}
+  .connbar.hidden{display:none;}
+  .connbar.asleep{background:color-mix(in srgb,var(--amber) 15%,transparent);color:var(--warn);}
+  .connbar.offline{background:color-mix(in srgb,var(--pin) 12%,transparent);color:var(--pin);}
+  .connbar .d{width:7px;height:7px;border-radius:999px;background:currentColor;}
+
+  .body{flex:1;overflow-y:auto;padding:10px 16px 64px;}
+  .sub{font-size:12.5px;color:var(--muted);margin:0 0 12px;}
+  .act{display:flex;align-items:center;gap:11px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:13px 14px;margin-bottom:9px;}
+  .act .ico{width:34px;height:34px;border-radius:9px;background:#eaf4fc;color:var(--action);display:flex;align-items:center;justify-content:center;font-size:17px;}
+  html[data-theme="dark"] .act .ico{background:#123047;}
+  .act.primary{background:var(--action);border-color:var(--action);}.act.primary .t,.act.primary .ico{color:#fff;}.act.primary .ico{background:rgba(255,255,255,.18);}
+  .act .t{font-size:14px;font-weight:700;}.act .s{font-size:11px;color:var(--muted);}
+  .mhint{font-size:12px;color:var(--muted);text-align:center;padding:24px 10px;}
+  .searchbar{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:13px;padding:11px 13px;margin-bottom:12px;font-size:14px;color:var(--muted);}
+
+  /* Today panel (opens from header button) */
+  .scrim{position:absolute;inset:0;background:rgba(8,18,34,.34);opacity:0;pointer-events:none;transition:opacity .28s;z-index:10;}.scrim.show{opacity:1;pointer-events:auto;}
+  .today{position:absolute;left:8px;right:8px;top:8px;z-index:11;background:var(--raised);border:1px solid var(--border);border-radius:28px;padding:15px;box-shadow:0 26px 60px rgba(8,30,60,.4);transform:translateY(-118%);transition:transform .42s cubic-bezier(.22,1,.36,1);}
+  .today.open{transform:translateY(0);}
+  .t-head{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:11px;padding:2px 4px 0;}
+  .t-head .x{font-size:20px;color:var(--muted);cursor:pointer;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:11px;}
+  .stat{border-radius:14px;padding:11px 8px;background:var(--sunken);border:1px solid var(--border);text-align:center;}
+  .stat .n{font-size:24px;font-weight:800;line-height:1;}.stat .l{font-size:10px;font-weight:700;color:var(--muted);margin-top:5px;text-transform:uppercase;}
+  .stat.today .n{color:var(--action);}.stat.over .n{color:var(--pin);}.stat.soon .n{color:var(--amber);}
+  .synced{font-size:10.5px;color:var(--muted);margin-top:8px;padding:0 4px;}
+
+  .tabbar{display:flex;border-top:1px solid var(--border);background:var(--raised);}
+  .tab{flex:1;text-align:center;padding:9px 0 14px;font-size:10px;font-weight:700;color:var(--muted);}.tab.on{color:var(--action);}.tab .ic{font-size:18px;display:block;margin-bottom:2px;}
+
+  body.cmt-on .cmt{cursor:crosshair;}body.cmt-on .cmt:hover{outline:2px solid var(--sky);outline-offset:2px;}
+  .pin{position:absolute;min-width:19px;height:19px;padding:0 4px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;z-index:40;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-50%);}
+  .panel{position:fixed;right:16px;bottom:16px;width:300px;max-height:66vh;display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--border);border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:50;overflow:hidden;}
+  .panel.collapsed .pbody,.panel.collapsed .pfoot{display:none;}
+  .phead{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}.pbody{overflow-y:auto;padding:6px;}.pfoot{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .empty{color:var(--muted);font-size:12px;padding:14px;text-align:center;}
+  .citem{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:9px;}.citem .num{flex:0 0 20px;height:20px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}.citem .tgt{font-size:11px;color:var(--muted);font-weight:600;}.citem .txt{font-size:12.5px;margin-top:1px;}.citem .x{margin-left:auto;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;}
+  .vbadge{font-size:9.5px;font-weight:800;}
+  .editor{position:fixed;width:270px;background:var(--raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.32);z-index:60;padding:11px;}.editor .lbl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;}.editor textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);font:inherit;font-size:12.5px;padding:8px;}.editor .vchoice{display:flex;gap:6px;margin:8px 0;}.editor .acts{display:flex;gap:6px;align-items:center;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:70;}.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Companion unified header</h1><p>Same header on every tab, 3 buttons (bell / Today / settings), connection status out of the bar. Set verdicts, pin notes, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn on" id="connBtn">Conn: synced</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      One <b>shared header on every tab</b> (it was hand-rolled per tab, so Method looked different and only Notebook had the bell + gear). Consistent title size + position, and three right-side buttons everywhere: <b>Notifications, Today, Settings</b>. Today now opens from its own header button (with a count badge), so the inline pill leaves the body. The <b>connection status moves out of the busy top bar</b> into a slim banner that appears under the header only when something needs you to know (offline / laptop asleep / queued), and is hidden when synced. Switch the tab + cycle the connection state to see it.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="stage">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+
+          <div class="uhead cmt" data-clabel="Unified header (all tabs)">
+            <span class="ttl" id="title">Notebook</span>
+            <div class="acts">
+              <div class="hbtn cmt" data-clabel="Notifications button" title="Notifications"><span>&#128276;</span><span class="hbadge">2</span></div>
+              <div class="hbtn cmt" id="todayBtn" data-clabel="Today button (3rd, new)" title="Today"><span>&#128197;</span><span class="hbadge amber" id="todayBadge">3</span></div>
+              <div class="hbtn cmt" data-clabel="Settings button" title="Settings"><span>&#9881;</span></div>
+            </div>
+          </div>
+
+          <div class="connbar hidden cmt" id="connbar" data-clabel="Connection banner (contextual, under header)"><span class="d"></span><span id="connTxt"></span></div>
+
+          <div class="body" id="body"></div>
+
+          <div class="scrim" id="scrim"></div>
+          <div class="today cmt" id="today" data-clabel="Today panel (opens from the header button)">
+            <div class="t-head"><span style="font-size:21px;font-weight:800;color:var(--ink)">Today</span><span class="x" id="todayClose">&times;</span></div>
+            <div class="stats">
+              <div class="stat today"><div class="n">2</div><div class="l">Today</div></div>
+              <div class="stat over"><div class="n">1</div><div class="l">Overdue</div></div>
+              <div class="stat soon"><div class="n">1</div><div class="l">Coming up</div></div>
+            </div>
+            <div class="synced cmt" data-clabel="Sync freshness (lives in Today now)">Last synced 2 min ago</div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab" data-tab="Notebook"><span class="ic">&#128221;</span>Notebook</div>
+            <div class="tab" data-tab="Inventory"><span class="ic">&#128230;</span>Inventory</div>
+            <div class="tab" data-tab="Methods"><span class="ic">&#129514;</span>Method</div>
+            <div class="tab" data-tab="Timers"><span class="ic">&#9201;</span>Timer</div>
+            <div class="tab" data-tab="Wiki"><span class="ic">&#128214;</span>Wiki</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <h2>See it</h2>
+        <div class="seg" id="tabSeg">
+          <button data-tab="Notebook" class="on">Notebook</button>
+          <button data-tab="Methods">Method</button>
+        </div>
+        <h2 style="margin-top:8px">What changed</h2>
+        <ol>
+          <li><b>One shared header</b> on every tab, same title size + position. Method matches Notebook now.</li>
+          <li><b>Bell + Settings on all tabs</b> (were Notebook-only).</li>
+          <li><b>Today = a 3rd header button</b> with a count badge. The inline Today pill leaves the body.</li>
+          <li><b>Connection status leaves the top bar.</b> A slim banner appears under the header only when offline / laptop asleep / queued; hidden when synced. Freshness ("synced 2m") sits in the Today panel.</li>
+        </ol>
+        <div class="tip">Switch tabs, tap the Today button, cycle the connection state (top-left).</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="cpanel">
+    <div class="phead" id="phead"><b>Notes</b>&nbsp;<span style="color:var(--muted);font-size:12px">(<span id="cCount">0</span>)</span><span class="spacer"></span><span style="color:var(--muted);font-size:12px" id="chev">hide</span></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="pfoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const el=id=>document.getElementById(id);
+  const BODIES={
+    Notebook:`<div class="sub">Capture the bench into your lab notebook.</div>
+      <div class="act primary"><div class="ico">&#128247;</div><div><div class="t">Take a photo</div><div class="s" style="color:#dbeefc">Into the experiment, full res</div></div></div>
+      <div class="act"><div class="ico">&#9998;</div><div><div class="t">Quick note</div><div class="s">A fast bench note to the lab</div></div></div>
+      <div class="act"><div class="ico">&#128196;</div><div><div class="t">Scan a handwritten note</div><div class="s">Page to searchable text</div></div></div>`,
+    Methods:`<div class="searchbar">&#128269;&nbsp; Search 247 methods</div>
+      <div class="act"><div class="ico" style="background:#fdecef;color:#e11d48">P</div><div><div class="t">Colony PCR, GoTaq</div><div class="s">PCR</div></div></div>
+      <div class="act"><div class="ico" style="background:#eaf4fc;color:#1283C9">L</div><div><div class="t">Reverse-phase LC, gliotoxin</div><div class="s">LC-MS</div></div></div>
+      <div class="mhint">Same header as Notebook, now with the bell + Today + settings.</div>`,
+  };
+  let tab="Notebook";
+  function setTab(t){tab=t;el("title").textContent=t==="Methods"?"Methods":t;el("body").innerHTML=BODIES[t]||`<div class="mhint">${t} tab</div>`;document.querySelectorAll("#tabSeg button").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));document.querySelectorAll(".tabbar .tab").forEach(b=>b.classList.toggle("on",b.dataset.tab===t));renderPins();}
+  document.querySelectorAll("#tabSeg button").forEach(b=>b.addEventListener("click",()=>setTab(b.dataset.tab)));
+  document.querySelectorAll(".tabbar .tab").forEach(b=>b.addEventListener("click",()=>{if(!document.body.classList.contains("cmt-on"))setTab(b.dataset.tab);}));
+
+  // Today panel
+  function openToday(v){el("today").classList.toggle("open",v);el("scrim").classList.toggle("show",v);}
+  el("todayBtn").addEventListener("click",e=>{if(document.body.classList.contains("cmt-on"))return;e.stopPropagation();openToday(true);});
+  el("scrim").addEventListener("click",()=>openToday(false));
+  el("todayClose").addEventListener("click",()=>openToday(false));
+
+  // connection state cycle (synced -> asleep -> offline)
+  const CONN=[["synced","Conn: synced",""],["asleep","Conn: laptop asleep","Laptop asleep, nothing syncing"],["offline","Conn: offline","Offline, captures queued"]];
+  let ci=0;
+  function setConn(){const[cls,btn,txt]=CONN[ci];el("connBtn").textContent=btn;el("connBtn").classList.toggle("on",cls==="synced");const bar=el("connbar");bar.className="connbar cmt "+(cls==="synced"?"hidden":cls);bar.setAttribute("data-clabel","Connection banner (contextual, under header)");el("connTxt").textContent=txt;renderPins();}
+  el("connBtn").addEventListener("click",()=>{if(document.body.classList.contains("cmt-on"))return;ci=(ci+1)%CONN.length;setConn();});
+
+  setTab("Notebook");setConn();
+
+  /* harness */
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  const STORE='ros-unified-header-comments-v1';let comments=[];try{comments=JSON.parse(localStorage.getItem(STORE)||'[]');}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){document.querySelectorAll('.pin').forEach(p=>p.remove());const byT={};comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});document.querySelectorAll('.cmt').forEach(elm=>{const lbl=elm.getAttribute('data-clabel');const nums=byT[lbl];if(!nums)return;const r=elm.getBoundingClientRect();if(r.width===0)return;const pin=document.createElement('span');pin.className='pin';pin.textContent=nums.join(',');pin.style.left=(window.scrollX+r.left+12)+'px';pin.style.top=(window.scrollY+r.top+12)+'px';pin.addEventListener('click',ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});document.body.appendChild(pin);});}
+  function renderPanel(){const body=el('pbody');el('cCount').textContent=comments.length;if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any part of the phone.</div>';return;}const vt=v=>v==='approve'?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==='disapprove'?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':'';body.innerHTML=comments.map((c,i)=>`<div class="citem"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{comments.splice(+b.dataset.del,1);save();renderAll();}));}
+  function renderAll(){renderPins();renderPanel();}
+  window.addEventListener('resize',renderPins);window.addEventListener('scroll',renderPins,true);
+  const CHANGES=[
+    {id:'unified',tag:'1',title:'One shared header on every tab',desc:'A TabHeader component all tabs use: consistent title size + position. Replaces the per-tab hand-rolled headers (Method currently differs).'},
+    {id:'everywhere',tag:'2',title:'Settings + Notifications on all tabs',desc:'Bell + gear live in the shared header, so every tab has them (were Notebook-only).'},
+    {id:'todaybtn',tag:'3',title:'Today is a 3rd header button',desc:'Opens the Today panel from the top bar, with a count badge. The inline Today pill leaves the Notebook body.'},
+    {id:'connout',tag:'4',title:'Connection status out of the top bar',desc:'A slim contextual banner under the header, shown ONLY when offline / laptop asleep / queued; hidden when synced. The synced freshness ("2 min ago") moves into the Today panel.'},
+    {id:'methodfix',tag:'5',title:'Method header now matches',desc:'The Method tab adopts the shared header (its odd title styling + missing bell/gear are gone); the search + download chip sit below it.'},
+  ];
+  const VSTORE='ros-unified-header-verdicts-v1';let verdicts={};try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}');}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){const wrap=el('changes');wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:''}</div></div>`;}).join('');wrap.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));}
+  let editorEl=null;function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){closeEditor();const target=targetEl.getAttribute('data-clabel')||'Page';const existing=existingIndex!=null?comments[existingIndex]:null;let pv=existing?(existing.verdict||''):'';const ed=document.createElement('div');ed.className='editor';ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note or change request">${existing?esc(existing.text):''}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;document.body.appendChild(ed);editorEl=ed;const paint=()=>ed.querySelectorAll('[data-vc]').forEach(b=>b.classList.toggle('on',(b.dataset.vc==='note'&&!pv)||b.dataset.vc===pv));ed.querySelectorAll('[data-vc]').forEach(b=>b.addEventListener('click',()=>{pv=b.dataset.vc==='note'?'':b.dataset.vc;paint();}));paint();const x=ev?ev.clientX:0,y=ev?ev.clientY:0;ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-286)+'px';ed.style.top=Math.min(y+10,window.innerHeight-200)+'px';ed.querySelector('textarea').focus();ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ed.querySelector('textarea').value.trim();if(!t&&!pv)return closeEditor();if(existing){existing.text=t;existing.verdict=pv;}else comments.push({target,text:t,verdict:pv});save();renderAll();closeEditor();}}));}
+  document.addEventListener('click',e=>{if(!document.body.classList.contains('cmt-on'))return;if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin')||e.target.closest('.changes')||e.target.closest('.seg'))return;const cmt=e.target.closest('.cmt');if(!cmt)return;e.preventDefault();e.stopPropagation();openEditor(cmt,null,e);},true);
+  const cBtn=el('commentToggle');cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  el('themeToggle').addEventListener('click',function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Switch to dark':'Switch to light';renderPins();});
+  el('phead').addEventListener('click',()=>{const p=el('cpanel');const c=p.classList.toggle('collapsed');el('chev').textContent=c?'show':'hide';});
+  function buildMd(){let o='Companion unified header, feedback\n\nVerdicts\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nNotes\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>{const t=c.verdict==='approve'?'[APPROVE] ':c.verdict==='disapprove'?'[DISAPPROVE] ':'';o+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return o;}
+  function toast(m){const t=el('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+  async function doCopy(){try{await navigator.clipboard.writeText(buildMd());toast('Feedback copied, paste it back to me');}catch{window.prompt('Copy',buildMd());}}
+  el('exportBtn').addEventListener('click',doCopy);el('exportBtn2').addEventListener('click',doCopy);
+  el('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all notes?'))return;comments=[];save();renderAll();});
+  renderChanges();renderAll();
+</script>
+</body>
+</html>

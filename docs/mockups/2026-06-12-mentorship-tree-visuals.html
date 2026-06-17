@@ -1,0 +1,187 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mentorship tree visuals</title>
+<style>
+  :root[data-theme="light"]{
+    --surface:#f8fafc; --surface-raised:#ffffff; --surface-overlay:#ffffff;
+    --surface-sunken:#f1f5f9; --border:#e5e7eb;
+    --fg:#171717; --fg-muted:#6b7280; --accent:#1283c9;
+  }
+  :root[data-theme="dark"]{
+    --surface:#0a0e1a; --surface-raised:#1c2638; --surface-overlay:#28344c;
+    --surface-sunken:#0d1424; --border:rgba(255,255,255,0.16);
+    --fg:#f1f5f9; --fg-muted:#b4bfd0; --accent:#3aa0e6;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--surface); color:var(--fg);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    line-height:1.5; padding:28px 20px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto}
+  header.top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:6px}
+  h1{font-size:22px;font-weight:800;margin:0}
+  .sub{color:var(--fg-muted);font-size:13.5px;margin:2px 0 22px}
+  .toggle{
+    border:1px solid var(--border);background:var(--surface-raised);color:var(--fg);
+    border-radius:9px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer;
+  }
+  .toggle:hover{background:var(--surface-sunken)}
+  .card{
+    background:var(--surface-raised);border:1px solid var(--border);border-radius:14px;
+    padding:18px 18px 20px;margin-bottom:22px;
+  }
+  .variant-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--fg-muted);margin-bottom:4px}
+  .pill{font-size:10.5px;font-weight:700;letter-spacing:.02em;text-transform:none;padding:2px 8px;border-radius:999px}
+  .pill.on-main{background:rgba(18,131,201,.14);color:var(--accent)}
+  .pill.option{background:color-mix(in srgb,var(--fg-muted) 18%,transparent);color:var(--fg-muted)}
+  .variant-note{font-size:12.5px;color:var(--fg-muted);margin:0 0 16px}
+  .hint{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--fg-muted);margin-bottom:14px}
+  .ic{width:16px;height:16px;flex:0 0 auto;stroke:currentColor;fill:none;stroke-width:1.8}
+  .ic.sm{width:13px;height:13px;stroke-width:2}
+  .av{
+    width:22px;height:22px;border-radius:50%;flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+    font-size:9.5px;font-weight:700;color:#fff;
+  }
+  /* ---- Variant A: the current nested-row render (faithful to MentorshipTree.tsx) ---- */
+  ul.tree{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+  ul.tree ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:6px}
+  .row{display:flex;align-items:center;gap:8px;border-radius:9px;padding:6px 8px}
+  .row:hover{background:var(--surface-sunken)}
+  .row.self{background:rgba(18,131,201,.10)}
+  .row .name{font-size:14px;font-weight:500;white-space:nowrap}
+  .badge-you{font-size:10.5px;font-weight:700;color:var(--accent);background:rgba(18,131,201,.15);padding:1px 6px;border-radius:5px}
+  .cap{font-size:11px;color:var(--fg-muted);margin-left:2px}
+  .chev{width:13px;height:13px;flex:0 0 auto;stroke:var(--fg-muted);fill:none;stroke-width:2}
+  .skip{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;font-weight:700;color:#a8610b;background:rgba(245,158,11,.16);padding:1px 7px;border-radius:999px}
+  :root[data-theme="dark"] .skip{color:#f2c067}
+  /* ---- Variant B: connector-line org chart ---- */
+  .org ul{list-style:none;margin:0;padding-left:26px;position:relative}
+  .org>ul{padding-left:0}
+  .org li{position:relative;padding:5px 0}
+  .org ul li::before{content:"";position:absolute;left:-14px;top:0;bottom:50%;width:1px;background:var(--border)}
+  .org ul li::after{content:"";position:absolute;left:-14px;top:50%;width:12px;height:1px;background:var(--border)}
+  .org ul li:last-child::before{bottom:50%}
+  .node{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--surface-overlay);border-radius:10px;padding:5px 10px}
+  .node.self{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+  .node .name{font-size:13.5px;font-weight:600}
+  .role{font-size:11px;color:var(--fg-muted)}
+  /* ---- Variant C: depth-banded cards ---- */
+  .banded{display:flex;flex-direction:column;gap:7px}
+  .brow{display:flex;align-items:center;gap:9px;background:var(--surface-overlay);border:1px solid var(--border);border-left-width:3px;border-radius:10px;padding:8px 11px}
+  .brow .name{font-size:14px;font-weight:600}
+  .brow .role{font-size:11.5px;color:var(--fg-muted)}
+  footer{color:var(--fg-muted);font-size:12.5px;text-align:center;margin-top:8px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Mentorship tree, visual options</h1>
+    </div>
+    <button class="toggle" id="themeBtn">Dark</button>
+  </header>
+  <p class="sub">A faithful preview of the lab-tree view. Variant A is exactly what shipped on main. B and C are alternative directions, since the look was left open. Sample lab below: a PI over two postdocs, threading down to grad students and undergrads, with one skip-level case. "You" is the grad student Park.</p>
+
+  <!-- VARIANT A -->
+  <section class="card">
+    <div class="variant-label"><span>Variant A, nested rows</span><span class="pill on-main">on main now</span></div>
+    <p class="variant-note">Indentation is depth, mentor above mentee. The viewer's own row is tinted, a mentor shows a "mentors N" caption. This reuses the app's row language exactly.</p>
+    <div class="hint">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M12 3v6m0 0a3 3 0 100 6 3 3 0 000-6zm-6 12a3 3 0 106 0 3 3 0 00-6 0zm12 0a3 3 0 10-6 0"/></svg>
+      <span>Who checks in with whom. A mentor sits above the people they mentor. You see only the relationships in check-ins you can read.</span>
+    </div>
+    <ul class="tree">
+      <li>
+        <div class="row"><span class="av" style="background:#5B47D6">PR</span><span class="name">Dr. Rivera</span><span class="cap">mentors 2</span></div>
+        <ul>
+          <li>
+            <div class="row" style="margin-left:22px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#1283c9">JC</span><span class="name">Chen</span><span class="cap">mentors 2</span></div>
+            <ul>
+              <li><div class="row self" style="margin-left:44px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#0f8a6a">SP</span><span class="name">Park</span><span class="badge-you">You</span></div></li>
+              <li><div class="row" style="margin-left:44px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#c2410c">DL</span><span class="name">Lee</span></div></li>
+            </ul>
+          </li>
+          <li>
+            <div class="row" style="margin-left:22px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#b3328a">AO</span><span class="name">Okafor</span><span class="cap">mentors 1</span></div>
+            <ul>
+              <li>
+                <div class="row" style="margin-left:44px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#0f8a6a">TN</span><span class="name">Nguyen</span><span class="cap">mentors 1</span></div>
+                <ul>
+                  <li><div class="row" style="margin-left:66px"><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg><span class="av" style="background:#c2410c">MD</span><span class="name">Diaz</span></div></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+    <div class="hint" style="margin:16px 0 0">
+      <span class="skip"><svg class="ic sm" viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>skip-level</span>
+      <span>This badge appears on a space header when a PI checks in directly with a trainee who reports through a postdoc. Example, if Dr. Rivera also held a 1:1 with Park, that space reads skip-level (Park's direct mentor is Chen).</span>
+    </div>
+  </section>
+
+  <!-- VARIANT B -->
+  <section class="card org">
+    <div class="variant-label"><span>Variant B, connector lines</span><span class="pill option">option</span></div>
+    <p class="variant-note">The same hierarchy as an org chart, with hairline connectors and each person in a bordered node. Reads more like a chart, takes a touch more horizontal room.</p>
+    <ul>
+      <li>
+        <span class="node"><span class="av" style="background:#5B47D6">PR</span><span class="name">Dr. Rivera</span><span class="role">PI</span></span>
+        <ul>
+          <li>
+            <span class="node"><span class="av" style="background:#1283c9">JC</span><span class="name">Chen</span><span class="role">postdoc</span></span>
+            <ul>
+              <li><span class="node self"><span class="av" style="background:#0f8a6a">SP</span><span class="name">Park</span><span class="role">grad, you</span></span></li>
+              <li><span class="node"><span class="av" style="background:#c2410c">DL</span><span class="name">Lee</span><span class="role">undergrad</span></span></li>
+            </ul>
+          </li>
+          <li>
+            <span class="node"><span class="av" style="background:#b3328a">AO</span><span class="name">Okafor</span><span class="role">postdoc</span></span>
+            <ul>
+              <li>
+                <span class="node"><span class="av" style="background:#0f8a6a">TN</span><span class="name">Nguyen</span><span class="role">grad</span></span>
+                <ul>
+                  <li><span class="node"><span class="av" style="background:#c2410c">MD</span><span class="name">Diaz</span><span class="role">undergrad</span></span></li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </section>
+
+  <!-- VARIANT C -->
+  <section class="card">
+    <div class="variant-label"><span>Variant C, depth-banded cards</span><span class="pill option">option</span></div>
+    <p class="variant-note">Each person is a card with a colored left edge by depth (PI to undergrad), still indented. Heavier, more scannable for a big lab.</p>
+    <div class="banded">
+      <div class="brow" style="border-left-color:#5B47D6"><span class="av" style="background:#5B47D6">PR</span><span class="name">Dr. Rivera</span><span class="role">PI</span></div>
+      <div class="brow" style="margin-left:20px;border-left-color:#1283c9"><span class="av" style="background:#1283c9">JC</span><span class="name">Chen</span><span class="role">postdoc</span></div>
+      <div class="brow self" style="margin-left:40px;border-left-color:#0f8a6a;outline:1.5px solid var(--accent)"><span class="av" style="background:#0f8a6a">SP</span><span class="name">Park</span><span class="badge-you">You</span></div>
+      <div class="brow" style="margin-left:40px;border-left-color:#c2410c"><span class="av" style="background:#c2410c">DL</span><span class="name">Lee</span><span class="role">undergrad</span></div>
+      <div class="brow" style="margin-left:20px;border-left-color:#b3328a"><span class="av" style="background:#b3328a">AO</span><span class="name">Okafor</span><span class="role">postdoc</span></div>
+      <div class="brow" style="margin-left:40px;border-left-color:#0f8a6a"><span class="av" style="background:#0f8a6a">TN</span><span class="name">Nguyen</span><span class="role">grad</span></div>
+      <div class="brow" style="margin-left:60px;border-left-color:#c2410c"><span class="av" style="background:#c2410c">MD</span><span class="name">Diaz</span><span class="role">undergrad</span></div>
+    </div>
+  </section>
+
+  <footer>Tell me which direction you want (keep A, or move to B or C), plus any tweaks, and I will match the live component to it.</footer>
+</div>
+<script>
+  const btn=document.getElementById('themeBtn');
+  btn.addEventListener('click',()=>{
+    const root=document.documentElement;
+    const dark=root.getAttribute('data-theme')==='dark';
+    root.setAttribute('data-theme',dark?'light':'dark');
+    btn.textContent=dark?'Dark':'Light';
+  });
+</script>
+</body>
+</html>

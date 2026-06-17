@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerSearch unified palette, iteration 1</title>
+<style>
+  :root {
+    --bg: #eef1f5; --surface: #ffffff;
+    --text: #1a2530; --text-2: #5a6b78; --text-3: #8a98a4;
+    --border: rgba(26,37,48,0.12); --border-2: rgba(26,37,48,0.22);
+    --sky: #38bdf8; --sky-deep: #15679c; --sky-soft: rgba(56,189,248,0.09); --sky-chip: rgba(56,189,248,0.14);
+    --radius: 12px; --radius-md: 8px;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); }
+  .page { max-width: 880px; margin: 0 auto; padding: 40px 24px 80px; }
+  .cap { font-size: 13px; color: var(--text-2); line-height: 1.6; margin: 0 2px 20px; }
+  .cap b { font-weight: 600; }
+  .vp { background: #0f172a; border-radius: var(--radius); display: flex; align-items: flex-start; justify-content: center; padding: 60px 18px 90px; }
+  .pal { width: 100%; max-width: 540px; background: var(--surface); border: 1px solid var(--border-2); border-radius: var(--radius); overflow: hidden; box-shadow: 0 20px 50px rgba(0,0,0,0.35); }
+  .in { display: flex; align-items: center; gap: 11px; padding: 15px 16px; border-bottom: 1px solid var(--border); }
+  .flask { width: 28px; height: 28px; border-radius: var(--radius-md); background: var(--sky-chip); color: var(--sky-deep); display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .flask svg, .ai svg, .ic svg { display:block; }
+  .q { flex: 1; font-size: 17px; color: var(--text); }
+  .q .cur { color: var(--text-3); }
+  .kbd { font-size: 11px; color: var(--text-3); border: 1px solid var(--border); border-radius: 5px; padding: 2px 6px; }
+  .ask { display: flex; align-items: center; gap: 11px; padding: 12px 16px; background: var(--sky-soft); border-bottom: 1px solid var(--border); cursor: pointer; }
+  .ask .ai { width: 23px; height: 23px; border-radius: 6px; background: var(--sky); color: #06243a; display: inline-flex; align-items: center; justify-content: center; flex: none; }
+  .ask .txt { flex: 1; font-size: 14px; color: var(--text); }
+  .ask .txt b { font-weight: 600; }
+  .ask .meta { font-size: 11px; color: var(--text-3); }
+  .ask .go { font-size: 11px; color: var(--sky-deep); }
+  .grp { font-size: 11px; letter-spacing: .04em; color: var(--text-3); padding: 11px 16px 4px; }
+  .row { display: flex; align-items: center; gap: 11px; padding: 8px 16px; cursor: pointer; }
+  .row:hover { background: #f4f7f9; }
+  .row .ic { width: 18px; color: var(--text-3); display: inline-flex; flex: none; }
+  .row .nm { flex: 1; font-size: 13px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .ty { font-size: 11px; color: var(--text-3); }
+  .foot { display: flex; align-items: center; gap: 14px; padding: 10px 16px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); }
+  .foot .sp { margin-left: auto; }
+  .smart { display: inline-flex; align-items: center; gap: 5px; border: 1px solid var(--border); border-radius: 999px; padding: 2px 8px; color: var(--text-2); }
+  .dot { width: 6px; height: 6px; border-radius: 999px; background: var(--text-3); }
+  svg { stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="cap"><b>Iteration 1, the unified front door.</b> One Cmd-K box. Typing shows instant free results (Tier 1), and a single sky-blue "Ask BeakerBot" row escalates into the AI conversation (Tier 2). The smart-mode toggle is tucked in the footer. Open questions, Ask row top vs bottom, do the "free / uses credit" labels help or clutter, and does it clear the simplicity bar.</p>
+  <div class="vp">
+    <div class="pal">
+      <div class="in">
+        <span class="flask"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
+        <span class="q">qpcr<span class="cur"> |</span></span>
+        <span class="kbd">esc</span>
+      </div>
+
+      <div class="ask">
+        <span class="ai"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M9 3h6"/><path d="M10 3v6l-5 9a2 2 0 0 0 2 3h10a2 2 0 0 0 2-3l-5-9V3"/></svg></span>
+        <span class="txt"><b>Ask BeakerBot</b> about "qpcr" <span class="meta">· reasons, perceives, can act · uses credit</span></span>
+        <span class="go">enter &#8629;</span>
+      </div>
+
+      <div class="grp">INSTANT &middot; NO AI &middot; FREE</div>
+      <div class="grp" style="padding-top:2px;">Tasks</div>
+      <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nm">qPCR, fakeGFP expression vs control</span><span class="ty">due today</span></div>
+      <div class="grp">Methods</div>
+      <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6M9 17h4"/></svg></span><span class="nm">qPCR analysis, Cq and standard curve</span><span class="ty">protocol</span></div>
+      <div class="grp">Notes</div>
+      <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M5 4h11a2 2 0 0 1 2 2v14H7a2 2 0 0 1-2-2z"/><path d="M9 4v16"/></svg></span><span class="nm">qPCR optimization, gradient 58 to 64 C</span><span class="ty">note</span></div>
+      <div class="grp">Data Hub</div>
+      <div class="row"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span><span class="nm">fakeGFP qPCR expression</span><span class="ty">table</span></div>
+
+      <div class="foot">
+        <span>&#8597; navigate</span><span>&#8629; open</span>
+        <span class="sp"><span class="smart"><span class="dot"></span> smart mode off</span></span>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

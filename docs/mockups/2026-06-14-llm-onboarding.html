@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>LLM Onboarding — BeakerBot guided first-run (2026-06-14)</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --surface:#ffffff; --sunken:#f1f2ef; --line:#e3e5e0; --line2:#d2d5cd;
+    --fg:#1f2421; --muted:#6b716a; --faint:#9aa097;
+    --brand:#1d9e75; --brand-soft:#e3f4ec; --brand-ink:#0f6e56;
+    --info:#2563eb; --info-soft:#e7f0fe; --info-ink:#1b4fa8;
+    --amber:#b9770f; --amber-soft:#fbf0dc; --amber-ink:#8a5908;
+    --violet:#7c4dca; --violet-soft:#efe7fb; --violet-ink:#5b34a0;
+    --pin:#c0392b; --radius:10px;
+    /* pastel BeakerBot (always pastel, per brand) */
+    --bb1:#a6e3c9; --bb2:#bcd4ff; --bb3:#f5c8e6;
+  }
+  :root[data-theme="dark"]{
+    --bg:#15171a; --surface:#1d2024; --sunken:#23272c; --line:#2c3137; --line2:#3a4047;
+    --fg:#e7eae7; --muted:#9aa29b; --faint:#6f7872;
+    --brand-soft:#0f3a2c; --brand-ink:#6fd9b4; --info-soft:#14233f; --info-ink:#7fb0f5;
+    --amber-soft:#3a2c12; --amber-ink:#e0b977; --violet-soft:#251a3a; --violet-ink:#b79af0;
+  }
+  .themetoggle{position:fixed; top:16px; right:18px; z-index:50; font-size:12px; padding:6px 12px;
+    border:1px solid var(--line2); border-radius:999px; background:var(--surface); color:var(--muted); cursor:pointer;}
+  .themetoggle:hover{background:var(--sunken)}
+  *{box-sizing:border-box}
+  html,body{margin:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--bg); color:var(--fg); font-size:13px; line-height:1.45; padding:24px 24px 60px;}
+  h1{font-size:18px; margin:0 0 2px}
+  .sub{color:var(--muted); margin:0 0 4px; font-size:12.5px; max-width:1100px}
+  .sub b{color:var(--brand-ink)}
+  .legend{display:flex; gap:14px; flex-wrap:wrap; margin:12px 0 20px; font-size:11.5px; color:var(--muted)}
+  .legend span{display:inline-flex; align-items:center; gap:5px}
+  .dot{width:9px;height:9px;border-radius:3px;display:inline-block}
+
+  .strip{display:flex; gap:18px; align-items:flex-start; flex-wrap:wrap}
+  .beat{width:312px; display:flex; flex-direction:column; gap:8px}
+  .beatnum{font-size:11px; text-transform:uppercase; letter-spacing:.6px; color:var(--faint); display:flex; gap:7px; align-items:center}
+  .beatnum b{color:var(--brand-ink); font-weight:700}
+  .note{font-size:11px; color:var(--muted); line-height:1.4}
+  .note b{color:var(--fg)}
+
+  /* app window frame */
+  .win{border:1px solid var(--line2); border-radius:13px; background:var(--surface); overflow:hidden;
+    box-shadow:0 6px 22px rgba(0,0,0,.07); height:430px; display:flex; flex-direction:column; position:relative}
+  .titlebar{height:26px; background:var(--sunken); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:5px; padding:0 9px; flex:none}
+  .tb{width:9px;height:9px;border-radius:50%}
+  .tb1{background:#f0a8a0}.tb2{background:#f3d59b}.tb3{background:#a9dcb2}
+  .tburl{margin-left:8px; font-size:9.5px; color:var(--faint)}
+  .screen{flex:1; position:relative; overflow:hidden}
+
+  /* takeover scrim */
+  .takeover{position:absolute; inset:0; background:
+    radial-gradient(120% 90% at 50% -10%, var(--brand-soft), transparent 60%),
+    var(--surface); display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:22px}
+  .skip{position:absolute; top:10px; right:12px; font-size:11px; color:var(--muted); background:transparent; border:0; cursor:pointer}
+  .skip:hover{color:var(--fg); text-decoration:underline}
+  .meterchip{position:absolute; top:9px; left:12px; font-size:9.5px; color:var(--brand-ink); background:var(--brand-soft);
+    border-radius:999px; padding:2px 9px; display:flex; align-items:center; gap:5px; font-weight:600}
+  .meterbar{width:34px;height:4px;border-radius:3px;background:rgba(0,0,0,.12); overflow:hidden}
+  .meterbar i{display:block;height:100%;background:var(--brand); border-radius:3px}
+
+  /* BeakerBot mascot */
+  .bot{width:62px;height:62px;border-radius:18px; background:linear-gradient(140deg,var(--bb1),var(--bb2) 55%,var(--bb3));
+    display:flex; align-items:center; justify-content:center; box-shadow:0 5px 16px rgba(120,150,200,.35)}
+  .bot svg{width:36px;height:36px}
+  .bot.sm{width:34px;height:34px;border-radius:11px} .bot.sm svg{width:21px;height:21px}
+
+  .wordmark{font-weight:800; font-size:15px; letter-spacing:-.2px; margin-top:14px}
+  .wordmark .os{background:linear-gradient(90deg,#e25563,#e7913c,#caa93f,#3fa564,#3f86c4,#7c4dca);
+    -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .lead{font-size:13.5px; font-weight:600; margin:12px 0 4px}
+  .leadsub{font-size:11.5px; color:var(--muted); max-width:230px; margin-bottom:16px}
+  .btn{padding:9px 18px; border-radius:9px; border:0; background:var(--brand); color:#fff; font-weight:700; font-size:12.5px; cursor:pointer; box-shadow:0 3px 10px var(--brand-soft)}
+  .btn:hover{filter:brightness(1.05)}
+  .btnghost{margin-top:9px; padding:6px; border:0; background:transparent; color:var(--muted); font-size:11.5px; cursor:pointer}
+
+  /* generic panel content */
+  .pad{padding:16px 16px 14px; height:100%; display:flex; flex-direction:column}
+  .qhd{display:flex; gap:9px; align-items:flex-start; margin-bottom:13px}
+  .qhd .bot{flex:none}
+  .bubble{background:var(--sunken); border:1px solid var(--line); border-radius:12px; border-top-left-radius:3px; padding:8px 11px; font-size:12px}
+  .bubble.bigger{font-size:12.5px}
+  .secttl{font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--faint); margin:4px 0 7px}
+
+  .chips{display:flex; gap:7px; flex-wrap:wrap}
+  .chip{font-size:11.5px; padding:6px 11px; border-radius:999px; border:1px solid var(--line2); color:var(--muted); cursor:pointer; background:var(--surface); display:inline-flex; align-items:center; gap:6px}
+  .chip.on{background:var(--brand); border-color:var(--brand); color:#fff; font-weight:600}
+  .chip.role.on{background:var(--violet); border-color:var(--violet)}
+  .chip .ico{width:13px;height:13px}
+  .spacer{flex:1}
+  .footrow{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:12px}
+  .progress{display:flex; gap:4px}
+  .pg{width:18px;height:4px;border-radius:3px;background:var(--line2)}
+  .pg.on{background:var(--brand)} .pg.now{background:var(--brand); box-shadow:0 0 0 2px var(--brand-soft)}
+  .nextbtn{padding:7px 15px;border-radius:8px;border:0;background:var(--brand);color:#fff;font-weight:700;font-size:11.5px;cursor:pointer}
+
+  /* showcase stage */
+  .stagehd{display:flex; align-items:center; gap:8px; margin-bottom:9px}
+  .stagehd .ttl{font-weight:700; font-size:12.5px}
+  .ephem{margin-left:auto; font-size:9px; font-weight:700; color:var(--amber-ink); background:var(--amber-soft); border:1px solid var(--amber); border-radius:6px; padding:1px 6px}
+  .stage{flex:1; border:1px solid var(--line); border-radius:11px; background:var(--sunken); position:relative; overflow:hidden}
+  /* fake tree + appearing heat overlay */
+  .tree{position:absolute; left:14px; top:16px; bottom:16px; width:120px}
+  .branch{position:absolute; height:1.6px; background:var(--faint)}
+  .tip{position:absolute; font-size:8px; color:var(--muted); left:122px; transform:translateY(-50%)}
+  .heatcol{position:absolute; left:170px; width:15px; border-radius:2px; transition:.4s}
+  .barcol{position:absolute; left:192px; height:9px; border-radius:2px; background:var(--info); transform-origin:left; transition:.5s}
+  .spot{position:absolute; border:2px solid var(--info); border-radius:10px; box-shadow:0 0 0 4px var(--info-soft); animation:breathe 1.8s ease-in-out infinite}
+  @keyframes breathe{0%,100%{box-shadow:0 0 0 3px var(--info-soft)}50%{box-shadow:0 0 0 7px transparent}}
+  .narr{position:absolute; left:10px; right:10px; bottom:10px; display:flex; gap:8px; align-items:flex-end}
+  .narr .bubble{flex:1; background:var(--surface); box-shadow:0 3px 12px rgba(0,0,0,.1)}
+  .reelbar{display:flex; align-items:center; gap:8px; margin-top:10px}
+  .reeldots{display:flex; gap:5px; flex:1}
+  .rd{height:3px;border-radius:3px;background:var(--line2); flex:1}
+  .rd.on{background:var(--brand)} .rd.now{background:var(--brand)}
+  .reelctl{display:flex; gap:8px; color:var(--muted)}
+  .reelctl svg{width:15px;height:15px; cursor:pointer}
+  .reelctl svg:hover{color:var(--fg)}
+
+  /* memory propose card */
+  .memcard{border:1px solid var(--violet); background:var(--violet-soft); border-radius:11px; padding:11px 12px}
+  .memcard .mt{font-weight:700; font-size:12px; color:var(--violet-ink); display:flex; align-items:center; gap:6px; margin-bottom:5px}
+  .memcard svg{width:14px;height:14px}
+  .memcard .mq{font-size:12px; font-style:italic; color:var(--fg); margin-bottom:9px}
+  .memrow{display:flex; gap:7px}
+  .mbtn{padding:6px 13px;border-radius:8px;border:1px solid var(--violet); background:var(--surface); color:var(--violet-ink); font-weight:700; font-size:11.5px; cursor:pointer}
+  .mbtn.yes{background:var(--violet); color:#fff; border-color:var(--violet)}
+
+  /* recap / done */
+  .recap{border:1px solid var(--line); border-radius:11px; background:var(--surface); padding:11px 12px}
+  .recap .rh{font-size:10.5px; text-transform:uppercase; letter-spacing:.5px; color:var(--violet-ink); display:flex; align-items:center; gap:6px; margin-bottom:8px}
+  .recap .rh svg{width:13px;height:13px}
+  .recapitem{display:flex; gap:7px; font-size:11.5px; padding:4px 0; border-bottom:1px dashed var(--line)}
+  .recapitem:last-child{border-bottom:0}
+  .recapitem .k{color:var(--faint); width:74px; flex:none}
+  .recapitem .v{color:var(--fg)}
+  .invrow{display:flex; gap:8px; margin-top:12px}
+  .replaylink{font-size:11px; color:var(--info-ink); cursor:pointer; display:inline-flex; gap:5px; align-items:center; margin-top:10px}
+  .replaylink svg{width:13px;height:13px}
+
+  .annot{border-left:2px solid var(--brand); padding-left:9px; margin-top:2px}
+
+  /* ---- page-driven showcase: Beaker drives the REAL app with a presenter cursor + morph ---- */
+  .app{position:absolute; inset:0; background:var(--surface); display:flex; flex-direction:column}
+  .appnav{height:30px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:9px; padding:0 10px; font-size:10px; color:var(--muted); flex:none}
+  .appnav .mk{font-weight:800; font-size:11px} .appnav .mk .os{background:linear-gradient(90deg,#e25563,#e7913c,#caa93f,#3fa564,#3f86c4,#7c4dca); -webkit-background-clip:text; background-clip:text; -webkit-text-fill-color:transparent}
+  .appnav .nv{padding:2px 6px;border-radius:6px} .appnav .nv.act{background:var(--brand-soft); color:var(--brand-ink); font-weight:600}
+  .appbody{flex:1; position:relative; background:var(--sunken); overflow:hidden}
+  /* the morph: a card flying/scaling from one spot to its placed position */
+  .morphcard{position:absolute; border:1px solid var(--line2); border-radius:9px; background:var(--surface); box-shadow:0 8px 22px rgba(0,0,0,.14); padding:8px}
+  .morphtrail{position:absolute; border:1.5px dashed var(--brand); border-radius:9px; opacity:.5}
+  .morphtag{position:absolute; font-size:8.5px; font-weight:700; color:var(--brand-ink); background:var(--brand-soft); border:1px solid var(--brand); border-radius:5px; padding:1px 5px}
+  .pcursor{position:absolute; z-index:6; filter:drop-shadow(0 1px 2px rgba(0,0,0,.3))}
+  .pcursor svg{width:19px;height:19px}
+  .clickring{position:absolute; width:22px;height:22px;border:2px solid var(--info); border-radius:50%; z-index:5; animation:click 1.4s ease-out infinite}
+  @keyframes click{0%{transform:scale(.4);opacity:.9}100%{transform:scale(1.5);opacity:0}}
+  /* floating coach bubble (NOT the chat panel) — mini Beaker + a line, anchored on the page */
+  .coach{position:absolute; z-index:7; display:flex; gap:7px; align-items:flex-end; max-width:210px}
+  .coach .bot{flex:none}
+  .coach .bubble{background:var(--surface); box-shadow:0 4px 14px rgba(0,0,0,.16); border-radius:12px; border-bottom-left-radius:3px; font-size:11px; padding:7px 10px}
+  .miniplot{display:flex; align-items:flex-end; gap:3px; height:34px}
+  .miniplot i{width:7px;border-radius:2px 2px 0 0;background:var(--info)}
+  .rule{display:inline-flex; align-items:center; gap:5px; font-size:9px; font-weight:700; border-radius:6px; padding:2px 7px}
+  .rule.page{color:var(--brand-ink); background:var(--brand-soft); border:1px solid var(--brand)}
+  .rule.ai{color:var(--violet-ink); background:var(--violet-soft); border:1px solid var(--violet)}
+  .rulebadge{position:absolute; top:8px; right:10px; z-index:8}
+</style>
+</head>
+<body>
+<button class="themetoggle" onclick="document.documentElement.dataset.theme=document.documentElement.dataset.theme==='dark'?'':'dark'">◑ theme</button>
+
+<h1>LLM Onboarding — <span style="color:var(--brand-ink)">a tailored presentation, not a button-tour</span></h1>
+<p class="sub">Account-gated, full-screen, fires after the setup wizard. <b>Beaker drives the real pages himself</b> — navigates to each surface and works it with a presenter mouse he controls, using our existing <b>move/morph animation</b> to reveal results in the main screen. It's a live, personalized presentation so users learn features EXIST and go seek them out. <b>The chat panel appears ONLY when the feature being shown is an actual AI feature</b> (beat 4) — everything else is shown on the page itself (beat 3). Skippable but front-and-center. Seeds a per-user, never-shared memory. Light by default; toggle dark, top-right. Spec: <code>docs/proposals/2026-06-14-llm-onboarding-tutor.md</code>.</p>
+<div class="legend">
+  <span><i class="dot" style="background:var(--brand)"></i> on-page: Beaker's cursor + morph animation (default)</span>
+  <span><i class="dot" style="background:var(--violet)"></i> chat UI shown ONLY for AI features</span>
+  <span><i class="dot" style="background:var(--amber)"></i> ephemeral — nothing saved to their folder</span>
+  <span><i class="dot" style="background:var(--info)"></i> spotlight on live UI (guide_to_element)</span>
+  <span><i class="dot" style="background:var(--brand-ink)"></i> capped token meter, per-user memory</span>
+</div>
+
+<!-- running-order ribbon: the deterministic "reel director" for THIS user (PI · microbiologist · picked track/analyze/trees) -->
+<div style="max-width:1100px; margin:0 0 22px">
+  <div class="caption" style="margin-bottom:7px">Reel director — running order for this user <span style="color:var(--muted); text-transform:none; letter-spacing:0">(PI · microbiologist · picked: track experiments / analyze data / build trees) · ~5 min, under the 150k cap</span></div>
+  <div style="display:flex; gap:4px; align-items:stretch; height:40px; font-size:9.5px; font-weight:700">
+    <div style="flex:1.1; background:var(--sunken); border:1px solid var(--line2); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted)">Welcome+pick<span style="font-weight:400; font-size:8.5px">45s</span></div>
+    <div style="flex:1.4; background:var(--brand-soft); border:1px solid var(--brand); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--brand-ink)">DEEP · Data Hub<span style="font-weight:400; font-size:8.5px">cursor+morph</span></div>
+    <div style="flex:1.4; background:var(--brand-soft); border:1px solid var(--brand); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--brand-ink)">DEEP · Experiments<span style="font-weight:400; font-size:8.5px">cursor</span></div>
+    <div style="flex:1.4; background:var(--brand-soft); border:1px solid var(--brand); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--brand-ink)">DEEP · Build tree<span style="font-weight:400; font-size:8.5px">cursor</span></div>
+    <div style="flex:1.3; background:var(--violet-soft); border:1px solid var(--violet); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--violet-ink)">AI · Overlay data<span style="font-weight:400; font-size:8.5px">chat shown</span></div>
+    <div style="flex:1.5; background:var(--info-soft); border:1px solid var(--info); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--info-ink)">MONTAGE · 4 surfaces<span style="font-weight:400; font-size:8.5px">flash, ~25s</span></div>
+    <div style="flex:1.1; background:var(--violet-soft); border:1px solid var(--violet); border-radius:7px; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--violet-ink)">Memory+recap<span style="font-weight:400; font-size:8.5px">45s</span></div>
+  </div>
+  <div class="note" style="margin-top:6px">Deterministic + <b>adaptive to picks</b>: 1 pick → 1 DEEP · 2–3 picks → DEEP each · 4+ → cap at 3 (top by priority) + montage the rest · 0 → role-default set. Always exactly <b>1 AI</b> demo (chat); every un-picked surface → <b>MONTAGE</b> flash so nothing's invisible. Length scales to the user (~3.5–5.5 min). Cap pressure drops DEEP→montage first, never cuts memory/recap.</div>
+</div>
+
+<div class="strip">
+
+  <!-- BEAT 1 — WELCOME TAKEOVER -->
+  <div class="beat">
+    <div class="beatnum"><b>1</b> · Welcome (full-screen takeover)</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">researchos.app · just signed up</span></div>
+      <div class="screen">
+        <div class="takeover">
+          <button class="skip">Skip for now</button>
+          <div class="meterchip">onboarding <span class="meterbar"><i style="width:4%"></i></span> 6k / 150k</div>
+          <div class="bot">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/><circle cx="10" cy="15" r="1" fill="#3a5a78"/><circle cx="13.5" cy="17" r="1.2" fill="#3a5a78"/></svg>
+          </div>
+          <div class="wordmark">Research<span class="os">OS</span></div>
+          <div class="lead">Hi — I'm Beaker.</div>
+          <div class="leadsub">Give me 5 minutes and I'll show you what this place can do for <i>your</i> research. No setup — just watch.</div>
+          <button class="btn">Show me around →</button>
+          <button class="btnghost">I'll explore on my own</button>
+        </div>
+      </div>
+    </div>
+    <div class="note annot">Highly encouraged but never trapped: a primary CTA + a quiet always-present escape (top-right + ghost button). Token meter is visible from second one so the gift spend is honest.</div>
+  </div>
+
+  <!-- BEAT 2 — INTEREST PICKER -->
+  <div class="beat">
+    <div class="beatnum"><b>2</b> · Tell me what you're here to do</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">tailoring the presentation</span></div>
+      <div class="screen"><div class="pad">
+        <div class="qhd">
+          <div class="bot sm"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="bubble">First, who are you and what do you want to get done? I'll only show the parts that matter to you.</div>
+        </div>
+        <div class="secttl">I'm a…</div>
+        <div class="chips">
+          <span class="chip role on">PI / lab head</span>
+          <span class="chip role">Grad student</span>
+          <span class="chip role">Postdoc</span>
+          <span class="chip role">Undergrad</span>
+          <span class="chip role">Industry</span>
+        </div>
+        <div class="secttl" style="margin-top:14px">I want to…</div>
+        <div class="chips">
+          <span class="chip on">🧫 Track experiments</span>
+          <span class="chip on">📊 Analyze data</span>
+          <span class="chip">🧬 Work with sequences</span>
+          <span class="chip on">🌳 Build trees</span>
+          <span class="chip">⚗️ Chemistry</span>
+          <span class="chip">📦 Manage inventory</span>
+          <span class="chip">👥 Run a lab</span>
+        </div>
+        <div class="spacer"></div>
+        <div class="footrow">
+          <div class="progress"><i class="pg on"></i><i class="pg now"></i><i class="pg"></i><i class="pg"></i><i class="pg"></i><i class="pg"></i><i class="pg"></i></div>
+          <button class="nextbtn">Start the tour →</button>
+        </div>
+      </div></div>
+    </div>
+    <div class="note annot">Branched by <b>goals</b> (which map to surfaces) + a role tag. Picks drive what gets the deep showcase vs. the fast montage — and seed the memory file. <b>Open Q for you:</b> goals-framing (shown) vs. raw page names?</div>
+  </div>
+
+  <!-- BEAT 3 — THE SHOWCASE on the REAL page (presenter cursor + morph), non-AI feature -->
+  <div class="beat">
+    <div class="beatnum"><b>3</b> · Beaker drives the real page (core beat)</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">localhost · /datahub</span></div>
+      <div class="screen">
+        <div class="app">
+          <div class="appnav"><span class="mk">Research<span class="os">OS</span></span><span class="nv">Bench</span><span class="nv act">Data Hub</span><span class="nv">Methods</span><span class="nv">Phylo</span><span class="ephem" style="margin-left:auto">● SAMPLE DATA · nothing saved</span></div>
+          <div class="appbody">
+            <span class="rule page rulebadge">● ON-PAGE · Beaker's cursor</span>
+            <!-- the morph: a table card flies + becomes a plot -->
+            <div class="morphtrail" style="left:14px; top:30px; width:96px; height:60px"></div>
+            <div class="morphtag" style="left:14px; top:16px">your table</div>
+            <div class="morphcard" style="left:150px; top:42px; width:120px; height:84px">
+              <div class="miniplot"><i style="height:62%"></i><i style="height:88%"></i><i style="height:40%"></i><i style="height:74%"></i><i style="height:55%"></i><i style="height:96%"></i></div>
+              <div style="font-size:8px;color:var(--faint);margin-top:5px;text-align:center">MIC by strain</div>
+            </div>
+            <div class="morphtag" style="left:150px; top:26px">→ becomes a plot</div>
+            <!-- presenter cursor mid-click on the plot button -->
+            <div class="clickring" style="left:196px; top:96px"></div>
+            <div class="pcursor" style="left:206px; top:104px"><svg viewBox="0 0 24 24" fill="#2a2f2b" stroke="#fff" stroke-width="1.2"><path d="M5 3l14 8-6 1.5L16 19l-3 1-3-6.5L5 16z"/></svg></div>
+            <!-- floating coach bubble (NOT the chat panel) -->
+            <div class="coach" style="left:96px; bottom:14px">
+              <div class="bot sm"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+              <div class="bubble">One click turns a table into a publication plot — watch the morph. This is a normal button; you don't need me to do it.</div>
+            </div>
+          </div>
+        </div>
+        <div class="reelbar" style="position:absolute; left:12px; right:12px; bottom:8px">
+          <div class="reeldots"><i class="rd on"></i><i class="rd on"></i><i class="rd now"></i><i class="rd"></i><i class="rd"></i></div>
+          <div class="reelctl">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M11 7l-5 5 5 5M18 7l-5 5 5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 6v12M15 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 7l5 5-5 5M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="note annot">Beaker <b>navigates to the actual page</b> and works it with a presenter mouse he controls, using our existing <b>move/morph animation</b> to reveal the result in the main screen — no chat widgets. Narration is a floating coach bubble. He's showing the real UI exists, on field-personalized sample data.</div>
+  </div>
+
+  <!-- BEAT 4 — AI-FEATURE showcase: the ONLY time the chat panel appears -->
+  <div class="beat">
+    <div class="beatnum"><b>4</b> · …chat opens ONLY for an AI feature</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">localhost · /phylo</span></div>
+      <div class="screen">
+        <div class="app">
+          <div class="appnav"><span class="mk">Research<span class="os">OS</span></span><span class="nv">Bench</span><span class="nv">Data Hub</span><span class="nv act">Phylo</span><span class="ephem" style="margin-left:auto">● SAMPLE DATA</span></div>
+          <div class="appbody" style="display:flex">
+            <span class="rule ai rulebadge">● AI FEATURE · chat shown</span>
+            <!-- tree on the left -->
+            <div style="position:relative; width:46%">
+              <div class="tree" style="left:12px">
+                <div class="branch" style="left:0; top:50%; width:28px"></div>
+                <div class="branch" style="left:28px; top:24%; width:1.6px; height:52%"></div>
+                <div class="branch" style="left:28px; top:24%; width:30px"></div>
+                <div class="branch" style="left:28px; top:76%; width:30px"></div>
+                <div class="tip" style="top:24%; left:118px">C. auris</div>
+                <div class="tip" style="top:76%; left:118px">C. glabrata</div>
+              </div>
+              <div class="heatcol" style="left:150px; top:22px; height:16px; background:#d9534f"></div>
+              <div class="heatcol" style="left:150px; top:96px; height:16px; background:#2f8a5b"></div>
+              <div class="spot" style="left:145px; top:16px; width:26px; height:104px"></div>
+            </div>
+            <!-- the chat panel — allowed here because the FEATURE is BeakerBot itself -->
+            <div style="flex:1; border-left:1px solid var(--line); background:var(--surface); display:flex; flex-direction:column">
+              <div style="padding:6px 9px; border-bottom:1px solid var(--line); font-size:10px; font-weight:700; display:flex; gap:6px; align-items:center"><div class="bot sm" style="width:18px;height:18px;border-radius:6px"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6"/></svg></div>BeakerBot</div>
+              <div style="padding:9px; font-size:10px; flex:1; display:flex; flex-direction:column; gap:7px">
+                <div style="align-self:flex-end; background:var(--brand); color:#fff; padding:5px 8px; border-radius:9px; border-bottom-right-radius:3px">What can I overlay here?</div>
+                <div style="background:var(--sunken); border:1px solid var(--line); padding:5px 8px; border-radius:9px; border-bottom-left-radius:3px">Your resistance table joins 7 of 8 tips. I painted MIC on for you ↗</div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="coach" style="position:absolute; left:14px; bottom:30px; max-width:150px">
+          <div class="bubble" style="background:var(--violet-soft); border:1px solid var(--violet); color:var(--violet-ink); border-radius:10px; font-size:10px">This one IS the AI — so here I show you the chat, because that's the feature.</div>
+        </div>
+      </div>
+    </div>
+    <div class="note annot"><b>The rule, made visual:</b> page-driven with Beaker's cursor by default (beat 3); the chat panel appears <b>only</b> when the feature being demoed is an actual AI capability (ask-Beaker-to-overlay). Same ephemeral sample data, same spotlight.</div>
+  </div>
+
+  <!-- BEAT 5 — MONTAGE of un-picked surfaces -->
+  <div class="beat">
+    <div class="beatnum"><b>5</b> · Fast montage (everything else)</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">a quick look at the rest</span></div>
+      <div class="screen"><div class="pad">
+        <div class="qhd">
+          <div class="bot sm"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="bubble">There's more in here too — a 10-second flyover of what I didn't dive into, so you know it exists.</div>
+        </div>
+        <div class="secttl">Flashing by · ~3s each</div>
+        <div style="display:flex; flex-direction:column; gap:8px">
+          <div style="display:flex; gap:9px; align-items:center; border:1.5px solid var(--info); background:var(--info-soft); border-radius:10px; padding:9px 11px">
+            <div style="width:30px;height:30px;border-radius:8px;background:var(--surface);border:1px solid var(--line2);display:flex;align-items:center;justify-content:center;font-size:15px">🧬</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:12px">Sequences</div><div style="font-size:10.5px;color:var(--muted)">Import, annotate, find primers, Tm — in one place.</div></div>
+            <div style="font-size:9px;font-weight:700;color:var(--info-ink)">NOW</div>
+          </div>
+          <div style="display:flex; gap:9px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 11px; opacity:.6">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--sunken);display:flex;align-items:center;justify-content:center;font-size:14px">⚗️</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:11.5px">Chemistry</div><div style="font-size:10px;color:var(--faint)">Structures, reactions, stoichiometry.</div></div>
+          </div>
+          <div style="display:flex; gap:9px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 11px; opacity:.45">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--sunken);display:flex;align-items:center;justify-content:center;font-size:14px">📦</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:11.5px">Inventory</div><div style="font-size:10px;color:var(--faint)">Stock, reorder, barcode scan.</div></div>
+          </div>
+          <div style="display:flex; gap:9px; align-items:center; border:1px solid var(--line); border-radius:10px; padding:8px 11px; opacity:.3">
+            <div style="width:28px;height:28px;border-radius:8px;background:var(--sunken);display:flex;align-items:center;justify-content:center;font-size:14px">👥</div>
+            <div style="flex:1"><div style="font-weight:700;font-size:11.5px">People</div><div style="font-size:10px;color:var(--faint)">Roster, workload, IDPs.</div></div>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="reelbar">
+          <div class="reeldots"><i class="rd now"></i><i class="rd"></i><i class="rd"></i><i class="rd"></i></div>
+          <div class="reelctl">
+            <svg viewBox="0 0 24 24" fill="none"><path d="M9 6v12M15 6v12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+            <svg viewBox="0 0 24 24" fill="none"><path d="M6 7l5 5-5 5M13 7l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </div>
+        </div>
+      </div></div>
+    </div>
+    <div class="note annot">The <b>"everything else" answer</b>: un-picked surfaces flash by titled (no cursor, ~3s each) so nothing's invisible. They can "Replay any section" later to go deep. Montage is what the cap sheds first under pressure.</div>
+  </div>
+
+  <!-- BEAT 6 — MEMORY PROPOSE -->
+  <div class="beat">
+    <div class="beatnum"><b>6</b> · "Want me to remember that?"</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">introducing your memory</span></div>
+      <div class="screen"><div class="pad">
+        <div class="qhd">
+          <div class="bot sm"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="bubble bigger">I keep a little memory just for you — private, never shared with your lab. Anytime you tell me "remember this," it sticks across all our chats.</div>
+        </div>
+        <div class="memcard">
+          <div class="mt"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 7h14M7 11h10M9 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Save to your memory?</div>
+          <div class="mq">"Works on antifungal resistance in <i>Candida</i> — cares about MIC data and trees."</div>
+          <div class="memrow">
+            <button class="mbtn yes">Yes, remember</button>
+            <button class="mbtn">Not now</button>
+            <button class="mbtn">Edit…</button>
+          </div>
+        </div>
+        <div class="spacer"></div>
+        <div class="note" style="font-size:10.5px"><b>Propose-then-confirm</b> — Beaker offers, you decide. Nothing persists silently.</div>
+        <div class="footrow">
+          <div class="progress"><i class="pg on"></i><i class="pg on"></i><i class="pg on"></i><i class="pg on"></i><i class="pg on"></i><i class="pg now"></i><i class="pg"></i></div>
+          <button class="nextbtn">Continue →</button>
+        </div>
+      </div></div>
+    </div>
+    <div class="note annot">Teaches the memory feature by <b>using</b> it in context — the privacy promise (per-user, never shared) is stated right where the first write happens. <b>Open Q:</b> propose-then-confirm (shown) vs. user-initiated only.</div>
+  </div>
+
+  <!-- BEAT 7 — RECAP + INVITE-IN -->
+  <div class="beat">
+    <div class="beatnum"><b>7</b> · Recap + invite-in (done)</div>
+    <div class="win">
+      <div class="titlebar"><i class="tb tb1"></i><i class="tb tb2"></i><i class="tb tb3"></i><span class="tburl">researchos.app · ready</span></div>
+      <div class="screen"><div class="pad">
+        <div class="qhd">
+          <div class="bot sm"><svg viewBox="0 0 24 24" fill="none"><path d="M9 3h6M10 3v6l-5 8.5A2 2 0 0 0 6.7 21h10.6a2 2 0 0 0 1.7-3.5L14 9V3" stroke="#3a5a78" stroke-width="1.6" stroke-linejoin="round"/></svg></div>
+          <div class="bubble">That's the tour. The sample data's gone — your space is clean. Here's what I'll remember:</div>
+        </div>
+        <div class="recap">
+          <div class="rh"><svg viewBox="0 0 24 24" fill="none"><path d="M12 3v18M5 7h14M7 11h10M9 15h6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg> Saved to your memory</div>
+          <div class="recapitem"><span class="k">Field</span><span class="v">Antifungal resistance · <i>Candida</i></span></div>
+          <div class="recapitem"><span class="k">Cares about</span><span class="v">MIC data, phylogenetic trees</span></div>
+          <div class="recapitem"><span class="k">Role</span><span class="v">PI / lab head</span></div>
+          <div class="recapitem"><span class="k">Showed you</span><span class="v">Data overlays, experiment tracking, analysis</span></div>
+        </div>
+        <div class="invrow">
+          <button class="btn" style="flex:1">Make your first table</button>
+          <button class="mbtn">Just explore</button>
+        </div>
+        <div class="replaylink"><svg viewBox="0 0 24 24" fill="none"><path d="M3 12a9 9 0 1 0 3-6.7L3 8m0-5v5h5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg> Replay any section later — it's in the Help menu</div>
+        <div class="spacer"></div>
+        <div class="meterchip" style="position:static; align-self:flex-start; margin-top:8px">onboarding <span class="meterbar"><i style="width:9%"></i></span> 13k / 150k used</div>
+      </div></div>
+    </div>
+    <div class="note annot">Ends on an <b>invitation</b>, not a forced task. The memory recap makes the feature's first act visibly useful. "Replay any section" + the earlier montage cover the <b>"everything else"</b> gap. Came in well under the cap.</div>
+  </div>
+
+</div>
+
+<p class="sub" style="margin-top:26px"><b>Still open for your markup:</b> ① interest-picker by goal (shown) vs. by page · ② length: ~5 min deep + a 20-sec montage of un-picked surfaces (recommended) vs. full 10-min · ③ welcome framing intensity · ④ memory write trigger (propose-confirm shown) · ⑤ confirm the end recap. Engine: deterministic step machine + Beaker as presenter; ephemeral demo layer (<code>seed-ephemeral.ts</code>); <code>guide_to_element</code> spotlight; capped meter off the new-account gift. Flag: <code>NEXT_PUBLIC_ONBOARDING_TUTOR</code>.</p>
+
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot left chat-history rail, before and after</title>
+<style>
+  :root {
+    --surface-raised:#fff; --surface-sunken:#f8fafc; --surface:#fff;
+    --foreground:#171717; --foreground-muted:#6b7280; --border:#e5e7eb;
+    --scrim:rgba(15,23,42,0.35); --sky:#1aa0e6; --action:#1283c9;
+    --sky-soft-bg:#f0f9ff; --accent:#1283c9; --ok:#16a34a; --pin:#e11d48;
+    --page-bg:#e2e8f0; --rail-active:#eaf4fc;
+  }
+  html[data-theme="dark"]{
+    --surface-raised:#131c2e; --surface-sunken:#0d1424; --surface:#0d1424;
+    --foreground:#f1f5f9; --foreground-muted:#b4bfd0; --border:rgba(255,255,255,0.18);
+    --scrim:rgba(2,6,15,0.55); --sky:#38bdf8; --action:#38bdf8; --sky-soft-bg:rgba(12,74,110,0.3);
+    --accent:#38bdf8; --ok:#4ade80; --pin:#fb7185; --page-bg:#060a13; --rail-active:rgba(12,74,110,0.35);
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--foreground);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:14px;padding:12px 22px;background:var(--surface-raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:700;}
+  .topbar p{margin:0;font-size:12px;color:var(--foreground-muted);max-width:760px;}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--surface-sunken);color:var(--foreground);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn.on{background:var(--accent);border-color:var(--accent);color:#fff;}
+  .btn.danger{color:var(--pin);}
+
+  .stage{display:grid;grid-template-columns:minmax(340px,1fr) minmax(560px,1.5fr);gap:28px;padding:28px 22px 56px;max-width:1500px;margin:0 auto;align-items:start;}
+  @media(max-width:1100px){.stage{grid-template-columns:1fr;}}
+  .col h2{font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--foreground-muted);margin:0 0 4px;font-weight:800;}
+  .col .blurb{font-size:12.5px;color:var(--foreground-muted);margin:0 0 16px;min-height:34px;line-height:1.5;}
+  .frame{background:var(--scrim);border-radius:18px;padding:24px 20px;}
+
+  /* palette */
+  .palette{margin:0 auto;background:var(--surface-raised);border:1px solid var(--border);border-radius:16px;overflow:hidden;box-shadow:0 25px 50px -12px rgba(0,0,0,0.45);display:flex;flex-direction:column;}
+  .palette.before{max-width:520px;}
+  .palette.after{max-width:760px;}
+  .bot{display:inline-block;}
+  .word{font-size:14px;font-weight:700;color:var(--foreground);}
+  .ai{font-weight:800;background:linear-gradient(90deg,#f7a072,#f2c94c,#6bbf59,#5aa9e6,#b08fdb);-webkit-background-clip:text;background-clip:text;color:transparent;}
+
+  .ahead{display:flex;align-items:center;gap:9px;padding:9px 12px;border-bottom:1px solid var(--border);}
+  .ahead .icon{width:26px;height:26px;border-radius:7px;display:flex;align-items:center;justify-content:center;color:var(--foreground-muted);}
+  .ahead .push{margin-left:auto;display:flex;align-items:center;gap:6px;}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden;background:var(--surface-sunken);}
+  .seg button{appearance:none;border:none;background:transparent;cursor:pointer;font-size:11px;font-weight:700;color:var(--foreground-muted);padding:4px 9px;}
+  .seg button.on{background:var(--action);color:#fff;}
+  . titleghost{font-size:11px;color:var(--foreground-muted);}
+  .tinytitle{font-size:11px;color:var(--foreground-muted);max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+
+  .convo{position:relative;background:var(--surface-sunken);min-height:300px;padding:30px 14px 14px;display:flex;flex-direction:column;gap:10px;}
+  .rider{position:absolute;top:-18px;left:26px;}
+  .msg{max-width:86%;font-size:12.5px;line-height:1.45;}
+  .msg.user{align-self:flex-end;background:var(--action);color:#fff;border-radius:12px 12px 4px 12px;padding:8px 11px;}
+  .msg.bot{align-self:flex-start;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px 12px 12px 4px;padding:8px 11px;color:var(--foreground);}
+  .composer{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);background:var(--surface-raised);}
+  .composer input{flex:1;border:1px solid var(--border);border-radius:8px;padding:8px 10px;font:inherit;font-size:12.5px;background:var(--surface-sunken);color:var(--foreground);}
+  .send{width:34px;border-radius:8px;border:none;background:var(--action);color:#fff;font-weight:700;cursor:pointer;}
+
+  /* the AFTER two-pane body */
+  .twopane{display:grid;grid-template-columns:212px 1fr;min-height:360px;}
+  .rail{border-right:1px solid var(--border);background:var(--surface-sunken);display:flex;flex-direction:column;min-width:0;}
+  .rail-top{padding:9px;}
+  .newchat{width:100%;display:flex;align-items:center;gap:7px;justify-content:center;border:1px solid var(--border);background:var(--surface-raised);color:var(--foreground);border-radius:9px;padding:7px;font-size:12px;font-weight:700;cursor:pointer;}
+  .newchat .plus{font-size:14px;line-height:1;}
+  .rail-section{font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--foreground-muted);font-weight:800;padding:8px 12px 4px;}
+  .rail-list{overflow-y:auto;flex:1;padding:0 6px 8px;}
+  .chat-row{position:relative;display:flex;align-items:center;gap:7px;padding:7px 8px;border-radius:8px;cursor:pointer;font-size:12px;color:var(--foreground);}
+  .chat-row:hover{background:var(--surface-raised);}
+  .chat-row.active{background:var(--rail-active);font-weight:600;box-shadow:inset 2px 0 0 var(--action);}
+  .chat-row .ctitle{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chat-row .acts{display:none;gap:2px;flex:none;}
+  .chat-row:hover .acts{display:flex;}
+  .chat-row .acts button{border:none;background:none;cursor:pointer;color:var(--foreground-muted);padding:2px;border-radius:5px;font-size:12px;line-height:1;}
+  .chat-row .acts button:hover{background:var(--surface-sunken);color:var(--foreground);}
+  .rail-foot{border-top:1px solid var(--border);}
+  .archived-toggle{width:100%;text-align:left;border:none;background:none;cursor:pointer;color:var(--foreground-muted);font-size:10.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;padding:8px 12px;display:flex;align-items:center;gap:6px;}
+
+  .dot{width:6px;height:6px;border-radius:50%;background:var(--foreground-muted);flex:none;}
+  .convo.pane{min-height:360px;}
+
+  /* search-mode note */
+  .searchnote{margin:14px auto 0;max-width:760px;font-size:11.5px;color:var(--foreground-muted);background:var(--surface-raised);border:1px dashed var(--border);border-radius:10px;padding:10px 12px;line-height:1.5;}
+
+  /* changes + comments (same machinery as the other mockups) */
+  .note{max-width:1500px;margin:0 auto;padding:0 22px 90px;}
+  .note h3{font-size:13px;margin:24px 0 10px;}
+  .changes{display:grid;gap:10px;}
+  .change{display:flex;gap:14px;align-items:flex-start;border:1px solid var(--border);border-radius:12px;background:var(--surface-raised);padding:12px 14px;border-left-width:4px;border-left-color:var(--border);}
+  .change.approved{border-left-color:var(--ok);}
+  .change.disapproved{border-left-color:var(--pin);}
+  .change .ctext{flex:1;min-width:0;}
+  .change .ctitle{font-size:13.5px;font-weight:600;margin-bottom:2px;}
+  .change .cdesc{font-size:12.5px;color:var(--foreground-muted);line-height:1.5;}
+  .verdict{flex:none;display:flex;flex-direction:column;gap:6px;width:150px;}
+  .vrow{display:flex;gap:6px;}
+  .vbtn{flex:1;appearance:none;cursor:pointer;text-align:center;border:1px solid var(--border);background:var(--surface-sunken);color:var(--foreground);border-radius:8px;padding:6px 8px;font-size:12px;font-weight:600;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;}
+  .vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{font-size:11px;color:var(--foreground-muted);background:none;border:none;cursor:pointer;text-decoration:underline;align-self:flex-end;}
+
+  body.cmt-on .cmt{cursor:crosshair;}
+  body.cmt-on .cmt:hover{outline:2px dashed var(--accent);outline-offset:-2px;border-radius:8px;}
+  .cmt{position:relative;}
+  .pin{position:absolute;top:-8px;right:-8px;z-index:8;min-width:18px;height:18px;padding:0 4px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,0.4);cursor:pointer;}
+  .editor{position:fixed;z-index:50;width:280px;background:var(--surface-raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 18px 40px -10px rgba(0,0,0,0.55);padding:12px;}
+  .editor .lbl{font-size:11px;font-weight:700;color:var(--foreground-muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;}
+  .editor textarea{width:100%;min-height:70px;resize:vertical;border:1px solid var(--border);border-radius:8px;padding:8px;font:inherit;font-size:13px;background:var(--surface-sunken);color:var(--foreground);}
+  .editor .acts{display:flex;gap:8px;margin-top:8px;}
+  .editor .acts .spacer{flex:1;}
+  .panel{position:fixed;right:18px;bottom:18px;z-index:40;width:330px;max-height:62vh;display:flex;flex-direction:column;background:var(--surface-raised);border:1px solid var(--border);border-radius:14px;box-shadow:0 18px 40px -10px rgba(0,0,0,0.55);}
+  .panel.collapsed .panel-body,.panel.collapsed .panel-foot{display:none;}
+  .panel-head{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);cursor:pointer;}
+  .panel-head h3{font-size:13px;margin:0;font-weight:700;}
+  .panel-head .count{font-size:11px;color:var(--foreground-muted);}
+  .panel-head .chev{margin-left:auto;color:var(--foreground-muted);font-size:12px;}
+  .panel-body{overflow-y:auto;padding:6px;}
+  .citem{display:flex;gap:8px;padding:8px;border-radius:8px;}
+  .citem:hover{background:var(--surface-sunken);}
+  .citem .num{flex:none;width:18px;height:18px;background:var(--pin);color:#fff;border-radius:9px;font-size:11px;font-weight:700;line-height:18px;text-align:center;}
+  .citem .body{min-width:0;flex:1;}
+  .citem .tgt{font-size:11px;color:var(--foreground-muted);}
+  .citem .txt{font-size:13px;white-space:pre-wrap;word-break:break-word;}
+  .citem .x{flex:none;cursor:pointer;color:var(--foreground-muted);font-size:14px;border:none;background:none;}
+  .panel-foot{display:flex;gap:8px;padding:10px 12px;border-top:1px solid var(--border);}
+  .empty{font-size:12.5px;color:var(--foreground-muted);padding:14px;text-align:center;}
+  .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:60;background:var(--foreground);color:var(--surface-raised);font-size:12.5px;font-weight:600;padding:9px 14px;border-radius:8px;opacity:0;transition:opacity .2s;pointer-events:none;}
+  .toast.show{opacity:1;}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div>
+      <h1>BeakerBot left chat-history rail, before and after</h1>
+      <p>Left is ask mode today (clock-icon panel + a cramped grey title). Right is the proposal, a persistent left rail in AI mode like a real chat app. Search mode stays the lean palette. Turn on Comment mode, then click any region to pin a note, and mark each change Approve or Disapprove below.</p>
+    </div>
+    <div class="spacer"></div>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+  </div>
+
+  <div class="stage">
+    <!-- BEFORE -->
+    <div class="col">
+      <h2>Before (live today)</h2>
+      <p class="blurb">One column. History hides behind the clock icon, and the only "which chat am I in" cue is the small grey title that truncates next to the wordmark.</p>
+      <div class="frame">
+        <div class="palette before">
+          <div class="ahead cmt" data-clabel="Before / header">
+            <span class="bot" data-bot="22"></span>
+            <span class="word">BeakerBot <span class="ai">AI</span></span>
+            <span class="tinytitle cmt" data-clabel="Before / cramped grey title">filter the fake...</span>
+            <span class="push">
+              <span class="seg"><button class="on">Step</button><button>Plan</button></span>
+              <span class="icon cmt" data-clabel="Before / save icon" title="Save to">&#x2913;</span>
+              <span class="icon cmt" data-clabel="Before / history clock (panel)" title="History">&#x21bb;</span>
+            </span>
+          </div>
+          <div class="convo">
+            <span class="rider" data-bot="40"></span>
+            <div class="msg user">filter the fakeGFP table to passing wells</div>
+            <div class="msg bot">Done. The filtered table has 48 passing wells. Want a t-test next?</div>
+          </div>
+          <div class="composer"><input placeholder="Message BeakerBot" /><button class="send">&#8593;</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div class="col">
+      <h2>After (proposed)</h2>
+      <p class="blurb">Ask mode widens to two panes. A left rail lists every chat (active highlighted), with New chat on top and hover actions for rename / archive / delete. The clock panel and the tiny title are gone, the rail IS the history.</p>
+      <div class="frame">
+        <div class="palette after">
+          <div class="ahead cmt" data-clabel="After / slim header">
+            <span class="icon" title="Back">&#x2039;</span>
+            <span class="bot" data-bot="20"></span>
+            <span class="word">BeakerBot <span class="ai">AI</span></span>
+            <span class="push">
+              <span class="seg"><button class="on">Step</button><button>Plan</button></span>
+              <span class="icon cmt" data-clabel="After / save icon" title="Save to">&#x2913;</span>
+            </span>
+          </div>
+          <div class="twopane">
+            <div class="rail cmt" data-clabel="After / left history rail">
+              <div class="rail-top"><button class="newchat cmt" data-clabel="After / New chat button"><span class="plus">+</span> New chat</button></div>
+              <div class="rail-section">Recent</div>
+              <div class="rail-list" id="railList"></div>
+              <div class="rail-foot">
+                <button class="archived-toggle cmt" data-clabel="After / Archived section"><span id="archChev">&#9656;</span> Archived (2)</button>
+              </div>
+            </div>
+            <div class="convo pane cmt" data-clabel="After / conversation pane">
+              <span class="rider" data-bot="44"></span>
+              <div class="msg user">filter the fakeGFP table to passing wells</div>
+              <div class="msg bot">Done. The filtered table has 48 passing wells. Want a t-test next?</div>
+            </div>
+          </div>
+          <div class="composer"><input placeholder="Message BeakerBot" /><button class="send">&#8593;</button></div>
+        </div>
+      </div>
+      <div class="searchnote cmt" data-clabel="After / search mode stays lean">
+        Note: this rail only appears in AI mode. Plain search (type to find your work) stays the lean narrow palette with a magnifier, no rail, so the everyday quick-search is unchanged.
+      </div>
+    </div>
+  </div>
+
+  <div class="note">
+    <h3>What changed and why. Mark each Approve or Disapprove.</h3>
+    <div class="changes" id="changes"></div>
+  </div>
+
+  <div class="panel" id="panel">
+    <div class="panel-head" id="panelHead"><h3>Comments and decisions</h3><span class="count" id="cCount">0</span><span class="chev" id="chev">hide</span></div>
+    <div class="panel-body" id="panelBody"><div class="empty">No comments yet. Turn on Comment mode and click any region.</div></div>
+    <div class="panel-foot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn" id="downloadBtn">Download .md</button><span style="flex:1"></span><button class="btn danger" id="clearBtn">Clear</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const beaker=(s)=>`<svg viewBox="0 0 24 24" width="${s}" height="${s}" fill="none" stroke="#1aa0e6" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v6l-4.5 8a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 9V3"/><path d="M7.5 15h9" stroke="#38bdf8"/></svg>`;
+  document.querySelectorAll('[data-bot]').forEach(el=>el.innerHTML=beaker(+el.dataset.bot));
+
+  const CHATS=[
+    {title:'Filter and t-test fakeGFP',active:true},
+    {title:'Primer Tm calculation notes',active:false},
+    {title:'Dose-response EC50 on Two-drug',active:false},
+    {title:'CRISPR base editing papers',active:false},
+    {title:'Cox PH survival analysis',active:false},
+  ];
+  function renderRail(){
+    document.getElementById('railList').innerHTML=CHATS.map((c,i)=>`
+      <div class="chat-row ${c.active?'active':''} cmt" data-clabel="After / chat row ${i+1}${c.active?' (active)':''}">
+        <span class="dot"></span>
+        <span class="ctitle">${c.title}</span>
+        <span class="acts"><button title="Rename">&#9998;</button><button title="Archive">&#9023;</button><button title="Delete">&#128465;</button></span>
+      </div>`).join('');
+  }
+  renderRail();
+
+  const CHANGES=[
+    {id:'rail',title:'Persistent left history rail in AI mode',desc:'Ask mode becomes two panes, a left rail listing every saved chat plus the conversation. Discoverable like ChatGPT or your Claude Code sidebar, instead of hiding history behind a clock icon.'},
+    {id:'wider',title:'The AI palette gets wider',desc:'To fit the rail, the ask-mode surface grows from a narrow palette to a ~760px two-pane workspace. Plain search mode stays the lean narrow palette, so the everyday quick-search is unchanged.'},
+    {id:'droptitle',title:'Drop the cramped grey title and the clock panel',desc:'The active chat is highlighted in the rail, so the tiny truncated title next to the wordmark and the clock-icon History panel are both removed. That fixes the too-small title.'},
+    {id:'rowactions',title:'New chat on top, per-row hover actions',desc:'A New chat button pinned at the top of the rail, and each row reveals rename / archive / delete on hover. An Archived section sits collapsed at the bottom. Same backend (threads on disk), new UI.'},
+  ];
+  const VSTORE='beakerbot-rail-verdicts-v1';
+  let verdicts={}; try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}')}catch{verdicts={}}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts))}catch{}}
+  function renderChanges(){
+    const w=document.getElementById('changes');
+    w.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';
+      return `<div class="change ${cls}"><div class="ctext"><div class="ctitle">${c.title}</div><div class="cdesc">${c.desc}</div></div>
+      <div class="verdict"><div class="vrow"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button></div>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:'<span style="height:14px"></span>'}</div></div>`;}).join('');
+    w.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));
+  }
+  renderChanges();
+
+  const STORE='beakerbot-rail-comments-v1';
+  let comments=[]; try{comments=JSON.parse(localStorage.getItem(STORE)||'[]')}catch{comments=[]}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments))}catch{}}
+  function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+  function renderPins(){
+    document.querySelectorAll('.pin').forEach(p=>p.remove());
+    const by={};comments.forEach((c,i)=>{(by[c.target]=by[c.target]||[]).push(i+1)});
+    document.querySelectorAll('.cmt').forEach(el=>{const l=el.getAttribute('data-clabel');const n=by[l];if(!n)return;const p=document.createElement('span');p.className='pin';p.textContent=n.join(',');p.addEventListener('click',(e)=>{e.stopPropagation();const f=comments.findIndex(c=>c.target===l);if(f>=0)openEditor(el,f,e)});el.appendChild(p);});
+  }
+  function renderPanel(){
+    const b=document.getElementById('panelBody');document.getElementById('cCount').textContent=comments.length;
+    if(!comments.length){b.innerHTML='<div class="empty">No comments yet. Turn on Comment mode and click any region.</div>';return;}
+    b.innerHTML=comments.map((c,i)=>`<div class="citem" data-i="${i}"><span class="num">${i+1}</span><div class="body"><div class="tgt">${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');
+    b.querySelectorAll('[data-del]').forEach(x=>x.addEventListener('click',()=>{comments.splice(+x.dataset.del,1);save();renderAll();}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+  renderAll();
+
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor();const target=targetEl.closest('.cmt').getAttribute('data-clabel');const ex=existingIndex!=null?comments[existingIndex]:null;
+    const ed=document.createElement('div');ed.className='editor';
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Your note or change request">${ex?esc(ex.text):''}</textarea><div class="acts">${ex?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const x=ev?ev.clientX:0,y=ev?ev.clientY:0;ed.style.left=Math.min(Math.max(8,x-20),innerWidth-288)+'px';ed.style.top=Math.min(y+10,innerHeight-200)+'px';
+    const ta=ed.querySelector('textarea');ta.focus();
+    ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ta.value.trim();if(!t){closeEditor();return;}if(ex)ex.text=t;else comments.push({target,text:t});save();renderAll();closeEditor();}}));
+    ed.addEventListener('keydown',e=>{if(e.key==='Escape')closeEditor();if(e.key==='Enter'&&(e.metaKey||e.ctrlKey))ed.querySelector('[data-act="save"]').click();});
+  }
+  document.addEventListener('click',e=>{if(!document.body.classList.contains('cmt-on'))return;if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin'))return;const c=e.target.closest('.cmt');if(!c)return;e.preventDefault();openEditor(c,null,e);});
+  const cBtn=document.getElementById('commentToggle');cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  const tBtn=document.getElementById('themeToggle');tBtn.addEventListener('click',()=>{const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');tBtn.textContent=d?'Switch to dark':'Switch to light';});
+  document.getElementById('panelHead').addEventListener('click',()=>{const p=document.getElementById('panel');const c=p.classList.toggle('collapsed');document.getElementById('chev').textContent=c?'show':'hide';});
+
+  function md(){let o='BeakerBot left chat-history rail, feedback\n\nDecisions\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nComments\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>o+=`${i+1}. [${c.target}] ${c.text}\n`);return o;}
+  function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1600);}
+  document.getElementById('exportBtn').addEventListener('click',async()=>{try{await navigator.clipboard.writeText(md());toast('Feedback copied. Paste it back to me.');}catch{window.prompt('Copy',md());}});
+  document.getElementById('downloadBtn').addEventListener('click',()=>{const b=new Blob([md()],{type:'text/markdown'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='beakerbot-chat-rail-feedback.md';a.click();URL.revokeObjectURL(a.href);});
+  document.getElementById('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all comments?'))return;comments=[];save();renderAll();});
+</script>
+</body>
+</html>

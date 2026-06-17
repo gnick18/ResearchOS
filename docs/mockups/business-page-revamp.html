@@ -1,0 +1,554 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Business page revamp — before / after</title>
+<style>
+  :root {
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-sunken: #f1f5f9;
+    --foreground: #171717;
+    --foreground-muted: #6b7280;
+    --border: #e5e7eb;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --ok: #059669;
+    --ok-bg: #ecfdf5;
+    --no: #e11d48;
+    --no-bg: #fff1f2;
+    --amber: #b45309;
+    --amber-bg: #fffbeb;
+  }
+  body.dark {
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-sunken: #0d1424;
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --border: rgba(255,255,255,0.16);
+    --ok: #34d399;
+    --ok-bg: rgba(16,185,129,0.12);
+    --no: #fb7185;
+    --no-bg: rgba(244,63,94,0.12);
+    --amber: #fbbf24;
+    --amber-bg: rgba(245,158,11,0.12);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--surface);
+    color: var(--foreground);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+  header.top {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 12px 20px;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--border);
+  }
+  header.top h1 { font-size: 16px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  header.top .spacer { flex: 1; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; font-weight: 600;
+    padding: 6px 11px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface);
+    color: var(--foreground); cursor: pointer; user-select: none;
+  }
+  .pill:hover { border-color: var(--brand-action); }
+  .pill.active { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .pill.commenting { background: var(--amber-bg); color: var(--amber); border-color: var(--amber); }
+  .wrap { display: flex; gap: 0; }
+  main { flex: 1; max-width: 1180px; margin: 0 auto; padding: 24px 20px 120px; }
+  .intro { color: var(--foreground-muted); margin: 4px 0 22px; max-width: 760px; }
+  .intro b { color: var(--foreground); }
+  .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--foreground-muted); margin-top: 10px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+
+  .change {
+    position: relative;
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    background: var(--surface-raised);
+    margin: 0 0 22px;
+    overflow: hidden;
+  }
+  .change[data-verdict="approve"] { box-shadow: inset 4px 0 0 var(--ok); }
+  .change[data-verdict="disapprove"] { box-shadow: inset 4px 0 0 var(--no); }
+  .change-head {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 14px 16px; border-bottom: 1px solid var(--border);
+  }
+  .change-head .n {
+    flex: none; width: 26px; height: 26px; border-radius: 8px;
+    background: var(--brand-sky); color: #fff; font-weight: 800; font-size: 13px;
+    display: grid; place-items: center;
+  }
+  .change-head .t { flex: 1; }
+  .change-head .t h2 { margin: 0; font-size: 15px; font-weight: 700; }
+  .change-head .t p { margin: 3px 0 0; font-size: 12.5px; color: var(--foreground-muted); }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; }
+  .tag.new { background: var(--brand-sky); color: #fff; }
+  .tag.changed { background: var(--brand-purple); color: #fff; }
+  .tag.opt { background: var(--amber-bg); color: var(--amber); border: 1px solid var(--amber); }
+  .verdicts { display: flex; gap: 8px; }
+  .vbtn { font-size: 12px; font-weight: 700; padding: 6px 10px; border-radius: 9px; border: 1px solid var(--border); background: var(--surface); color: var(--foreground-muted); cursor: pointer; }
+  .vbtn.approve.on { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+  .vbtn.disapprove.on { background: var(--no-bg); color: var(--no); border-color: var(--no); }
+
+  .ba { display: grid; grid-template-columns: 1fr 1fr; }
+  .ba > div { padding: 16px; }
+  .ba .before { border-right: 1px solid var(--border); }
+  .col-label { font-size: 11px; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 10px; }
+  .col-label.after { color: var(--brand-action); }
+  @media (max-width: 820px) { .ba { grid-template-columns: 1fr; } .ba .before { border-right: none; border-bottom: 1px solid var(--border); } }
+
+  /* faux app surfaces */
+  .card { border: 1px solid var(--border); border-radius: 12px; background: var(--surface-raised); padding: 12px; }
+  .card.sunken { background: var(--surface-sunken); }
+  .muted { color: var(--foreground-muted); }
+  .field-label { font-size: 11px; font-weight: 600; color: var(--foreground-muted); }
+  .faux-input { border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px; background: var(--surface-raised); font-size: 12.5px; color: var(--foreground); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .stack { display: flex; flex-direction: column; gap: 8px; }
+  .row { display: flex; align-items: center; gap: 10px; }
+  .between { justify-content: space-between; }
+
+  table.led { width: 100%; border-collapse: collapse; font-size: 12px; }
+  table.led th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.03em; color: var(--foreground-muted); padding: 6px 8px; border-bottom: 1px solid var(--border); font-weight: 700; }
+  table.led td { padding: 7px 8px; border-bottom: 1px solid var(--border); }
+  table.led tr:last-child td { border-bottom: none; }
+  .out { color: var(--no); font-variant-numeric: tabular-nums; }
+  .inn { color: var(--ok); font-variant-numeric: tabular-nums; }
+  .chip { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-sunken); white-space: nowrap; }
+  .chip.amex { color: var(--amber); border-color: var(--amber); background: var(--amber-bg); }
+  .chip.llc { color: var(--brand-action); border-color: var(--brand-action); background: transparent; }
+  select.paidwith { font-size: 11.5px; padding: 3px 6px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-raised); color: var(--foreground); }
+
+  .pm { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 11px; background: var(--surface-raised); }
+  .pm + .pm { margin-top: 8px; }
+  .pm .chipdot { width: 34px; height: 22px; border-radius: 5px; flex: none; background: linear-gradient(135deg, var(--brand-sky), var(--brand-purple)); }
+  .pm.personal .chipdot { background: linear-gradient(135deg, #6b7280, #374151); }
+  .pm .pm-main { flex: 1; }
+  .pm .pm-main b { font-size: 13px; }
+  .pm .pm-sub { font-size: 11.5px; color: var(--foreground-muted); }
+  .status { font-size: 10.5px; font-weight: 700; padding: 2px 7px; border-radius: 999px; }
+  .status.active { color: var(--ok); background: var(--ok-bg); }
+  .status.printing { color: var(--brand-action); background: transparent; border: 1px solid var(--brand-action); }
+  .status.phasing { color: var(--amber); background: var(--amber-bg); }
+  .status.bank { color: var(--foreground-muted); background: var(--surface-sunken); }
+
+  .reimburse-amt { font-size: 26px; font-weight: 800; color: var(--amber); font-variant-numeric: tabular-nums; }
+  .btn { font-size: 12.5px; font-weight: 700; padding: 8px 12px; border-radius: 9px; cursor: pointer; border: 1px solid var(--border); background: var(--surface); color: var(--foreground); }
+  .btn.primary { background: linear-gradient(120deg, var(--brand-action), var(--brand-purple)); color: #fff; border: none; }
+  .note-out { margin-top: 10px; font-size: 12px; color: var(--foreground-muted); border-top: 1px dashed var(--border); padding-top: 10px; }
+  .ghosted { opacity: 0.55; }
+  .empty-note { font-size: 12px; color: var(--foreground-muted); font-style: italic; }
+
+  /* comment pins */
+  #canvas { position: relative; }
+  body.comment-mode #canvas { cursor: crosshair; }
+  body.comment-mode .change { outline: 1px dashed var(--amber); outline-offset: 3px; }
+  .pin {
+    position: absolute; transform: translate(-50%, -50%); z-index: 30;
+    width: 22px; height: 22px; border-radius: 50% 50% 50% 2px;
+    background: var(--amber); color: #fff; font-size: 11px; font-weight: 800;
+    display: grid; place-items: center; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  }
+  aside.comments {
+    width: 300px; flex: none; border-left: 1px solid var(--border);
+    background: var(--surface-raised); padding: 16px 14px; min-height: 100vh;
+  }
+  aside.comments h3 { font-size: 13px; margin: 0 0 4px; }
+  aside.comments .hint { font-size: 11.5px; color: var(--foreground-muted); margin: 0 0 12px; }
+  .cmt { border: 1px solid var(--border); border-radius: 10px; padding: 9px 10px; margin-bottom: 9px; background: var(--surface); }
+  .cmt .cmt-h { display: flex; align-items: center; gap: 7px; margin-bottom: 5px; }
+  .cmt .num { width: 18px; height: 18px; border-radius: 50%; background: var(--amber); color: #fff; font-size: 10px; font-weight: 800; display: grid; place-items: center; }
+  .cmt textarea { width: 100%; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-raised); color: var(--foreground); font: inherit; font-size: 12px; padding: 6px; resize: vertical; min-height: 44px; }
+  .cmt .cmt-acts { display: flex; gap: 6px; margin-top: 6px; }
+  .mini { font-size: 11px; padding: 3px 7px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-raised); cursor: pointer; color: var(--foreground-muted); }
+  .mini.on-ok { color: var(--ok); border-color: var(--ok); }
+  .mini.on-no { color: var(--no); border-color: var(--no); }
+  .editor-pop { position: absolute; z-index: 40; width: 230px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: 10px; padding: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.25); }
+  .editor-pop textarea { width: 100%; min-height: 56px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface); color: var(--foreground); font: inherit; font-size: 12px; padding: 6px; }
+  .editor-pop .row { margin-top: 7px; justify-content: flex-end; }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Business page revamp</h1>
+  <span class="muted" style="font-size:12px">before / after, mark each up and export</span>
+  <span class="spacer"></span>
+  <span class="pill" id="themeBtn">Dark mode</span>
+  <span class="pill" id="commentBtn">Comment mode: off</span>
+  <span class="pill" id="resetBtn">Reset</span>
+  <span class="pill active" id="exportBtn">Export decisions</span>
+</header>
+
+<div class="wrap">
+<main>
+  <p class="intro">
+    Proposed additions to <b>/admin/business</b> so it tracks the LLC cards and squares up what you fronted on the personal Amex. Nothing here stores a full card number or CVV, only label plus last four. Click <b>Approve</b> or <b>Disapprove</b> on each change. Turn on <b>Comment mode</b> to drop numbered pins anywhere with notes. Hit <b>Export</b> to copy or download a clean decisions list to paste back.
+    <span class="legend">
+      <span><span class="dot" style="background:var(--brand-sky)"></span> New section</span>
+      <span><span class="dot" style="background:var(--brand-purple)"></span> Change to existing</span>
+      <span><span class="dot" style="background:var(--amber)"></span> Optional</span>
+    </span>
+  </p>
+
+  <div id="canvas">
+
+    <!-- CHANGE 1 -->
+    <section class="change" data-change="payment-methods">
+      <div class="change-head">
+        <div class="n">1</div>
+        <div class="t">
+          <div class="row" style="gap:8px"><h2>Payment methods section</h2><span class="tag new">New</span></div>
+          <p>A card list on the entity panel. Label, last four, owner, and status only. Never the full number, expiry, or CVV.</p>
+        </div>
+        <div class="verdicts" data-no-pin>
+          <button class="vbtn approve" data-v="approve">Approve</button>
+          <button class="vbtn disapprove" data-v="disapprove">Disapprove</button>
+        </div>
+      </div>
+      <div class="ba">
+        <div class="before">
+          <div class="col-label">Before</div>
+          <div class="card stack">
+            <div>
+              <div class="field-label">Bank account label</div>
+              <div class="faux-input" style="margin-top:4px">Mercury checking (not the number)</div>
+            </div>
+            <p class="empty-note">One free-text bank field. No record of the cards, no way to tell which card paid for what.</p>
+          </div>
+        </div>
+        <div class="after">
+          <div class="col-label after">After</div>
+          <div class="card stack">
+            <div class="row between"><div class="field-label">Payment methods</div><button class="btn" style="padding:4px 9px;font-size:11px" data-no-pin>+ Add card</button></div>
+            <div class="pm"><div class="chipdot"></div><div class="pm-main"><b>Mercury Mastercard credit</b><div class="pm-sub">&bull;&bull;6744 &middot; $2.5k daily limit</div></div><span class="chip llc">LLC</span><span class="status active">Active</span></div>
+            <div class="pm"><div class="chipdot"></div><div class="pm-main"><b>Mercury card</b><div class="pm-sub">&bull;&bull;2696</div></div><span class="chip llc">LLC</span><span class="status printing">Printing</span></div>
+            <div class="pm"><div class="chipdot"></div><div class="pm-main"><b>Mercury Checking</b><div class="pm-sub">&bull;&bull;9490 &middot; account</div></div><span class="chip llc">LLC</span><span class="status bank">Bank</span></div>
+            <div class="pm personal"><div class="chipdot"></div><div class="pm-main"><b>Personal Amex</b><div class="pm-sub">&bull;&bull;XXXX &middot; send last four to label it</div></div><span class="chip amex">Personal</span><span class="status phasing">Phasing out</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANGE 2 -->
+    <section class="change" data-change="paid-with">
+      <div class="change-head">
+        <div class="n">2</div>
+        <div class="t">
+          <div class="row" style="gap:8px"><h2>"Paid with" on every ledger entry</h2><span class="tag changed">Change</span></div>
+          <p>A per-entry card tag. This is the load-bearing piece, it is what lets the page sum what you fronted on the Amex and see spend per card. Try the dropdowns, the reimbursement total below updates live.</p>
+        </div>
+        <div class="verdicts" data-no-pin>
+          <button class="vbtn approve" data-v="approve">Approve</button>
+          <button class="vbtn disapprove" data-v="disapprove">Disapprove</button>
+        </div>
+      </div>
+      <div class="ba">
+        <div class="before">
+          <div class="col-label">Before</div>
+          <table class="led">
+            <thead><tr><th>Date</th><th>Category</th><th>Note</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody>
+              <tr><td>06-10</td><td>Dev accounts</td><td>Google Play registration</td><td style="text-align:right" class="out">-$25.00</td></tr>
+              <tr><td>06-10</td><td>Dev accounts</td><td>Tello prepaid eSIM</td><td style="text-align:right" class="out">-$24.68</td></tr>
+              <tr><td>06-09</td><td>Software</td><td>AI tooling invoices</td><td style="text-align:right" class="out">-$699.20</td></tr>
+            </tbody>
+          </table>
+          <p class="empty-note" style="margin-top:8px">No idea which card paid. Reimbursement is a manual hunt through statements.</p>
+        </div>
+        <div class="after">
+          <div class="col-label after">After</div>
+          <table class="led">
+            <thead><tr><th>Date</th><th>Note</th><th>Paid with</th><th style="text-align:right">Amount</th></tr></thead>
+            <tbody id="ledBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANGE 3 -->
+    <section class="change" data-change="reimbursement">
+      <div class="change-head">
+        <div class="n">3</div>
+        <div class="t">
+          <div class="row" style="gap:8px"><h2>Reimbursement / owner-fronted view</h2><span class="tag new">New</span></div>
+          <p>Auto-totals everything tagged to a personal card, what the LLC owes you back. One click records it the clean way for a single-member LLC.</p>
+        </div>
+        <div class="verdicts" data-no-pin>
+          <button class="vbtn approve" data-v="approve">Approve</button>
+          <button class="vbtn disapprove" data-v="disapprove">Disapprove</button>
+        </div>
+      </div>
+      <div class="ba">
+        <div class="before ghosted">
+          <div class="col-label">Before</div>
+          <p class="empty-note">Does not exist. Reimbursement is tracked nowhere.</p>
+        </div>
+        <div class="after">
+          <div class="col-label after">After</div>
+          <div class="card stack">
+            <div class="row between">
+              <div>
+                <div class="field-label">Fronted on personal cards (owed to you)</div>
+                <div class="reimburse-amt" id="reimburseAmt">$0.00</div>
+                <div class="muted" style="font-size:11.5px" id="reimburseCount">across 0 entries tagged personal</div>
+              </div>
+            </div>
+            <div class="row" style="gap:8px" data-no-pin>
+              <button class="btn primary" id="capBtn">Record as capital contribution</button>
+              <button class="btn" id="reimBtn">Record Mercury reimbursement</button>
+            </div>
+            <div class="note-out" id="reimburseNote">
+              <b>Capital contribution</b> (recommended, no money moves): adds one money-in entry "Owner capital contribution" for the total, so the expenses still deduct and the cash balance stays honest. Pick "reimbursement" instead to log an actual Mercury to personal transfer.
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- CHANGE 4 -->
+    <section class="change" data-change="recurring">
+      <div class="change-head">
+        <div class="n">4</div>
+        <div class="t">
+          <div class="row" style="gap:8px"><h2>Recurring subscriptions panel</h2><span class="tag opt">Optional</span></div>
+          <p>A monthly-burn and renewal view, since you are juggling several Claude Max seats plus the dev accounts. Tell me to keep or drop it.</p>
+        </div>
+        <div class="verdicts" data-no-pin>
+          <button class="vbtn approve" data-v="approve">Approve</button>
+          <button class="vbtn disapprove" data-v="disapprove">Disapprove</button>
+        </div>
+      </div>
+      <div class="ba">
+        <div class="before ghosted">
+          <div class="col-label">Before</div>
+          <p class="empty-note">Only the Apple renewal lives on the deadline strip. No view of total monthly recurring cost.</p>
+        </div>
+        <div class="after">
+          <div class="col-label after">After</div>
+          <div class="card stack">
+            <div class="row between"><div class="field-label">Recurring monthly</div><b style="color:var(--no)">~$424.68 / mo</b></div>
+            <table class="led">
+              <tbody>
+                <tr><td>Claude Max</td><td><span class="chip llc">Mercury &bull;&bull;6744</span></td><td style="text-align:right" class="out">$200.00</td></tr>
+                <tr><td>Claude Max (2nd seat)</td><td><span class="chip amex">Amex</span></td><td style="text-align:right" class="out">$200.00</td></tr>
+                <tr><td>Tello line (PAYG, top up by 09-10)</td><td><span class="chip amex">Amex</span></td><td style="text-align:right" class="out">~$8.00</td></tr>
+                <tr><td>Apple Developer (renews yearly)</td><td><span class="chip amex">Amex</span></td><td style="text-align:right" class="out">$8.25</td></tr>
+              </tbody>
+            </table>
+            <p class="muted" style="font-size:11.5px;margin:2px 0 0">Renewal dates feed the existing deadline strip so nothing lapses.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="card sunken" style="margin-top:6px">
+      <b>Unchanged:</b> <span class="muted">the sales-tax gate, deadline strip, money in/out stat cards, tax summary export, dev-accountant panel, and correspondence stay exactly as they are. Only the four blocks above are new or changed.</span>
+    </div>
+
+  </div>
+</main>
+
+<aside class="comments">
+  <h3>Comments</h3>
+  <p class="hint">Turn on Comment mode, then click anywhere on a block to pin a note. Tag each Agree or Disagree.</p>
+  <div id="cmtList"><p class="empty-note">No comments yet.</p></div>
+</aside>
+</div>
+
+<script>
+(function(){
+  var LS = "biz-revamp-v1";
+  var state = load();
+  function load(){ try { return JSON.parse(localStorage.getItem(LS)) || {}; } catch(e){ return {}; } }
+  function save(){ localStorage.setItem(LS, JSON.stringify(state)); }
+  state.verdicts = state.verdicts || {};   // change -> approve/disapprove
+  state.paid = state.paid || {};           // rowId -> card
+  state.comments = state.comments || [];   // {n,xPct,yPct,note,verdict}
+  state.theme = state.theme || "light";
+  state.reimburse = state.reimburse || "";
+
+  // ----- ledger rows (after) -----
+  var ROWS = [
+    {id:"google", date:"06-10", note:"Google Play registration", amt:-25.00, card:"amex"},
+    {id:"tello", date:"06-10", note:"Tello prepaid eSIM", amt:-24.68, card:"amex"},
+    {id:"ai", date:"06-09", note:"AI tooling invoices", amt:-699.20, card:"amex"},
+    {id:"max1", date:"06-08", note:"Claude Max (seat 1)", amt:-200.00, card:"amex"},
+    {id:"max2", date:"06-08", note:"Claude Max (seat 2)", amt:-200.00, card:"6744"},
+    {id:"cap", date:"06-05", note:"Owner capital contribution", amt:100.00, card:"9490", inn:true}
+  ];
+  var CARDS = [
+    {v:"6744", label:"Mercury ••6744 (LLC)"},
+    {v:"2696", label:"Mercury ••2696 (LLC)"},
+    {v:"9490", label:"Mercury Checking ••9490"},
+    {v:"amex", label:"Personal Amex (you)"}
+  ];
+  function cardOf(r){ return state.paid[r.id] || r.card; }
+  function renderLed(){
+    var b = document.getElementById("ledBody"); b.innerHTML = "";
+    ROWS.forEach(function(r){
+      var tr = document.createElement("tr");
+      var amtCls = r.inn ? "inn" : "out";
+      var amtTxt = (r.amt<0?"-$":"+$") + Math.abs(r.amt).toFixed(2);
+      var sel = '<select class="paidwith" data-row="'+r.id+'" data-no-pin>';
+      CARDS.forEach(function(c){ sel += '<option value="'+c.v+'"'+(cardOf(r)===c.v?" selected":"")+'>'+c.label+'</option>'; });
+      sel += '</select>';
+      tr.innerHTML = '<td>'+r.date+'</td><td>'+r.note+'</td><td>'+sel+'</td><td style="text-align:right" class="'+amtCls+'">'+amtTxt+'</td>';
+      b.appendChild(tr);
+    });
+    b.querySelectorAll("select.paidwith").forEach(function(s){
+      s.addEventListener("change", function(){ state.paid[this.getAttribute("data-row")] = this.value; save(); renderReimburse(); });
+    });
+  }
+  function renderReimburse(){
+    var total = 0, count = 0;
+    ROWS.forEach(function(r){ if(!r.inn && cardOf(r)==="amex"){ total += Math.abs(r.amt); count++; } });
+    document.getElementById("reimburseAmt").textContent = "$" + total.toFixed(2);
+    document.getElementById("reimburseCount").textContent = "across " + count + " entries tagged personal";
+  }
+  document.getElementById("capBtn").addEventListener("click", function(){
+    state.reimburse = "capital"; save();
+    document.getElementById("reimburseNote").innerHTML = '<b>Capital contribution</b> chosen. Adds one money-in entry "Owner capital contribution" equal to the total above. No money moves, the expenses still deduct, the cash balance stays honest.';
+  });
+  document.getElementById("reimBtn").addEventListener("click", function(){
+    state.reimburse = "reimbursement"; save();
+    document.getElementById("reimburseNote").innerHTML = '<b>Mercury reimbursement</b> chosen. Logs a real Mercury to personal transfer for the total above as an owner draw (not a second expense, so the deduction is not double counted). Move the money in Mercury, then it is squared up.';
+  });
+
+  // ----- verdicts -----
+  function paintVerdicts(){
+    document.querySelectorAll(".change").forEach(function(sec){
+      var key = sec.getAttribute("data-change");
+      var v = state.verdicts[key];
+      sec.setAttribute("data-verdict", v || "");
+      sec.querySelectorAll(".vbtn").forEach(function(btn){
+        btn.classList.toggle("on", btn.getAttribute("data-v")===v);
+      });
+    });
+  }
+  document.querySelectorAll(".vbtn").forEach(function(btn){
+    btn.addEventListener("click", function(e){
+      e.stopPropagation();
+      var sec = btn.closest(".change"); var key = sec.getAttribute("data-change");
+      var v = btn.getAttribute("data-v");
+      state.verdicts[key] = (state.verdicts[key]===v) ? "" : v;
+      save(); paintVerdicts();
+    });
+  });
+
+  // ----- theme -----
+  function paintTheme(){ document.body.classList.toggle("dark", state.theme==="dark"); document.getElementById("themeBtn").textContent = state.theme==="dark" ? "Light mode" : "Dark mode"; }
+  document.getElementById("themeBtn").addEventListener("click", function(){ state.theme = state.theme==="dark"?"light":"dark"; save(); paintTheme(); });
+
+  // ----- comments / pins -----
+  var commenting = false;
+  var canvas = document.getElementById("canvas");
+  document.getElementById("commentBtn").addEventListener("click", function(){
+    commenting = !commenting;
+    document.body.classList.toggle("comment-mode", commenting);
+    this.classList.toggle("commenting", commenting);
+    this.textContent = "Comment mode: " + (commenting?"on":"off");
+  });
+  canvas.addEventListener("click", function(e){
+    if(!commenting) return;
+    if(e.target.closest("[data-no-pin], select, button, option, .pin, .editor-pop")) return;
+    var rect = canvas.getBoundingClientRect();
+    var xPct = ((e.clientX - rect.left) / rect.width) * 100;
+    var yPct = ((e.clientY - rect.top) / rect.height) * 100;
+    openEditor(xPct, yPct, null, e.clientX - rect.left, e.clientY - rect.top);
+  });
+  function openEditor(xPct, yPct, existing, px, py){
+    var old = document.querySelector(".editor-pop"); if(old) old.remove();
+    var pop = document.createElement("div"); pop.className = "editor-pop";
+    pop.style.left = Math.min(px, canvas.clientWidth-240) + "px"; pop.style.top = py + "px";
+    pop.innerHTML = '<textarea placeholder="Your note..."></textarea>'+
+      '<div class="row"><button class="mini" data-act="cancel">Cancel</button><button class="mini on-ok" data-act="save">Save pin</button></div>';
+    canvas.appendChild(pop);
+    var ta = pop.querySelector("textarea"); if(existing) ta.value = existing.note; ta.focus();
+    pop.querySelector('[data-act="cancel"]').addEventListener("click", function(){ pop.remove(); });
+    pop.querySelector('[data-act="save"]').addEventListener("click", function(){
+      var note = ta.value.trim(); if(!note){ pop.remove(); return; }
+      var n = (state.comments.reduce(function(m,c){return Math.max(m,c.n);},0))+1;
+      state.comments.push({n:n, xPct:xPct, yPct:yPct, note:note, verdict:""});
+      save(); pop.remove(); renderPins(); renderComments();
+    });
+  }
+  function renderPins(){
+    canvas.querySelectorAll(".pin").forEach(function(p){ p.remove(); });
+    state.comments.forEach(function(c){
+      var pin = document.createElement("div"); pin.className = "pin"; pin.textContent = c.n;
+      pin.style.left = c.xPct + "%"; pin.style.top = c.yPct + "%";
+      pin.title = c.note;
+      pin.addEventListener("click", function(e){ e.stopPropagation(); var el = document.getElementById("cmt-"+c.n); if(el){ el.scrollIntoView({behavior:"smooth",block:"center"}); el.style.outline="2px solid var(--amber)"; setTimeout(function(){el.style.outline="";},1200);} });
+      canvas.appendChild(pin);
+    });
+  }
+  function renderComments(){
+    var list = document.getElementById("cmtList");
+    if(!state.comments.length){ list.innerHTML = '<p class="empty-note">No comments yet.</p>'; return; }
+    list.innerHTML = "";
+    state.comments.slice().sort(function(a,b){return a.n-b.n;}).forEach(function(c){
+      var d = document.createElement("div"); d.className="cmt"; d.id = "cmt-"+c.n;
+      d.innerHTML = '<div class="cmt-h"><span class="num">'+c.n+'</span><textarea>'+escapeHtml(c.note)+'</textarea></div>'+
+        '<div class="cmt-acts"><button class="mini '+(c.verdict==="agree"?"on-ok":"")+'" data-v="agree">Agree</button>'+
+        '<button class="mini '+(c.verdict==="disagree"?"on-no":"")+'" data-v="disagree">Disagree</button>'+
+        '<span style="flex:1"></span><button class="mini" data-act="del">Delete</button></div>';
+      d.querySelector("textarea").addEventListener("input", function(){ c.note = this.value; save(); renderPins(); });
+      d.querySelectorAll("[data-v]").forEach(function(b){ b.addEventListener("click", function(){ c.verdict = (c.verdict===this.getAttribute("data-v"))?"":this.getAttribute("data-v"); save(); renderComments(); }); });
+      d.querySelector('[data-act="del"]').addEventListener("click", function(){ state.comments = state.comments.filter(function(x){return x.n!==c.n;}); save(); renderPins(); renderComments(); });
+      list.appendChild(d);
+    });
+  }
+  function escapeHtml(s){ return s.replace(/[&<>"]/g, function(m){ return ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[m]; }); }
+
+  // ----- reset / export -----
+  document.getElementById("resetBtn").addEventListener("click", function(){
+    if(!confirm("Clear all approvals, comments, and tags?")) return;
+    state = {verdicts:{},paid:{},comments:[],theme:state.theme,reimburse:""}; save();
+    renderLed(); renderReimburse(); paintVerdicts(); renderPins(); renderComments();
+  });
+  function buildMarkdown(){
+    var names = {"payment-methods":"1. Payment methods section","paid-with":"2. Paid-with on every ledger entry","reimbursement":"3. Reimbursement / owner-fronted view","recurring":"4. Recurring subscriptions panel (optional)"};
+    var out = "# Business page revamp, decisions\n\n## Changes\n";
+    Object.keys(names).forEach(function(k){
+      var v = state.verdicts[k]; var tag = v==="approve"?"APPROVED":v==="disapprove"?"DISAPPROVED":"no decision";
+      out += "- ["+tag+"] "+names[k]+"\n";
+    });
+    out += "\n## Reimbursement choice\n- " + (state.reimburse ? state.reimburse : "not chosen") + "\n";
+    out += "\n## Comments\n";
+    if(!state.comments.length){ out += "- none\n"; }
+    state.comments.slice().sort(function(a,b){return a.n-b.n;}).forEach(function(c){
+      var v = c.verdict?(" ["+c.verdict+"]"):"";
+      out += c.n + ". " + c.note + v + "\n";
+    });
+    return out;
+  }
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var md = buildMarkdown();
+    if(navigator.clipboard){ navigator.clipboard.writeText(md); }
+    var blob = new Blob([md], {type:"text/markdown"});
+    var a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "business-revamp-decisions.md"; a.click();
+    this.textContent = "Copied + downloaded"; var self=this; setTimeout(function(){ self.textContent = "Export decisions"; }, 1600);
+  });
+
+  // init
+  paintTheme(); renderLed(); renderReimburse(); paintVerdicts(); renderPins(); renderComments();
+  if(state.reimburse==="capital") document.getElementById("capBtn").click();
+  if(state.reimburse==="reimbursement") document.getElementById("reimBtn").click();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Plot artboard / page frame (publication canvas) - concept</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-sunken: #f1f5f9; --pasteboard: #e2e8f0;
+    --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-action: #1283C9; --brand-sky: #1AA0E6;
+    --pin: #e11d48; --ok: #16a34a; --warn: #b45309; --warn-soft: #fef3c7;
+    --good: #0f766e; --good-soft: #e0f2ee;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-sunken: #0d1424; --pasteboard: #111a2e;
+    --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96;
+    --pin: #fb7185; --ok: #4ade80; --warn: #fbbf24; --warn-soft: rgba(180,83,9,0.25);
+    --good: #5eead4; --good-soft: rgba(15,118,110,0.22);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 920px; margin: 0 0 6px; }
+
+  .demo { display: grid; grid-template-columns: 1fr 300px; gap: 18px; margin-top: 18px; align-items: start; }
+  @media (max-width: 960px) { .demo { grid-template-columns: 1fr; } }
+  .stage { background: var(--pasteboard); border: 1px solid var(--border); border-radius: 14px; padding: 28px; min-height: 520px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .pageWrap { position: relative; }
+  .ruler { position: absolute; color: var(--fg-faint); font-size: 9px; }
+  .ruler.top { top: -16px; left: 0; right: 0; height: 12px; }
+  .ruler.left { left: -18px; top: 0; bottom: 0; width: 14px; }
+  .tick { position: absolute; background: var(--fg-faint); }
+  .page { position: relative; background: #ffffff; box-shadow: 0 4px 18px rgba(0,0,0,0.18); border: 1px solid #d8dee9; }
+  body.dark .page { background: #f7fafc; }
+  .fig { position: absolute; outline: 1.5px dashed var(--brand-action); outline-offset: 0; display: flex; align-items: center; justify-content: center; }
+  .fig svg { width: 100%; height: 100%; }
+  .figtag { position: absolute; top: -18px; left: 0; font-size: 10px; font-weight: 700; color: var(--brand-action); white-space: nowrap; }
+
+  .panel { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+  .panel h3 { margin: 0 0 10px; font-size: 13px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em; color: var(--fg-faint); }
+  .row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .row label { font-size: 12.5px; color: var(--fg-muted); }
+  select, input[type=range] { font: inherit; }
+  select { font-size: 12.5px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--fg); }
+  input[type=range] { width: 150px; }
+  .seg { display: inline-flex; border: 1px solid var(--border-strong); border-radius: 8px; overflow: hidden; }
+  .seg button { border: none; border-right: 1px solid var(--border); background: transparent; font-size: 11.5px; padding: 5px 9px; cursor: pointer; color: var(--fg-muted); }
+  .seg button:last-child { border-right: none; }
+  .seg button.on { background: var(--brand-action); color: #fff; font-weight: 600; }
+  .toggle { width: 38px; height: 22px; border-radius: 999px; border: none; position: relative; cursor: pointer; background: var(--border-strong); }
+  .toggle.on { background: var(--brand-action); }
+  .toggle span { position: absolute; top: 3px; width: 16px; height: 16px; border-radius: 50%; background: #fff; transition: left .12s; left: 3px; }
+  .toggle.on span { left: 19px; }
+
+  .feedback { margin-top: 4px; border-radius: 10px; padding: 9px 11px; font-size: 12.5px; font-weight: 600; }
+  .feedback.room { background: var(--good-soft); color: var(--good); }
+  .feedback.good { background: var(--good-soft); color: var(--good); }
+  .feedback.over { background: var(--warn-soft); color: var(--warn); }
+  .exportline { margin-top: 12px; font-size: 12px; color: var(--fg-muted); border-top: 1px solid var(--border); padding-top: 10px; }
+  .exportline b { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+  .cfoot { margin-top: 16px; display: flex; gap: 8px; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Plot artboard / page frame</h1>
+    <div class="sub">Design the figure inside a real publication page, so the exported SVG fits perfectly.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">The idea: an optional <strong>page frame</strong> behind the plot (like an Illustrator artboard). You pick a real paper or journal-column size, and the figure sits inside it at true scale, so you can see at a glance whether you have room to go bigger or need to shrink. Because the figure is sized in real units, the exported SVG is publication-exact, no guessing. This is a <strong>shared canvas capability</strong> for every plot editor (Tree Studio, Data Hub plots, anything with a figure).</p>
+  <p class="lead"><strong>Try it:</strong> change the paper, flip orientation, drag Figure size, hit Fit. Watch the feedback chip and the export readout. Then mark the decisions below.</p>
+
+  <div class="demo">
+    <div class="stage">
+      <div class="pageWrap" id="pageWrap">
+        <div class="ruler top" id="rulerTop"></div>
+        <div class="ruler left" id="rulerLeft"></div>
+        <div class="page" id="page">
+          <div class="fig" id="fig">
+            <span class="figtag" id="figtag"></span>
+            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" aria-label="sample figure"></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <h3>Page</h3>
+      <div class="row">
+        <label>Artboard</label>
+        <button class="toggle on" id="artToggle" aria-label="Toggle artboard"><span></span></button>
+      </div>
+      <div class="row">
+        <label>Size</label>
+        <select id="paper"></select>
+      </div>
+      <div class="row">
+        <label>Orientation</label>
+        <div class="seg" id="orient">
+          <button data-o="portrait" class="on">Portrait</button>
+          <button data-o="landscape">Landscape</button>
+        </div>
+      </div>
+      <div class="row">
+        <label>Rulers</label>
+        <button class="toggle on" id="rulerToggle" aria-label="Toggle rulers"><span></span></button>
+      </div>
+
+      <h3 style="margin-top:16px">Figure</h3>
+      <div class="row">
+        <label>Size</label>
+        <input type="range" id="figSize" min="20" max="105" value="70" />
+      </div>
+      <div class="row">
+        <label>Export DPI</label>
+        <select id="dpi"><option>150</option><option selected>300</option><option>600</option></select>
+      </div>
+      <button class="btn" id="fitBtn" style="width:100%">Fit figure to page</button>
+
+      <div class="feedback good" id="feedback">Good fit</div>
+      <div class="exportline" id="exportline"></div>
+    </div>
+  </div>
+
+  <h2 class="section-h">Decisions</h2>
+  <p class="section-sub">Five choices. Mark each so I build the right thing across the plot editors.</p>
+  <div class="changes" id="changes"></div>
+  <div class="cfoot">
+    <button class="btn" id="exportBtn">Copy feedback</button>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Sizes in inches (portrait W x H). Journal presets are common figure widths.
+  var PAPERS = {
+    "Letter (8.5 x 11 in)": [8.5, 11],
+    "A4 (8.27 x 11.69 in)": [8.27, 11.69],
+    "Legal (8.5 x 14 in)": [8.5, 14],
+    "Journal single column (3.5 in wide)": [3.5, 9],
+    "Journal double column (7.2 in wide)": [7.2, 9],
+    "Slide 16:9 (13.3 x 7.5 in)": [13.3, 7.5],
+    "Square (6 x 6 in)": [6, 6]
+  };
+  var st = { paper: "Letter (8.5 x 11 in)", orient: "portrait", artboard: true, rulers: true, figPct: 70, dpi: 300 };
+
+  var sel = document.getElementById("paper");
+  Object.keys(PAPERS).forEach(function(k){ var o = document.createElement("option"); o.textContent = k; sel.appendChild(o); });
+
+  // Sample tree figure (reused placeholder).
+  var svg = document.querySelector("#fig svg");
+  (function(){
+    var sp = "", dt = "";
+    for (var i=0;i<24;i++){ var a=i/24*2*Math.PI; var x1=(100+28*Math.cos(a)).toFixed(1),y1=(100+28*Math.sin(a)).toFixed(1); var x2=(100+82*Math.cos(a)).toFixed(1),y2=(100+82*Math.sin(a)).toFixed(1); sp+='<line x1="'+x1+'" y1="'+y1+'" x2="'+x2+'" y2="'+y2+'" stroke="#1283C9" stroke-width="1.3"/>'; dt+='<circle cx="'+x2+'" cy="'+y2+'" r="2" fill="#185FA5"/>'; }
+    svg.innerHTML = '<circle cx="100" cy="100" r="28" fill="none" stroke="#85B7EB"/><circle cx="100" cy="100" r="55" fill="none" stroke="#B5D4F4"/>'+sp+dt;
+  })();
+
+  function pageDims(){
+    var d = PAPERS[st.paper];
+    var w = d[0], h = d[1];
+    return st.orient === "landscape" ? [Math.max(w,h), Math.min(w,h)] : [w, h];
+  }
+
+  function render(){
+    var dims = pageDims();
+    var pageW = dims[0], pageH = dims[1];
+    // Fit the page into a ~360px-tall stage box.
+    var maxPx = 360;
+    var scale = maxPx / Math.max(pageW, pageH);
+    var pxW = Math.round(pageW * scale), pxH = Math.round(pageH * scale);
+    var page = document.getElementById("page");
+    var wrap = document.getElementById("pageWrap");
+    page.style.width = pxW + "px";
+    page.style.height = pxH + "px";
+    page.style.display = st.artboard ? "block" : "none";
+
+    // Figure: width = figPct% of page width (kept within the page).
+    var figWin = (st.figPct/100) * pageW;
+    var figHin = figWin * 0.72; // sample aspect
+    var fig = document.getElementById("fig");
+    fig.style.width = (figWin*scale) + "px";
+    fig.style.height = (figHin*scale) + "px";
+    fig.style.left = ((pageW - figWin)/2*scale) + "px";
+    fig.style.top = ((pageH - figHin)/2*scale) + "px";
+    fig.style.outlineColor = st.artboard ? "var(--brand-action)" : "transparent";
+    document.getElementById("figtag").textContent = figWin.toFixed(1) + " x " + figHin.toFixed(1) + " in";
+
+    // Rulers
+    var rt = document.getElementById("rulerTop"), rl = document.getElementById("rulerLeft");
+    rt.innerHTML = ""; rl.innerHTML = "";
+    if (st.artboard && st.rulers){
+      rt.style.display = rl.style.display = "block";
+      rt.style.width = pxW+"px"; rl.style.height = pxH+"px";
+      for (var x=0; x<=Math.floor(pageW); x++){ var t=document.createElement("div"); t.className="tick"; t.style.left=(x*scale)+"px"; t.style.top="8px"; t.style.width="1px"; t.style.height="4px"; rt.appendChild(t); var lbl=document.createElement("div"); lbl.style.position="absolute"; lbl.style.left=(x*scale+2)+"px"; lbl.style.top="0"; lbl.textContent=x; rt.appendChild(lbl); }
+      for (var y=0; y<=Math.floor(pageH); y++){ var t2=document.createElement("div"); t2.className="tick"; t2.style.top=(y*scale)+"px"; t2.style.left="9px"; t2.style.height="1px"; t2.style.width="4px"; rl.appendChild(t2); var lb2=document.createElement("div"); lb2.style.position="absolute"; lb2.style.top=(y*scale-5)+"px"; lb2.style.left="0"; lb2.textContent=y; rl.appendChild(lb2); }
+    } else { rt.style.display = rl.style.display = "none"; }
+
+    // Feedback
+    var fb = document.getElementById("feedback");
+    var pct = st.figPct;
+    if (pct > 100){ fb.className = "feedback over"; fb.textContent = "Overflows the page - scale the figure down."; }
+    else if (pct < 55){ fb.className = "feedback room"; fb.textContent = "Lots of room - you could make it bigger."; }
+    else { fb.className = "feedback good"; fb.textContent = "Good fit for this page."; }
+
+    // Export readout
+    var dpi = st.dpi;
+    document.getElementById("exportline").innerHTML =
+      "Exports at <b>" + figWin.toFixed(1) + " x " + figHin.toFixed(1) + " in</b> @ " + dpi +
+      " DPI = <b>" + Math.round(figWin*dpi) + " x " + Math.round(figHin*dpi) + " px</b>. SVG is vector, so proportions are exact at any size.";
+  }
+
+  sel.addEventListener("change", function(e){ st.paper = e.target.value; render(); });
+  document.getElementById("orient").addEventListener("click", function(e){ var b=e.target.closest("button"); if(!b) return; st.orient=b.dataset.o; this.querySelectorAll("button").forEach(function(x){x.classList.toggle("on", x===b);}); render(); });
+  document.getElementById("artToggle").addEventListener("click", function(){ st.artboard=!st.artboard; this.classList.toggle("on", st.artboard); render(); });
+  document.getElementById("rulerToggle").addEventListener("click", function(){ st.rulers=!st.rulers; this.classList.toggle("on", st.rulers); render(); });
+  document.getElementById("figSize").addEventListener("input", function(e){ st.figPct=+e.target.value; render(); });
+  document.getElementById("dpi").addEventListener("change", function(e){ st.dpi=+e.target.value; render(); });
+  document.getElementById("fitBtn").addEventListener("click", function(){ st.figPct=92; document.getElementById("figSize").value=92; render(); });
+
+  var CHANGES = [
+    ["Optional page artboard behind the plot", "A toggleable page frame (white sheet on a gray pasteboard) so you design the figure in the context of a real page, like an Illustrator artboard. Off by default; on when you want publication context."],
+    ["Real paper + journal-column presets", "Letter, A4, Legal, slide 16:9, square, plus the common journal figure widths (single column ~3.5 in, double column ~7.2 in), plus a Custom W x H. Portrait / landscape flip."],
+    ["Figure sized in real units = exact export", "The figure has a real size in inches within the page, so the exported SVG carries those true dimensions. What you see is what drops into the manuscript, no rescaling surprises. DPI picker shows the raster-equivalent px."],
+    ["Rulers + room feedback", "Inch (or cm) rulers along the page edges, and a live hint - lots of room / good fit / overflows - so you instantly know whether to size up or down."],
+    ["Shared across every plot editor", "Build it once as a shared canvas component and use it in Tree Studio, Data Hub plots, and any future figure surface - same artboard everywhere, not a per-page reimplementation."]
+  ];
+  var VSTORE = "artboard-verdicts-v1"; var verdicts = {};
+  try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch(e) { verdicts = {}; }
+  function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch(e){} }
+  function renderChanges(){
+    document.getElementById("changes").innerHTML = CHANGES.map(function(c,i){
+      var v = verdicts[i]||{}; var cls = v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+      return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+        +'<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||"")+'</textarea></div>'
+        +'<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button>'
+        +'<button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+    }).join("");
+  }
+  document.getElementById("changes").addEventListener("click", function(e){ var b=e.target.closest(".vbtn"); if(!b) return; var i=b.dataset.i; verdicts[i]=verdicts[i]||{}; verdicts[i].verdict = verdicts[i].verdict===b.dataset.v?null:b.dataset.v; saveV(); renderChanges(); });
+  document.getElementById("changes").addEventListener("input", function(e){ if(!e.target.dataset.note) return; var i=e.target.dataset.note; verdicts[i]=verdicts[i]||{}; verdicts[i].note=e.target.value; saveV(); });
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var out = "PLOT ARTBOARD / PAGE FRAME - FEEDBACK\n=====================================\n";
+    CHANGES.forEach(function(c,i){ var v=verdicts[i]||{}; var m=v.verdict==="ok"?"[APPROVE]":v.verdict==="dis"?"[DISAPPROVE]":"[ -- ]"; out += "\n"+m+" "+(i+1)+". "+c[0]; if(v.note) out+="\n      note: "+v.note; });
+    navigator.clipboard.writeText(out).then(function(){ var b=document.getElementById("exportBtn"); var t=b.textContent; b.textContent="Copied!"; setTimeout(function(){ b.textContent=t; }, 1400); });
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", function(){ var d=document.body.classList.toggle("dark"); document.getElementById("themeBtn").textContent = d?"Light":"Dark"; });
+
+  render(); renderChanges();
+})();
+</script>
+</body>
+</html>

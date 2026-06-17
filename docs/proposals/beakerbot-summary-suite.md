@@ -1,6 +1,14 @@
 # BeakerBot summary suite, design proposal
 
-Status: proposed 2026-06-12, BeakerAI lane. Spec-before-mockup-before-build per the UI-review rule. House voice throughout.
+Status: proposed 2026-06-12; mockup APPROVED + decisions LOCKED 2026-06-15 (mockup `docs/mockups/2026-06-15-beakerbot-summary-suite.html`). BeakerAI lane. Spec-before-mockup-before-build per the UI-review rule. House voice throughout.
+
+## Locked decisions (2026-06-15, Grant, after mockup review)
+
+1. **Filter wizard = chat-button sequence (Wizard A) FIRST.** One `ask_user` field per turn, reusing the existing choice card. The single multi-field panel (Wizard B) is a LATER add only if the sequence feels slow, not built now.
+2. **Summary scope = structural for v1, BUT a labeled model-read is planned for later (NOT forever-structural).** v1 reports only structure (counts, dates, titles, status, totals) and stores only that. A later, opt-in, CLEARLY-LABELED "BeakerBot's read" section may add the model's interpretation of the results — and it is an explicit, bounded CARVE-OUT to BeakerBot's global no-interpretation rule ([[feedback_beakerbot_no_interpretation]]): it must be visibly marked as the model's read, NEVER written into the stored note/summary as fact, and never conflated with the deterministic aggregate. The structural summary stays the default + the only thing saved-as-note unless the user opts into the labeled read. Coordinate the wording of this carve-out with the system-prompt scope rule before building it.
+3. The deterministic hard rule is surfaced verbatim in the result artifact ("the tool counts, BeakerBot only narrates"); artifact layout (scope chips + stat tiles + by-status/by-owner bars + period histogram + top-N drill-down ObjectChips + Save-as-note / Export-PDF / Adjust-filter + ACL reassurance) approved as mocked.
+
+Build proceeds at the phasing below, starting Phase 1 (Layer 1 `filterArtifacts` + tests).
 
 ## Why
 

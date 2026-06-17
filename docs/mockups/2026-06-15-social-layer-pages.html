@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Social layer pages (as built) - /network, /u, /institution</title>
+<style>
+  /* Static mock of the AS-BUILT flag-on pages (NEXT_PUBLIC_SOCIAL_LAYER=1).
+     Light theme by default. Brand tokens approximate the app's CSS variables;
+     copy + layout mirror the React components 1:1 for a visual pass. */
+  :root {
+    --surface: #ffffff;
+    --surface-raised: #f7f7fb;
+    --foreground: #14121a;
+    --foreground-muted: #6b6878;
+    --border: #e6e4ee;
+    --border-strong: #cdcad8;
+    --brand-action: #6d4aff;
+    --brand-purple: #7c3aed;
+    --emerald-bg: #ecfdf5;
+    --emerald-border: #a7f3d0;
+    --emerald-text: #047857;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Hanken Grotesk", Segoe UI, Roboto, sans-serif; color: var(--foreground); background: #eceaf3; }
+  a { color: inherit; text-decoration: none; }
+  .page { max-width: 1080px; margin: 0 auto 48px; background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: 0 10px 40px rgba(20,18,26,.06); }
+  .page-label { max-width: 1080px; margin: 40px auto 10px; font: 600 13px/1.2 ui-monospace, monospace; color: #4b4858; letter-spacing: .02em; }
+  .page-label span { color: var(--brand-action); }
+
+  /* marketing nav */
+  .nav { display:flex; align-items:center; justify-content:space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); background: rgba(255,255,255,.8); backdrop-filter: blur(6px); }
+  .wordmark { font-weight: 800; font-size: 18px; letter-spacing:-.02em; }
+  .wordmark .os { background: linear-gradient(90deg,#f97 ,#6d4aff,#22c1c3); -webkit-background-clip:text; background-clip:text; color: transparent; }
+  .navlinks { display:flex; gap:18px; font-size:14px; color: var(--foreground-muted); }
+  .navlinks .active { color: var(--brand-action); font-weight:600; }
+  .navcta { display:flex; gap:10px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:9px 18px; font-size:14px; font-weight:600; cursor:default; }
+  .btn-primary { background: var(--brand-action); color:#fff; }
+  .btn-ghost { border:1px solid var(--border-strong); color: var(--foreground); }
+  svg { width:1em; height:1em; }
+
+  /* hero */
+  .hero { position:relative; text-align:center; padding: 64px 24px 28px; background:
+      radial-gradient(900px 380px at 50% -120px, rgba(109,74,255,.14), transparent 60%),
+      radial-gradient(700px 320px at 80% -60px, rgba(34,193,195,.10), transparent 60%); }
+  .kicker { display:inline-block; font:600 12px/1 ui-sans-serif; letter-spacing:.14em; text-transform:uppercase; color: var(--brand-action); background: rgba(109,74,255,.08); border:1px solid rgba(109,74,255,.18); padding:6px 12px; border-radius:999px; }
+  .hero h1 { font-size: 44px; line-height:1.05; letter-spacing:-.02em; margin: 16px auto 0; max-width: 760px; }
+  .hero p.sub { font-size: 18px; color: var(--foreground-muted); max-width: 640px; margin: 18px auto 0; }
+  .hero .ctas { display:flex; gap:12px; justify-content:center; margin-top: 28px; }
+
+  .section { padding: 8px 24px; }
+  .card { border:1px solid var(--border); border-radius: 18px; background: var(--surface); padding: 22px; max-width: 640px; margin: 0 auto; box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+  .card h2 { margin:0; font-size:18px; }
+  .muted { color: var(--foreground-muted); }
+  .meta { font-size: 13px; }
+  .searchbox { position:relative; margin-top: 14px; }
+  .searchbox input { width:100%; border:1px solid var(--border); background: var(--surface-raised); border-radius:12px; padding:12px 14px 12px 40px; font-size:15px; color: var(--foreground); }
+  .searchbox svg { position:absolute; left:14px; top:50%; transform:translateY(-50%); color: var(--foreground-muted); }
+  .helpnote { font-size:13px; color: var(--foreground-muted); line-height:1.5; margin-top: 12px; }
+
+  /* result / member cards */
+  .results { display:flex; flex-direction:column; gap:8px; margin-top:14px; }
+  .rcard { display:flex; gap:12px; align-items:flex-start; border:1px solid var(--border); border-radius:12px; background: var(--surface-raised); padding:14px; }
+  .avatar { width:36px; height:36px; border-radius:999px; background: rgba(109,74,255,.10); color: var(--brand-action); display:flex; align-items:center; justify-content:center; flex:0 0 auto; }
+  .rname { font-weight:600; }
+  .badge { display:inline-flex; align-items:center; gap:4px; border:1px solid var(--emerald-border); background: var(--emerald-bg); color: var(--emerald-text); border-radius:999px; padding:2px 8px; font-size:12px; font-weight:600; }
+  .fp { font: 12px/1 ui-monospace, monospace; color: var(--foreground-muted); }
+  .orcidlink { display:inline-flex; align-items:center; gap:4px; font-size:12px; font-weight:600; color: var(--foreground-muted); }
+
+  /* value props */
+  .props { display:grid; grid-template-columns: repeat(2,1fr); gap:18px; max-width: 880px; margin: 40px auto; padding: 0 24px; }
+  .prop { border:1px solid var(--border); border-radius:18px; background: var(--surface); padding:22px; }
+  .prop .ic { width:40px; height:40px; border-radius:12px; background: rgba(109,74,255,.10); color: var(--brand-action); display:flex; align-items:center; justify-content:center; font-size:20px; }
+  .prop h3 { margin:14px 0 0; font-size:15px; }
+  .prop p { margin:8px 0 0; font-size:13px; line-height:1.55; color: var(--foreground-muted); }
+
+  /* profile */
+  .profilewrap { max-width: 640px; margin: 0 auto; padding: 24px; }
+  .profilecard { border:1px solid var(--border); border-radius:18px; background: var(--surface); padding: 30px; box-shadow: 0 6px 24px rgba(20,18,26,.06); }
+  .phead { display:flex; gap:22px; align-items:flex-start; }
+  .pavatar { width:84px; height:84px; border-radius:999px; background: linear-gradient(135deg,#c4b5fd,#6d4aff); color:#fff; display:flex; align-items:center; justify-content:center; font-size:30px; font-weight:700; flex:0 0 auto; }
+  .pname { font-size:26px; font-weight:800; letter-spacing:-.01em; margin:0; }
+  .phandle { color: var(--brand-purple); font-weight:600; margin:2px 0 0; }
+  .paffil { color: var(--foreground-muted); margin:4px 0 0; }
+  .pbio { margin-top:22px; font-size:15px; line-height:1.6; }
+  .plinks { display:flex; flex-wrap:wrap; gap:8px; margin-top:22px; }
+  .pill { display:inline-flex; align-items:center; gap:6px; border:1px solid var(--border); border-radius:999px; padding:7px 13px; font-size:13px; font-weight:600; color: var(--foreground-muted); }
+
+  /* institution */
+  .inst-hero { text-align:center; padding: 56px 24px 12px; }
+  .inst-logo { width:64px; height:64px; border-radius:14px; background: rgba(109,74,255,.10); color: var(--brand-action); display:flex; align-items:center; justify-content:center; font-size:30px; margin: 14px auto 0; }
+  .inst-hero h1 { font-size:34px; letter-spacing:-.02em; margin: 12px 0 0; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; margin-top:20px; }
+  .chip { border:1px solid var(--border); border-radius:999px; padding:5px 12px; font-size:13px; color: var(--foreground-muted); }
+  .members { max-width: 880px; margin: 0 auto; padding: 8px 24px 40px; }
+  .members h2 { font-size:18px; }
+  .mgrid { display:grid; grid-template-columns: repeat(2,1fr); gap:12px; }
+  .placeholder { border:1px dashed var(--border-strong); border-radius:18px; background: var(--surface-raised); padding:32px; text-align:center; }
+  .placeholder .ic { width:40px;height:40px;border-radius:12px;background:rgba(109,74,255,.10);color:var(--brand-action);display:flex;align-items:center;justify-content:center;margin:0 auto 12px; font-size:20px;}
+
+  /* footer */
+  .footer { border-top:1px solid var(--border); padding: 26px 24px; color: var(--foreground-muted); font-size:13px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; }
+  .footcols { display:flex; gap:26px; }
+  .statebar { background:#fff7ed; border:1px solid #fed7aa; color:#9a3412; font-size:12.5px; padding:8px 14px; border-radius:10px; margin: 0 auto 14px; max-width:640px; text-align:center; }
+  .tag { display:inline-block; font:600 11px/1 ui-monospace,monospace; color:#7c5cff; background:rgba(124,92,255,.1); border-radius:6px; padding:3px 7px; margin-left:8px;}
+  @media (max-width:720px){ .props,.mgrid{grid-template-columns:1fr;} .hero h1{font-size:34px;} .navlinks{display:none;} }
+</style>
+</head>
+<body>
+
+<div style="max-width:1080px;margin:28px auto 0;font:14px/1.5 -apple-system,sans-serif;color:#4b4858;">
+  <strong>Social layer - visual pass mock (as built, flag on).</strong>
+  These are static renders of the live Next routes for eyeballing without a dev server.
+  Live paths: <code>/network</code>, <code>/u/&lt;handle&gt;</code>, <code>/institution/&lt;slug&gt;</code> (all behind <code>NEXT_PUBLIC_SOCIAL_LAYER</code>).
+  Search + member directory are shown both in their live "coming online" state and a populated example.
+</div>
+
+<!-- ============ /network ============ -->
+<div class="page-label">PAGE 1 &mdash; <span>/network</span> (the researcher-network hub) &mdash; NetworkLanding.tsx</div>
+<div class="page">
+  <div class="nav">
+    <div class="wordmark">Research<span class="os">OS</span></div>
+    <div class="navlinks"><span>Product</span><span>BeakerBot</span><span>Library</span><span class="active">Network</span><span>Pricing</span><span>Docs</span><span>About</span></div>
+    <div class="navcta"><span class="btn btn-ghost">Sign in</span><span class="btn btn-primary">Try the demo</span></div>
+  </div>
+
+  <div class="hero">
+    <span class="kicker">Seamless sharing</span>
+    <h1>Send your work to any researcher, in one step.</h1>
+    <p class="sub">The researcher network is how your work leaves your lab. Find anyone else on ResearchOS and share a method, sequence, dataset, or figure straight to them, with no zipped files, no email chains, and no drive permissions. It is not a feed or a follower count. It is the shortest path from your data to a collaborator, whether they are in your department or across the world.</p>
+    <div class="ctas">
+      <span class="btn btn-primary">&#128269; Find a collaborator</span>
+      <span class="btn btn-ghost">Set up your profile &rsaquo;</span>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="card">
+      <h2>Find who you want to share with</h2>
+      <p class="meta muted" style="margin:4px 0 0;">Listed researchers only. No login required.</p>
+      <div class="searchbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input placeholder="Name or institution, e.g. Sarah or UW-Madison" />
+      </div>
+      <p class="helpnote">Search finds researchers who have opted in to the directory. Results show their name, institution, and key fingerprint, never an email address. Use the fingerprint to confirm you have the right person. <span class="tag">idle / live state</span></p>
+
+      <div class="results">
+        <div class="meta muted" style="margin-top:6px;">Example results once the directory endpoint is live <span class="tag">populated</span></div>
+        <div class="rcard">
+          <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">Dr. Sarah Lee</span><span class="badge">&#10003; wisc.edu</span></div>
+            <div class="muted meta" style="margin-top:2px;">University of Wisconsin-Madison</div>
+            <div style="display:flex;gap:12px;align-items:center;margin-top:6px;"><span class="orcidlink">&#9873; ORCID</span><span class="fp">abcd ef12 3456 7890</span></div>
+          </div>
+        </div>
+        <div class="rcard">
+          <div class="avatar"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/></svg></div>
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">Miguel Santos</span></div>
+            <div class="muted meta" style="margin-top:2px;">Broad Institute</div>
+            <div style="display:flex;gap:12px;align-items:center;margin-top:6px;"><span class="fp">7f0a 22cd 9911 04ab</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="props">
+    <div class="prop"><div class="ic">&#8599;</div><h3>Send work, not files</h3><p>Share a method, sequence, dataset, or figure straight to another researcher on ResearchOS. No zipping, no email chains, no shared-drive permissions to manage.</p></div>
+    <div class="prop"><div class="ic">&#9650;</div><h3>Find your department and institution</h3><p>See who from your lab, department, or institution is already on ResearchOS, and share with a colleague down the hall as easily as one across the world.</p></div>
+    <div class="prop"><div class="ic">&#128737;</div><h3>Know it reached the right person</h3><p>A verified-domain badge and a key fingerprint let you confirm a collaborator before you send, so your work goes to the person you meant, not a look-alike.</p></div>
+    <div class="prop"><div class="ic">&#128101;</div><h3>Reachable by choice</h3><p>Being listed is what lets a collaborator find and share with you. It is opt-in, you can hide any time, and your email is never shown.</p></div>
+  </div>
+
+  <div class="footer"><div class="footcols"><span>Product</span><span>Open and trustworthy</span><span>Company</span><span>Help</span></div><div>Made in Madison</div></div>
+</div>
+
+<!-- ============ /u/<handle> ============ -->
+<div class="page-label">PAGE 2 &mdash; <span>/u/sarahlee</span> (public profile, found state) &mdash; app/u/[handle]/page.tsx</div>
+<div class="page">
+  <div class="nav">
+    <div class="wordmark">Research<span class="os">OS</span></div>
+    <div class="navlinks"><span>Product</span><span>BeakerBot</span><span>Library</span><span>Network</span><span>Pricing</span><span>Docs</span><span>About</span></div>
+    <div class="navcta"><span class="btn btn-ghost">Sign in</span><span class="btn btn-primary">Try the demo</span></div>
+  </div>
+  <div style="background:radial-gradient(800px 300px at 50% -100px, rgba(109,74,255,.10), transparent 60%);">
+    <div class="profilewrap">
+      <div class="profilecard">
+        <div class="phead">
+          <div class="pavatar">SL</div>
+          <div style="min-width:0;">
+            <h1 class="pname">Dr. Sarah Lee</h1>
+            <p class="phandle">@sarahlee</p>
+            <p class="paffil">University of Wisconsin-Madison</p>
+          </div>
+        </div>
+        <p class="pbio">Microbial genomics and antibiotic resistance. I build open tools for reproducible phylogenetics and spend too much time naming plasmids. Always glad to talk fungal secondary metabolite gene clusters.</p>
+        <div class="plinks">
+          <span class="pill">&#9873; ORCID</span>
+          <span class="pill">&#128214; ResearchGate</span>
+          <span class="pill">&#8599; Website</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="footer"><div class="footcols"><span>Product</span><span>Open and trustworthy</span><span>Company</span><span>Help</span></div><div>Made in Madison</div></div>
+</div>
+
+<!-- ============ /institution/<slug> ============ -->
+<div class="page-label">PAGE 3 &mdash; <span>/institution/uw-madison</span> (public institution page) &mdash; InstitutionPublicProfile.tsx</div>
+<div class="page">
+  <div class="nav">
+    <div class="wordmark">Research<span class="os">OS</span></div>
+    <div class="navlinks"><span>Product</span><span>BeakerBot</span><span>Library</span><span>Network</span><span>Pricing</span><span>Docs</span><span>About</span></div>
+    <div class="navcta"><span class="btn btn-ghost">Sign in</span><span class="btn btn-primary">Try the demo</span></div>
+  </div>
+
+  <div class="inst-hero" style="background:radial-gradient(900px 360px at 50% -120px, rgba(109,74,255,.14), transparent 60%);">
+    <span class="kicker">Institution</span>
+    <div class="inst-logo">&#9650;</div>
+    <h1>UW-Madison</h1>
+    <p class="muted" style="margin:8px 0 0;">wisc.edu</p>
+    <p class="meta muted" style="margin:4px 0 0;">42 listed researchers</p>
+    <div class="chips"><span class="chip">Bacteriology</span><span class="chip">Genetics</span><span class="chip">Plant Pathology</span><span class="chip">Biochemistry</span></div>
+  </div>
+
+  <div class="members">
+    <h2>Researchers at UW-Madison</h2>
+
+    <div style="margin:6px 0 14px;" class="meta muted">Live foundation state today (directory endpoint not yet shipped): <span class="tag">coming online</span></div>
+    <div class="placeholder">
+      <div class="ic">&#128101;</div>
+      <div style="font-weight:600;">The member directory is coming online</div>
+      <p class="meta muted" style="max-width:460px;margin:6px auto 0;line-height:1.55;">Listed researchers at this institution will appear here, opt-in only, with their name, affiliation, and verified domain, never an email address.</p>
+    </div>
+
+    <div style="margin:22px 0 12px;" class="meta muted">Populated example once Popup's <code>/api/directory/institution</code> ships: <span class="tag">populated</span></div>
+    <div class="mgrid">
+      <div class="rcard"><div class="avatar">&#128100;</div><div style="flex:1;min-width:0;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">Dr. Sarah Lee</span><span class="badge">&#10003; wisc.edu</span></div><div class="meta muted" style="margin-top:2px;">Bacteriology</div></div></div>
+      <div class="rcard"><div class="avatar">&#128100;</div><div style="flex:1;min-width:0;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">Prof. Aiko Tanaka</span><span class="badge">&#10003; wisc.edu</span></div><div class="meta muted" style="margin-top:2px;">Plant Pathology</div></div></div>
+      <div class="rcard"><div class="avatar">&#128100;</div><div style="flex:1;min-width:0;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">James Okoro</span><span class="badge">&#10003; wisc.edu</span></div><div class="meta muted" style="margin-top:2px;">Genetics</div></div></div>
+      <div class="rcard"><div class="avatar">&#128100;</div><div style="flex:1;min-width:0;"><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"><span class="rname">Lena Vogt</span><span class="badge">&#10003; wisc.edu</span></div><div class="meta muted" style="margin-top:2px;">Biochemistry</div></div></div>
+    </div>
+  </div>
+
+  <div class="footer"><div class="footcols"><span>Product</span><span>Open and trustworthy</span><span>Company</span><span>Help</span></div><div>Made in Madison</div></div>
+</div>
+
+</body>
+</html>

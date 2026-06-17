@@ -1,0 +1,2063 @@
+<!doctype html>
+<!--
+  MOCKUP: Unified Researcher Profiles + Social/Discovery Layer
+  File: docs/mockups/2026-06-14-researcher-profiles-social.html
+  Date: 2026-06-14
+  Status: DESIGN ARTIFACT — for human review only, no real app code changed.
+
+  WHAT THIS MOCKS:
+    - Unification of the two existing thin profiles (@handle public page +
+      directory "researcher card") into one rich researcher profile.
+    - A mutual-connect (colleague) graph and institution clusters.
+    - A researcher discovery/search page.
+    - An institution aggregate page.
+    - A "Share with..." external-collaborator picker panel.
+
+  2026-06-14 ADDITIONS (round 1 — publications area):
+    - PINNED PUBLICATIONS: researcher can pin up to 3-5 papers. Pinned papers
+      appear at the top of the list with a pin glyph and a "Pinned" label,
+      sorted chronologically among themselves, above the unpinned block.
+      Collapsed default shows pinned + newest 1-2 unpinned + a "Show all N"
+      button. Expanded state keeps the pinned block on top. In own-profile
+      view each pub row gains a toggleable pin icon so the user can manage
+      their pins (capped at 5, nudges if they try for a 6th).
+    - SELF-AUTHOR HIGHLIGHT: the profile owner's name is bolded and colored
+      in brand purple (var(--purple)) in every paper's author list. Stub data
+      places the owner as first author, middle author, and last/corresponding
+      author across different papers so the value is immediately legible.
+
+  2026-06-14 ADDITIONS (round 2 — connections list + share flow rebuild):
+    - CONNECTIONS LIST (Section 1): profile card now has a "Connections"
+      section below publications showing avatar + display name + @handle rows
+      (5 stub connections + "See all 42" link). In own-profile view-state an
+      additional "Pending requests (2)" block appears above the list with
+      Accept / Ignore buttons for 2 stub incoming requests.
+    - COLLEAGUE COUNT LABELS FIXED: the two stat counts near the Connect
+      button were both labeled "colleagues"; now relabeled distinctly:
+      the plain count = "42 connections", the home-icon count = "14 at
+      UW-Madison".
+    - SHARE FLOW REBUILT (Section 5): tiered picker replaces the flat list.
+      Tier 1 "Lab mates" shows a lab-group header + avatar rows (no search
+      needed). Tier 2 "Connections" shows accepted colleagues with a trust
+      pill. Tier 3 is an open email/handle input that resolves to either an
+      E2E sealed-share recipient row (hardcoded: anything containing
+      "wisc.edu" or known stubs) or a "not on ResearchOS" invite-email row.
+      The send-method explainer and footer Send button update based on the
+      selected recipient. Trust legend preserved and updated.
+
+  2026-06-14 REVISION (round 3 — institution page full member directory):
+    - INSTITUTION PAGE (Section 4): replaced the gated preview model with a
+      full LinkedIn-style member directory. The stat hero now shows total
+      researchers, ORCID count, and labs sharing data — the "Publicly listed
+      vs hidden" split stat is removed. Below the hero a search/filter bar
+      lets visitors filter within the institution by name, ORCID status, and
+      department. The grid of 6 half-visible cards and the large gated-notice
+      block are replaced by a scrollable researcher-card directory (11 stub
+      entries) with avatar, name, verified-institution badge, affiliation/
+      title, mutual-connection hint, and Connect/Share buttons. A couple of
+      entries show a "Connected" pill for variety. A quiet single-line
+      footnote replaces the old warning block (people who opted out of listing
+      are simply not shown; listed is the default so the directory is
+      essentially complete). A "Showing 47 of 47 researchers" count sits
+      above the list.
+
+  LOCKED DECISIONS (do not relitigate these):
+    1. Discoverability: listed by default on @handle claim; per-field granular
+       opt-out. Email is NEVER shown publicly.
+    2. Connections: mutual (request -> accept), LinkedIn-style symmetric
+       "colleagues". Auto-cluster by verified institution email domain.
+    3. Institution view: public aggregate counts + institution page; full
+       member list visibility respects each person's discoverability setting.
+
+  OPEN DESIGN QUESTIONS FOR GRANT:
+    Q1. ORCID publication list: pull via ORCID public API (no auth, works for
+        public works) or require the user to OAuth-connect ORCID first? The
+        public API gives ~80% coverage; OAuth gives 100% but raises friction.
+    Q2. Bio field length: 280 chars (Twitter-sized, easy to scan) vs 500 chars
+        (room for a proper intro)? The mockup uses 280.
+    Q3. "Colleague" label vs "Collaborator": colleague implies social parity;
+        collaborator implies research relationship. Which fits the ResearchOS
+        voice better?
+    Q4. Institution auto-cluster: should a lab PI be able to suppress the
+        institution page listing individual lab members, or does the
+        institution page only show counts + the user's own discoverability
+        setting controls individual visibility?
+    Q5. Change sign-in provider UX: the mockup shows this as a settings-level
+        flow (enter new email -> verify -> unlink old). Should there be a
+        grace period (e.g. 30 days) where both providers work, or a hard
+        atomic swap?
+    Q6. Connection invite to non-ResearchOS user: email invite that lands on
+        the discovery page pre-loaded with the sender's profile, or a generic
+        landing page? Currently mocked as generic.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Researcher Profiles + Discovery — ResearchOS mockup</title>
+<style>
+/* ── tokens ─────────────────────────────────────────────────────────────── */
+:root{
+  --bg:#f8fafc;
+  --surface:#ffffff;
+  --surface-raised:#ffffff;
+  --surface-sunken:#f1f5f9;
+  --surface-overlay:#ffffff;
+  --border:#e5e7eb;
+  --foreground:#171717;
+  --foreground-muted:#6b7280;
+  --accent:#1283c9;
+  --accent-soft:#eff6ff;
+  --purple:#5b47d6;
+  --green:#16a34a;
+  --green-soft:#f0fdf4;
+  --amber:#b45309;
+  --amber-soft:#fffbeb;
+  --red:#dc2626;
+  --off:#cbd5e1;
+  --rainbow:linear-gradient(90deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0);
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:18px;
+  --radius-xl:24px;
+}
+[data-theme="dark"]{
+  --bg:#0a0e1a;
+  --surface:#0a0e1a;
+  --surface-raised:#1c2638;
+  --surface-sunken:#0d1424;
+  --surface-overlay:#28344c;
+  --border:rgba(255,255,255,0.16);
+  --foreground:#f1f5f9;
+  --foreground-muted:#b4bfd0;
+  --accent:#38bdf8;
+  --accent-soft:rgba(56,189,248,0.14);
+  --purple:#a78bfa;
+  --green:#4ade80;
+  --green-soft:rgba(74,222,128,0.1);
+  --amber:#fbbf24;
+  --amber-soft:rgba(251,191,36,0.1);
+  --red:#f87171;
+  --off:#33425e;
+}
+
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--foreground);line-height:1.5;font-size:14px}
+a{color:var(--accent);text-decoration:none}
+
+/* ── layout scaffolding ─────────────────────────────────────────────────── */
+.rainbow-bar{height:5px;background:var(--rainbow)}
+.sticky-bar{
+  position:sticky;top:0;z-index:50;
+  display:flex;align-items:center;gap:10px;
+  padding:10px 20px;
+  background:color-mix(in srgb,var(--surface-raised) 90%,transparent);
+  backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--border);
+}
+.sticky-bar h1{font-size:13px;font-weight:800;letter-spacing:-.01em}
+.sticky-bar .sub{font-size:11.5px;color:var(--foreground-muted)}
+.spacer{flex:1}
+.theme-btn{
+  font-size:12px;font-weight:700;
+  border:1px solid var(--border);background:var(--surface-raised);
+  color:var(--foreground);border-radius:var(--radius-sm);
+  padding:6px 12px;cursor:pointer;
+}
+.section-label{
+  font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--foreground-muted);
+  padding:28px 0 10px;
+  display:flex;align-items:center;gap:8px;
+}
+.section-label::after{content:"";flex:1;height:1px;background:var(--border)}
+.page-wrap{max-width:960px;margin:0 auto;padding:0 22px 80px}
+
+/* ── nav tabs (section switcher) ────────────────────────────────────────── */
+.nav-tabs{
+  display:flex;gap:2px;
+  border-bottom:1px solid var(--border);
+  padding:0;margin:0 0 0;
+  overflow-x:auto;
+}
+.nav-tabs button{
+  font-size:13px;font-weight:700;
+  background:none;border:none;
+  color:var(--foreground-muted);
+  padding:12px 16px;cursor:pointer;
+  border-bottom:2px solid transparent;
+  margin-bottom:-1px;
+  white-space:nowrap;
+  transition:color .15s,border-color .15s;
+}
+.nav-tabs button.active{color:var(--foreground);border-bottom-color:var(--accent)}
+.nav-tabs button:hover{color:var(--foreground)}
+.tab-panel{display:none}
+.tab-panel.active{display:block}
+
+/* ── shared components ──────────────────────────────────────────────────── */
+.card{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--surface-raised);padding:20px 22px;
+}
+.card+.card{margin-top:14px}
+.card-h{font-size:14px;font-weight:800;margin-bottom:4px}
+.card-sub{font-size:12.5px;color:var(--foreground-muted);margin-bottom:14px;line-height:1.5}
+.badge{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:11.5px;font-weight:700;
+  border-radius:99px;padding:3px 9px;
+  background:var(--green-soft);color:var(--green);
+}
+.badge.pending{background:var(--amber-soft);color:var(--amber)}
+.badge.institution{background:var(--accent-soft);color:var(--accent)}
+.btn{
+  display:inline-flex;align-items:center;gap:6px;
+  font-size:13px;font-weight:700;
+  border-radius:var(--radius-sm);padding:8px 15px;
+  cursor:pointer;border:1px solid transparent;
+  transition:opacity .12s;
+}
+.btn:hover{opacity:.85}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-outline{background:var(--surface-raised);color:var(--foreground);border-color:var(--border)}
+.btn-ghost{background:none;border-color:transparent;color:var(--accent)}
+.btn-sm{font-size:12px;padding:6px 12px}
+.btn-xs{font-size:11.5px;padding:4px 9px;border-radius:6px}
+.row{display:flex;align-items:center;gap:10px}
+.divider{height:1px;background:var(--border);margin:16px 0}
+
+/* ── avatar ──────────────────────────────────────────────────────────────── */
+.av{
+  border-radius:50%;background:linear-gradient(135deg,#a6d2f4,#d6b5f0);
+  display:flex;align-items:center;justify-content:center;
+  font-weight:800;color:#fff;flex:none;
+  font-size:inherit;
+}
+.av-xl{width:96px;height:96px;font-size:32px}
+.av-lg{width:64px;height:64px;font-size:22px}
+.av-md{width:44px;height:44px;font-size:16px}
+.av-sm{width:36px;height:36px;font-size:13px}
+.av-xs{width:28px;height:28px;font-size:11px}
+
+/* ── forms ───────────────────────────────────────────────────────────────── */
+label.field-label{display:block;font-size:12.5px;font-weight:700;margin-bottom:5px;color:var(--foreground)}
+input[type=text],input[type=url],input[type=email],textarea,select{
+  width:100%;border:1px solid var(--border);border-radius:var(--radius-sm);
+  background:var(--surface-sunken);color:var(--foreground);
+  font-family:inherit;font-size:13px;padding:9px 11px;
+  outline:none;transition:border-color .15s;
+}
+input[type=text]:focus,input[type=url]:focus,input[type=email]:focus,textarea:focus,select:focus{
+  border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft);
+}
+textarea{resize:vertical;min-height:80px;line-height:1.55}
+.field-row{margin-bottom:16px}
+.field-hint{font-size:11.5px;color:var(--foreground-muted);margin-top:4px}
+.char-count{font-size:11px;color:var(--foreground-muted);text-align:right;margin-top:3px}
+.input-wrap{position:relative}
+.input-wrap .status-icon{
+  position:absolute;right:10px;top:50%;transform:translateY(-50%);
+  font-size:13px;
+}
+
+/* ── toggle / checkbox ───────────────────────────────────────────────────── */
+.sw{
+  display:inline-block;width:38px;height:22px;
+  border-radius:99px;background:var(--off);
+  position:relative;cursor:pointer;transition:background .15s;flex:none;
+}
+.sw::after{
+  content:"";position:absolute;top:2px;left:2px;
+  width:18px;height:18px;border-radius:50%;background:#fff;
+  box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s;
+}
+.sw.on{background:var(--accent)}
+.sw.on::after{left:18px}
+.toggle-row{
+  display:flex;align-items:center;gap:12px;
+  padding:12px 0;border-top:1px solid var(--border);
+}
+.toggle-row:first-child{border-top:0;padding-top:0}
+.toggle-row .tl{flex:1;min-width:0}
+.toggle-row .tl strong{font-size:13px;font-weight:700;display:block}
+.toggle-row .tl span{font-size:12px;color:var(--foreground-muted)}
+
+/* ── search ──────────────────────────────────────────────────────────────── */
+.search-wrap{position:relative;margin-bottom:18px}
+.search-wrap input{
+  padding-left:38px;border-radius:var(--radius-md);
+  background:var(--surface-raised);
+  font-size:14px;
+}
+.search-wrap .search-ic{
+  position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  color:var(--foreground-muted);pointer-events:none;
+}
+
+/* ── section 1: public profile ───────────────────────────────────────────── */
+.profile-hero{
+  display:flex;gap:22px;align-items:flex-start;
+  padding-bottom:22px;border-bottom:1px solid var(--border);margin-bottom:20px;
+}
+@media(max-width:580px){.profile-hero{flex-direction:column}}
+.profile-meta{flex:1;min-width:0}
+.profile-name{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.2;margin-bottom:4px}
+.profile-handle{font-size:14px;color:var(--foreground-muted);margin-bottom:8px}
+.profile-affil{font-size:14px;color:var(--foreground);margin-bottom:10px}
+.profile-bio{font-size:14px;color:var(--foreground);line-height:1.6;margin-bottom:14px;max-width:58ch}
+.profile-links{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:16px}
+.link-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:600;
+  border:1px solid var(--border);border-radius:99px;
+  padding:4px 11px;background:var(--surface-sunken);color:var(--foreground);
+  cursor:pointer;transition:background .12s;
+}
+.link-chip:hover{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.profile-stats{
+  display:flex;gap:20px;align-items:center;
+  font-size:13px;color:var(--foreground-muted);flex-wrap:wrap;
+}
+.profile-stats strong{color:var(--foreground)}
+.profile-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.inst-cluster-link{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12.5px;color:var(--accent);cursor:pointer;
+}
+/* own profile banner */
+.own-banner{
+  background:var(--accent-soft);border:1px solid var(--accent);
+  border-radius:var(--radius-md);padding:10px 14px;
+  font-size:12.5px;color:var(--accent);display:flex;align-items:center;gap:8px;
+  margin-bottom:18px;
+}
+/* connected state */
+.connected-pill{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:12px;font-weight:700;
+  border-radius:99px;padding:4px 11px;
+  background:var(--green-soft);color:var(--green);
+}
+
+/* ── orcid publications ───────────────────────────────────────────────────── */
+.pub-list{list-style:none;display:flex;flex-direction:column;gap:0}
+.pub-item{
+  padding:13px 0;border-top:1px solid var(--border);
+}
+.pub-item:first-child{border-top:0;padding-top:0}
+.pub-title{font-size:13.5px;font-weight:700;margin-bottom:3px;color:var(--foreground)}
+.pub-meta{font-size:12px;color:var(--foreground-muted)}
+.pub-doi{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11.5px;color:var(--accent);margin-top:4px;
+  border:1px solid var(--border);border-radius:6px;padding:2px 8px;
+  background:var(--surface-sunken);
+}
+
+/* pinned block */
+.pub-pinned-block{
+  background:color-mix(in srgb,var(--purple) 5%,var(--surface-raised));
+  border:1px solid color-mix(in srgb,var(--purple) 18%,var(--border));
+  border-radius:var(--radius-md);
+  padding:2px 14px 4px;
+  margin-bottom:10px;
+}
+.pub-pinned-block .pub-item:first-child{padding-top:10px}
+.pub-pinned-block .pub-item:last-child{padding-bottom:6px}
+.pub-pinned-label{
+  font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;
+  color:var(--purple);opacity:.75;
+  display:flex;align-items:center;gap:5px;
+  padding:8px 0 2px;
+  border-bottom:1px solid color-mix(in srgb,var(--purple) 15%,var(--border));
+  margin-bottom:2px;
+}
+.pin-glyph{
+  display:inline-flex;align-items:center;flex:none;
+  color:var(--purple);
+}
+/* pin toggle button — own-profile editor affordance */
+.pub-item-row{display:flex;align-items:flex-start;gap:10px}
+.pub-item-row .pub-body{flex:1;min-width:0}
+.pin-toggle{
+  flex:none;margin-top:2px;
+  background:none;border:none;cursor:pointer;padding:3px;
+  border-radius:6px;
+  color:var(--foreground-muted);
+  transition:color .12s,background .12s;
+  display:none; /* shown only in own-profile view via JS */
+}
+.pin-toggle:hover{background:var(--surface-sunken);color:var(--purple)}
+.pin-toggle.pinned{color:var(--purple)}
+.pin-toggle title{display:none}
+
+/* self-author highlight */
+.pub-self-author{
+  font-weight:700;
+  color:var(--purple);
+}
+
+/* show-all button + expanded state */
+.pub-show-all{margin-top:10px}
+.pub-unpinned-extra{display:none}
+.pub-unpinned-extra.visible{display:block}
+
+/* ── view state toggle ───────────────────────────────────────────────────── */
+.view-toggle{
+  display:inline-flex;border:1px solid var(--border);border-radius:var(--radius-sm);overflow:hidden;margin-bottom:20px;
+}
+.view-toggle button{
+  font-size:12px;font-weight:700;border:none;
+  background:var(--surface-raised);color:var(--foreground-muted);
+  padding:7px 14px;cursor:pointer;transition:background .12s,color .12s;
+}
+.view-toggle button.on{background:var(--foreground);color:#fff}
+
+/* ── section 2: profile editor ───────────────────────────────────────────── */
+.editor-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:14px;
+}
+@media(max-width:620px){.editor-grid{grid-template-columns:1fr}}
+.editor-grid .span2{grid-column:1/-1}
+.link-add-row{
+  display:flex;gap:8px;align-items:center;
+  padding:8px;background:var(--surface-sunken);border-radius:var(--radius-sm);
+  margin-bottom:6px;
+}
+.link-add-row select{width:120px;flex:none}
+.link-add-row input{flex:1}
+.link-add-row .rm{
+  background:none;border:none;color:var(--foreground-muted);cursor:pointer;
+  font-size:16px;padding:0 4px;flex:none;
+}
+.avatar-upload{
+  display:flex;align-items:center;gap:16px;margin-bottom:20px;
+}
+.upload-zone{
+  flex:1;border:2px dashed var(--border);border-radius:var(--radius-md);
+  padding:16px;text-align:center;font-size:12.5px;color:var(--foreground-muted);
+  cursor:pointer;transition:border-color .15s;
+}
+.upload-zone:hover{border-color:var(--accent)}
+.disc-panel{
+  background:var(--surface-sunken);border-radius:var(--radius-md);
+  padding:16px 18px;margin-top:6px;
+}
+.disc-main-row{
+  display:flex;align-items:center;gap:12px;
+  margin-bottom:14px;padding-bottom:14px;
+  border-bottom:1px solid var(--border);
+}
+.disc-main-row strong{flex:1;font-size:14px}
+.disc-field-grid{
+  display:grid;grid-template-columns:1fr 1fr;gap:8px;
+}
+@media(max-width:480px){.disc-field-grid{grid-template-columns:1fr}}
+.disc-check{
+  display:flex;align-items:center;gap:9px;
+  font-size:12.5px;padding:7px 10px;
+  border-radius:var(--radius-sm);background:var(--surface-raised);
+  border:1px solid var(--border);
+  cursor:pointer;user-select:none;
+}
+.disc-check input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+.sign-in-change{
+  background:var(--amber-soft);border:1px solid color-mix(in srgb,var(--amber) 30%,transparent);
+  border-radius:var(--radius-md);padding:14px 16px;
+}
+.sign-in-change .si-h{font-size:13.5px;font-weight:800;margin-bottom:6px;color:var(--amber)}
+.sign-in-change .si-d{font-size:12.5px;color:var(--foreground-muted);line-height:1.55;margin-bottom:10px}
+
+/* ── section 3: discovery ─────────────────────────────────────────────────── */
+.discovery-layout{
+  display:grid;grid-template-columns:210px 1fr;gap:20px;
+  align-items:start;
+}
+@media(max-width:640px){.discovery-layout{grid-template-columns:1fr}}
+.filter-rail{
+  background:var(--surface-raised);border:1px solid var(--border);
+  border-radius:var(--radius-lg);padding:16px;
+  position:sticky;top:68px;
+}
+.filter-rail h3{font-size:12.5px;font-weight:800;margin-bottom:10px;color:var(--foreground-muted);text-transform:uppercase;letter-spacing:.04em}
+.filter-group{margin-bottom:18px}
+.filter-group:last-child{margin-bottom:0}
+.filter-check{
+  display:flex;align-items:center;gap:8px;
+  font-size:13px;padding:5px 0;cursor:pointer;
+}
+.filter-check input[type=checkbox]{width:15px;height:15px;accent-color:var(--accent)}
+.filter-check .fc-count{font-size:11px;color:var(--foreground-muted);margin-left:auto}
+.researcher-list{display:flex;flex-direction:column;gap:10px}
+.researcher-card{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--surface-raised);padding:14px 16px;
+  display:flex;align-items:center;gap:14px;
+}
+.researcher-card .rc-meta{flex:1;min-width:0}
+.researcher-card .rc-name{font-size:14px;font-weight:700;margin-bottom:2px}
+.researcher-card .rc-sub{font-size:12.5px;color:var(--foreground-muted)}
+.researcher-card .rc-actions{display:flex;gap:7px;align-items:center;flex-none}
+.mutual-hint{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11.5px;color:var(--green);font-weight:700;
+  background:var(--green-soft);border-radius:99px;padding:2px 9px;
+  margin-top:4px;
+}
+.inst-hint{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11.5px;color:var(--accent);font-weight:700;
+  background:var(--accent-soft);border-radius:99px;padding:2px 9px;
+  margin-top:4px;
+}
+
+/* ── section 4: institution page ─────────────────────────────────────────── */
+.inst-hero{
+  border-radius:var(--radius-xl);
+  background:linear-gradient(135deg,var(--accent-soft),color-mix(in srgb,var(--purple) 8%,transparent));
+  border:1px solid var(--border);padding:32px 28px;margin-bottom:20px;
+}
+.inst-hero h2{font-size:28px;font-weight:800;letter-spacing:-.02em;margin-bottom:8px}
+.inst-stat-row{display:flex;gap:28px;flex-wrap:wrap;margin-top:20px}
+.inst-stat{text-align:center}
+.inst-stat .sn{font-size:28px;font-weight:800;letter-spacing:-.02em;color:var(--accent)}
+.inst-stat .sl{font-size:12px;color:var(--foreground-muted);margin-top:2px}
+.member-grid{
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;
+  margin-bottom:14px;
+}
+.member-card{
+  border:1px solid var(--border);border-radius:var(--radius-md);
+  background:var(--surface-raised);padding:12px;
+  display:flex;align-items:center;gap:10px;
+}
+.member-card .mc-meta{flex:1;min-width:0}
+.member-card .mc-name{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.member-card .mc-sub{font-size:11.5px;color:var(--foreground-muted)}
+.gated-notice{
+  border:1px dashed var(--border);border-radius:var(--radius-md);
+  padding:16px;text-align:center;font-size:13px;color:var(--foreground-muted);
+  background:var(--surface-sunken);
+}
+
+/* ── section 4: institution directory ───────────────────────────────────── */
+.inst-dir-search{
+  display:flex;gap:10px;align-items:center;
+  margin-bottom:14px;flex-wrap:wrap;
+}
+.inst-dir-search .search-wrap{flex:1;min-width:180px;margin-bottom:0}
+.dept-filter-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:16px}
+.dept-chip{
+  font-size:12px;font-weight:700;
+  border:1px solid var(--border);border-radius:99px;
+  padding:4px 12px;background:var(--surface-sunken);
+  color:var(--foreground-muted);cursor:pointer;
+  transition:background .12s,border-color .12s,color .12s;
+}
+.dept-chip.on{
+  background:var(--accent-soft);border-color:var(--accent);color:var(--accent);
+}
+.dir-count-line{
+  font-size:12.5px;color:var(--foreground-muted);
+  margin-bottom:12px;
+}
+.inst-dir-list{display:flex;flex-direction:column;gap:8px}
+.inst-dir-card{
+  border:1px solid var(--border);border-radius:var(--radius-lg);
+  background:var(--surface-raised);padding:12px 14px;
+  display:flex;align-items:center;gap:13px;
+}
+.inst-dir-card .idc-meta{flex:1;min-width:0}
+.inst-dir-card .idc-name{font-size:13.5px;font-weight:700;margin-bottom:2px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.inst-dir-card .idc-title{font-size:12.5px;color:var(--foreground-muted);margin-bottom:3px}
+.inst-dir-card .idc-hints{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:2px}
+.inst-dir-card .idc-actions{display:flex;gap:6px;align-items:center;flex:none}
+.inst-dir-footnote{
+  margin-top:14px;
+  font-size:11.5px;color:var(--foreground-muted);
+  text-align:center;
+}
+
+/* ── section 5: share panel ──────────────────────────────────────────────── */
+.share-panel{
+  max-width:440px;border:1px solid var(--border);border-radius:var(--radius-xl);
+  background:var(--surface-overlay);box-shadow:0 16px 48px rgba(0,0,0,.12);
+  overflow:hidden;
+}
+.share-panel-head{
+  padding:16px 18px 14px;border-bottom:1px solid var(--border);
+}
+.share-panel-head h3{font-size:14px;font-weight:800;margin-bottom:3px}
+.share-panel-head p{font-size:12.5px;color:var(--foreground-muted)}
+.share-panel-body{padding:14px 18px}
+
+/* tier headers */
+.tier-label{
+  font-size:11px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--foreground-muted);margin:10px 0 6px;
+}
+.tier-label:first-child{margin-top:0}
+.tier-group-head{
+  display:flex;align-items:center;gap:8px;
+  padding:6px 9px;border-radius:var(--radius-sm);
+  background:var(--surface-sunken);margin-bottom:4px;
+}
+.tier-group-head .tgh-name{font-size:12px;font-weight:800;flex:1}
+.tier-group-head .tgh-sub{font-size:11px;color:var(--foreground-muted)}
+
+/* recipient rows */
+.recipient-row{
+  display:flex;align-items:center;gap:10px;
+  padding:9px;border-radius:var(--radius-sm);
+  border:1px solid var(--border);margin-bottom:6px;
+  background:var(--surface-raised);cursor:pointer;
+  transition:border-color .12s,background .12s;
+}
+.recipient-row:last-child{margin-bottom:0}
+.recipient-row:hover,.recipient-row.sel{border-color:var(--accent)}
+.recipient-row.sel{background:var(--accent-soft)}
+.recipient-row .rr-meta{flex:1;min-width:0}
+.recipient-row .rr-name{font-size:13px;font-weight:700}
+.recipient-row .rr-sub{font-size:11.5px;color:var(--foreground-muted)}
+
+/* trust badges */
+.trust-badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px;
+  background:var(--green-soft);color:var(--green);flex:none;
+}
+.trust-badge.key{background:var(--green-soft);color:var(--green)}
+.trust-badge.link{background:var(--amber-soft);color:var(--amber)}
+.trust-badge.invite{background:color-mix(in srgb,var(--red) 10%,transparent);color:var(--red)}
+.trust-badge.connected{background:var(--accent-soft);color:var(--accent)}
+.trust-badge.institution{background:var(--surface-sunken);color:var(--foreground-muted)}
+
+/* tier 3 email input */
+.tier3-wrap{margin-top:4px}
+.tier3-input-row{position:relative}
+.tier3-input-row input{padding-left:34px;border-radius:var(--radius-sm);font-size:13px}
+.tier3-input-row .t3-ic{
+  position:absolute;left:10px;top:50%;transform:translateY(-50%);
+  color:var(--foreground-muted);pointer-events:none;
+}
+.tier3-result{margin-top:6px;display:none}
+.tier3-result.visible{display:block}
+
+/* send method explainer */
+.send-method{
+  background:var(--surface-sunken);border-radius:var(--radius-md);
+  padding:12px 14px;margin:12px 0;font-size:12.5px;
+}
+.send-method .sm-title{font-weight:700;margin-bottom:3px}
+.send-method .sm-desc{color:var(--foreground-muted);line-height:1.5}
+.share-panel-foot{
+  padding:12px 18px;border-top:1px solid var(--border);
+  display:flex;gap:8px;justify-content:flex-end;
+}
+
+/* ── decision cards ──────────────────────────────────────────────────────── */
+.decisions{
+  background:var(--surface-sunken);border-radius:var(--radius-lg);
+  padding:18px 20px;margin-top:28px;
+  border:1px solid var(--border);
+}
+.decisions h3{font-size:13px;font-weight:800;margin-bottom:12px}
+.dq{padding:8px 0;border-top:1px solid var(--border);font-size:13px}
+.dq:first-of-type{border-top:0;padding-top:0}
+.dq strong{display:block;margin-bottom:3px}
+.dq span{color:var(--foreground-muted);font-size:12.5px;line-height:1.5}
+
+/* ── connections list (section 1) ────────────────────────────────────────── */
+.connections-section{margin-top:22px;padding-top:20px;border-top:1px solid var(--border)}
+.connections-section-head{
+  display:flex;align-items:center;gap:8px;margin-bottom:14px;
+}
+.connections-section-head h3{font-size:13.5px;font-weight:800;flex:1}
+.connection-row{
+  display:flex;align-items:center;gap:10px;
+  padding:8px 0;border-top:1px solid var(--border);
+}
+.connection-row:first-child{border-top:0;padding-top:0}
+.connection-row .cr-meta{flex:1;min-width:0}
+.connection-row .cr-name{font-size:13px;font-weight:700}
+.connection-row .cr-handle{font-size:11.5px;color:var(--foreground-muted)}
+.pending-requests-area{
+  background:var(--amber-soft);border:1px solid color-mix(in srgb,var(--amber) 28%,transparent);
+  border-radius:var(--radius-md);padding:12px 14px;margin-bottom:14px;
+}
+.pending-requests-area .pr-head{
+  font-size:12px;font-weight:800;color:var(--amber);
+  text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px;
+}
+.pending-request-row{
+  display:flex;align-items:center;gap:10px;padding:6px 0;
+  border-top:1px solid color-mix(in srgb,var(--amber) 18%,transparent);
+}
+.pending-request-row:first-of-type{border-top:0;padding-top:0}
+.pending-request-row .pr-meta{flex:1;min-width:0}
+.pending-request-row .pr-name{font-size:13px;font-weight:700}
+.pending-request-row .pr-sub{font-size:11.5px;color:var(--foreground-muted)}
+
+/* ── responsive tweaks ───────────────────────────────────────────────────── */
+@media(max-width:700px){
+  .inst-stat-row{gap:16px}
+  .inst-stat .sn{font-size:22px}
+  .editor-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+
+<body>
+<div class="rainbow-bar"></div>
+
+<div class="sticky-bar">
+  <div>
+    <h1>Researcher Profiles + Social Discovery</h1>
+    <div class="sub">Design mockup — 2026-06-14 — for review only</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="theme-btn" id="themeBtn">Dark mode</button>
+</div>
+
+<div class="page-wrap">
+
+  <!-- NAV -->
+  <div class="nav-tabs" id="navTabs">
+    <button class="active" data-tab="pub">1. Public Profile</button>
+    <button data-tab="editor">2. Profile Editor</button>
+    <button data-tab="discovery">3. Discovery Search</button>
+    <button data-tab="inst">4. Institution Page</button>
+    <button data-tab="share">5. Share Flow</button>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 1 — UNIFIED PUBLIC PROFILE  /u/@drgnickles
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="tab-panel active" id="tab-pub">
+
+    <div class="section-label">Section 1 — Public Profile &nbsp;/u/@drgnickles</div>
+
+    <!-- view state toggle -->
+    <div class="view-toggle" id="viewToggle">
+      <button class="on" data-v="other">Viewing someone else's profile</button>
+      <button data-v="own">Your own profile</button>
+    </div>
+
+    <!-- own-profile notice (hidden when viewing other) -->
+    <div class="own-banner" id="ownBanner" style="display:none">
+      <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4m0 4h.01"/></svg>
+      This is your public profile. Information shown here is visible to anyone who searches for you.
+      <button class="btn btn-outline btn-xs" style="margin-left:auto" onclick="switchToTab('editor')">Edit profile</button>
+    </div>
+
+    <div class="card">
+      <div class="profile-hero">
+
+        <!-- Avatar -->
+        <div class="av av-xl">GN</div>
+
+        <!-- Meta -->
+        <div class="profile-meta">
+          <div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-bottom:4px">
+            <span class="profile-name">Dr. Grant Nickles</span>
+            <span class="badge">
+              <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+              Verified — UW-Madison
+            </span>
+          </div>
+          <div class="profile-handle">@drgnickles</div>
+          <div class="profile-affil">University of Wisconsin-Madison &nbsp;·&nbsp; Department of Biochemistry</div>
+          <div class="profile-bio">
+            Biochemist studying chromatin remodeling complexes and their role in gene regulation. Building open tools for reproducible research. Sharing methods, not just results.
+          </div>
+
+          <!-- External links row -->
+          <div class="profile-links">
+            <span class="link-chip">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+              Website
+            </span>
+            <span class="link-chip" style="background:var(--green-soft);border-color:color-mix(in srgb,var(--green) 30%,transparent)">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 12h8M12 8l4 4-4 4"/></svg>
+              ORCID
+            </span>
+            <span class="link-chip">
+              <svg width="13" height="13" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+              GitHub
+            </span>
+            <span class="link-chip">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>
+              ResearchGate
+            </span>
+            <span class="link-chip">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              Google Scholar
+            </span>
+            <span class="link-chip">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 3a10.9 10.9 0 01-3.14 1.53 4.48 4.48 0 00-7.86 3v1A10.66 10.66 0 013 4s-4 9 5 13a11.64 11.64 0 01-7 2c9 5 20 0 20-11.5a4.5 4.5 0 00-.08-.83A7.72 7.72 0 0023 3z"/></svg>
+              X / Bluesky
+            </span>
+            <span class="link-chip">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M16 8a6 6 0 016 6v7h-4v-7a2 2 0 00-2-2 2 2 0 00-2 2v7h-4v-7a6 6 0 016-6z"/><rect x="2" y="9" width="4" height="12"/><circle cx="4" cy="4" r="2"/></svg>
+              LinkedIn
+            </span>
+          </div>
+
+          <!-- Stats + actions -->
+          <div class="profile-stats">
+            <span><strong>42</strong> connections</span>
+            <span><strong>7</strong> publications via ORCID</span>
+            <span class="inst-cluster-link" onclick="switchToTab('inst')">
+              <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+              14 other colleagues at UW-Madison
+            </span>
+          </div>
+
+          <!-- Action buttons — switches per view state -->
+          <div class="profile-actions" id="profileActions">
+            <!-- "viewing other" state -->
+            <div id="actionsOther">
+              <div class="row" style="gap:8px;flex-wrap:wrap">
+                <button class="btn btn-primary btn-sm" id="connectBtn">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6m3-3h-6"/></svg>
+                  Connect
+                </button>
+                <button class="btn btn-outline btn-sm" onclick="switchToTab('share')">
+                  <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+                  Share with this researcher
+                </button>
+                <span class="connected-pill" id="connectedPill" style="display:none">
+                  <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+                  Colleagues
+                </span>
+              </div>
+            </div>
+            <!-- "own profile" state -->
+            <div id="actionsOwn" style="display:none">
+              <div class="row" style="gap:8px">
+                <button class="btn btn-outline btn-sm" onclick="switchToTab('editor')">Edit profile</button>
+                <button class="btn btn-ghost btn-sm">Share my profile link</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ORCID publications -->
+      <div id="pubSection">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+          <span style="font-size:13.5px;font-weight:800">Publications</span>
+          <span class="badge institution">via ORCID 0000-0002-1234-5678</span>
+        </div>
+
+        <!-- PINNED BLOCK — always rendered at top -->
+        <div class="pub-pinned-block">
+          <div class="pub-pinned-label">
+            <span class="pin-glyph">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a1 1 0 0 1 .707.293l5 5a1 1 0 0 1-1.32 1.497l-1.093-.547-3.232 3.233.679 3.394a1 1 0 0 1-.272.92l-1 1a1 1 0 0 1-1.497-.106L12 14.175l-3.467 3.468a1 1 0 0 1-1.414-1.414L10.586 12.8l-2.514-2.514a1 1 0 0 1-.106-1.497l1-1a1 1 0 0 1 .92-.272l3.394.679 3.233-3.232-.547-1.093A1 1 0 0 1 16 2z"/></svg>
+            </span>
+            Pinned
+          </div>
+          <ul class="pub-list">
+            <!-- Pinned 1 — first author -->
+            <li class="pub-item" data-pub-id="p1" data-pinned="true">
+              <div class="pub-item-row">
+                <div class="pub-body">
+                  <div class="pub-title">Chromatin remodeling complex SWI/SNF governs enhancer accessibility during differentiation</div>
+                  <div class="pub-meta">
+                    Nature Cell Biology &nbsp;·&nbsp; 2025 &nbsp;·&nbsp;
+                    <span class="pub-self-author">Nickles G</span>, Zhao Y, Patterson KM, Okonkwo A, Han L, Torres R
+                  </div>
+                  <div><span class="pub-doi">DOI 10.1038/s41556-025-01234-7</span></div>
+                </div>
+                <button class="pin-toggle pinned" data-pub="p1" title="Unpin this paper">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a1 1 0 0 1 .707.293l5 5a1 1 0 0 1-1.32 1.497l-1.093-.547-3.232 3.233.679 3.394a1 1 0 0 1-.272.92l-1 1a1 1 0 0 1-1.497-.106L12 14.175l-3.467 3.468a1 1 0 0 1-1.414-1.414L10.586 12.8l-2.514-2.514a1 1 0 0 1-.106-1.497l1-1a1 1 0 0 1 .92-.272l3.394.679 3.233-3.232-.547-1.093A1 1 0 0 1 16 2z"/></svg>
+                </button>
+              </div>
+            </li>
+            <!-- Pinned 2 — middle author -->
+            <li class="pub-item" data-pub-id="p3" data-pinned="true">
+              <div class="pub-item-row">
+                <div class="pub-body">
+                  <div class="pub-title">Nucleosome positioning dynamics at gene regulatory elements revealed by single-molecule footprinting</div>
+                  <div class="pub-meta">
+                    Genome Research &nbsp;·&nbsp; 2022 &nbsp;·&nbsp;
+                    Zhao Y, Patterson KM, <span class="pub-self-author">Nickles G</span>, Okonkwo A, Wu J, Han L, Torres R
+                  </div>
+                  <div><span class="pub-doi">DOI 10.1101/gr.276481.122</span></div>
+                </div>
+                <button class="pin-toggle pinned" data-pub="p3" title="Unpin this paper">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a1 1 0 0 1 .707.293l5 5a1 1 0 0 1-1.32 1.497l-1.093-.547-3.232 3.233.679 3.394a1 1 0 0 1-.272.92l-1 1a1 1 0 0 1-1.497-.106L12 14.175l-3.467 3.468a1 1 0 0 1-1.414-1.414L10.586 12.8l-2.514-2.514a1 1 0 0 1-.106-1.497l1-1a1 1 0 0 1 .92-.272l3.394.679 3.233-3.232-.547-1.093A1 1 0 0 1 16 2z"/></svg>
+                </button>
+              </div>
+            </li>
+            <!-- Pinned 3 — corresponding/last author -->
+            <li class="pub-item" data-pub-id="p6" data-pinned="true">
+              <div class="pub-item-row">
+                <div class="pub-body">
+                  <div class="pub-title">Open chromatin landscapes during mammalian organogenesis mapped at single-cell resolution</div>
+                  <div class="pub-meta">
+                    Cell Genomics &nbsp;·&nbsp; 2020 &nbsp;·&nbsp;
+                    Patterson KM, Zhao Y, Okonkwo A, Wu J, Han L, Torres R, <span class="pub-self-author">Nickles G</span>
+                    <span style="font-size:11px;color:var(--purple);font-weight:700">&thinsp;(corresponding)</span>
+                  </div>
+                  <div><span class="pub-doi">DOI 10.1016/j.xgen.2020.100034</span></div>
+                </div>
+                <button class="pin-toggle pinned" data-pub="p6" title="Unpin this paper">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a1 1 0 0 1 .707.293l5 5a1 1 0 0 1-1.32 1.497l-1.093-.547-3.232 3.233.679 3.394a1 1 0 0 1-.272.92l-1 1a1 1 0 0 1-1.497-.106L12 14.175l-3.467 3.468a1 1 0 0 1-1.414-1.414L10.586 12.8l-2.514-2.514a1 1 0 0 1-.106-1.497l1-1a1 1 0 0 1 .92-.272l3.394.679 3.233-3.232-.547-1.093A1 1 0 0 1 16 2z"/></svg>
+                </button>
+              </div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- UNPINNED BLOCK — collapsed by default shows newest 2; rest hidden -->
+        <ul class="pub-list" id="pubUnpinnedList">
+          <!-- Unpinned 1 — always visible (newest unpinned) -->
+          <li class="pub-item" data-pub-id="p2">
+            <div class="pub-item-row">
+              <div class="pub-body">
+                <div class="pub-title">Quantitative proteomics reveals context-dependent roles of BAF complex subunits in pluripotent stem cells</div>
+                <div class="pub-meta">
+                  Molecular Cell &nbsp;·&nbsp; 2024 &nbsp;·&nbsp;
+                  <span class="pub-self-author">Nickles G</span>, Okonkwo A, Han L, Wu J, Torres R
+                </div>
+                <div><span class="pub-doi">DOI 10.1016/j.molcel.2024.09.011</span></div>
+              </div>
+              <button class="pin-toggle" data-pub="p2" title="Pin this paper">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 10l-5 4.5 1.5 6.5L12 17l-5.5 4 1.5-6.5L3 10l6.5-1.5z"/></svg>
+              </button>
+            </div>
+          </li>
+          <!-- Unpinned 2 — always visible (second newest unpinned) -->
+          <li class="pub-item" data-pub-id="p4">
+            <div class="pub-item-row">
+              <div class="pub-body">
+                <div class="pub-title">A scalable open-source pipeline for reproducible ChIP-seq analysis</div>
+                <div class="pub-meta">
+                  Bioinformatics &nbsp;·&nbsp; 2023 &nbsp;·&nbsp;
+                  <span class="pub-self-author">Nickles G</span>, Torres R, Wu J
+                </div>
+                <div><span class="pub-doi">DOI 10.1093/bioinformatics/btad287</span></div>
+              </div>
+              <button class="pin-toggle" data-pub="p4" title="Pin this paper">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 10l-5 4.5 1.5 6.5L12 17l-5.5 4 1.5-6.5L3 10l6.5-1.5z"/></svg>
+              </button>
+            </div>
+          </li>
+          <!-- Unpinned 3-4 — hidden until expanded -->
+          <li class="pub-item pub-unpinned-extra" data-pub-id="p5">
+            <div class="pub-item-row">
+              <div class="pub-body">
+                <div class="pub-title">Histone acetylation dynamics couple metabolic state to gene expression programs in proliferating cells</div>
+                <div class="pub-meta">
+                  Molecular Cell &nbsp;·&nbsp; 2021 &nbsp;·&nbsp;
+                  Okonkwo A, Wu J, <span class="pub-self-author">Nickles G</span>, Han L, Torres R, Zhao Y
+                </div>
+                <div><span class="pub-doi">DOI 10.1016/j.molcel.2021.04.022</span></div>
+              </div>
+              <button class="pin-toggle" data-pub="p5" title="Pin this paper">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 10l-5 4.5 1.5 6.5L12 17l-5.5 4 1.5-6.5L3 10l6.5-1.5z"/></svg>
+              </button>
+            </div>
+          </li>
+          <li class="pub-item pub-unpinned-extra" data-pub-id="p7">
+            <div class="pub-item-row">
+              <div class="pub-body">
+                <div class="pub-title">Cooperative binding of transcription factors to clustered enhancers coordinates cell-type-specific gene programs</div>
+                <div class="pub-meta">
+                  Genes and Development &nbsp;·&nbsp; 2019 &nbsp;·&nbsp;
+                  Han L, Torres R, Patterson KM, Wu J, <span class="pub-self-author">Nickles G</span>, Zhao Y, Okonkwo A
+                </div>
+                <div><span class="pub-doi">DOI 10.1101/gad.321893.118</span></div>
+              </div>
+              <button class="pin-toggle" data-pub="p7" title="Pin this paper">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 10l-5 4.5 1.5 6.5L12 17l-5.5 4 1.5-6.5L3 10l6.5-1.5z"/></svg>
+              </button>
+            </div>
+          </li>
+        </ul>
+
+        <button class="btn btn-ghost btn-sm pub-show-all" id="pubShowAllBtn">Show all 7 publications</button>
+      </div>
+
+      <!-- CONNECTIONS SECTION -->
+      <div class="connections-section" id="connectionsSection">
+
+        <!-- Pending requests — own-profile view only -->
+        <div class="pending-requests-area" id="pendingRequestsArea" style="display:none">
+          <div class="pr-head">Pending requests (2)</div>
+          <div class="pending-request-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fca5a5,#f87171)">KM</div>
+            <div class="pr-meta">
+              <div class="pr-name">Dr. Kyle Marsh</div>
+              <div class="pr-sub">@kmarsh &nbsp;·&nbsp; UW-Madison Chemistry</div>
+            </div>
+            <button class="btn btn-primary btn-xs">Accept</button>
+            <button class="btn btn-outline btn-xs">Ignore</button>
+          </div>
+          <div class="pending-request-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#a5f3fc,#67e8f9)">JW</div>
+            <div class="pr-meta">
+              <div class="pr-name">James Wu</div>
+              <div class="pr-sub">@jameswu &nbsp;·&nbsp; UW-Madison Biophysics</div>
+            </div>
+            <button class="btn btn-primary btn-xs">Accept</button>
+            <button class="btn btn-outline btn-xs">Ignore</button>
+          </div>
+        </div>
+
+        <div class="connections-section-head">
+          <h3>Connections</h3>
+          <a class="btn btn-ghost btn-xs" href="#">See all 42</a>
+        </div>
+
+        <div>
+          <div class="connection-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#a6f4c5,#6ee7b7)">YZ</div>
+            <div class="cr-meta">
+              <div class="cr-name">Dr. Yuki Zhao</div>
+              <div class="cr-handle">@yukiz &nbsp;·&nbsp; UW-Madison</div>
+            </div>
+          </div>
+          <div class="connection-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fde68a,#fbbf24)">AO</div>
+            <div class="cr-meta">
+              <div class="cr-name">Amara Okonkwo</div>
+              <div class="cr-handle">@aokonkwo &nbsp;·&nbsp; UW-Madison</div>
+            </div>
+          </div>
+          <div class="connection-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#c4b5fd,#818cf8)">LH</div>
+            <div class="cr-meta">
+              <div class="cr-name">Dr. Li Han</div>
+              <div class="cr-handle">@lhan &nbsp;·&nbsp; MIT</div>
+            </div>
+          </div>
+          <div class="connection-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fed7aa,#fb923c)">RT</div>
+            <div class="cr-meta">
+              <div class="cr-name">Rosa Torres</div>
+              <div class="cr-handle">@rtorres &nbsp;·&nbsp; Stanford</div>
+            </div>
+          </div>
+          <div class="connection-row">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#c4b5fd,#a78bfa)">SP</div>
+            <div class="cr-meta">
+              <div class="cr-name">Sara Patel</div>
+              <div class="cr-handle">@spatel &nbsp;·&nbsp; UW-Madison</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Open questions -->
+    <div class="decisions">
+      <h3>Open design questions — Section 1</h3>
+      <div class="dq"><strong>Q1. ORCID sync depth</strong><span>Should the publication list auto-refresh from the public ORCID API (no user action needed, ~80% coverage) or require the user to OAuth-connect their ORCID account (100% coverage, higher friction)?</span></div>
+      <div class="dq"><strong>Q2. Bio length</strong><span>280 characters (quick scan, mocked here) vs 500 characters (space for a real intro). Both feel reasonable; 280 disciplines researchers to be terse.</span></div>
+      <div class="dq"><strong>Q3. Connection label</strong><span>"Colleague" vs "Collaborator" — which fits the ResearchOS voice? "Colleague" is mocked here; it implies symmetric social parity. "Collaborator" implies a research relationship but may not be accurate for mentors/mentees.</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 2 — PROFILE EDITOR
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-editor">
+
+    <div class="section-label">Section 2 — Profile Editor &nbsp;(Settings &gt; Profile)</div>
+
+    <div class="card">
+      <p class="card-h">Avatar</p>
+      <p class="card-sub">JPG or PNG, at least 256×256. We never share your photo with third parties.</p>
+      <div class="avatar-upload">
+        <div class="av av-lg">GN</div>
+        <div class="upload-zone">
+          Drag an image here, or click to pick one
+          <div style="font-size:11px;margin-top:4px">Max 4 MB</div>
+        </div>
+        <button class="btn btn-outline btn-sm">Remove</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-h">Basic info</p>
+      <div class="editor-grid">
+        <div class="field-row">
+          <label class="field-label">Handle</label>
+          <div class="input-wrap">
+            <input type="text" value="drgnickles" style="padding-right:36px"/>
+            <span class="status-icon" style="color:var(--green)">&#10003;</span>
+          </div>
+          <div class="field-hint">Your public link will be researchos.app/u/@drgnickles. Handles are permanent once claimed.</div>
+        </div>
+        <div class="field-row">
+          <label class="field-label">Display name</label>
+          <input type="text" value="Dr. Grant Nickles"/>
+        </div>
+        <div class="field-row span2">
+          <label class="field-label">Affiliation</label>
+          <input type="text" value="University of Wisconsin-Madison — Department of Biochemistry"/>
+        </div>
+        <div class="field-row span2">
+          <label class="field-label">Bio</label>
+          <textarea id="bioArea" maxlength="280">Biochemist studying chromatin remodeling complexes and their role in gene regulation. Building open tools for reproducible research. Sharing methods, not just results.</textarea>
+          <div class="char-count"><span id="bioCount">168</span> / 280</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-h">External links</p>
+      <p class="card-sub">Add links to your website, profiles, and publications. None are required.</p>
+
+      <div id="linkRows">
+        <div class="link-add-row">
+          <select><option>Website</option><option>ORCID</option><option>Google Scholar</option><option>GitHub</option><option>ResearchGate</option><option>X</option><option>Bluesky</option><option>LinkedIn</option><option>Other</option></select>
+          <input type="url" value="https://nickleslab.org" placeholder="URL"/>
+          <button class="rm" title="Remove">&#215;</button>
+        </div>
+        <div class="link-add-row">
+          <select><option selected>ORCID</option><option>Website</option><option>Google Scholar</option><option>GitHub</option><option>ResearchGate</option><option>X</option><option>Bluesky</option><option>LinkedIn</option><option>Other</option></select>
+          <input type="url" value="https://orcid.org/0000-0002-1234-5678" placeholder="URL"/>
+          <button class="rm" title="Remove">&#215;</button>
+        </div>
+        <div class="link-add-row">
+          <select><option selected>GitHub</option><option>Website</option><option>ORCID</option><option>Google Scholar</option><option>ResearchGate</option><option>X</option><option>Bluesky</option><option>LinkedIn</option><option>Other</option></select>
+          <input type="url" value="https://github.com/gnickles" placeholder="URL"/>
+          <button class="rm" title="Remove">&#215;</button>
+        </div>
+      </div>
+      <button class="btn btn-outline btn-sm" style="margin-top:8px" id="addLinkBtn">+ Add link</button>
+    </div>
+
+    <div class="card">
+      <p class="card-h">ORCID</p>
+      <p class="card-sub">Connect your ORCID to automatically display your publication list on your public profile. Your ORCID iD is public; only works already marked Public in ORCID will appear.</p>
+      <div class="row">
+        <span class="badge">
+          <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          ORCID connected
+        </span>
+        <span style="font-size:13px;color:var(--foreground-muted)">0000-0002-1234-5678</span>
+        <button class="btn btn-ghost btn-xs">Disconnect</button>
+        <button class="btn btn-outline btn-xs" style="margin-left:auto">Refresh publications</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-h">Discoverability</p>
+      <p class="card-sub">When you claim a handle, your profile is listed in researcher search by default. You control what is visible. Your email address is never shown to anyone.</p>
+
+      <div class="disc-panel">
+        <div class="disc-main-row">
+          <div>
+            <strong style="display:block;font-size:14px;margin-bottom:2px">Listed in researcher search</strong>
+            <span style="font-size:12.5px;color:var(--foreground-muted)">Other ResearchOS users can find you by name, handle, or institution.</span>
+          </div>
+          <div class="sw on" id="listedSw"></div>
+        </div>
+
+        <div style="font-size:12.5px;font-weight:700;margin-bottom:8px;color:var(--foreground-muted)">Show on public profile</div>
+        <div class="disc-field-grid">
+          <label class="disc-check"><input type="checkbox" checked/> Display name</label>
+          <label class="disc-check"><input type="checkbox" checked/> Handle (@drgnickles)</label>
+          <label class="disc-check"><input type="checkbox" checked/> Affiliation</label>
+          <label class="disc-check"><input type="checkbox" checked/> Bio</label>
+          <label class="disc-check"><input type="checkbox" checked/> External links</label>
+          <label class="disc-check"><input type="checkbox" checked/> ORCID publications</label>
+          <label class="disc-check"><input type="checkbox" checked/> Colleague count</label>
+          <label class="disc-check"><input type="checkbox"/> Avatar</label>
+        </div>
+        <div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border);font-size:12px;color:var(--foreground-muted)">
+          Even when listed, your email address, sign-in provider, and internal lab data are always private.
+        </div>
+      </div>
+    </div>
+
+    <!-- Change sign-in section -->
+    <div class="card">
+      <p class="card-h">Sign-in and identity</p>
+      <p class="card-sub">Your handle, colleagues, and data are tied to your ResearchOS identity, not to any specific sign-in provider or email address.</p>
+
+      <div class="toggle-row" style="border-top:0;padding-top:0">
+        <div class="tl">
+          <strong>Current sign-in</strong>
+          <span>Google &nbsp;·&nbsp; gnickles@wisc.edu</span>
+        </div>
+        <span class="badge institution">Verified institution</span>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="sign-in-change">
+        <div class="si-h">Change sign-in email or provider</div>
+        <div class="si-d">
+          Graduating or changing institutions? You can add a personal Google account or a new email, then remove your old provider. Your handle, connections, publications, and all lab data stay exactly where they are. Only your sign-in method changes.
+        </div>
+        <div class="row" style="gap:8px;flex-wrap:wrap">
+          <button class="btn btn-outline btn-sm">Add Google account</button>
+          <button class="btn btn-outline btn-sm">Add email/password</button>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:18px">
+      <button class="btn btn-outline">Discard changes</button>
+      <button class="btn btn-primary">Save profile</button>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 3 — DISCOVERY / SEARCH
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-discovery">
+
+    <div class="section-label">Section 3 — Researcher Discovery &nbsp;/researchers</div>
+
+    <div class="search-wrap">
+      <span class="search-ic">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+      </span>
+      <input type="text" value="biochem" placeholder="Search by name, @handle, or institution..." style="padding-left:40px;font-size:14px;border-radius:12px;background:var(--surface-raised)"/>
+    </div>
+
+    <div class="discovery-layout">
+
+      <!-- Filter rail -->
+      <div class="filter-rail">
+        <div class="filter-group">
+          <h3>Institution</h3>
+          <label class="filter-check"><input type="checkbox" checked/> UW-Madison <span class="fc-count">14</span></label>
+          <label class="filter-check"><input type="checkbox"/> MIT <span class="fc-count">9</span></label>
+          <label class="filter-check"><input type="checkbox"/> Stanford <span class="fc-count">7</span></label>
+          <label class="filter-check"><input type="checkbox"/> Broad Institute <span class="fc-count">5</span></label>
+          <button class="btn btn-ghost btn-xs" style="margin-top:6px">Show more</button>
+        </div>
+        <div class="filter-group">
+          <h3>Profile</h3>
+          <label class="filter-check"><input type="checkbox" checked/> Has ORCID</label>
+          <label class="filter-check"><input type="checkbox"/> Has publications</label>
+        </div>
+        <div class="filter-group">
+          <h3>Connection</h3>
+          <label class="filter-check"><input type="checkbox"/> Already connected</label>
+          <label class="filter-check"><input type="checkbox"/> Not connected</label>
+          <label class="filter-check"><input type="checkbox" checked/> Same institution</label>
+        </div>
+      </div>
+
+      <!-- Results -->
+      <div class="researcher-list">
+        <div style="font-size:12.5px;color:var(--foreground-muted);margin-bottom:8px">23 researchers found</div>
+
+        <!-- Card 1 — colleague -->
+        <div class="researcher-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#a6f4c5,#6ee7b7)">YZ</div>
+          <div class="rc-meta">
+            <div class="rc-name">Dr. Yuki Zhao &nbsp;<span class="badge" style="font-size:10.5px;padding:2px 7px">Verified — UW-Madison</span></div>
+            <div class="rc-sub">University of Wisconsin-Madison &nbsp;·&nbsp; Genetics</div>
+            <div style="margin-top:3px">
+              <span class="mutual-hint">
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+                Colleagues
+              </span>
+            </div>
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-outline btn-xs">View profile</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- Card 2 — same institution, not connected -->
+        <div class="researcher-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fde68a,#fbbf24)">AO</div>
+          <div class="rc-meta">
+            <div class="rc-name">Amara Okonkwo &nbsp;<span class="badge" style="font-size:10.5px;padding:2px 7px">Verified — UW-Madison</span></div>
+            <div class="rc-sub">University of Wisconsin-Madison &nbsp;·&nbsp; Biochemistry</div>
+            <div style="margin-top:3px">
+              <span class="inst-hint">
+                <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg>
+                Same institution
+              </span>
+            </div>
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- Card 3 — unconnected, no institution match -->
+        <div class="researcher-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#c4b5fd,#818cf8)">LH</div>
+          <div class="rc-meta">
+            <div class="rc-name">Dr. Li Han</div>
+            <div class="rc-sub">MIT &nbsp;·&nbsp; Biology</div>
+            <div style="margin-top:3px;font-size:11.5px;color:var(--foreground-muted)">
+              <span style="background:var(--accent-soft);color:var(--accent);border-radius:99px;padding:2px 9px;font-weight:700">
+                ORCID
+              </span>
+              &nbsp; 4 mutual colleagues
+            </div>
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- Card 4 — pending request -->
+        <div class="researcher-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fed7aa,#fb923c)">RT</div>
+          <div class="rc-meta">
+            <div class="rc-name">Rosa Torres &nbsp;<span class="badge pending" style="font-size:10.5px;padding:2px 7px">Pending</span></div>
+            <div class="rc-sub">Stanford &nbsp;·&nbsp; Chemistry</div>
+            <div style="font-size:11.5px;color:var(--foreground-muted);margin-top:3px">Request sent — awaiting acceptance</div>
+          </div>
+          <div class="rc-actions">
+            <button class="btn btn-outline btn-xs" style="opacity:.6" disabled>Pending</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:16px">
+          <button class="btn btn-outline btn-sm">Load more results</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 4 — INSTITUTION PAGE
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-inst">
+
+    <div class="section-label">Section 4 — Institution Page &nbsp;/institution/uw-madison</div>
+
+    <div class="inst-hero">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:8px">
+        <div style="width:52px;height:52px;border-radius:var(--radius-md);background:var(--surface-raised);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:22px">&#127979;</div>
+        <div>
+          <h2>University of Wisconsin-Madison</h2>
+          <div style="font-size:13px;color:var(--foreground-muted)">wisc.edu</div>
+        </div>
+        <span class="badge institution" style="margin-left:auto">Institution verified</span>
+      </div>
+      <div style="font-size:14px;color:var(--foreground-muted);margin-bottom:8px">
+        Researchers on ResearchOS with a verified @wisc.edu or @uwhealth.org email are automatically clustered here.
+      </div>
+      <div class="inst-stat-row">
+        <div class="inst-stat">
+          <div class="sn">47</div>
+          <div class="sl">Researchers on ResearchOS</div>
+        </div>
+        <div class="inst-stat">
+          <div class="sn">31</div>
+          <div class="sl">With ORCID</div>
+        </div>
+        <div class="inst-stat">
+          <div class="sn" style="color:var(--purple)">12</div>
+          <div class="sl">Labs sharing data</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-h">Researchers</div>
+
+      <!-- Search + filter bar -->
+      <div class="inst-dir-search">
+        <div class="search-wrap" style="margin-bottom:0">
+          <span class="search-ic">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          </span>
+          <input type="text" placeholder="Filter by name or @handle..." style="padding-left:36px;font-size:13px"/>
+        </div>
+        <select style="width:auto;flex:none;font-size:13px;padding:9px 11px;border-radius:var(--radius-sm)">
+          <option>All departments</option>
+          <option>Biochemistry</option>
+          <option>Genetics</option>
+          <option>Chemistry</option>
+          <option>Microbiology</option>
+          <option>Biophysics</option>
+          <option>Pharmacy</option>
+          <option>Oncology</option>
+        </select>
+        <label class="disc-check" style="flex:none;white-space:nowrap;border-radius:var(--radius-sm);padding:7px 12px">
+          <input type="checkbox"/> Has ORCID
+        </label>
+      </div>
+
+      <!-- Directory count + list -->
+      <div class="dir-count-line">Showing 47 of 47 researchers</div>
+
+      <div class="inst-dir-list">
+
+        <!-- 1 — Dr. Grant Nickles (you) -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#a6d2f4,#d6b5f0)">GN</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Grant Nickles
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Biochemistry &nbsp;·&nbsp; Assistant Professor</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span style="font-size:11.5px;color:var(--foreground-muted)">You</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-outline btn-xs">View profile</button>
+          </div>
+        </div>
+
+        <!-- 2 — Dr. Yuki Zhao — Connected -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#a6f4c5,#6ee7b7)">YZ</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Yuki Zhao
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Genetics &nbsp;·&nbsp; Postdoctoral Researcher</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span class="mutual-hint" style="margin-top:0">
+                <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+                Colleagues
+              </span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <span class="connected-pill" style="font-size:11.5px;padding:4px 11px">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+              Connected
+            </span>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 3 — Amara Okonkwo -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fde68a,#fbbf24)">AO</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Amara Okonkwo
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Biochemistry &nbsp;·&nbsp; PhD Candidate</div>
+            <div class="idc-hints">
+              <span style="font-size:11.5px;color:var(--foreground-muted)">1 mutual connection</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 4 — Dr. Kyle Marsh -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fca5a5,#f87171)">KM</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Kyle Marsh
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Chemistry &nbsp;·&nbsp; Associate Professor</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span style="font-size:11.5px;color:var(--foreground-muted)">3 mutual connections</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 5 — Sara Patel — Connected -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#c4b5fd,#a78bfa)">SP</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Sara Patel
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Microbiology &nbsp;·&nbsp; PhD Candidate</div>
+            <div class="idc-hints">
+              <span class="mutual-hint" style="margin-top:0">
+                <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+                Colleagues
+              </span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <span class="connected-pill" style="font-size:11.5px;padding:4px 11px">
+              <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+              Connected
+            </span>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 6 — James Wu -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#a5f3fc,#67e8f9)">JW</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              James Wu
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Biophysics &nbsp;·&nbsp; Postdoctoral Researcher</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span style="font-size:11.5px;color:var(--foreground-muted)">2 mutual connections</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 7 — Dr. Priya Nair -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fbcfe8,#f472b6)">PN</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Priya Nair
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Pharmacy &nbsp;·&nbsp; Assistant Professor</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 8 — Marcus Henley -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#d1fae5,#6ee7b7)">MH</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Marcus Henley
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Genetics &nbsp;·&nbsp; PhD Candidate</div>
+            <div class="idc-hints">
+              <span style="font-size:11.5px;color:var(--foreground-muted)">1 mutual connection</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 9 — Dr. Fatima Al-Rashid -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#fef3c7,#fbbf24)">FA</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Fatima Al-Rashid
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Oncology &nbsp;·&nbsp; Associate Professor</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span style="font-size:11.5px;color:var(--foreground-muted)">4 mutual connections</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 10 — Lena Bergstrom -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#e0e7ff,#818cf8)">LB</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Lena Bergstrom
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Biochemistry &nbsp;·&nbsp; Research Scientist</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <!-- 11 — Dr. Thomas Osei -->
+        <div class="inst-dir-card">
+          <div class="av av-md" style="background:linear-gradient(135deg,#ffd6a5,#ff9f68)">TO</div>
+          <div class="idc-meta">
+            <div class="idc-name">
+              Dr. Thomas Osei
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">Verified</span>
+            </div>
+            <div class="idc-title">Microbiology &nbsp;·&nbsp; Professor</div>
+            <div class="idc-hints">
+              <span class="badge institution" style="font-size:10.5px;padding:2px 7px">ORCID</span>
+              <span style="font-size:11.5px;color:var(--foreground-muted)">2 mutual connections</span>
+            </div>
+          </div>
+          <div class="idc-actions">
+            <button class="btn btn-primary btn-xs">Connect</button>
+            <button class="btn btn-outline btn-xs" onclick="switchToTab('share')">Share</button>
+          </div>
+        </div>
+
+        <div style="text-align:center;padding:14px 0">
+          <button class="btn btn-outline btn-sm">Load more (36 remaining)</button>
+        </div>
+
+      </div><!-- .inst-dir-list -->
+
+      <div class="inst-dir-footnote">
+        Researchers who have opted out of institution listing are not shown; listed is the default, so this directory is essentially complete.
+      </div>
+
+    </div>
+
+    <div class="decisions">
+      <h3>Open design questions — Section 4</h3>
+      <div class="dq"><strong>Q4. Lab PI suppression of institution page</strong><span>Should a PI be able to opt their entire lab out of the institution cluster listing, or does each person's discoverability setting govern only their own entry? The current mock gives individuals control, not PIs.</span></div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════════════════════════
+       SECTION 5 — TIERED SHARE PICKER
+  ══════════════════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-share">
+
+    <div class="section-label">Section 5 — Share Flow panel (tiered picker)</div>
+
+    <div style="display:flex;gap:28px;align-items:flex-start;flex-wrap:wrap">
+
+      <!-- Panel -->
+      <div class="share-panel">
+        <div class="share-panel-head">
+          <h3>Share "ChIP-seq Protocol v3"</h3>
+          <p>Pick a recipient below — fastest path first. The send method updates based on who you choose.</p>
+        </div>
+        <div class="share-panel-body">
+
+          <!-- TIER 1: Lab mates -->
+          <div class="tier-label">Lab mates</div>
+          <div class="tier-group-head">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg>
+            <span class="tgh-name">Nickles Lab</span>
+            <span class="tgh-sub">UW-Madison Biochemistry</span>
+          </div>
+
+          <div class="recipient-row sel" data-recip="yuki">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#a6f4c5,#6ee7b7)">YZ</div>
+            <div class="rr-meta">
+              <div class="rr-name">Dr. Yuki Zhao</div>
+              <div class="rr-sub">@yukiz</div>
+            </div>
+            <span class="trust-badge key">
+              <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+              E2E sealed
+            </span>
+          </div>
+
+          <div class="recipient-row" data-recip="amara">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fde68a,#fbbf24)">AO</div>
+            <div class="rr-meta">
+              <div class="rr-name">Amara Okonkwo</div>
+              <div class="rr-sub">@aokonkwo</div>
+            </div>
+            <span class="trust-badge key">
+              <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+              E2E sealed
+            </span>
+          </div>
+
+          <div class="recipient-row" data-recip="kyle">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fca5a5,#f87171)">KM</div>
+            <div class="rr-meta">
+              <div class="rr-name">Dr. Kyle Marsh</div>
+              <div class="rr-sub">@kmarsh</div>
+            </div>
+            <span class="trust-badge link">Secure link</span>
+          </div>
+
+          <!-- TIER 2: Connections -->
+          <div class="tier-label" style="margin-top:14px">Connections</div>
+
+          <div class="recipient-row" data-recip="lihan">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#c4b5fd,#818cf8)">LH</div>
+            <div class="rr-meta">
+              <div class="rr-name">Dr. Li Han</div>
+              <div class="rr-sub">@lhan &nbsp;·&nbsp; MIT</div>
+            </div>
+            <span class="trust-badge connected">Connected</span>
+          </div>
+
+          <div class="recipient-row" data-recip="rosa">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#fed7aa,#fb923c)">RT</div>
+            <div class="rr-meta">
+              <div class="rr-name">Rosa Torres</div>
+              <div class="rr-sub">@rtorres &nbsp;·&nbsp; Stanford</div>
+            </div>
+            <span class="trust-badge connected">Connected</span>
+          </div>
+
+          <div class="recipient-row" data-recip="sara">
+            <div class="av av-xs" style="background:linear-gradient(135deg,#c4b5fd,#a78bfa)">SP</div>
+            <div class="rr-meta">
+              <div class="rr-name">Sara Patel</div>
+              <div class="rr-sub">@spatel &nbsp;·&nbsp; UW-Madison</div>
+            </div>
+            <span class="trust-badge institution">Same institution</span>
+          </div>
+
+          <!-- TIER 3: Open search -->
+          <div class="tier-label" style="margin-top:14px">Search or invite by email</div>
+          <div class="tier3-wrap">
+            <div class="tier3-input-row">
+              <span class="t3-ic">
+                <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              </span>
+              <input type="text" id="tier3Input" placeholder="Search by name or @handle, or type an email"/>
+            </div>
+
+            <!-- State A: email resolves to a ResearchOS account -->
+            <div class="tier3-result" id="tier3Found">
+              <div class="recipient-row" data-recip="found" style="margin-top:0">
+                <div class="av av-xs" style="background:linear-gradient(135deg,#a5f3fc,#67e8f9)">JW</div>
+                <div class="rr-meta">
+                  <div class="rr-name" id="tier3FoundName">james.wu@wisc.edu</div>
+                  <div class="rr-sub">ResearchOS account found</div>
+                </div>
+                <span class="trust-badge key">
+                  <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/></svg>
+                  E2E sealed
+                </span>
+              </div>
+            </div>
+
+            <!-- State B: email not on ResearchOS -->
+            <div class="tier3-result" id="tier3NotFound">
+              <div class="recipient-row" data-recip="notfound" style="margin-top:0;border-color:color-mix(in srgb,var(--amber) 40%,transparent)">
+                <div class="av av-xs" style="background:var(--surface-sunken);color:var(--foreground-muted)">?</div>
+                <div class="rr-meta">
+                  <div class="rr-name" id="tier3NotFoundEmail" style="font-size:12.5px"></div>
+                  <div class="rr-sub">Not on ResearchOS — we will email a one-time secure invite link</div>
+                </div>
+                <span class="trust-badge invite">Invite email</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Send method explainer -->
+          <div class="send-method" id="sendMethodBox">
+            <div class="sm-title">End-to-end sealed share</div>
+            <div class="sm-desc">Dr. Yuki Zhao has a ResearchOS key. This item will be encrypted with their public key before leaving your device. Only they can open it.</div>
+          </div>
+
+          <div style="font-size:12px;color:var(--foreground-muted);margin-bottom:6px">Add a message (optional)</div>
+          <textarea style="font-size:13px;min-height:56px;margin-bottom:0" placeholder="e.g. Here's the protocol we discussed in lab meeting..."></textarea>
+        </div>
+        <div class="share-panel-foot">
+          <button class="btn btn-outline btn-sm">Cancel</button>
+          <button class="btn btn-primary btn-sm" id="shareFootBtn">Send sealed share</button>
+        </div>
+      </div>
+
+      <!-- Trust legend + decisions -->
+      <div style="flex:1;min-width:240px">
+        <div class="card">
+          <p class="card-h">Trust signal legend</p>
+          <p class="card-sub">The share panel always shows how the item will travel and how well you know the recipient.</p>
+          <div class="divider"></div>
+          <div style="display:flex;flex-direction:column;gap:12px">
+            <div>
+              <span class="trust-badge key" style="margin-bottom:5px;display:inline-flex">E2E sealed</span>
+              <div style="font-size:12.5px;color:var(--foreground-muted)">Recipient has a ResearchOS device key. The item is sealed with their public key on your device. The relay server never sees plaintext.</div>
+            </div>
+            <div>
+              <span class="trust-badge link" style="margin-bottom:5px;display:inline-flex">Secure link</span>
+              <div style="font-size:12.5px;color:var(--foreground-muted)">Recipient is on ResearchOS but has not yet provisioned a key on this device. A time-limited secure link is generated; relay holds ciphertext until they claim it.</div>
+            </div>
+            <div>
+              <span class="trust-badge invite" style="margin-bottom:5px;display:inline-flex">Invite email</span>
+              <div style="font-size:12.5px;color:var(--foreground-muted)">Recipient is not on ResearchOS. We send them a one-time account-creation link with the shared item waiting once they sign up and provision a key.</div>
+            </div>
+            <div>
+              <span class="trust-badge connected" style="margin-bottom:5px;display:inline-flex">Connected</span>
+              <div style="font-size:12.5px;color:var(--foreground-muted)">You and this person have mutually accepted a connection request. One-click share target; no search step needed.</div>
+            </div>
+            <div>
+              <span class="trust-badge institution" style="margin-bottom:5px;display:inline-flex">Same institution</span>
+              <div style="font-size:12.5px;color:var(--foreground-muted)">Auto-cluster by verified email domain. Lower trust than a mutual connection, higher than a cold search result.</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="decisions" style="margin-top:14px">
+          <h3>Open design questions — Section 5</h3>
+          <div class="dq"><strong>Q5. Change sign-in grace period</strong><span>When switching providers (e.g. grad student moving from .edu to personal Gmail), should both providers work in parallel for a window (e.g. 30 days) or should it be an atomic swap?</span></div>
+          <div class="dq"><strong>Q6. Invite link expiry</strong><span>How long should the one-time invite link be valid for someone who has not yet joined ResearchOS? 7 days? 30 days? Should the sender be able to set this?</span></div>
+          <div class="dq"><strong>Q7. Lab mates tier source</strong><span>Lab mates are inferred from shared lab membership in ResearchOS. Should this tier only appear when the sender and recipient share an active lab folder, or also for alumni of a shared lab?</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- .page-wrap -->
+
+<script>
+// ── dark/light toggle ──────────────────────────────────────────────────────
+const themeBtn = document.getElementById('themeBtn');
+let dark = false;
+themeBtn.addEventListener('click', () => {
+  dark = !dark;
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : '');
+  themeBtn.textContent = dark ? 'Light mode' : 'Dark mode';
+});
+
+// ── tab switching ──────────────────────────────────────────────────────────
+const navTabs = document.getElementById('navTabs');
+function switchToTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.nav-tabs button').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById('tab-' + id);
+  if (panel) panel.classList.add('active');
+  const btn = navTabs.querySelector('[data-tab="' + id + '"]');
+  if (btn) btn.classList.add('active');
+  window.scrollTo(0, 0);
+}
+navTabs.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-tab]');
+  if (btn) switchToTab(btn.dataset.tab);
+});
+
+// ── view state toggle (profile) ────────────────────────────────────────────
+const viewToggle = document.getElementById('viewToggle');
+viewToggle.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-v]');
+  if (!btn) return;
+  viewToggle.querySelectorAll('button').forEach(b => b.classList.remove('on'));
+  btn.classList.add('on');
+  const isOwn = btn.dataset.v === 'own';
+  document.getElementById('ownBanner').style.display = isOwn ? 'flex' : 'none';
+  document.getElementById('actionsOther').style.display = isOwn ? 'none' : 'block';
+  document.getElementById('actionsOwn').style.display = isOwn ? 'block' : 'none';
+  const pendingArea = document.getElementById('pendingRequestsArea');
+  if (pendingArea) pendingArea.style.display = isOwn ? 'block' : 'none';
+});
+
+// ── connect button toggle ──────────────────────────────────────────────────
+const connectBtn = document.getElementById('connectBtn');
+const connectedPill = document.getElementById('connectedPill');
+let connected = false;
+connectBtn.addEventListener('click', () => {
+  connected = !connected;
+  connectBtn.style.display = connected ? 'none' : 'inline-flex';
+  connectedPill.style.display = connected ? 'inline-flex' : 'none';
+  if (connected) {
+    const added = document.createElement('button');
+    added.className = 'btn btn-outline btn-sm';
+    added.textContent = 'Message';
+    connectBtn.parentNode.insertBefore(added, connectBtn.nextSibling);
+  }
+});
+
+// ── bio char count ─────────────────────────────────────────────────────────
+const bioArea = document.getElementById('bioArea');
+const bioCount = document.getElementById('bioCount');
+if (bioArea && bioCount) {
+  bioArea.addEventListener('input', () => {
+    bioCount.textContent = bioArea.value.length;
+  });
+}
+
+// ── toggle switches ────────────────────────────────────────────────────────
+document.querySelectorAll('.sw').forEach(sw => {
+  sw.addEventListener('click', () => sw.classList.toggle('on'));
+});
+
+// ── discoverability toggle dims fields ────────────────────────────────────
+const listedSw = document.getElementById('listedSw');
+if (listedSw) {
+  listedSw.addEventListener('click', () => {
+    const panel = listedSw.closest('.disc-panel');
+    const fields = panel.querySelector('.disc-field-grid');
+    if (fields) fields.style.opacity = listedSw.classList.contains('on') ? '1' : '0.4';
+  });
+}
+
+// ── share panel: tiered picker ─────────────────────────────────────────────
+const sendMethodBox = document.getElementById('sendMethodBox');
+const shareFootBtn = document.getElementById('shareFootBtn');
+
+const recipientMeta = {
+  yuki:     { title: 'End-to-end sealed share', desc: 'Dr. Yuki Zhao has a ResearchOS key. This item will be sealed with their public key on your device. Only they can open it.', btn: 'Send sealed share' },
+  amara:    { title: 'End-to-end sealed share', desc: 'Amara Okonkwo has a ResearchOS key. Sealed with their public key before leaving your device.', btn: 'Send sealed share' },
+  kyle:     { title: 'Secure link',             desc: 'Dr. Kyle Marsh has a ResearchOS account but no device key provisioned yet. A time-limited secure link will be generated; relay holds ciphertext until they claim it.', btn: 'Send secure link' },
+  lihan:    { title: 'End-to-end sealed share', desc: 'Dr. Li Han is a connection with a ResearchOS key. Sealed share — only they can open it.', btn: 'Send sealed share' },
+  rosa:     { title: 'End-to-end sealed share', desc: 'Rosa Torres is a connection with a ResearchOS key. Sealed share — only they can open it.', btn: 'Send sealed share' },
+  sara:     { title: 'Secure link',             desc: 'Sara Patel is at the same institution but has no device key yet. A time-limited secure link will be generated.', btn: 'Send secure link' },
+  found:    { title: 'End-to-end sealed share', desc: 'This email resolves to a ResearchOS account with a device key. The item will be sealed with their public key before leaving your device.', btn: 'Send sealed share' },
+  notfound: { title: 'Invite email',            desc: 'This address is not on ResearchOS yet. We will send them a one-time invite link; the shared item waits for them once they sign up and provision a key.', btn: 'Send invite' },
+};
+
+function applyRecipient(key) {
+  const m = recipientMeta[key];
+  if (!m || !sendMethodBox) return;
+  sendMethodBox.querySelector('.sm-title').textContent = m.title;
+  sendMethodBox.querySelector('.sm-desc').textContent = m.desc;
+  if (shareFootBtn) shareFootBtn.textContent = m.btn;
+}
+
+document.querySelectorAll('.recipient-row').forEach(row => {
+  row.addEventListener('click', () => {
+    document.querySelectorAll('.share-panel .recipient-row').forEach(r => r.classList.remove('sel'));
+    row.classList.add('sel');
+    applyRecipient(row.dataset.recip);
+  });
+});
+
+// initialise with the pre-selected yuki row
+applyRecipient('yuki');
+
+// ── tier 3 email resolver ──────────────────────────────────────────────────
+// Hardcoded "known accounts": anything containing wisc.edu, or these stubs.
+const KNOWN_ACCOUNTS = ['wisc.edu', 'james.wu', '@jameswu', 'sara.patel', '@spatel'];
+
+function looksLikeEmail(v) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.trim());
+}
+
+function isKnownAccount(v) {
+  const lc = v.toLowerCase();
+  return KNOWN_ACCOUNTS.some(k => lc.includes(k));
+}
+
+const tier3Input   = document.getElementById('tier3Input');
+const tier3Found   = document.getElementById('tier3Found');
+const tier3NotFound = document.getElementById('tier3NotFound');
+const tier3FoundName    = document.getElementById('tier3FoundName');
+const tier3NotFoundEmail = document.getElementById('tier3NotFoundEmail');
+
+if (tier3Input) {
+  tier3Input.addEventListener('input', () => {
+    const v = tier3Input.value.trim();
+
+    // hide both result states first
+    tier3Found.classList.remove('visible');
+    tier3NotFound.classList.remove('visible');
+
+    if (!looksLikeEmail(v)) return;
+
+    if (isKnownAccount(v)) {
+      // state A — resolves to an account
+      tier3FoundName.textContent = v;
+      tier3Found.classList.add('visible');
+      // auto-select the found row
+      document.querySelectorAll('.share-panel .recipient-row').forEach(r => r.classList.remove('sel'));
+      tier3Found.querySelector('.recipient-row').classList.add('sel');
+      applyRecipient('found');
+    } else {
+      // state B — not on ResearchOS
+      tier3NotFoundEmail.textContent = v;
+      tier3NotFound.classList.add('visible');
+      document.querySelectorAll('.share-panel .recipient-row').forEach(r => r.classList.remove('sel'));
+      tier3NotFound.querySelector('.recipient-row').classList.add('sel');
+      applyRecipient('notfound');
+    }
+  });
+}
+
+// ── publications: show-all expand/collapse ────────────────────────────────
+const pubShowAllBtn = document.getElementById('pubShowAllBtn');
+let pubExpanded = false;
+if (pubShowAllBtn) {
+  pubShowAllBtn.addEventListener('click', () => {
+    pubExpanded = !pubExpanded;
+    document.querySelectorAll('.pub-unpinned-extra').forEach(el => {
+      el.classList.toggle('visible', pubExpanded);
+    });
+    pubShowAllBtn.textContent = pubExpanded ? 'Show fewer publications' : 'Show all 7 publications';
+  });
+}
+
+// ── publications: pin toggle (own-profile view only) ──────────────────────
+const PIN_MAX = 5;
+function syncPinTogglesVisibility(isOwn) {
+  document.querySelectorAll('.pin-toggle').forEach(btn => {
+    btn.style.display = isOwn ? 'inline-flex' : 'none';
+  });
+}
+// wire into the existing view-state toggle
+const _origViewHandler = viewToggle.onclick;
+viewToggle.addEventListener('click', e => {
+  const btn = e.target.closest('button[data-v]');
+  if (!btn) return;
+  syncPinTogglesVisibility(btn.dataset.v === 'own');
+});
+
+document.querySelectorAll('.pin-toggle').forEach(btn => {
+  btn.addEventListener('click', e => {
+    e.stopPropagation();
+    const isPinned = btn.classList.contains('pinned');
+    if (!isPinned) {
+      const currentPinCount = document.querySelectorAll('.pin-toggle.pinned').length;
+      if (currentPinCount >= PIN_MAX) {
+        // nudge — briefly flash a message
+        const nudge = document.createElement('span');
+        nudge.style.cssText = 'position:fixed;bottom:28px;left:50%;transform:translateX(-50%);background:var(--surface-overlay);border:1px solid var(--border);border-radius:var(--radius-md);padding:10px 18px;font-size:13px;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.14);z-index:999;color:var(--foreground);white-space:nowrap';
+        nudge.textContent = 'You can pin up to 5 papers. Unpin one first.';
+        document.body.appendChild(nudge);
+        setTimeout(() => nudge.remove(), 2800);
+        return;
+      }
+      btn.classList.add('pinned');
+      // swap icon to filled pin
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M16 2a1 1 0 0 1 .707.293l5 5a1 1 0 0 1-1.32 1.497l-1.093-.547-3.232 3.233.679 3.394a1 1 0 0 1-.272.92l-1 1a1 1 0 0 1-1.497-.106L12 14.175l-3.467 3.468a1 1 0 0 1-1.414-1.414L10.586 12.8l-2.514-2.514a1 1 0 0 1-.106-1.497l1-1a1 1 0 0 1 .92-.272l3.394.679 3.233-3.232-.547-1.093A1 1 0 0 1 16 2z"/></svg>';
+      btn.title = 'Unpin this paper';
+    } else {
+      btn.classList.remove('pinned');
+      // swap icon to outline pin
+      btn.innerHTML = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.5 6.5L21 10l-5 4.5 1.5 6.5L12 17l-5.5 4 1.5-6.5L3 10l6.5-1.5z"/></svg>';
+      btn.title = 'Pin this paper';
+    }
+  });
+});
+
+// ── add link row ───────────────────────────────────────────────────────────
+const addLinkBtn = document.getElementById('addLinkBtn');
+const linkRows = document.getElementById('linkRows');
+if (addLinkBtn && linkRows) {
+  addLinkBtn.addEventListener('click', () => {
+    const div = document.createElement('div');
+    div.className = 'link-add-row';
+    div.innerHTML = `<select><option>Website</option><option>ORCID</option><option>Google Scholar</option><option>GitHub</option><option>ResearchGate</option><option>X</option><option>Bluesky</option><option>LinkedIn</option><option>Other</option></select><input type="url" placeholder="URL"/><button class="rm" title="Remove">&#215;</button>`;
+    div.querySelector('.rm').addEventListener('click', () => div.remove());
+    linkRows.appendChild(div);
+  });
+  linkRows.addEventListener('click', e => {
+    if (e.target.classList.contains('rm')) e.target.closest('.link-add-row').remove();
+  });
+}
+</script>
+</body>
+</html>

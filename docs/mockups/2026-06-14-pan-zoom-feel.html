@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Pan / zoom feel test</title>
+<style>
+  :root{
+    --bg:#f6f7f5; --surface:#fff; --line:#e3e5e0; --line2:#d2d5cd; --fg:#1f2421; --muted:#6b716a;
+    --accent:#1d9e75; --accent-soft:#e3f4ec; --info:#2563eb; --sb:#c2c7bd; --sb-h:#9aa097;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#15171a; --surface:#1d2024; --line:#2c3137; --line2:#3a4047; --fg:#e7eae7; --muted:#9aa29b;
+      --accent-soft:#0f3a2c; --sb:#3a4047; --sb-h:#586069; }
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--bg);color:var(--fg);font-size:13px;padding:18px;}
+  h1{font-size:15px;margin:0 0 4px;font-weight:600}
+  .sub{color:var(--muted);margin:0 0 14px}
+  .wrap{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-start}
+  /* the viewport (clips the panned content) + scrollbars laid around it in a grid */
+  .stage{display:grid;grid-template-columns:1fr 12px;grid-template-rows:1fr 12px;
+    width:620px;height:440px;border:1px solid var(--line);border-radius:12px;background:var(--surface);overflow:hidden}
+  .viewport{position:relative;overflow:hidden;cursor:grab;touch-action:none}
+  .viewport.panning{cursor:grabbing}
+  .viewport.space{cursor:grab}
+  .content{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  .fig{width:360px;height:260px;background:
+      repeating-linear-gradient(0deg,transparent,transparent 19px,rgba(127,127,127,.18) 20px),
+      repeating-linear-gradient(90deg,transparent,transparent 19px,rgba(127,127,127,.18) 20px),
+      var(--accent-soft);
+    border:2px solid var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;
+    color:var(--accent);font-weight:600;font-size:15px;position:relative}
+  .fig .corner{position:absolute;width:10px;height:10px;border:2px solid var(--accent)}
+  .c1{top:6px;left:6px;border-right:0;border-bottom:0}.c2{top:6px;right:6px;border-left:0;border-bottom:0}
+  .c3{bottom:6px;left:6px;border-right:0;border-top:0}.c4{bottom:6px;right:6px;border-left:0;border-top:0}
+  /* scrollbars */
+  .sbV{grid-column:2;grid-row:1;position:relative;background:transparent}
+  .sbH{grid-column:1;grid-row:2;position:relative;background:transparent}
+  .thumb{position:absolute;background:var(--sb);border-radius:6px;cursor:pointer}
+  .thumb:hover{background:var(--sb-h)}
+  .sbV .thumb{left:2px;right:2px;width:8px}
+  .sbH .thumb{top:2px;bottom:2px;height:8px}
+  .corner-cell{grid-column:2;grid-row:2;background:transparent}
+  /* HUD */
+  .hud{position:absolute;left:10px;top:10px;background:color-mix(in srgb,var(--surface) 86%,transparent);
+    border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.6;pointer-events:none}
+  .hud b{color:var(--info)}
+  .gesture{display:inline-block;min-width:46px;font-weight:600}
+  .gP{color:var(--accent)}.gZ{color:var(--info)}
+  .side{width:260px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 14px;margin-bottom:12px}
+  .card h2{font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted);margin:0 0 8px}
+  kbd{display:inline-block;background:var(--bg);border:1px solid var(--line2);border-bottom-width:2px;border-radius:5px;
+    padding:1px 6px;font-family:ui-monospace,Menlo,monospace;font-size:11px;min-width:18px;text-align:center}
+  .row{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:6px 0;color:var(--muted)}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px}
+  button.b{font-size:12px;padding:6px 10px;border:1px solid var(--line2);border-radius:8px;background:var(--surface);color:var(--fg);cursor:pointer}
+  button.b:hover{background:var(--bg)}
+  label.tog{display:flex;align-items:center;gap:8px;color:var(--muted);cursor:pointer;font-size:12px;margin-top:6px}
+  .hint{font-size:11px;color:var(--muted);margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+  <h1>Pan / zoom feel test</h1>
+  <p class="sub">Trackpad: two-finger swipe = pan, pinch = zoom. Mouse: wheel = pan (Shift = sideways), ⌘/Ctrl+wheel = zoom. Tell me what feels right and I'll port it to the real Tree Studio canvas.</p>
+
+  <div class="wrap">
+    <div class="stage">
+      <div class="viewport" id="vp">
+        <div class="content" id="content">
+          <div class="fig">
+            <span>Figure (drag / scroll / pinch me)</span>
+            <span class="corner c1"></span><span class="corner c2"></span>
+            <span class="corner c3"></span><span class="corner c4"></span>
+          </div>
+        </div>
+        <div class="hud" id="hud"></div>
+      </div>
+      <div class="sbV" id="sbV"><div class="thumb" id="thV"></div></div>
+      <div class="sbH" id="sbH"><div class="thumb" id="thH"></div></div>
+      <div class="corner-cell"></div>
+    </div>
+
+    <div class="side">
+      <div class="card">
+        <h2>View</h2>
+        <div class="btns">
+          <button class="b" data-z="in">Zoom in</button>
+          <button class="b" data-z="out">Zoom out</button>
+          <button class="b" data-z="reset">100%</button>
+          <button class="b" data-z="fit">Fit</button>
+        </div>
+        <div class="row"><span>Zoom</span><span id="zr" style="color:var(--fg);font-weight:600">100%</span></div>
+        <div class="row"><span>Pan</span><span id="pr" style="color:var(--fg)">0, 0</span></div>
+        <label class="tog"><input type="checkbox" id="invert"/> Wheel zooms instead of pans (old behavior)</label>
+        <label class="tog"><input type="checkbox" id="natural" checked/> Natural pan direction (content follows fingers)</label>
+      </div>
+
+      <div class="card">
+        <h2>Keyboard (Illustrator-style)</h2>
+        <div class="row"><span>Pan (hand tool)</span><span><kbd>Space</kbd> + drag</span></div>
+        <div class="row"><span>Zoom in / out</span><span><kbd>⌘</kbd><kbd>+</kbd> / <kbd>⌘</kbd><kbd>−</kbd></span></div>
+        <div class="row"><span>Actual size</span><span><kbd>⌘</kbd><kbd>0</kbd></span></div>
+        <div class="row"><span>Fit in window</span><span><kbd>⌘</kbd><kbd>1</kbd></span></div>
+        <div class="row"><span>Nudge view</span><span><kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd></span></div>
+        <p class="hint">⌘ or Ctrl both work. Click the canvas once so it has focus, then the shortcuts fire.</p>
+      </div>
+    </div>
+  </div>
+
+<script>
+(function(){
+  var vp = document.getElementById('vp');
+  var content = document.getElementById('content');
+  var hud = document.getElementById('hud');
+  var zr = document.getElementById('zr'), pr = document.getElementById('pr');
+  var thV = document.getElementById('thV'), thH = document.getElementById('thH');
+  var sbV = document.getElementById('sbV'), sbH = document.getElementById('sbH');
+  var invert = document.getElementById('invert'), natural = document.getElementById('natural');
+
+  var CW = 460, CH = 360;          // logical content size (fig + margin)
+  var zoom = 1, panX = 80, panY = 50;
+  var MINZ = 0.2, MAXZ = 6;
+  var lastGesture = '—', lastClass = '';
+
+  function vpSize(){ var r = vp.getBoundingClientRect(); return {w:r.width, h:r.height}; }
+  function clampPan(){
+    var v = vpSize();
+    var cw = CW*zoom, ch = CH*zoom;
+    // allow a little overscroll margin so the figure can sit anywhere comfortably
+    var mx = Math.max(v.w*0.5, v.w - cw - 0), my = Math.max(v.h*0.5, v.h - ch);
+    var minX = Math.min(0, v.w - cw) - v.w*0.25, maxX = v.w*0.25;
+    var minY = Math.min(0, v.h - ch) - v.h*0.25, maxY = v.h*0.25;
+    panX = Math.min(maxX, Math.max(minX, panX));
+    panY = Math.min(maxY, Math.max(minY, panY));
+  }
+  function apply(){
+    clampPan();
+    content.style.transform = 'translate('+panX.toFixed(1)+'px,'+panY.toFixed(1)+'px) scale('+zoom.toFixed(3)+')';
+    zr.textContent = Math.round(zoom*100)+'%';
+    pr.textContent = Math.round(panX)+', '+Math.round(panY);
+    hud.innerHTML = 'gesture <span class="gesture '+lastClass+'">'+lastGesture+'</span><br>'+
+                    'zoom <b>'+Math.round(zoom*100)+'%</b>  pan <b>'+Math.round(panX)+', '+Math.round(panY)+'</b>';
+    drawScrollbars();
+  }
+  function setGesture(g, cls){ lastGesture = g; lastClass = cls||''; }
+
+  function zoomAt(factor, cx, cy){
+    var nz = Math.min(MAXZ, Math.max(MINZ, zoom*factor));
+    // keep the point under the cursor fixed
+    panX = cx - (cx - panX) * (nz/zoom);
+    panY = cy - (cy - panY) * (nz/zoom);
+    zoom = nz;
+  }
+  function zoomCenter(factor){ var v=vpSize(); zoomAt(factor, v.w/2, v.h/2); }
+
+  // ----- wheel: the heart of the trackpad fix -----
+  vp.addEventListener('wheel', function(e){
+    e.preventDefault();
+    var unit = e.deltaMode === 1 ? 16 : (e.deltaMode === 2 ? vpSize().h : 1);
+    var dx = e.deltaX * unit, dy = e.deltaY * unit;
+    var wantZoom = invert.checked ? !e.ctrlKey && !e.metaKey : (e.ctrlKey || e.metaKey);
+    // NOTE: a trackpad PINCH arrives as a wheel event with ctrlKey=true (no key held).
+    if (wantZoom){
+      var r = vp.getBoundingClientRect();
+      var factor = Math.pow(0.992, dy); // smooth, exponential
+      zoomAt(factor, e.clientX - r.left, e.clientY - r.top);
+      setGesture('ZOOM', 'gZ');
+    } else {
+      var dir = natural.checked ? -1 : 1;
+      panX += dir*dx; panY += dir*dy;
+      setGesture('PAN', 'gP');
+    }
+    apply();
+  }, {passive:false});
+
+  // ----- drag to pan (mouse) + space-hand -----
+  var dragging=false, sx=0, sy=0, spx=0, spy=0, space=false;
+  vp.addEventListener('pointerdown', function(e){
+    if (e.button!==0) return;
+    dragging=true; vp.classList.add('panning'); vp.setPointerCapture(e.pointerId);
+    sx=e.clientX; sy=e.clientY; spx=panX; spy=panY;
+  });
+  vp.addEventListener('pointermove', function(e){
+    if(!dragging) return;
+    panX = spx + (e.clientX-sx); panY = spy + (e.clientY-sy);
+    setGesture('PAN','gP'); apply();
+  });
+  function endDrag(){ dragging=false; vp.classList.remove('panning'); }
+  vp.addEventListener('pointerup', endDrag);
+  vp.addEventListener('pointercancel', endDrag);
+
+  // ----- keyboard (Illustrator-style) -----
+  vp.tabIndex = 0;
+  window.addEventListener('keydown', function(e){
+    if (e.code==='Space'){ space=true; vp.classList.add('space'); if(e.target===vp) e.preventDefault(); return; }
+    var meta = e.metaKey || e.ctrlKey;
+    if (meta && (e.key==='='||e.key==='+')){ e.preventDefault(); zoomCenter(1.2); setGesture('ZOOM','gZ'); apply(); }
+    else if (meta && e.key==='-'){ e.preventDefault(); zoomCenter(1/1.2); setGesture('ZOOM','gZ'); apply(); }
+    else if (meta && e.key==='0'){ e.preventDefault(); zoom=1; var v=vpSize(); panX=(v.w-CW)/2; panY=(v.h-CH)/2; setGesture('100%','gZ'); apply(); }
+    else if (meta && e.key==='1'){ e.preventDefault(); doFit(); }
+    else if (e.key==='ArrowUp'){ panY-=30; setGesture('PAN','gP'); apply(); }
+    else if (e.key==='ArrowDown'){ panY+=30; setGesture('PAN','gP'); apply(); }
+    else if (e.key==='ArrowLeft'){ panX-=30; setGesture('PAN','gP'); apply(); }
+    else if (e.key==='ArrowRight'){ panX+=30; setGesture('PAN','gP'); apply(); }
+  });
+  window.addEventListener('keyup', function(e){ if(e.code==='Space'){ space=false; vp.classList.remove('space'); }});
+
+  // ----- buttons -----
+  document.querySelectorAll('[data-z]').forEach(function(b){
+    b.addEventListener('click', function(){
+      var k=b.dataset.z;
+      if(k==='in') zoomCenter(1.2);
+      else if(k==='out') zoomCenter(1/1.2);
+      else if(k==='reset'){ zoom=1; var v=vpSize(); panX=(v.w-CW)/2; panY=(v.h-CH)/2; }
+      else if(k==='fit') doFit();
+      setGesture('ZOOM','gZ'); apply();
+    });
+  });
+  function doFit(){ var v=vpSize(); zoom=Math.min(v.w/CW, v.h/CH, 1)*0.92; panX=(v.w-CW*zoom)/2; panY=(v.h-CH*zoom)/2; setGesture('FIT','gZ'); apply(); }
+
+  // ----- scrollbars (mouse users) -----
+  function drawScrollbars(){
+    var v=vpSize(); var cw=CW*zoom, ch=CH*zoom;
+    // model the scrollable extent as content + a viewport of slack on each side
+    var totalW = cw + v.w, totalH = ch + v.h;
+    var offX = (v.w - panX), offY = (v.h - panY); // position of viewport-left within total
+    var fracW = v.w/totalW, fracH = v.h/totalH;
+    var tW = Math.max(24, sbH.clientWidth*fracW), tH = Math.max(24, sbV.clientHeight*fracH);
+    var posX = (offX/totalW)*sbH.clientWidth; var posY=(offY/totalH)*sbV.clientHeight;
+    thH.style.width=tW+'px'; thH.style.left=Math.max(0,Math.min(sbH.clientWidth-tW,posX))+'px';
+    thV.style.height=tH+'px'; thV.style.top=Math.max(0,Math.min(sbV.clientHeight-tH,posY))+'px';
+  }
+  function dragThumb(thumb, axis){
+    thumb.addEventListener('pointerdown', function(e){
+      e.preventDefault(); thumb.setPointerCapture(e.pointerId);
+      var start = axis==='x'?e.clientX:e.clientY, p0 = axis==='x'?panX:panY;
+      var track = axis==='x'?sbH.clientWidth:sbV.clientHeight;
+      var v=vpSize(); var total = axis==='x'?(CW*zoom+v.w):(CH*zoom+v.h);
+      function mv(ev){
+        var d = (axis==='x'?ev.clientX:ev.clientY) - start;
+        var pan = p0 - d*(total/track);
+        if(axis==='x') panX=pan; else panY=pan;
+        setGesture('PAN','gP'); apply();
+      }
+      function up(){ window.removeEventListener('pointermove',mv); window.removeEventListener('pointerup',up); }
+      window.addEventListener('pointermove',mv); window.addEventListener('pointerup',up);
+    });
+  }
+  dragThumb(thH,'x'); dragThumb(thV,'y');
+
+  apply();
+})();
+</script>
+</body>
+</html>

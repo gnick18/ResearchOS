@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Help me choose, the analysis finder</title>
+<style>
+  :root{
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --indigo:#6366f1;
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --r:13px; --rm:9px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;gap:8px;flex-wrap:wrap;}
+  .howto b{color:#fff;}
+  .wrap{max-width:760px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:30px;}
+  .rs>header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.55;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--sunken);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;padding:24px 18px;}
+  .mock *{pointer-events:none;}
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:30;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:31;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+  svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+
+  .toolbar{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--rm);padding:9px 12px;max-width:560px;margin:0 auto 16px;}
+  .toolbar .tn{flex:1;font-size:13px;color:var(--text-2);} .toolbar .tn b{color:var(--text);}
+  .analyze{display:inline-flex;align-items:center;gap:6px;background:linear-gradient(135deg,var(--sky),var(--indigo));color:#fff;font-weight:600;font-size:13px;border-radius:8px;padding:7px 14px;}
+  .helpchoose{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:8px;padding:7px 12px;cursor:pointer;}
+
+  .surface{width:100%;max-width:560px;margin:0 auto;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;box-shadow:0 22px 54px rgba(0,0,0,.28);}
+  .shead{display:flex;align-items:center;gap:9px;padding:11px 14px;border-bottom:1px solid var(--border);}
+  .shead .ai{width:20px;height:20px;color:var(--sky-deep);display:inline-flex;}
+  .shead .t{font-size:13px;font-weight:600;}
+  .shead .on{margin-left:auto;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:999px;padding:2px 9px;}
+  .shead .on b{color:var(--text-2);font-weight:600;}
+  .sbody{padding:15px;min-height:230px;}
+  .q{font-size:14.5px;font-weight:600;margin-bottom:3px;}
+  .qsub{font-size:12px;color:var(--text-3);margin-bottom:12px;}
+  .opts{display:flex;flex-direction:column;gap:8px;}
+  .opt{display:flex;align-items:center;gap:10px;border:1px solid var(--border-2);border-radius:9px;padding:11px 13px;cursor:pointer;font-size:13.5px;}
+  .opt .ic{width:18px;height:18px;color:var(--sky-deep);display:inline-flex;flex:none;}
+  .opt .sm{font-size:11.5px;color:var(--text-3);display:block;margin-top:1px;}
+  .opt .gr{flex:1;}
+  .opt:hover{border-color:var(--sky);background:var(--sky-soft);}
+  .back{font-size:12px;color:var(--sky-deep);display:inline-flex;align-items:center;gap:4px;margin-bottom:12px;}
+  .crumbs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:12px;}
+  .crumb{font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border-radius:999px;padding:2px 9px;}
+  /* recommendation */
+  .rec{border:1px solid var(--sky);border-radius:10px;overflow:hidden;}
+  .rec .rh{display:flex;align-items:center;gap:8px;padding:11px 13px;background:var(--sky-soft);border-bottom:1px solid var(--border);}
+  .rec .rh .ai{width:18px;height:18px;color:var(--sky-deep);display:inline-flex;}
+  .rec .rh b{font-size:13.5px;}
+  .rec .rb{padding:11px 13px;font-size:13px;color:var(--text-2);line-height:1.55;}
+  .rec .rb .why{font-size:11.5px;color:var(--text-3);margin-top:6px;}
+  .rec .ra{display:flex;gap:8px;padding:11px 13px;border-top:1px solid var(--border);}
+  .rec .ra .run{background:linear-gradient(135deg,var(--sky),var(--indigo));color:#fff;font-weight:600;font-size:13px;border-radius:8px;padding:8px 16px;}
+  .rec .ra .alt{font-size:12px;color:var(--text-2);border:1px solid var(--border-2);border-radius:8px;padding:8px 12px;}
+  .askbar{display:flex;align-items:center;gap:9px;margin-top:13px;padding-top:12px;border-top:1px dashed var(--border);}
+  .askbar .ai{width:16px;height:16px;color:var(--sky-deep);display:inline-flex;}
+  .askbar .f{flex:1;font-size:12.5px;color:var(--text-3);}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient></defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/><circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+
+<div class="topbar">
+  <span class="title">Help me choose, the analysis finder</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto"><b>To comment:</b> click anywhere (auto-saves). Approve / Needs work, then Export. LIVE, click "Help me choose?" then answer the widget questions to reach a recommendation.</div>
+
+<div class="wrap" id="wrap">
+  <section class="rs" data-name="Analysis finder, Help me choose wizard">
+    <header><h3>1. "Help me choose?" opens a widget wizard that lands on the right test</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock">
+
+      <div class="toolbar">
+        <span class="tn">Table <b>fakeGFP qPCR expression</b></span>
+        <span class="helpchoose" id="helpBtn"><svg width="14" height="14" viewBox="8 3 24 31"><use href="#bbmark"/></svg> Help me choose?</span>
+        <span class="analyze"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg> Analyze</span>
+      </div>
+
+      <div class="surface" id="surface" style="display:none;">
+        <div class="shead">
+          <span class="ai"><svg width="18" height="18" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span>
+          <span class="t">BeakerBot, analysis finder</span>
+          <span class="on"><svg width="11" height="11" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg> analyzing <b>fakeGFP qPCR expression</b></span>
+        </div>
+        <div class="sbody" id="sbody"><!-- steps injected --></div>
+      </div>
+
+    </div></div>
+    <p class="note">"Help me choose?" sits beside Analyze and opens BeakerBot pre-loaded with the open table (note the subtle "analyzing fakeGFP qPCR expression" tag up top, no guessing which table). Then a short wizard of WIDGETS walks the finite stat decision space, each step is buttons, not typing, so most of the flow costs zero tokens. The LLM only does the fuzzy bits: the opening "describe it" path and the final recommendation + assumption check (it lands on the test the Data Hub planner picks). End state is a one-tap Run that produces the result inline. The "ask BeakerBot instead" bar is always there for anyone who would rather just describe it.</p>
+  </section>
+</div>
+
+<script>
+(function(){
+  var sbody=document.getElementById('sbody'), surface=document.getElementById('surface');
+  var crumbs=[];
+  function crumbHtml(){ return crumbs.length?'<div class="crumbs">'+crumbs.map(function(c){return '<span class="crumb">'+c+'</span>';}).join('')+'</div>':''; }
+  function askbar(){ return '<div class="askbar"><span class="ai"><svg width="16" height="16" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span><span class="f">Or just describe what you want to find out...</span></div>'; }
+  function opt(ic,label,sub){ return '<div class="opt" data-go="1"><span class="ic">'+ic+'</span><span class="gr">'+label+(sub?'<span class="sm">'+sub+'</span>':'')+'</span><svg width="14" height="14" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg></div>'; }
+  var ICN={bars:'<svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg>',scatter:'<svg viewBox="0 0 24 24"><path d="M4 20h16M4 20V4"/><circle cx="9" cy="14" r="1.3"/><circle cx="13" cy="10" r="1.3"/><circle cx="17" cy="7" r="1.3"/></svg>',line:'<svg viewBox="0 0 24 24"><path d="M3 17l5-5 4 4 8-9"/></svg>',q:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.9.4-1.4 1-1.4 1.9"/><path d="M12 17h.01"/></svg>',two:'<svg viewBox="0 0 24 24"><rect x="4" y="6" width="6" height="12" rx="1"/><rect x="14" y="6" width="6" height="12" rx="1"/></svg>',many:'<svg viewBox="0 0 24 24"><rect x="3" y="8" width="4" height="10"/><rect x="10" y="5" width="4" height="13"/><rect x="17" y="10" width="4" height="8"/></svg>',same:'<svg viewBox="0 0 24 24"><path d="M7 8h10M7 16h10"/><circle cx="5" cy="8" r="1"/><circle cx="5" cy="16" r="1"/></svg>',diff:'<svg viewBox="0 0 24 24"><path d="M5 7h6M13 17h6"/></svg>'};
+
+  var steps={
+    start:{q:"What do you want to find out?",sub:"Pick the closest, you can change it.",opts:[
+      {ic:ICN.bars,label:"Compare groups",sub:"is one condition higher or lower than another",go:"groups"},
+      {ic:ICN.scatter,label:"A relationship between two measures",sub:"does X track with Y",go:"rel"},
+      {ic:ICN.line,label:"A trend over time",sub:"does it change across a time course",go:"time"},
+      {ic:ICN.q,label:"Not sure, ask me",sub:"BeakerBot figures it out from a couple questions",go:"groups"}
+    ]},
+    groups:{crumb:"Compare groups",q:"How many groups are you comparing?",opts:[
+      {ic:ICN.two,label:"Two groups",go:"paired"},
+      {ic:ICN.many,label:"Three or more",go:"paired"}
+    ]},
+    paired:{crumb:"Two groups",q:"Same samples measured under both, or different samples?",opts:[
+      {ic:ICN.same,label:"Same samples (paired)",sub:"each sample measured in both conditions",go:"rec"},
+      {ic:ICN.diff,label:"Different samples (independent)",sub:"a separate set per condition",go:"rec"}
+    ]}
+  };
+
+  function render(key){
+    if(key==='rec'){ renderRec(); return; }
+    var s=steps[key];
+    if(s.crumb) crumbs.push(s.crumb);
+    var html=crumbHtml()+'<div class="q">'+s.q+'</div>'+(s.sub?'<div class="qsub">'+s.sub+'</div>':'')+'<div class="opts">';
+    s.opts.forEach(function(o){ html+=opt(o.ic,o.label,o.sub).replace('data-go="1"','data-next="'+o.go+'"'); });
+    html+='</div>'+askbar();
+    sbody.innerHTML=html;
+    wire();
+  }
+  function renderRec(){
+    crumbs.push("Independent");
+    sbody.innerHTML=crumbHtml()+
+      '<div class="rec"><div class="rh"><span class="ai"><svg width="18" height="18" viewBox="8 3 24 31"><use href="#bbmark"/></svg></span><b>An unpaired t-test fits</b></div>'+
+      '<div class="rb">You are comparing two independent groups on fakeGFP expression. I will run an unpaired t-test, check that each group is roughly normal and has similar spread, and switch to a rank-based test automatically if those do not hold.'+
+      '<div class="why">Based on, two groups, independent samples, a numeric measurement.</div></div>'+
+      '<div class="ra"><span class="run"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg> Run it</span><span class="alt">Tell me more</span><span class="alt">Pick the groups</span></div></div>'+
+      '<div style="text-align:center;margin-top:12px"><span class="back" id="restart"><svg width="13" height="13" viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg> start over</span></div>';
+    var r=document.getElementById('restart'); r.style.pointerEvents='auto'; r.style.cursor='pointer';
+    r.addEventListener('click',function(e){e.stopPropagation();crumbs=[];render('start');});
+  }
+  function wire(){
+    sbody.querySelectorAll('.opt').forEach(function(el){
+      el.style.pointerEvents='auto'; el.style.cursor='pointer';
+      el.addEventListener('click',function(e){e.stopPropagation();render(el.getAttribute('data-next'));});
+    });
+  }
+  var hb=document.getElementById('helpBtn'); hb.style.pointerEvents='auto'; hb.style.cursor='pointer';
+  hb.addEventListener('click',function(e){e.stopPropagation();surface.style.display='block';crumbs=[];render('start');});
+
+  // comment harness
+  var comments=[],counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+  sections.forEach(function(sec){var seg=sec.querySelector('[data-approve]');seg.querySelectorAll('button').forEach(function(b){b.addEventListener('click',function(ev){ev.stopPropagation();var v=b.getAttribute('data-v');var already=b.classList.contains('on-'+v);seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});if(!already){b.classList.add('on-'+v);sec.dataset.state=v;}else{delete sec.dataset.state;}renderSum();});});});
+  document.querySelectorAll('.mock').forEach(function(mock){mock.addEventListener('click',function(e){if(e.target.closest('.pin')||e.target.closest('.editor'))return;var rect=mock.getBoundingClientRect();var x=((e.clientX-rect.left)/rect.width)*100,y=((e.clientY-rect.top)/rect.height)*100;counter++;var c={id:counter,section:mock.closest('.rs').getAttribute('data-name'),text:'',x:x,y:y,mock:mock};comments.push(c);var pin=document.createElement('div');pin.className='pin';pin.textContent=c.id;pin.style.left=x+'%';pin.style.top=y+'%';pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});mock.appendChild(pin);c.pin=pin;openEditor(c,pin);renderSum();});});
+  function openEditor(c,pin){document.querySelectorAll('.editor').forEach(function(e){e.remove();});var ed=document.createElement('div');ed.className='editor';ed.style.left=Math.min(c.x,72)+'%';ed.style.top=Math.min(c.y+4,80)+'%';ed.innerHTML='<textarea placeholder="Your note..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';var ta=ed.querySelector('textarea');ta.value=c.text;ta.addEventListener('input',function(){c.text=ta.value;renderSum();});ta.addEventListener('click',function(e){e.stopPropagation();});ed.addEventListener('click',function(e){e.stopPropagation();});ed.querySelector('.esave').addEventListener('click',function(e){e.stopPropagation();c.text=ta.value;ed.remove();renderSum();});ed.querySelector('.edel').addEventListener('click',function(e){e.stopPropagation();if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);comments=comments.filter(function(x){return x.id!==c.id;});ed.remove();renderSum();});c.mock.appendChild(ed);setTimeout(function(){ta.focus();},0);}
+  function renderSum(){var ok=0,warn=0;sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});var withText=comments.filter(function(c){return c.text.trim();}).length;document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';}
+  document.getElementById('exportBtn').addEventListener('click',function(){var lines=['# Analysis finder feedback','','Date: '+new Date().toString(),''];sections.forEach(function(s){var name=s.getAttribute('data-name');var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';lines.push('## '+name+'  ['+state+']');var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});if(!mine.length)lines.push('(no comments)');else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});lines.push('');});var blob=new Blob([lines.join('\n')],{type:'text/markdown'});var a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='analysis-finder-feedback.md';document.body.appendChild(a);a.click();document.body.removeChild(a);});
+  renderSum();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion Connect, no-account gate as a conversion moment</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;--border:#e5e7eb;--page-bg:#e2e8f0;--sky:#1AA0E6;--action:#1283C9;--ink:#111827;--ok:#16a34a;--pin:#e11d48;--warn:#d97706;--amber:#f59e0b;--purple:#5B47D6;}
+  html[data-theme="dark"]{--surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;--border:rgba(255,255,255,.16);--page-bg:#060a13;--ink:#eaf2fb;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}.topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}.btn.on{background:var(--action);border-color:var(--action);color:#fff;}.btn.danger{color:var(--pin);}
+  .wrap{max-width:1180px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.6;max-width:90ch;margin:4px 0 16px;}.lead b{color:var(--fg);}
+  .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:20px;}
+  .change{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .change.approved{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok);}.change.disapproved{border-color:var(--pin);box-shadow:inset 3px 0 0 var(--pin);}
+  .ctitle{font-weight:700;font-size:13px;}.ctitle .tag{font-size:10px;font-weight:700;color:var(--action);background:var(--sunken);border-radius:5px;padding:1px 5px;margin-right:6px;}
+  .cdesc{font-size:12px;color:var(--muted);line-height:1.55;}
+  .verdict{display:flex;align-items:center;gap:8px;}
+  .vbtn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:11px;text-decoration:underline;}
+
+  .stage{display:flex;gap:34px;flex-wrap:wrap;align-items:flex-start;justify-content:center;}
+  .col{display:flex;flex-direction:column;align-items:center;gap:10px;}
+  .col h2{font-size:13px;font-weight:800;margin:0;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);}
+  .col h2.after{color:var(--action);}
+
+  /* popover frame: matches the real Companion HeaderPopover (max-w-md ~ 448px) */
+  .pop{width:430px;border-radius:18px;background:var(--raised);border:1px solid var(--border);box-shadow:0 30px 70px rgba(8,30,60,.28);overflow:hidden;display:flex;flex-direction:column;}
+  .pophead{display:flex;align-items:center;gap:8px;padding:18px 20px 11px;}
+  .pophead .ttl{font-size:16px;font-weight:700;color:var(--fg);}
+  .pophead .status{margin-left:auto;display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted);}
+  .pophead .dot{width:8px;height:8px;border-radius:999px;background:color-mix(in srgb,var(--muted) 40%,transparent);}
+  .icn{width:18px;height:18px;color:var(--sky);}
+  .tabs{display:flex;gap:4px;padding:0 20px;border-bottom:1px solid var(--border);}
+  .tabs button{appearance:none;border:none;background:none;cursor:default;padding:8px 12px;font-size:13.5px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px;}
+  .tabs button.on{color:var(--fg);font-weight:600;border-bottom-color:var(--sky);}
+  .pbody2{padding:20px;}
+
+  /* BotTile */
+  .bottile{flex-shrink:0;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#1AA0E6,#5B47D6);color:#fff;}
+  .bottile svg{width:21px;height:21px;}
+
+  /* shared bits */
+  h3.head{font-size:15px;font-weight:700;color:var(--fg);margin:0;}
+  .meta{font-size:12px;color:var(--muted);line-height:1.55;}
+  .body-txt{font-size:13px;color:var(--muted);line-height:1.6;}
+
+  /* BEFORE: provider buttons + dev box */
+  .provrow{display:flex;flex-direction:column;gap:8px;}
+  .prov{display:flex;align-items:center;justify-content:center;gap:9px;border:1px solid var(--border);background:var(--raised);border-radius:11px;padding:11px;font-size:13px;font-weight:600;color:var(--fg);}
+  .prov .g{width:17px;height:17px;border-radius:3px;}
+  .devbox{border:1px dashed color-mix(in srgb,var(--amber) 60%,transparent);background:color-mix(in srgb,var(--amber) 10%,transparent);border-radius:11px;padding:12px;display:flex;flex-direction:column;gap:6px;}
+  .devbtn{width:100%;text-align:center;padding:10px;border-radius:9px;background:var(--amber);color:#fff;font-weight:600;font-size:13px;border:none;}
+  .devnote{font-size:11px;color:var(--warn);text-align:center;line-height:1.45;}
+
+  /* AFTER */
+  .benefits{display:flex;flex-direction:column;gap:2px;margin:2px 0;}
+  .ben{display:flex;align-items:flex-start;gap:11px;padding:9px 4px;}
+  .ben .bi{flex-shrink:0;width:30px;height:30px;border-radius:8px;background:var(--sunken);color:var(--action);display:flex;align-items:center;justify-content:center;}
+  .ben .bi svg{width:15px;height:15px;}
+  .ben .bt{font-size:13px;font-weight:600;color:var(--fg);line-height:1.3;}
+  .ben .bs{font-size:11.5px;color:var(--muted);line-height:1.45;margin-top:1px;}
+  .cta{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;padding:12px;border-radius:12px;color:#fff;font-weight:700;font-size:14px;border:none;background:linear-gradient(135deg,#1AA0E6,#5B47D6);}
+  .cta svg{width:16px;height:16px;}
+  .onramp{font-size:11.5px;color:var(--muted);line-height:1.55;text-align:center;padding:0 4px;}
+  .onramp b{color:var(--fg);font-weight:600;}
+  .devdisclose{font-size:11.5px;color:var(--muted);cursor:default;list-style:none;display:flex;align-items:center;gap:5px;padding-top:2px;}
+  .devdisclose svg{width:11px;height:11px;}
+  .demoted{margin-top:8px;}
+
+  body.cmt-on .cmt{cursor:crosshair;}body.cmt-on .cmt:hover{outline:2px solid var(--sky);outline-offset:2px;}
+  .pin{position:absolute;min-width:19px;height:19px;padding:0 4px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;z-index:40;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-50%);}
+  .panel{position:fixed;right:16px;bottom:16px;width:300px;max-height:66vh;display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--border);border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:50;overflow:hidden;}
+  .panel.collapsed .pbody,.panel.collapsed .pfoot{display:none;}
+  .phead{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}.pbody{overflow-y:auto;padding:6px;}.pfoot{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .empty{color:var(--muted);font-size:12px;padding:14px;text-align:center;}
+  .citem{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:9px;}.citem .num{flex:0 0 20px;height:20px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}.citem .tgt{font-size:11px;color:var(--muted);font-weight:600;}.citem .txt{font-size:12.5px;margin-top:1px;}.citem .x{margin-left:auto;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;}
+  .vbadge{font-size:9.5px;font-weight:800;}
+  .editor{position:fixed;width:270px;background:var(--raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.32);z-index:60;padding:11px;}.editor .lbl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;}.editor textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);font:inherit;font-size:12.5px;padding:8px;}.editor .vchoice{display:flex;gap:6px;margin:8px 0;}.editor .acts{display:flex;gap:6px;align-items:center;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:70;}.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Companion Connect, the no-account gate</h1><p>Turn the dry "make an account" blocker into a free-account conversion moment. Set verdicts, pin notes, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      This is the <b>Connect tab when you have no account yet</b>. Today it is a flat blocker (<b>"Make an account to use Companion"</b> plus a keypair explanation and the dev buttons), which reads as a wall, not an invitation. The companion is <b>optional and free to run</b> (phone push costs us nothing), so this gate is purely an <b>acquisition funnel</b>, getting a researcher to make a free account, the on-ramp to the optional cloud sync and AI tiers. The redesign briefly <b>sells the phone companion</b> with the real shipped capabilities, then frames <b>Create a free account</b> as the unlock, with one honest line that the same account also opens optional cloud sync and the AI assistant. The dev buttons stay, demoted into a disclosure. Toggle dark mode to check both themes.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="stage">
+      <!-- BEFORE -->
+      <div class="col">
+        <h2>Before</h2>
+        <div class="pop">
+          <div class="pophead">
+            <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+            <span class="ttl">Companion</span>
+            <span class="status"><span class="dot"></span>Not paired</span>
+          </div>
+          <div class="tabs">
+            <button class="on">Connect</button><button>Info</button><button>Settings</button>
+          </div>
+          <div class="pbody2">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+              <span class="bottile">__BOT__</span>
+              <div>
+                <h3 class="head">Make an account to use Companion</h3>
+                <p class="meta" style="margin:3px 0 0">Pairing a phone needs an account keypair, which is what authorizes the phone and end-to-end encrypts everything it sends back.</p>
+              </div>
+            </div>
+            <div class="provrow" style="margin-bottom:16px">
+              <div class="prov"><span class="g" style="background:#4285F4"></span>Continue with Google</div>
+              <div class="prov"><span class="g" style="background:#24292f"></span>Continue with GitHub</div>
+            </div>
+            <div class="devbox">
+              <button class="devbtn">Create a dev identity (skip sign-in)</button>
+              <p class="devnote">Dev only. Mints a local account with no sign-in so you can test pairing on this dev server.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AFTER -->
+      <div class="col">
+        <h2 class="after">After</h2>
+        <div class="pop">
+          <div class="pophead">
+            <svg class="icn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="2" width="14" height="20" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></svg>
+            <span class="ttl">Companion</span>
+            <span class="status"><span class="dot"></span>Not paired</span>
+          </div>
+          <div class="tabs">
+            <button class="on">Connect</button><button>Info</button><button>Settings</button>
+          </div>
+          <div class="pbody2">
+            <div class="cmt" data-clabel="Header (warm sell, not a blocker)" style="display:flex;align-items:center;gap:12px;margin-bottom:6px">
+              <span class="bottile">__BOT__</span>
+              <div>
+                <h3 class="head">Bring ResearchOS to the bench</h3>
+                <p class="meta" style="margin:3px 0 0">Your phone becomes a capture tool for the experiment you have open, free to run.</p>
+              </div>
+            </div>
+
+            <div class="benefits cmt" data-clabel="Benefit list (real shipped capabilities)">
+              <div class="ben">
+                <span class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg></span>
+                <div><div class="bt">Snap a bench photo into the open experiment</div><div class="bs">Gels, plates, setups land in your notebook, annotate right on the phone.</div></div>
+              </div>
+              <div class="ben">
+                <span class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4z"/></svg></span>
+                <div><div class="bt">Jot a quick note without the laptop</div><div class="bs">Fire off a one-line observation, it files into the lab.</div></div>
+              </div>
+              <div class="ben">
+                <span class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5v14"/><path d="M7 5v14"/><path d="M11 5v14"/><path d="M15 5v14"/><path d="M19 5v14"/></svg></span>
+                <div><div class="bt">Scan a barcode to reorder or deduct stock</div><div class="bs">Log a reagent against inventory or mark an order arrived.</div></div>
+              </div>
+              <div class="ben">
+                <span class="bi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></span>
+                <div><div class="bt">Run timers and see today at a glance</div><div class="bs">Bench timers with alerts, plus the day's tasks and reminders.</div></div>
+              </div>
+            </div>
+
+            <button class="cta cmt" data-clabel="Primary CTA (real account-create flow)">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+              Create a free account
+            </button>
+
+            <p class="onramp cmt" data-clabel="On-ramp one-liner (honest, no billing claim)" style="margin-top:10px">
+              The account is what authorizes your phone and end-to-end encrypts everything it sends. The <b>local app stays free</b>, and the same account later opens optional cloud sync and the AI assistant if you ever want them.
+            </p>
+
+            <details class="demoted cmt" data-clabel="Demoted dev disclosure">
+              <summary class="devdisclose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>Developer options</summary>
+              <div class="devbox" style="margin-top:8px">
+                <button class="devbtn">Create a dev identity (skip sign-in)</button>
+                <p class="devnote">Dev only. Mints a local account with no sign-in so you can test pairing on this dev server.</p>
+              </div>
+            </details>
+          </div>
+        </div>
+        <p class="meta" style="max-width:430px;text-align:center">When sign-in is not available in the build, the CTA falls back to the existing "create your account from the login screen" line, same as today.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="cpanel">
+    <div class="phead" id="phead"><b>Notes</b>&nbsp;<span style="color:var(--muted);font-size:12px">(<span id="cCount">0</span>)</span><span class="spacer"></span><span style="color:var(--muted);font-size:12px" id="chev">hide</span></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="pfoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const el=id=>document.getElementById(id);
+  // BeakerBot glyph (simplified mascot, white), injected into both tiles.
+  const BOT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6"/><path d="M10 3v5L5.5 17a2 2 0 0 0 1.8 3h9.4a2 2 0 0 0 1.8-3L14 8V3"/><circle cx="10" cy="14" r="1" fill="currentColor"/><circle cx="14" cy="15" r="1" fill="currentColor"/></svg>';
+  document.querySelectorAll('.bottile').forEach(t=>t.innerHTML=t.innerHTML.replace('__BOT__',BOT));
+
+  /* harness */
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  const STORE='ros-companion-connect-comments-v1';let comments=[];try{comments=JSON.parse(localStorage.getItem(STORE)||'[]');}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){document.querySelectorAll('.pin').forEach(p=>p.remove());const byT={};comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});document.querySelectorAll('.cmt').forEach(elm=>{const lbl=elm.getAttribute('data-clabel');const nums=byT[lbl];if(!nums)return;const r=elm.getBoundingClientRect();if(r.width===0)return;const pin=document.createElement('span');pin.className='pin';pin.textContent=nums.join(',');pin.style.left=(window.scrollX+r.left+12)+'px';pin.style.top=(window.scrollY+r.top+12)+'px';pin.addEventListener('click',ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});document.body.appendChild(pin);});}
+  function renderPanel(){const body=el('pbody');el('cCount').textContent=comments.length;if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any part of the After mock.</div>';return;}const vt=v=>v==='approve'?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==='disapprove'?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':'';body.innerHTML=comments.map((c,i)=>`<div class="citem"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{comments.splice(+b.dataset.del,1);save();renderAll();}));}
+  function renderAll(){renderPins();renderPanel();}
+  window.addEventListener('resize',renderPins);window.addEventListener('scroll',renderPins,true);
+  const CHANGES=[
+    {id:'sell',tag:'1',title:'Sell the companion before the gate',desc:'Header flips from "Make an account to use Companion" to "Bring ResearchOS to the bench", warm and benefit-led, not a wall.'},
+    {id:'benefits',tag:'2',title:'Four real shipped capabilities',desc:'Bench photo into the open experiment (with annotate), quick note, scan to reorder or deduct stock, timers + today glance. All pulled from the actual mobile app, nothing invented.'},
+    {id:'cta',tag:'3',title:'"Create a free account" as the unlock',desc:'One clear gradient primary CTA that runs the real account-create flow (the existing OAuth provider path). Replaces the bare two provider buttons.'},
+    {id:'onramp',tag:'4',title:'Honest on-ramp one-liner',desc:'Keeps the keypair / E2E reason, adds that the local app stays free and the same account later opens optional cloud sync + AI. No billing claims, matches BILLING_FACTS solidarity model.'},
+    {id:'dev',tag:'5',title:'Dev buttons demoted into a disclosure',desc:'The amber dev-identity box moves into a collapsed "Developer options" disclosure so it no longer competes with the real CTA. Still dev-only.'},
+  ];
+  const VSTORE='ros-companion-connect-verdicts-v1';let verdicts={};try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}');}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){const wrap=el('changes');wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:''}</div></div>`;}).join('');wrap.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));}
+  let editorEl=null;function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){closeEditor();const target=targetEl.getAttribute('data-clabel')||'Page';const existing=existingIndex!=null?comments[existingIndex]:null;let pv=existing?(existing.verdict||''):'';const ed=document.createElement('div');ed.className='editor';ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note or change request">${existing?esc(existing.text):''}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;document.body.appendChild(ed);editorEl=ed;const paint=()=>ed.querySelectorAll('[data-vc]').forEach(b=>b.classList.toggle('on',(b.dataset.vc==='note'&&!pv)||b.dataset.vc===pv));ed.querySelectorAll('[data-vc]').forEach(b=>b.addEventListener('click',()=>{pv=b.dataset.vc==='note'?'':b.dataset.vc;paint();}));paint();const x=ev?ev.clientX:0,y=ev?ev.clientY:0;ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-286)+'px';ed.style.top=Math.min(y+10,window.innerHeight-200)+'px';ed.querySelector('textarea').focus();ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ed.querySelector('textarea').value.trim();if(!t&&!pv)return closeEditor();if(existing){existing.text=t;existing.verdict=pv;}else comments.push({target,text:t,verdict:pv});save();renderAll();closeEditor();}}));}
+  document.addEventListener('click',e=>{if(!document.body.classList.contains('cmt-on'))return;if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin')||e.target.closest('.changes'))return;const cmt=e.target.closest('.cmt');if(!cmt)return;e.preventDefault();e.stopPropagation();openEditor(cmt,null,e);},true);
+  const cBtn=el('commentToggle');cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  el('themeToggle').addEventListener('click',function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Switch to dark':'Switch to light';renderPins();});
+  el('phead').addEventListener('click',()=>{const p=el('cpanel');const c=p.classList.toggle('collapsed');el('chev').textContent=c?'show':'hide';});
+  function buildMd(){let o='Companion Connect conversion gate, feedback\n\nVerdicts\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nNotes\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>{const t=c.verdict==='approve'?'[APPROVE] ':c.verdict==='disapprove'?'[DISAPPROVE] ':'';o+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return o;}
+  function toast(m){const t=el('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+  async function doCopy(){try{await navigator.clipboard.writeText(buildMd());toast('Feedback copied, paste it back to me');}catch{window.prompt('Copy',buildMd());}}
+  el('exportBtn').addEventListener('click',doCopy);el('exportBtn2').addEventListener('click',doCopy);
+  el('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all notes?'))return;comments=[];save();renderAll();});
+  renderChanges();renderAll();
+</script>
+</body>
+</html>

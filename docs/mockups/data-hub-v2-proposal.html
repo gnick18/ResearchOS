@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub v2 statistics proposal</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9; --foreground: #171717; --foreground-muted: #6b7280;
+    --border: #e5e7eb; --brand-sky: #1AA0E6; --brand-action: #1283C9;
+    --brand-purple: #5B47D6; --coral: #FF6F61; --amber: #F59E0B;
+    --green: #1a9f5a; --red: #d9483b;
+  }
+  html.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --surface-sunken: #0d1424; --foreground: #f1f5f9; --foreground-muted: #b4bfd0;
+    --border: rgba(255,255,255,0.16); --green: #34d27e; --red: #f0857a;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, system-ui, sans-serif;
+    background: var(--surface); color: var(--foreground); -webkit-font-smoothing: antialiased; }
+  .topbar { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 11px 18px; background: var(--surface-raised); border-bottom: 1px solid var(--border); }
+  .topbar h1 { font-size: 15px; font-weight: 800; margin: 0; }
+  .topbar .sub { font-size: 12px; color: var(--foreground-muted); margin-right: auto; }
+  .ctrl { font-size: 12px; font-weight: 600; padding: 6px 11px; border-radius: 9px; border: 1px solid var(--border);
+    background: var(--surface-overlay); color: var(--foreground); cursor: pointer; }
+  .ctrl:hover { border-color: var(--brand-action); }
+  .ctrl.on { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 22px 20px 90px; }
+  .lead { font-size: 13.5px; color: var(--foreground-muted); line-height: 1.55; max-width: 760px; margin: 4px 0 20px; }
+  .lead b { color: var(--foreground); font-weight: 700; }
+  .summary { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+  .stat { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 11px; padding: 9px 14px; }
+  .stat .n { font-size: 20px; font-weight: 800; }
+  .stat .l { font-size: 11px; color: var(--foreground-muted); }
+  .stat.agree .n { color: var(--green); } .stat.disagree .n { color: var(--red); } .stat.discuss .n { color: var(--amber); }
+
+  .theme { margin: 26px 0 10px; }
+  .theme h2 { font-size: 17px; font-weight: 800; margin: 0 0 2px; display: flex; align-items: center; gap: 9px; }
+  .theme .badge { font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; color: #fff; }
+  .theme p { font-size: 12.5px; color: var(--foreground-muted); margin: 2px 0 0; max-width: 760px; line-height: 1.5; }
+  .t1 { background: var(--brand-action); } .t2 { background: var(--brand-purple); }
+  .t3 { background: var(--coral); } .t4 { background: var(--green); }
+
+  .card { border: 1px solid var(--border); border-left: 4px solid var(--border); border-radius: 12px;
+    padding: 13px 15px; margin: 11px 0; background: var(--surface-overlay); }
+  .card.agree { border-left-color: var(--green); } .card.disagree { border-left-color: var(--red); }
+  .card.discuss { border-left-color: var(--amber); }
+  .card .h { display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap; }
+  .card .id { font-size: 10.5px; font-weight: 800; color: var(--foreground-muted); font-variant-numeric: tabular-nums; }
+  .card .title { font-size: 14.5px; font-weight: 800; }
+  .card .tier { margin-left: auto; font-size: 10px; font-weight: 800; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .03em; }
+  .tier-high { background: rgba(26,159,90,.15); color: var(--green); }
+  .tier-mid { background: rgba(245,158,11,.16); color: #b9770a; }
+  .tier-stretch { background: rgba(91,71,214,.14); color: var(--brand-purple); }
+  html.dark .tier-mid { color: var(--amber); }
+  .card .body { font-size: 12.5px; color: var(--foreground); line-height: 1.5; margin: 7px 0 6px; }
+  .card .meta { font-size: 11.5px; color: var(--foreground-muted); line-height: 1.5; }
+  .card .meta b { color: var(--foreground); font-weight: 700; }
+  .verds { display: flex; gap: 5px; margin: 9px 0 0; max-width: 360px; }
+  .verds button { flex: 1; font-size: 11px; font-weight: 700; padding: 5px; border-radius: 7px; border: 1px solid var(--border);
+    background: var(--surface-sunken); color: var(--foreground-muted); cursor: pointer; }
+  .verds button.aon { background: var(--green); color: #fff; border-color: var(--green); }
+  .verds button.don { background: var(--red); color: #fff; border-color: var(--red); }
+  .verds button.qon { background: var(--amber); color: #fff; border-color: var(--amber); }
+  .card textarea { width: 100%; max-width: 600px; font-family: inherit; font-size: 11.5px; padding: 6px 8px; border-radius: 7px;
+    border: 1px solid var(--border); background: var(--surface-sunken); color: var(--foreground); resize: vertical; min-height: 30px; margin-top: 7px; display: block; }
+
+  .export-summary { white-space: pre-wrap; font-family: ui-monospace, Menlo, monospace; font-size: 11px;
+    background: var(--surface-sunken); border: 1px solid var(--border); border-radius: 8px; padding: 10px; max-height: 360px; overflow-y: auto; }
+  .hide { display: none !important; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <h1>Data Hub v2, statistics expansion</h1>
+  <span class="sub">Building on the existing engine. Mark each card Approve / Disapprove / Discuss, add notes, hit Export.</span>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+</div>
+
+<div class="wrap">
+  <p class="lead">
+    The current engine is already a strong Prism-core, t-tests and Welch, one- and two-way ANOVA with Tukey and
+    Dunnett, the full nonparametric set (Mann-Whitney, Wilcoxon, Kruskal-Wallis, Friedman), Pearson and Spearman,
+    linear regression, a nonlinear curve fitter, Kaplan-Meier with log-rank, chi-square, and the Shapiro and Levene
+    assumption checks driving the Report Card. v2 is not about filling holes in the basics. It is about <b>depth</b>,
+    each item below extends something that already exists, is computable in the native-JS engine, and is
+    reference-pinned the same way the current 49-test gate is. The two best value-to-effort picks are flagged.
+  </p>
+  <div class="summary">
+    <div class="stat"><div class="n" id="sTotal">0</div><div class="l">cards</div></div>
+    <div class="stat agree"><div class="n" id="sAgree">0</div><div class="l">approved</div></div>
+    <div class="stat disagree"><div class="n" id="sDis">0</div><div class="l">disapproved</div></div>
+    <div class="stat discuss"><div class="n" id="sDisc">0</div><div class="l">discuss</div></div>
+  </div>
+  <div id="themes"></div>
+</div>
+
+<div id="exportOverlay" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--surface-overlay);border:1px solid var(--border);border-radius:14px;max-width:640px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decisions and notes</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="ctrl" onclick="downloadExport()">Download .md</button>
+      <button class="ctrl" onclick="closeExport()">Close</button>
+    </div>
+    <div class="export-summary" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+const THEMES = [
+  { key:"t1", cls:"t1", name:"1. Estimation layer", blurb:"Upgrades every test you already have. This is the highest-leverage theme because effect sizes, their confidence intervals, and power analysis apply across the whole engine at once, and it matches where journals are pushing (effect sizes and CIs over bare p-values)." },
+  { key:"t2", cls:"t2", name:"2. Dose-response and regression depth", blurb:"The signature Prism pharmacology features, all building on the nonlinear fitter and linear regression that already exist." },
+  { key:"t3", cls:"t3", name:"3. Survival and repeated-measures depth", blurb:"The modeling steps beyond Kaplan-Meier / log-rank and one-way ANOVA, covering survival with covariates and paired / longitudinal designs your own proposal flagged for later." },
+  { key:"t4", cls:"t4", name:"4. Diagnostics and public validation", blurb:"Extends the assumption Report Card, and adds the public stats-validation gate your original proposal wanted, now cheap to build on the published-results framework already on /transparency." },
+];
+
+const CARDS = [
+  // Theme 1
+  { id:"E1", t:"t1", tier:"high", title:"Effect sizes + confidence intervals on every test",
+    body:"Cohen's d and Hedges' g on the t-tests, eta-squared and omega-squared on ANOVA, r and r-squared CIs on correlation, reported alongside the p-value in the results sheet and the Report Card.",
+    meta:"Builds on: the t-test / ANOVA / correlation engine you have. Engine: closed-form effect sizes plus noncentral t and F (or bootstrap) for the CIs, native JS. Validated against scipy / pingouin reference values." },
+  { id:"E2", t:"t1", tier:"mid", title:"Estimation plots (Gardner-Altman, Cumming)",
+    body:"The modern effect-size-with-CI visualization, paired or unpaired difference axis with a bootstrap distribution, instead of (or beside) the bar-with-stars.",
+    meta:"Builds on: E1 + the recharts / d3 plotting. A growing number of journals prefer these to bar charts." },
+  { id:"E3", t:"t1", tier:"high", title:"Power and sample-size analysis",
+    body:"A priori N for a target effect size and power, and sensitivity (the detectable effect at a given N). Wired to each test, so the planner can say how many replicates a design needs. Completely absent today.",
+    meta:"Builds on: the same distribution functions the tests use. Useful directly for grant power statements." },
+  { id:"E4", t:"t1", tier:"mid", title:"Bootstrap / resampling CIs",
+    body:"Distribution-free confidence intervals for any statistic (a mean difference, a median, a ratio), as a robust fallback when normality is shaky.",
+    meta:"Builds on: the engine. Pairs with the estimation plots and the Report Card's assumption fallbacks." },
+
+  // Theme 2
+  { id:"D1", t:"t2", tier:"high", title:"Dose-response curves (4PL / 5PL) with EC50 / IC50",
+    body:"Log-dose sigmoidal fits with the EC50 / IC50 and Hill slope reported with their confidence intervals, the standard pharmacology readout. The fitter exists, this adds the dose-response model family, the log-dose handling, and the EC50 CI.",
+    meta:"Builds on: the nonlinear fitter (fit/MODELS). Validated against Prism / scipy curve_fit reference fits." },
+  { id:"D2", t:"t2", tier:"high", title:"Model comparison (extra-sum-of-squares F, AICc)",
+    body:"Choose objectively between two fits to the same data (one-site vs two-site binding, simple vs sigmoidal) with the extra-sum-of-squares F test and AICc. Prism's signature for fit selection.",
+    meta:"Builds on: the fitter. Reuses the residual sums of squares each fit already produces." },
+  { id:"D3", t:"t2", tier:"stretch", title:"Global / shared-parameter fitting",
+    body:"Fit several datasets at once while sharing parameters (a common top and bottom, a shared Hill slope), the way Prism shares parameters across a dose-response family.",
+    meta:"Builds on: the fitter + ml-matrix. The heaviest item in this theme." },
+  { id:"D4", t:"t2", tier:"mid", title:"Logistic regression",
+    body:"Binary-outcome regression (responder / non-responder, alive / dead) with odds ratios and CIs. Common in genetics, immunology, and dose-response classification.",
+    meta:"Builds on: the regression path + an IRLS / Newton solver (small, native JS). Validated against statsmodels." },
+  { id:"D5", t:"t2", tier:"mid", title:"Multiple linear regression",
+    body:"More than one predictor with coefficients, CIs, and partial effects, the multivariable step beyond the simple linear regression you have.",
+    meta:"Builds on: linearRegression + ml-matrix (the normal equations / QR you already pulled in)." },
+
+  // Theme 3
+  { id:"S1", t:"t3", tier:"high", title:"Cox proportional hazards regression",
+    body:"Hazard ratios with covariates and CIs, the modeling step beyond log-rank (which only compares curves). The natural survival follow-on, ubiquitous in oncology and infection biology.",
+    meta:"Builds on: the survival module. Engine: partial-likelihood Newton-Raphson, native JS. Validated against lifelines / R survival." },
+  { id:"S2", t:"t3", tier:"mid", title:"Gehan-Breslow-Wilcoxon test",
+    body:"An early-weighted alternative to log-rank, reported alongside it (the way Prism reports both). Your own proposal named this one.",
+    meta:"Builds on: the log-rank implementation, same risk-set machinery with a weight." },
+  { id:"S3", t:"t3", tier:"mid", title:"Repeated-measures ANOVA",
+    body:"Within-subject ANOVA for paired and longitudinal designs (the same subjects measured across conditions or time), with sphericity correction. Friedman already covers the nonparametric case.",
+    meta:"Builds on: the ANOVA engine. Validated against pingouin / R." },
+  { id:"S4", t:"t3", tier:"stretch", title:"Mixed-effects model (missing-data RM)",
+    body:"The substitute for repeated-measures ANOVA when subjects have missing timepoints, identical to RM-ANOVA when complete. Your proposal flagged this for the missing-data case.",
+    meta:"Builds on: the matrix engine. The heaviest item overall, a clear later / stretch card." },
+
+  // Theme 4
+  { id:"V1", t:"t4", tier:"high", title:"Outlier detection (ROUT + Grubbs)",
+    body:"Flag outliers and offer to exclude them, surfaced in the Report Card next to the assumption checks. ROUT is a Prism signature (it works off the nonlinear fit residuals).",
+    meta:"Builds on: the fitter + descriptive stats + the Report Card. Validated against Prism's ROUT examples." },
+  { id:"V2", t:"t4", tier:"mid", title:"Diagnostic plots (QQ, residual-vs-fitted)",
+    body:"QQ and residual plots for regression and ANOVA, so a reader can see whether the assumptions hold rather than only reading the Shapiro / Levene verdict.",
+    meta:"Builds on: the plotting + the regression / ANOVA residuals. Extends the Report Card visually." },
+  { id:"V3", t:"t4", tier:"mid", title:"ROC curve analysis",
+    body:"Sensitivity / specificity across thresholds, AUC with a CI, and the optimal cutoff, for diagnostic-test and biomarker evaluation.",
+    meta:"Builds on: the engine + plotting. Validated against scikit-learn / pROC reference values." },
+  { id:"V4", t:"t4", tier:"high", title:"Public validation of the stats vs scipy / R / Prism",
+    body:"Show, on /transparency, that the Data Hub t-test / ANOVA / survival / regression reproduce scipy, statsmodels, R, and Prism reference values. The trust claim no competitor makes. Best value-to-effort of the whole proposal, it is mostly assembly.",
+    meta:"Builds on: the transparency framework + the existing 49-test reference gate + the published-results validation shipped this session. Reuses buildTransparencyReport's domain pipeline." },
+  { id:"V5", t:"t4", tier:"mid", title:"Show-the-code for every analysis",
+    body:"Surface the equivalent scipy / statsmodels / R snippet for each analysis (including all the new v2 ones), reinforcing the open, auditable, point-any-AI-at-your-data angle. Your original proposal flagged this as a strong differentiator nobody offers.",
+    meta:"Builds on: show-code.ts (already there for the current tests). Each new test adds its snippet template." },
+];
+
+const STORE = "datahub-v2-proposal-2026-06-11";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE)) || {dark:false,v:{},notes:{}}; } catch(e){ return {dark:false,v:{},notes:{}}; } }
+function save(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; applyTheme(); save(); }
+function applyTheme(){ document.documentElement.classList.toggle('dark', state.dark); document.getElementById('themeBtn').textContent = state.dark?"Light":"Dark"; }
+
+function render(){
+  const host = document.getElementById('themes');
+  host.innerHTML = THEMES.map(th => {
+    const cards = CARDS.filter(c => c.t===th.key).map(c => {
+      const v = state.v[c.id]||"";
+      const tierLabel = { high:"best value", mid:"core", stretch:"stretch" }[c.tier];
+      const tierCls = { high:"tier-high", mid:"tier-mid", stretch:"tier-stretch" }[c.tier];
+      return `<div class="card ${v}" id="card-${c.id}">
+        <div class="h">
+          <span class="id">${c.id}</span>
+          <span class="title">${c.title}</span>
+          <span class="tier ${tierCls}">${tierLabel}</span>
+        </div>
+        <div class="body">${c.body}</div>
+        <div class="meta">${c.meta}</div>
+        <div class="verds">
+          <button class="${v==='agree'?'aon':''}" onclick="setV('${c.id}','agree')">Approve</button>
+          <button class="${v==='disagree'?'don':''}" onclick="setV('${c.id}','disagree')">Disapprove</button>
+          <button class="${v==='discuss'?'qon':''}" onclick="setV('${c.id}','discuss')">Discuss</button>
+        </div>
+        <textarea placeholder="note (optional)" oninput="setN('${c.id}',this.value)">${state.notes[c.id]||''}</textarea>
+      </div>`;
+    }).join('');
+    return `<div class="theme"><h2><span class="badge ${th.cls}">Theme</span>${th.name}</h2><p>${th.blurb}</p>${cards}</div>`;
+  }).join('');
+  updateSummary();
+}
+function setV(id,v){ state.v[id]=(state.v[id]===v?"":v); save(); render(); }
+function setN(id,v){ state.notes[id]=v; save(); }
+function updateSummary(){
+  const vs = Object.values(state.v);
+  document.getElementById('sTotal').textContent = CARDS.length;
+  document.getElementById('sAgree').textContent = vs.filter(x=>x==='agree').length;
+  document.getElementById('sDis').textContent = vs.filter(x=>x==='disagree').length;
+  document.getElementById('sDisc').textContent = vs.filter(x=>x==='discuss').length;
+}
+
+function buildExport(){
+  let out = "# Data Hub v2 statistics, decisions\n\n";
+  THEMES.forEach(th => {
+    out += `## ${th.name}\n`;
+    CARDS.filter(c=>c.t===th.key).forEach(c => {
+      const v = state.v[c.id] || "(no decision)";
+      out += `- [${v.toUpperCase()}] ${c.id} ${c.title}\n`;
+      if (state.notes[c.id]) out += `    note: ${state.notes[c.id]}\n`;
+    });
+    out += "\n";
+  });
+  return out;
+}
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').classList.remove('hide'); }
+function closeExport(){ document.getElementById('exportOverlay').classList.add('hide'); }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+function downloadExport(){ const b=new Blob([buildExport()],{type:"text/markdown"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="datahub-v2-decisions.md"; a.click(); }
+
+applyTheme(); render();
+</script>
+</body>
+</html>

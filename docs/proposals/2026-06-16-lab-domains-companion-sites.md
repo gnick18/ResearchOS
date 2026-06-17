@@ -152,11 +152,18 @@ reviewable branch + handoff; merge when healthy.
 2. **Static lab site + page rendering + entitlement gate** — `lab_sites` /
    `lab_site_pages`, public render, `isLabPublishEntitled` check (Billing wraps
    it). Text/markdown pages live first.
-3. **Block system + freeze-on-publish** — live ROS-visualizer blocks + the
-   static-fallback snapshot per block.
-4. **Hosted-data assets** — R2 upload, the separate `lab_hosted_assets` metered
-   line, lapse GC + `archived` flag (needs Billing's metered line + reclaim
-   signal).
+3. **Block system + freeze-on-publish (bake-on-publish, render frozen)** — Grant
+   locked 2026-06-16: a public reader has no account/local data, so blocks are
+   BAKED at publish (client-side, needs the author's data + canvas) and the public
+   page renders the frozen snapshots via the existing `BakedEmbedView`, never live
+   embeds. Reuses `ReferencePicker` ("/" insert), `bakeAllEmbeds`/`bakeOne`,
+   `embed-pins`, `BakedEmbedView`, `RenderedMarkdown`. 3b = figures + static
+   tables (citation-safe). [IN PROGRESS]
+4. **Hosted-data assets / LIVE interactive (R2)** — R2 upload of a published
+   dataset + a public PublicDatasetEmbed (DuckDB-from-R2, no auth) upgrades the
+   data-heavy blocks from static to live-interactive; the separate
+   `lab_hosted_assets` metered line, lapse GC + `archived` flag (needs Billing's
+   metered line + reclaim signal — kicked off in parallel with 3b 2026-06-16).
 5. **Custom domains** — CNAME claim + verify + auto-TLS + 301 cutover (premium
    add-on, last).
 

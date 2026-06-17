@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub color palettes proposal</title>
+<style>
+  :root { --surface:#f8fafc; --raised:#fff; --sunken:#f1f5f9; --fg:#171717; --muted:#6b7280; --border:#e5e7eb;
+    --action:#1283C9; --green:#1a9f5a; --red:#d9483b; --amber:#F59E0B; }
+  html.dark { --surface:#0a0e1a; --raised:#1c2638; --sunken:#0d1424; --fg:#f1f5f9; --muted:#b4bfd0;
+    --border:rgba(255,255,255,.16); --green:#34d27e; --red:#f0857a; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,system-ui,sans-serif;
+    background:var(--surface); color:var(--fg); -webkit-font-smoothing:antialiased; }
+  .top { position:sticky; top:0; z-index:5; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    padding:11px 18px; background:var(--raised); border-bottom:1px solid var(--border); }
+  .top h1 { font-size:15px; font-weight:800; margin:0; }
+  .top .sub { font-size:12px; color:var(--muted); margin-right:auto; }
+  .ctrl { font-size:12px; font-weight:600; padding:6px 11px; border-radius:9px; border:1px solid var(--border);
+    background:var(--raised); color:var(--fg); cursor:pointer; }
+  .ctrl:hover { border-color:var(--action); }
+  .wrap { max-width:920px; margin:0 auto; padding:22px 20px 80px; }
+  .lead { font-size:13px; color:var(--muted); line-height:1.55; max-width:720px; margin:2px 0 22px; }
+  .sec { border:1px solid var(--border); border-left:4px solid var(--border); border-radius:12px; padding:15px 16px; margin:14px 0; background:var(--raised); }
+  .sec.agree { border-left-color:var(--green); } .sec.disagree { border-left-color:var(--red); } .sec.discuss { border-left-color:var(--amber); }
+  .sec h2 { font-size:15px; font-weight:800; margin:0 0 3px; }
+  .sec .why { font-size:12px; color:var(--muted); line-height:1.5; margin:0 0 12px; max-width:680px; }
+  .swatches { display:flex; gap:0; border-radius:9px; overflow:hidden; border:1px solid var(--border); max-width:560px; }
+  .swatch { flex:1; height:54px; display:flex; align-items:flex-end; justify-content:center; padding-bottom:4px; }
+  .swatch span { font-size:9px; font-family:ui-monospace,Menlo,monospace; background:rgba(255,255,255,.82); color:#111; padding:1px 3px; border-radius:3px; }
+  .cbgrid { display:flex; gap:8px; flex-wrap:wrap; }
+  .cbchip { width:58px; }
+  .cbchip .box { height:42px; border-radius:7px; border:1px solid var(--border); }
+  .cbchip .lab { font-size:9px; color:var(--muted); text-align:center; margin-top:3px; font-family:ui-monospace,Menlo,monospace; }
+  .charts { display:flex; gap:22px; flex-wrap:wrap; align-items:flex-start; margin-top:6px; }
+  .chartbox { }
+  .chartbox .cap { font-size:11px; color:var(--muted); margin-top:4px; max-width:280px; line-height:1.4; }
+  .note { font-size:11.5px; color:var(--muted); margin-top:10px; line-height:1.5; }
+  .note b { color:var(--fg); }
+  .verds { display:flex; gap:5px; margin-top:12px; max-width:340px; }
+  .verds button { flex:1; font-size:11px; font-weight:700; padding:5px; border-radius:7px; border:1px solid var(--border);
+    background:var(--sunken); color:var(--muted); cursor:pointer; }
+  .verds button.aon { background:var(--green); color:#fff; border-color:var(--green); }
+  .verds button.don { background:var(--red); color:#fff; border-color:var(--red); }
+  .verds button.qon { background:var(--amber); color:#fff; border-color:var(--amber); }
+  .sec textarea { width:100%; max-width:560px; font-family:inherit; font-size:11.5px; padding:6px 8px; border-radius:7px;
+    border:1px solid var(--border); background:var(--sunken); color:var(--fg); resize:vertical; min-height:30px; margin-top:8px; display:block; }
+  .export-summary { white-space:pre-wrap; font-family:ui-monospace,Menlo,monospace; font-size:11px; background:var(--sunken);
+    border:1px solid var(--border); border-radius:8px; padding:10px; max-height:320px; overflow-y:auto; }
+  .hide { display:none !important; }
+  svg text { font-family:-apple-system,system-ui,sans-serif; }
+</style>
+</head>
+<body>
+<div class="top">
+  <h1>Data Hub plot palettes</h1>
+  <span class="sub">Proposed color scales. Mark each Approve / Disapprove / Discuss, note tweaks, Export.</span>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+</div>
+<div class="wrap">
+  <p class="lead">
+    Today "sky" and "ink" each paint every series one color, which is the problem. The proposal turns each into a
+    real scale, and adds a color-blind-safe set and a black-and-white publication set. The pattern fills apply only
+    to bars and other filled shapes, scatter and line plots fall back to shades, since you cannot hatch a point.
+  </p>
+  <div id="root"></div>
+</div>
+
+<div id="exportOverlay" class="hide" style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="background:var(--raised);border:1px solid var(--border);border-radius:14px;max-width:600px;width:100%;padding:18px;">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <strong style="font-size:15px;">Decisions and notes</strong>
+      <button class="ctrl" style="margin-left:auto;" onclick="copyExport()">Copy</button>
+      <button class="ctrl" onclick="downloadExport()">Download .md</button>
+      <button class="ctrl" onclick="closeExport()">Close</button>
+    </div>
+    <div class="export-summary" id="exportText"></div>
+  </div>
+</div>
+
+<script>
+const SKY = ["#D6ECFA","#9DD3F2","#5FB6EA","#1AA0E6","#1283C9","#0C5E94","#083E62"];
+const RED = ["#FBD5CE","#F6A99D","#F47C6B","#FF6F61","#E23B2A","#B71C0F","#7F1108"];
+const OKABE = [
+  ["#000000","black"],["#E69F00","orange"],["#56B4E9","sky"],["#009E73","green"],
+  ["#F0E442","yellow"],["#0072B2","blue"],["#D55E00","vermillion"],["#CC79A7","purple"]
+];
+const GRAYSHADES = ["#1f2937","#4b5563","#6b7280","#9ca3af","#d1d5db"];
+
+// --- inspiration palettes (added at Grant's request) ---
+const PASTEL = ["#F8AD9D","#FFD6A5","#FDFFB6","#CAFFBF","#9BF6FF","#A0C4FF","#BDB2FF","#FFC6FF"];
+const MUTED  = ["#CC6677","#DDCC77","#117733","#88CCEE","#882255","#44AA99","#999933","#AA4499"]; // Paul Tol muted
+const KELLER = ["#BE6C9C","#E0A23C","#3FA468","#2E6CB0","#C0613E","#6FB3DD","#000000","#ECEDEF"]; // gkad573 Fig 2 phylum legend (rose, gold, green, blue, terracotta, light-blue, black, near-white)
+const COOLORS = ["#264653","#2A9D8F","#E9C46A","#F4A261","#E76F51"]; // the popular coolors.co set
+
+function rampSwatches(colors){
+  return `<div class="swatches">` + colors.map(c =>
+    `<div class="swatch" style="background:${c}"><span>${c}</span></div>`).join('') + `</div>`;
+}
+function sampleRamp(colors, n){ // pick n evenly spaced from a ramp
+  if(n===1) return [colors[Math.floor(colors.length/2)]];
+  const out=[]; for(let i=0;i<n;i++){ out.push(colors[Math.round(i*(colors.length-1)/(n-1))]); } return out;
+}
+
+// A simple SVG bar chart; fillFn(i) returns a fill (color or url(#pattern))
+function barChart(fills, defs){
+  const vals=[70,55,82,48,63]; const w=280,h=150,pad=26;
+  const bw=(w-2*pad)/vals.length*0.62, gap=(w-2*pad)/vals.length;
+  let bars=''; vals.forEach((v,i)=>{
+    const x=pad+i*gap+gap*0.19, bh=(v/90)*(h-2*pad), y=h-pad-bh;
+    bars+=`<rect x="${x}" y="${y}" width="${bw}" height="${bh}" fill="${fills[i]}" stroke="#333" stroke-width="0.8"/>`;
+  });
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${defs||''}
+    <rect width="${w}" height="${h}" fill="#ffffff"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#94a3b8" stroke-width="1"/>
+    <line x1="${pad}" y1="${pad-6}" x2="${pad}" y2="${h-pad}" stroke="#94a3b8" stroke-width="1"/>
+    ${bars}</svg>`;
+}
+// dot plot (scatter) using shades
+function dotPlot(colors){
+  const groups=[[62,66,70,64],[48,52,46,50],[78,82,80,84]]; const w=280,h=150,pad=26;
+  const gap=(w-2*pad)/groups.length;
+  let pts=''; groups.forEach((g,i)=>{
+    const cx=pad+i*gap+gap*0.5; const col=colors[i];
+    g.forEach((v,j)=>{ const x=cx+(j-1.5)*5, y=h-pad-(v/90)*(h-2*pad);
+      pts+=`<circle cx="${x}" cy="${y}" r="3.2" fill="${col}"/>`;
+      });
+    const my=h-pad-(g.reduce((a,b)=>a+b,0)/g.length/90)*(h-2*pad);
+    pts+=`<line x1="${cx-13}" y1="${my}" x2="${cx+13}" y2="${my}" stroke="${col}" stroke-width="2"/>`;
+  });
+  return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <rect width="${w}" height="${h}" fill="#ffffff"/>
+    <line x1="${pad}" y1="${h-pad}" x2="${w-pad}" y2="${h-pad}" stroke="#94a3b8" stroke-width="1"/>
+    <line x1="${pad}" y1="${pad-6}" x2="${pad}" y2="${h-pad}" stroke="#94a3b8" stroke-width="1"/>
+    ${pts}</svg>`;
+}
+
+// Mono pattern defs: solid, dots, diagonal lines, crosshatch, horizontal lines
+const MONO_GRAY = "#c2c7cf";
+const monoDefs = `<defs>
+  <pattern id="mdots" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="${MONO_GRAY}"/><circle cx="3" cy="3" r="1.1" fill="#111"/></pattern>
+  <pattern id="mdiag" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="${MONO_GRAY}"/><rect width="2" height="6" fill="#111"/></pattern>
+  <pattern id="mcross" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="${MONO_GRAY}"/><path d="M0,0 L6,6 M6,0 L0,6" stroke="#111" stroke-width="1"/></pattern>
+  <pattern id="mhoriz" width="6" height="6" patternUnits="userSpaceOnUse"><rect width="6" height="6" fill="${MONO_GRAY}"/><rect width="6" height="2" fill="#111"/></pattern>
+</defs>`;
+const MONO_BAR_FILLS = [MONO_GRAY, "url(#mdots)", "url(#mdiag)", "url(#mcross)", "url(#mhoriz)"];
+
+const SECTIONS = [
+  { id:"sky", title:"Sky, a blue scale (not one blue)", why:"Replaces today's single sky color. For N series the renderer samples N shades from a light-to-dark blue ramp, so each bar or group is distinguishable while staying on-brand.",
+    render:()=> rampSwatches(SKY) + `<div class="charts"><div class="chartbox">${barChart(sampleRamp(SKY,5))}<div class="cap">5 series sampled across the blue ramp.</div></div></div>` },
+  { id:"red", title:"Red, a matching warm scale", why:"The same idea in reds, for figures that want a warm scale or a second study arm in red. Light-to-dark, same sampling.",
+    render:()=> rampSwatches(RED) + `<div class="charts"><div class="chartbox">${barChart(sampleRamp(RED,5))}<div class="cap">5 series sampled across the red ramp.</div></div></div>` },
+  { id:"cb", title:"Color-blind safe (Okabe-Ito)", why:"A distinct categorical set that stays distinguishable under the common color-blindness types (the Okabe-Ito palette, the field standard for accessible figures). Use this as the default when series are unordered categories.",
+    render:()=> `<div class="cbgrid">` + OKABE.map(([c,n])=>`<div class="cbchip"><div class="box" style="background:${c}"></div><div class="lab">${n}</div></div>`).join('') + `</div>` +
+      `<div class="charts"><div class="chartbox">${barChart(OKABE.slice(0,5).map(o=>o[0]))}<div class="cap">First five Okabe-Ito hues on bars.</div></div></div>` },
+  { id:"mono", title:"Mono, black-and-white publication", why:"Here is the real fix you described. For BARS, differentiate by fill pattern the way B&W journals do, solid gray, then black dots, diagonal lines, crosshatch, horizontal lines, rather than five grays nobody can tell apart in print. For SCATTER and LINE plots, where you cannot hatch a point, it falls back to gray shades.",
+    render:()=> `<div class="charts">
+        <div class="chartbox">${barChart(MONO_BAR_FILLS, monoDefs)}<div class="cap"><b>Bars:</b> solid, dots, diagonal, crosshatch, horizontal. This is the publication convention.</div></div>
+        <div class="chartbox">${dotPlot(GRAYSHADES)}<div class="cap"><b>Scatter / line:</b> patterns make no sense on points, so it falls back to gray shades. Implemented only where the data type fits.</div></div>
+      </div>
+      <div class="note">The pattern set is applied by figure kind (columnBar gets patterns, columnScatter gets shades), so it is automatic and never wrong for the chart type.</div>` },
+
+  { id:"pastel", title:"Pastel (fun)", why:"A soft pastel rainbow for a lighter, friendly figure. Categorical, so each series is a distinct hue. Reads well on slides, less so for dense print.",
+    render:()=> rampSwatches(PASTEL) + `<div class="charts"><div class="chartbox">${barChart(PASTEL.slice(0,5))}<div class="cap">First five pastels on bars.</div></div></div>` },
+  { id:"muted", title:"Muted rainbow (Paul Tol)", why:"A desaturated rainbow that stays calm and print-friendly (the Paul Tol muted set). Bonus, it holds up reasonably well under color blindness, so it is a good middle ground between the lively pastel and the strict Okabe-Ito.",
+    render:()=> rampSwatches(MUTED) + `<div class="charts"><div class="chartbox">${barChart(MUTED.slice(0,5))}<div class="cap">First five muted hues on bars.</div></div></div>` },
+  { id:"keller", title:"Your figures (from the ICS paper)", why:"Pulled from Figure 2 of your NAR 2023 ICS paper, the phylum palette (dusty rose, golden orange, teal, the blues and navy). Approximated from the rendered figure, so correct any hex in the note and I will match it exactly.",
+    render:()=> rampSwatches(KELLER) + `<div class="charts"><div class="chartbox">${barChart(KELLER.slice(0,5))}<div class="cap">Your phylum colors on bars.</div></div></div>` },
+  { id:"coolors", title:"Coolors classic (teal to coral)", why:"The most-shared palette on coolors.co, a teal-to-coral gradient that has become a publication staple. Warm and cohesive. I could not browse coolors live, so point me at any specific palette URL or hexes and I will add them too.",
+    render:()=> rampSwatches(COOLORS) + `<div class="charts"><div class="chartbox">${barChart(COOLORS.slice(0,5))}<div class="cap">The teal-to-coral set on bars.</div></div></div>` },
+];
+
+const STORE="datahub-palettes-2026-06-11";
+let state=load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE))||{dark:false,v:{},notes:{}}; } catch(e){ return {dark:false,v:{},notes:{}}; } }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function toggleTheme(){ state.dark=!state.dark; applyTheme(); save(); }
+function applyTheme(){ document.documentElement.classList.toggle('dark',state.dark); document.getElementById('themeBtn').textContent=state.dark?"Light":"Dark"; }
+function render(){
+  document.getElementById('root').innerHTML = SECTIONS.map(s=>{
+    const v=state.v[s.id]||"";
+    return `<div class="sec ${v}">
+      <h2>${s.title}</h2><p class="why">${s.why}</p>
+      ${s.render()}
+      <div class="verds">
+        <button class="${v==='agree'?'aon':''}" onclick="setV('${s.id}','agree')">Approve</button>
+        <button class="${v==='disagree'?'don':''}" onclick="setV('${s.id}','disagree')">Disapprove</button>
+        <button class="${v==='discuss'?'qon':''}" onclick="setV('${s.id}','discuss')">Discuss</button>
+      </div>
+      <textarea placeholder="tweaks (exact hexes, more shades, a different pattern, ...)" oninput="setN('${s.id}',this.value)">${state.notes[s.id]||''}</textarea>
+    </div>`;
+  }).join('');
+}
+function setV(id,v){ state.v[id]=(state.v[id]===v?"":v); save(); render(); }
+function setN(id,v){ state.notes[id]=v; save(); }
+function buildExport(){
+  let out="# Data Hub palettes, decisions\n\n";
+  SECTIONS.forEach(s=>{ const v=state.v[s.id]||"(no decision)"; out+=`- [${v.toUpperCase()}] ${s.title}\n`; if(state.notes[s.id]) out+=`    note: ${state.notes[s.id]}\n`; });
+  return out;
+}
+function openExport(){ document.getElementById('exportText').textContent=buildExport(); document.getElementById('exportOverlay').classList.remove('hide'); }
+function closeExport(){ document.getElementById('exportOverlay').classList.add('hide'); }
+function copyExport(){ navigator.clipboard.writeText(buildExport()); }
+function downloadExport(){ const b=new Blob([buildExport()],{type:"text/markdown"}); const a=document.createElement('a'); a.href=URL.createObjectURL(b); a.download="datahub-palettes-decisions.md"; a.click(); }
+applyTheme(); render();
+</script>
+</body>
+</html>

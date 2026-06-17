@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub large tables — review mockup</title>
+<style>
+  :root {
+    --bg: #f2f3f7; --surface: #ffffff; --raised: #f7f8fb; --ink: #111827;
+    --muted: #5b6472; --border: #e5e7eb; --border-soft: #eef0f4;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-purple: #5B47D6;
+    --coral: #FF6F61; --amber: #F59E0B; --green: #18a558;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  body.dark {
+    --bg: #0a0e1a; --surface: #1c2638; --raised: #28344c; --ink: #f3f5f9;
+    --muted: #9aa6ba; --border: #2c3a52; --border-soft: #243047;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; padding-bottom: 80px; }
+  header.top { position: sticky; top: 0; z-index: 40; background: var(--surface); border-bottom: 1px solid var(--border);
+    padding: 14px 22px; display: flex; align-items: center; gap: 14px; }
+  .brandbar { height: 6px; background: linear-gradient(90deg,#FF6F61,#F59E0B,#18a558,#1AA0E6,#5B47D6); }
+  h1 { font-size: 16px; font-weight: 800; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--muted); font-size: 12px; }
+  .spacer { flex: 1; }
+  .ctrl { font: inherit; font-size: 12.5px; font-weight: 700; padding: 7px 13px; border-radius: 9px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .ctrl:hover { border-color: var(--brand-action); }
+  .ctrl.on { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 26px 22px; }
+  .lede { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 22px 24px; margin-bottom: 26px; }
+  .lede h2 { margin: 0 0 8px; font-size: 19px; letter-spacing: -0.01em; }
+  .lede p { margin: 8px 0 0; color: var(--muted); max-width: 80ch; }
+  .progresswrap { display: flex; gap: 10px; align-items: center; margin-top: 16px; font-size: 12px; color: var(--muted); }
+  .pbar { flex: 1; height: 8px; border-radius: 99px; background: var(--border-soft); overflow: hidden; }
+  .pbar > i { display: block; height: 100%; width: 0; background: linear-gradient(90deg,var(--brand-action),var(--brand-purple)); transition: width .3s; }
+
+  .change { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 22px; overflow: hidden; }
+  .change.ok { border-color: var(--green); }
+  .change.no { border-color: var(--coral); opacity: .82; }
+  .chead { display: flex; align-items: flex-start; gap: 14px; padding: 18px 22px 14px; }
+  .cnum { flex: none; width: 30px; height: 30px; border-radius: 9px; background: var(--brand-action); color: #fff;
+    font-weight: 800; display: flex; align-items: center; justify-content: center; font-size: 13px; }
+  .ctitle { font-size: 16px; font-weight: 800; margin: 2px 0 2px; letter-spacing: -0.01em; }
+  .ctag { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; color: var(--brand-purple); }
+  .cbody { padding: 0 22px 18px; }
+  .why { color: var(--muted); margin: 12px 0 0; max-width: 82ch; }
+  .why b { color: var(--ink); font-weight: 700; }
+
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+  @media (max-width: 820px){ .ba { grid-template-columns: 1fr; } }
+  .panel { border: 1px solid var(--border); border-radius: 12px; background: var(--raised); padding: 14px; }
+  .panel .lab { font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 10px; }
+  .panel.before .lab { color: var(--coral); }
+  .panel.after .lab { color: var(--green); }
+
+  /* fake app chrome */
+  .mini { border: 1px solid var(--border); border-radius: 10px; overflow: hidden; background: var(--surface); font-size: 12px; }
+  .minihead { padding: 8px 12px; border-bottom: 1px solid var(--border-soft); display: flex; align-items: center; gap: 8px; font-weight: 700; }
+  .dot { width: 9px; height: 9px; border-radius: 99px; }
+  .frozen { padding: 22px 12px; text-align: center; color: var(--coral); font-weight: 700; }
+  .frozen small { display: block; color: var(--muted); font-weight: 500; margin-top: 6px; }
+  .grid-scroll { max-height: 220px; overflow: auto; }
+  table.dh { border-collapse: collapse; width: 100%; font-size: 11.5px; font-variant-numeric: tabular-nums; }
+  table.dh th, table.dh td { border-bottom: 1px solid var(--border-soft); border-right: 1px solid var(--border-soft); padding: 4px 8px; text-align: right; white-space: nowrap; }
+  table.dh th { position: sticky; top: 0; background: var(--raised); font-weight: 700; text-align: right; z-index: 1; }
+  table.dh td.rownum, table.dh th.rownum { text-align: right; color: var(--muted); background: var(--raised); position: sticky; left: 0; }
+  table.dh td.txt { text-align: left; }
+
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 11px; border-radius: 99px; font-size: 11.5px; font-weight: 700;
+    background: color-mix(in srgb, var(--brand-sky) 12%, transparent); color: var(--brand-action); border: 1px solid color-mix(in srgb, var(--brand-sky) 30%, transparent); }
+  body.dark .chip { background: color-mix(in srgb, var(--brand-sky) 22%, transparent); color: #bfe3fb; }
+  .chip .pulse { width: 7px; height: 7px; border-radius: 99px; background: var(--green); box-shadow: 0 0 0 0 color-mix(in srgb,var(--green) 60%, transparent); animation: pulse 2s infinite; }
+  @keyframes pulse { 0%{ box-shadow: 0 0 0 0 color-mix(in srgb,var(--green) 55%, transparent);} 70%{ box-shadow: 0 0 0 6px transparent;} 100%{ box-shadow:0 0 0 0 transparent;} }
+
+  .explainer { border: 1px solid color-mix(in srgb, var(--brand-sky) 35%, transparent); border-radius: 12px; padding: 16px 18px;
+    background: color-mix(in srgb, var(--brand-sky) 7%, var(--surface)); }
+  .explainer h4 { margin: 0 0 6px; font-size: 14px; }
+  .explainer p { margin: 0; color: var(--muted); font-size: 12.5px; }
+  .explainer .row { display: flex; gap: 10px; margin-top: 12px; }
+  .colpick { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  .colpick label { font-size: 11px; padding: 3px 9px; border: 1px solid var(--border); border-radius: 99px; cursor: pointer; user-select: none; }
+  .colpick input { display: none; }
+  .colpick label.on { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+
+  /* bulk editor */
+  .ruleform { display: grid; gap: 8px; }
+  .ruleline { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .ruleline select, .ruleline input { font: inherit; font-size: 12px; padding: 5px 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); }
+  .ruleline input { width: 96px; }
+  .pill { font-size: 11px; font-weight: 800; color: var(--muted); }
+  .matchline { margin-top: 4px; font-size: 12px; }
+  .matchline b { color: var(--brand-action); }
+  .sqlpeek { margin-top: 8px; font-family: var(--mono); font-size: 11px; background: #0d1830; color: #cfe6ff; padding: 9px 11px; border-radius: 8px; overflow-x: auto; }
+  body.dark .sqlpeek { background: #060c1c; }
+
+  .warnbox { border: 1px solid color-mix(in srgb,var(--amber) 50%, transparent); background: color-mix(in srgb,var(--amber) 10%, var(--surface)); border-radius: 12px; padding: 16px 18px; }
+  .warnbox h4 { margin: 0 0 6px; color: #9a6b00; font-size: 14px; }
+  body.dark .warnbox h4 { color: var(--amber); }
+  .warnbox .acts { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+
+  .storerow { display: flex; gap: 10px; align-items: center; padding: 9px 12px; border: 1px solid var(--border-soft); border-radius: 9px; background: var(--raised); margin-bottom: 7px; }
+  .storerow .fn { font-family: var(--mono); font-size: 11.5px; }
+  .storerow .tag { margin-left: auto; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 99px; }
+  .tag.keep { color: var(--green); background: color-mix(in srgb,var(--green) 14%, transparent); }
+  .tag.work { color: var(--brand-action); background: color-mix(in srgb,var(--brand-sky) 14%, transparent); }
+  .tag.meta { color: var(--brand-purple); background: color-mix(in srgb,var(--brand-purple) 14%, transparent); }
+
+  .btn-brand { background: linear-gradient(135deg, var(--brand-action), var(--brand-purple)); color: #fff; border: none;
+    padding: 7px 14px; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 800; cursor: pointer; }
+  .btn-ghost { background: var(--surface); border: 1px solid var(--border); color: var(--ink); padding: 7px 14px; border-radius: 9px; font: inherit; font-size: 12.5px; font-weight: 700; cursor: pointer; }
+
+  /* verdict controls */
+  .verdict { display: flex; align-items: center; gap: 8px; padding: 12px 22px; border-top: 1px solid var(--border-soft); background: var(--raised); }
+  .vbtn { font: inherit; font-size: 12px; font-weight: 800; padding: 6px 13px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .vbtn.approve.sel { background: var(--green); border-color: var(--green); color: #fff; }
+  .vbtn.deny.sel { background: var(--coral); border-color: var(--coral); color: #fff; }
+  .vnote { flex: 1; font: inherit; font-size: 12px; padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); color: var(--ink); }
+
+  /* comment pins */
+  body.commenting [data-pin] { cursor: crosshair; }
+  body.commenting [data-pin]:hover { outline: 2px dashed var(--brand-purple); outline-offset: 2px; }
+  .pin { position: absolute; width: 20px; height: 20px; border-radius: 99px 99px 99px 2px; background: var(--brand-purple); color: #fff;
+    font-size: 10px; font-weight: 800; display: flex; align-items: center; justify-content: center; transform: translate(-50%,-100%); z-index: 30; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
+  #pinPanel { position: fixed; right: 0; top: 0; bottom: 0; width: 300px; background: var(--surface); border-left: 1px solid var(--border);
+    transform: translateX(100%); transition: transform .2s; z-index: 50; padding: 16px; overflow: auto; }
+  #pinPanel.show { transform: none; }
+  .ccard { border: 1px solid var(--border); border-radius: 10px; padding: 10px; margin-bottom: 9px; font-size: 12px; }
+  .ccard .cn { font-weight: 800; color: var(--brand-purple); font-size: 11px; }
+
+  .footbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--surface); border-top: 1px solid var(--border);
+    padding: 11px 22px; display: flex; gap: 10px; align-items: center; z-index: 45; }
+  .footbar .stat { font-size: 12px; color: var(--muted); }
+  .footbar .spacer { flex: 1; }
+  textarea#exp { width: 100%; height: 220px; font-family: var(--mono); font-size: 11px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<div class="brandbar"></div>
+<header class="top">
+  <div>
+    <h1>Data Hub, large tables</h1>
+    <div class="sub">Review mockup, 2026-06-13. Approve or flag each change, drop comment pins, then Export and paste back to chat.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="ctrl" id="commentBtn" onclick="toggleComment()">Comment mode</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+</header>
+
+<div class="wrap">
+  <div class="lede">
+    <h2>The thing being proposed</h2>
+    <p>Today the Data Hub grid is a hand-edited, cell-versioned spreadsheet. Wonderful for a 200-row table, fatal at 200,000 rows (it renders every row to the DOM and holds every cell in memory). This proposal adds a second lane that trips <b>automatically</b> above a size threshold. Big tables become query-backed datasets that stay on your disk, compute on your own processor through a background engine, and never try to draw themselves in full. Small tables are completely unchanged. Review each change below.</p>
+    <div class="progresswrap">
+      <span id="ptext">0 of 7 reviewed</span>
+      <span class="pbar"><i id="pfill"></i></span>
+    </div>
+  </div>
+
+  <!-- C1 -->
+  <section class="change" data-change="c1">
+    <div class="chead">
+      <div class="cnum">1</div>
+      <div>
+        <div class="ctag">Automatic, no toggle</div>
+        <div class="ctitle">It detects a large table on import and switches lanes itself</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="ba">
+        <div class="panel before" data-pin>
+          <div class="lab">Before</div>
+          <div class="mini">
+            <div class="minihead"><span class="dot" style="background:var(--coral)"></span> Importing genes_expression.csv</div>
+            <div class="frozen">Page unresponsive
+              <small>247,000 rows seeded straight into the cell store. Tab freezes, then crashes.</small>
+            </div>
+          </div>
+        </div>
+        <div class="panel after" data-pin>
+          <div class="lab">After</div>
+          <div class="explainer">
+            <h4>Large dataset detected</h4>
+            <p><b>genes_expression.csv</b>, 247,000 rows by 38 columns. ResearchOS is keeping this on your computer and running it with your own processor, so nothing uploads. At this size we show a preview and you work through filters, transforms, and analyses instead of editing cells one at a time.</p>
+            <div class="row">
+              <button class="btn-brand">Open as dataset</button>
+              <button class="btn-ghost">What does this mean?</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="why">Trips during parsing, the moment a table crosses the threshold, <b>before</b> a single row reaches the cell store. Proposed default threshold is roughly 5,000 rows or 250,000 cells, whichever comes first (tunable). The explainer shows once per dataset, then collapses to the quiet chip in change 2.</p>
+    </div>
+    <div class="verdict" data-verdict="c1"></div>
+  </section>
+
+  <!-- C2 -->
+  <section class="change" data-change="c2">
+    <div class="chead">
+      <div class="cnum">2</div>
+      <div>
+        <div class="ctag">Always-visible, calm</div>
+        <div class="ctitle">A quiet status chip, so the user always knows the rules</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="ba">
+        <div class="panel before" data-pin>
+          <div class="lab">Before</div>
+          <div class="mini"><div class="minihead">genes_expression</div>
+            <div style="padding:14px 12px;color:var(--muted)">No indication anything is different. The user assumes cell editing works, tries it, and is confused when it does not.</div></div>
+        </div>
+        <div class="panel after" data-pin>
+          <div class="lab">After</div>
+          <div class="mini"><div class="minihead">genes_expression
+            <span class="spacer" style="flex:1"></span></div>
+            <div style="padding:12px">
+              <span class="chip"><span class="pulse"></span> Large dataset, running locally, previewing 100 of 247,000 rows</span>
+              <p style="margin:10px 0 0;color:var(--muted);font-size:12px">Hovering the chip explains the lane in one line. Clicking it opens the same "what does this mean" panel.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="why">The chip is the honest, persistent signal. It states three things at a glance, <b>large</b>, <b>local</b> (nothing leaves the machine), and <b>previewed</b> (you are not seeing all rows). No alarm, no red, just clarity.</p>
+    </div>
+    <div class="verdict" data-verdict="c2"></div>
+  </section>
+
+  <!-- C3 -->
+  <section class="change" data-change="c3">
+    <div class="chead">
+      <div class="cnum">3</div>
+      <div>
+        <div class="ctag">Virtualized preview</div>
+        <div class="ctitle">A windowed grid, plus a column picker for the too-wide case</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="colpick" id="colpick"></div>
+      <div class="panel after" data-pin>
+        <div class="lab">Preview, first rows of 247,000</div>
+        <div class="mini"><div class="grid-scroll"><table class="dh" id="previewTable"></table></div></div>
+      </div>
+      <p class="why">Only the rows in view are ever in the DOM, fetched from the engine in pages as you scroll, so the grid stays smooth no matter how many rows exist. When a table is too wide to show (you mentioned this), the <b>column picker</b> above lets you choose which columns to display, and a "jump to row" box (not drawn here) lets you land anywhere in the 247,000 without scrolling. Toggle a few columns above to feel it.</p>
+    </div>
+    <div class="verdict" data-verdict="c3"></div>
+  </section>
+
+  <!-- C4 -->
+  <section class="change" data-change="c4">
+    <div class="chead">
+      <div class="cnum">4</div>
+      <div>
+        <div class="ctag">Edit by rule, not by cell</div>
+        <div class="ctitle">The "edit with code" bulk editor</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="ba">
+        <div class="panel before" data-pin>
+          <div class="lab">Before</div>
+          <div class="mini"><div style="padding:14px 12px;color:var(--muted)">To change 12,000 empty cells you would click each one. Impossible at scale, which is why you drop to code today.</div></div>
+        </div>
+        <div class="panel after" data-pin>
+          <div class="lab">After, describe the change once</div>
+          <div class="mini" style="padding:12px">
+            <div class="ruleform">
+              <div class="ruleline">
+                <span class="pill">In</span>
+                <select id="bcol"></select>
+                <span class="pill">where value</span>
+                <select id="bpred" onchange="recalcRule()">
+                  <option value="empty">is empty</option>
+                  <option value="starts">starts with</option>
+                  <option value="eq">equals</option>
+                  <option value="gt">is greater than</option>
+                </select>
+                <input id="bval" placeholder="sbc" oninput="recalcRule()" />
+              </div>
+              <div class="ruleline">
+                <span class="pill">set it to</span>
+                <select id="bact" onchange="recalcRule()">
+                  <option value="const">this value</option>
+                  <option value="replace3">replace first 3 chars with</option>
+                </select>
+                <input id="bactval" placeholder="dog" value="dog" oninput="recalcRule()" />
+              </div>
+              <div class="matchline" id="matchline"></div>
+              <div class="sqlpeek" id="sqlpeek"></div>
+              <div style="display:flex;gap:8px;margin-top:4px">
+                <button class="btn-brand" onclick="alert('Mockup only. In the build this runs across all matching rows on your processor in well under a second.')">Apply to all matches</button>
+                <button class="btn-ghost" onclick="alert('Mockup only. Preview shows the affected rows before you commit.')">Preview affected rows</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="why">Exactly your framing, "rows where the column is empty, set it to X", or "rows where y starts with <b>sbc</b>, replace the first three characters with <b>dog</b>". A predicate plus an action. This reuses the existing data-wrangling transform vocabulary, so a rule reads the same whether the table is small (runs in JS) or huge (compiles to a single engine query, shown live above). One mental model, two execution paths. Try changing the column, the condition, and the action above, the match count and the generated query update live.</p>
+    </div>
+    <div class="verdict" data-verdict="c4"></div>
+  </section>
+
+  <!-- C5 -->
+  <section class="change" data-change="c5">
+    <div class="chead">
+      <div class="cnum">5</div>
+      <div>
+        <div class="ctag">Validation gate intact</div>
+        <div class="ctitle">Analyses still run through your validated engine</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="panel after" data-pin>
+        <div class="lab">How a t-test runs on 247,000 rows</div>
+        <div class="mini" style="padding:14px">
+          <div style="display:flex;flex-direction:column;gap:8px;font-size:12px">
+            <div><span class="tag work" style="margin:0">Engine</span> &nbsp; pulls just the 2 needed columns (a column of 247k numbers is ~2 MB), filters and slices, off the main thread</div>
+            <div style="text-align:center;color:var(--muted)">passes the two arrays down to</div>
+            <div><span class="tag meta" style="margin:0">Validated JS stats</span> &nbsp; the same <span style="font-family:var(--mono)">unpairedTTest</span> that carries a transparency pin today computes every published number</div>
+          </div>
+        </div>
+      </div>
+      <p class="why">This is the load-bearing rule. The new engine only <b>moves data</b> (filter, slice, partition groups, page, extract columns). It never computes a statistic that ships to the user. Every published number stays on the existing validated path with its transparency pin, so your "validated vs scipy/R" gate is untouched. No stat quietly migrates to an unverified code path.</p>
+    </div>
+    <div class="verdict" data-verdict="c5"></div>
+  </section>
+
+  <!-- C6 -->
+  <section class="change" data-change="c6">
+    <div class="chead">
+      <div class="cnum">6</div>
+      <div>
+        <div class="ctag">No soft-lock</div>
+        <div class="ctitle">"Show me everything" warns, it does not silently refuse</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="panel after" data-pin>
+        <div class="lab">After clicking "render all rows"</div>
+        <div class="warnbox">
+          <h4>Rendering all 247,000 rows would freeze this tab</h4>
+          <p style="margin:0;color:var(--muted);font-size:12.5px">Chrome cannot draw that many rows at once, and neither can any browser. For a full hand-editable view, open the file in a spreadsheet or analysis app. Here you can preview, jump to any row, filter, transform, and analyze the entire dataset without loading it all.</p>
+          <div class="acts">
+            <button class="btn-ghost" onclick="alert('Mockup only')">Reveal the file on disk</button>
+            <button class="btn-ghost" onclick="alert('Mockup only')">Filter to a smaller view</button>
+            <button class="btn-ghost" onclick="alert('Mockup only')">Keep previewing</button>
+          </div>
+        </div>
+      </div>
+      <p class="why">Per your no-soft-locks rule, the full-render path is never a dead button. It is an honest warning that explains why the browser is the wrong tool for that one operation, points at the file and at external apps, and keeps every safe operation alive. The user is informed, not blocked.</p>
+    </div>
+    <div class="verdict" data-verdict="c6"></div>
+  </section>
+
+  <!-- C7 -->
+  <section class="change" data-change="c7">
+    <div class="chead">
+      <div class="cnum">7</div>
+      <div>
+        <div class="ctag">On your disk, data-shape</div>
+        <div class="ctitle">What actually gets written to the data folder</div>
+      </div>
+    </div>
+    <div class="cbody">
+      <div class="panel after" data-pin>
+        <div class="lab">users/grant/datahub/&lt;id&gt;/</div>
+        <div style="margin-top:4px">
+          <div class="storerow"><span class="fn">genes_expression.csv</span><span class="tag keep">your original, untouched</span></div>
+          <div class="storerow"><span class="fn">data.parquet</span><span class="tag work">compact working copy the engine queries</span></div>
+          <div class="storerow"><span class="fn">dataset.json</span><span class="tag meta">schema, lineage, analyses, rules</span></div>
+        </div>
+      </div>
+      <p class="why">Parquet stores the table column by column and compressed, so a 60 MB CSV becomes a few MB and the engine reads only the columns an analysis needs. We <b>keep your original file exactly as imported</b> (it is a research record, never silently rewritten) and add the compact working copy plus a small metadata sidecar. Pasted or derived data, which has no original file, gets only the Parquet copy. Everything lives on your disk, nothing sits as a multi-gigabyte blob in browser cache. This is a new on-disk shape, flagging it as a data-shape change per your rule.</p>
+    </div>
+    <div class="verdict" data-verdict="c7"></div>
+  </section>
+
+  <div class="lede" style="margin-top:6px">
+    <h2>Open questions for you</h2>
+    <p>Drop these as comment pins or notes if you have a view. (a) The threshold number, 5,000 rows feels conservative, would you rather it trip later. (b) Should derived datasets from a transform always be saved, or stay ephemeral until the user names them. (c) Do you want a one-click "export the filtered view as CSV/Parquet" for handing a slice to an external tool.</p>
+  </div>
+</div>
+
+<div id="pinPanel">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+    <b style="font-size:13px">Comments</b><span class="spacer" style="flex:1"></span>
+    <button class="ctrl" onclick="document.getElementById('pinPanel').classList.remove('show')">Close</button>
+  </div>
+  <div id="ccards"></div>
+  <textarea id="exp" style="display:none"></textarea>
+</div>
+
+<div class="footbar">
+  <span class="stat" id="footstat">0 approved, 0 flagged</span>
+  <span class="spacer"></span>
+  <button class="btn-ghost" onclick="resetAll()">Reset</button>
+  <button class="btn-brand" onclick="openExport()">Export decisions</button>
+</div>
+
+<script>
+const CHANGES = ["c1","c2","c3","c4","c5","c6","c7"];
+const TITLES = {
+  c1:"Auto-detect large table on import",
+  c2:"Quiet persistent status chip",
+  c3:"Virtualized preview + column picker",
+  c4:"Rule-based bulk editor (edit with code)",
+  c5:"Analyses route through validated engine",
+  c6:"Show-everything warns, no soft-lock",
+  c7:"On-disk shape (original + parquet + sidecar)"
+};
+const STORE = "ros-datahub-largetables-v1";
+let state = load();
+function load(){ try { return JSON.parse(localStorage.getItem(STORE)) || {dark:false,verdicts:{},notes:{},comments:[]}; } catch(e){ return {dark:false,verdicts:{},notes:{},comments:[]}; } }
+function save(){ localStorage.setItem(STORE, JSON.stringify(state)); }
+
+function applyTheme(){ document.body.classList.toggle("dark", state.dark); document.getElementById("themeBtn").textContent = state.dark ? "Light" : "Dark"; }
+function toggleTheme(){ state.dark=!state.dark; applyTheme(); save(); }
+
+// verdict controls
+function buildVerdicts(){
+  CHANGES.forEach(id => {
+    const el = document.querySelector('[data-verdict="'+id+'"]');
+    if(!el) return;
+    el.innerHTML = '';
+    const a = mkBtn("Approve","approve",id);
+    const d = mkBtn("Flag / discuss","deny",id);
+    const note = document.createElement("input");
+    note.className="vnote"; note.placeholder="optional note for "+id+"...";
+    note.value = state.notes[id]||"";
+    note.oninput = ()=>{ state.notes[id]=note.value; save(); };
+    el.append(a,d,note);
+  });
+  refresh();
+}
+function mkBtn(label, kind, id){
+  const b = document.createElement("button");
+  b.className = "vbtn "+kind; b.textContent = label;
+  b.onclick = ()=>{ state.verdicts[id] = (state.verdicts[id]===kind)? null : kind; save(); refresh(); };
+  return b;
+}
+function refresh(){
+  let appr=0, deny=0, done=0;
+  CHANGES.forEach(id=>{
+    const v = state.verdicts[id];
+    const sec = document.querySelector('[data-change="'+id+'"]');
+    sec.classList.toggle("ok", v==="approve");
+    sec.classList.toggle("no", v==="deny");
+    const el = document.querySelector('[data-verdict="'+id+'"]');
+    el.querySelector(".approve").classList.toggle("sel", v==="approve");
+    el.querySelector(".deny").classList.toggle("sel", v==="deny");
+    if(v==="approve") appr++; if(v==="deny") deny++; if(v) done++;
+  });
+  document.getElementById("footstat").textContent = appr+" approved, "+deny+" flagged";
+  document.getElementById("ptext").textContent = done+" of "+CHANGES.length+" reviewed";
+  document.getElementById("pfill").style.width = (done/CHANGES.length*100)+"%";
+}
+function resetAll(){ if(!confirm("Clear all verdicts, notes and comments?")) return; state={dark:state.dark,verdicts:{},notes:{},comments:[]}; save(); buildVerdicts(); renderComments(); document.querySelectorAll(".pin").forEach(p=>p.remove()); }
+
+// comment mode
+let commenting=false;
+function toggleComment(){ commenting=!commenting; document.body.classList.toggle("commenting",commenting); document.getElementById("commentBtn").classList.toggle("on",commenting);
+  if(commenting) document.getElementById("pinPanel").classList.add("show"); }
+document.addEventListener("click", e=>{
+  if(!commenting) return;
+  const t = e.target.closest("[data-pin]");
+  if(!t) return;
+  e.preventDefault();
+  const txt = prompt("Comment:");
+  if(!txt) return;
+  const r = t.getBoundingClientRect();
+  const c = { n: state.comments.length+1, txt, x: e.pageX, y: e.pageY };
+  state.comments.push(c); save(); placePin(c); renderComments();
+});
+function placePin(c){ const p=document.createElement("div"); p.className="pin"; p.textContent=c.n; p.style.left=c.x+"px"; p.style.top=c.y+"px"; document.body.appendChild(p); }
+function renderComments(){
+  const box=document.getElementById("ccards"); box.innerHTML="";
+  if(!state.comments.length){ box.innerHTML='<div style="color:var(--muted);font-size:12px">Turn on comment mode, then click any panel to pin a note.</div>'; return; }
+  state.comments.forEach(c=>{ const d=document.createElement("div"); d.className="ccard"; d.innerHTML='<div class="cn">Pin '+c.n+'</div>'+esc(c.txt); box.appendChild(d); });
+}
+function esc(s){ return (s||"").replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
+
+// export
+function openExport(){
+  const ta=document.getElementById("exp"); ta.style.display="block";
+  document.getElementById("pinPanel").classList.add("show");
+  let out="# Data Hub large-tables, review decisions\n\n";
+  CHANGES.forEach(id=>{
+    const v=state.verdicts[id]; const mark = v==="approve"?"APPROVE":v==="deny"?"FLAG":"(no verdict)";
+    out+="## "+id+". "+TITLES[id]+"\n- Verdict: "+mark+"\n";
+    if(state.notes[id]) out+="- Note: "+state.notes[id]+"\n";
+    out+="\n";
+  });
+  if(state.comments.length){ out+="## Comment pins\n"; state.comments.forEach(c=>out+="- Pin "+c.n+": "+c.txt+"\n"); }
+  ta.value=out;
+  navigator.clipboard && navigator.clipboard.writeText(out).then(()=>{},()=>{});
+  ta.focus(); ta.select();
+}
+
+// ---- interactive dataset (change 3 + 4) ----
+const COLS = ["gene_id","sample","tpm","log2fc","pvalue","cluster"];
+const rng = (s=>()=>(s=Math.imul(48271,s)%2147483647)/2147483647)(12345);
+const PREFIXES = ["sbc","ttr","abc","sbc","xyz","sbc"];
+function genRows(n){
+  const out=[];
+  for(let i=0;i<n;i++){
+    const cluster = i%7;
+    out.push({
+      gene_id: PREFIXES[i%PREFIXES.length] + String(1000+i),
+      sample: ["ctrl","treated","ctrl","treated"][i%4],
+      tpm: +(rng()*900).toFixed(1),
+      log2fc: +((rng()*8)-4).toFixed(2),
+      pvalue: i%13===0 ? "" : +(rng()*0.2).toFixed(4),
+      cluster: "C"+cluster
+    });
+  }
+  return out;
+}
+const SAMPLE = genRows(100);
+const VISCOLS = new Set(COLS);
+function buildColPick(){
+  const wrap=document.getElementById("colpick"); wrap.innerHTML='<span style="font-size:11px;font-weight:800;color:var(--muted);align-self:center;margin-right:4px">Columns</span>';
+  COLS.forEach(c=>{
+    const l=document.createElement("label"); l.className="on"; l.textContent=c;
+    const cb=document.createElement("input"); cb.type="checkbox"; cb.checked=true;
+    cb.onchange=()=>{ cb.checked?VISCOLS.add(c):VISCOLS.delete(c); l.classList.toggle("on",cb.checked); renderPreview(); };
+    l.prepend(cb); wrap.appendChild(l);
+  });
+}
+function renderPreview(){
+  const cols = COLS.filter(c=>VISCOLS.has(c));
+  const t=document.getElementById("previewTable");
+  let h="<thead><tr><th class='rownum'>#</th>"+cols.map(c=>"<th>"+c+"</th>").join("")+"</tr></thead><tbody>";
+  SAMPLE.forEach((r,i)=>{
+    h+="<tr><td class='rownum'>"+(i+1)+"</td>"+cols.map(c=>{
+      const v=r[c]; const isTxt = typeof v==="string";
+      return "<td class='"+(isTxt?"txt":"")+"'>"+(v===""?"<span style='color:var(--coral)'>(empty)</span>":v)+"</td>";
+    }).join("")+"</tr>";
+  });
+  t.innerHTML=h+"</tbody>";
+}
+// bulk rule (change 4)
+const TOTAL = 247000;
+function buildRule(){
+  const sel=document.getElementById("bcol"); sel.innerHTML=COLS.map(c=>"<option>"+c+"</option>").join(""); sel.value="pvalue"; sel.onchange=recalcRule;
+  recalcRule();
+}
+function recalcRule(){
+  const col=document.getElementById("bcol").value;
+  const pred=document.getElementById("bpred").value;
+  const val=document.getElementById("bval").value;
+  const act=document.getElementById("bact").value;
+  const actval=document.getElementById("bactval").value;
+  document.getElementById("bval").style.display = pred==="empty" ? "none":"inline-block";
+  document.getElementById("bactval").placeholder = act==="replace3"?"dog":"value";
+  // count matches in the 100-row sample, then extrapolate
+  let m=0;
+  SAMPLE.forEach(r=>{
+    const cv=r[col];
+    if(pred==="empty"){ if(cv===""||cv==null) m++; }
+    else if(pred==="starts"){ if(typeof cv==="string"&&val&&cv.startsWith(val)) m++; }
+    else if(pred==="eq"){ if(String(cv)===val) m++; }
+    else if(pred==="gt"){ if(typeof cv==="number"&&val!==""&&cv>+val) m++; }
+  });
+  const est = Math.round(m/SAMPLE.length*TOTAL);
+  document.getElementById("matchline").innerHTML = "Matches about <b>"+est.toLocaleString()+"</b> of "+TOTAL.toLocaleString()+" rows ("+m+" in this 100-row preview).";
+  // sql peek
+  let where = pred==="empty" ? (col+" IS NULL OR "+col+" = ''") : pred==="starts" ? (col+" LIKE '"+val+"%'") : pred==="eq" ? (col+" = '"+val+"'") : (col+" > "+(val||"0"));
+  let setexpr = act==="replace3" ? ("'"+actval+"' || substr("+col+", 4)") : ("'"+actval+"'");
+  document.getElementById("sqlpeek").textContent = "UPDATE dataset SET "+col+" = "+setexpr+"\nWHERE "+where+";";
+}
+
+// init
+applyTheme();
+buildVerdicts();
+renderComments();
+state.comments.forEach(placePin);
+buildColPick(); renderPreview();
+buildRule();
+</script>
+</body>
+</html>

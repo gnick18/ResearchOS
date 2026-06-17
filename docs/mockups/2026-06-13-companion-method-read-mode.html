@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion method read mode (NYT-cooking style)</title>
+<style>
+  :root {
+    --surface:#f8fafc; --raised:#ffffff; --sunken:#f1f5f9; --fg:#0f1b2e; --muted:#6b7280;
+    --border:#e5e7eb; --page-bg:#e2e8f0; --sky:#1AA0E6; --action:#1283C9; --ink:#111827;
+    --ok:#16a34a; --pin:#e11d48; --warn:#d97706; --amber:#f59e0b;
+    --hot:#ef5350; --anneal:#3b82f6; --extend:#16a34a; --hold:#64748b;
+  }
+  html[data-theme="dark"]{ --surface:#0a0e1a; --raised:#16233c; --sunken:#0d1424; --fg:#eaf2fb; --muted:#9fb0c8; --border:rgba(255,255,255,.16); --page-bg:#060a13; --ink:#eaf2fb; }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;} .topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);} .btn.on{background:var(--action);border-color:var(--action);color:#fff;} .btn.danger{color:var(--pin);}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.6;max-width:84ch;margin:4px 0 16px;} .lead b{color:var(--fg);}
+  .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:20px;}
+  .change{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .change.approved{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok);} .change.disapproved{border-color:var(--pin);box-shadow:inset 3px 0 0 var(--pin);}
+  .ctitle{font-weight:700;font-size:13px;} .ctitle .tag{font-size:10px;font-weight:700;color:var(--action);background:var(--sunken);border-radius:5px;padding:1px 5px;margin-right:6px;}
+  .cdesc{font-size:12px;color:var(--muted);line-height:1.55;}
+  .verdict{display:flex;align-items:center;gap:8px;}
+  .vbtn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;} .vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:11px;text-decoration:underline;}
+
+  .stage{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start;}
+  .controls{flex:1;min-width:240px;}
+  .controls h2{font-size:14px;font-weight:800;margin:0 0 8px;}
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);margin-bottom:12px;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12.5px;font-weight:700;padding:6px 14px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+  .controls ol{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7;} .controls ol b{color:var(--fg);}
+  .controls .tip{margin-top:12px;font-size:12px;color:var(--action);font-weight:700;}
+
+  /* phone */
+  .phone{position:relative;width:344px;height:730px;flex:0 0 344px;border-radius:46px;background:#0b1220;padding:12px;box-shadow:0 30px 70px rgba(8,30,60,.4);}
+  .screen{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--surface);}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:22px;background:#0b1220;border-radius:13px;z-index:9;}
+  .view{position:absolute;inset:0;display:none;flex-direction:column;}
+  .view.active{display:flex;}
+
+  /* ---- normal Method tab view ---- */
+  .mhead{padding:42px 18px 10px;}
+  .mhead .ttl{font-size:26px;font-weight:800;color:var(--ink);}
+  .mhead .exp{font-size:12.5px;color:var(--muted);margin-top:2px;}
+  .mbody{flex:1;overflow-y:auto;padding:4px 18px 80px;}
+  .readbtn{display:flex;align-items:center;justify-content:center;gap:9px;background:var(--action);color:#fff;border-radius:14px;padding:15px;font-size:16px;font-weight:800;margin:8px 0 14px;box-shadow:0 8px 20px rgba(18,131,201,.3);}
+  .mcard{background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:14px;margin-bottom:10px;}
+  .mcard .mn{font-size:18px;font-weight:800;color:var(--ink);} .mcard .mt{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-top:2px;}
+  .mchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px;}
+  .mchip{background:var(--sunken);border-radius:8px;padding:5px 9px;font-size:11.5px;} .mchip b{color:var(--ink);}
+  .mrow{display:flex;justify-content:space-between;font-size:13.5px;padding:5px 0;border-bottom:1px solid var(--border);} .mrow:last-child{border:none;}
+  .mrow .d{color:var(--muted);}
+
+  /* ---- READ MODE (full screen, big text, hybrid) ---- */
+  .rm{background:var(--surface);}
+  .rmtop{display:flex;align-items:center;gap:10px;padding:42px 16px 10px;border-bottom:1px solid var(--border);background:var(--raised);}
+  .rmtop .x{width:32px;height:32px;border-radius:999px;background:var(--sunken);display:flex;align-items:center;justify-content:center;font-size:17px;color:var(--muted);cursor:pointer;}
+  .rmtop .name{flex:1;min-width:0;} .rmtop .name .n{font-size:15px;font-weight:800;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;} .rmtop .name .s{font-size:11px;color:var(--muted);}
+  .awake{font-size:9.5px;font-weight:700;color:var(--ok);display:flex;align-items:center;gap:4px;} .awake .d{width:6px;height:6px;border-radius:999px;background:var(--ok);}
+
+  /* the pinned graphic "map" */
+  .map{padding:12px 14px;background:var(--raised);border-bottom:1px solid var(--border);}
+  .map .lbl{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:8px;}
+  /* PCR thermocycler profile */
+  .pcrprof{display:flex;align-items:flex-end;gap:3px;height:92px;}
+  .seg-block{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;cursor:pointer;opacity:.5;transition:opacity .2s;}
+  .seg-block.on{opacity:1;}
+  .seg-block .bar{width:30px;border-radius:5px 5px 0 0;}
+  .seg-block .t{font-size:9px;font-weight:800;color:var(--fg);} .seg-block .tm{font-size:8px;color:var(--muted);}
+  .cycwrap{flex:0 0 auto;border:1.5px dashed var(--anneal);border-radius:8px;padding:4px 5px 3px;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;opacity:.5;transition:opacity .2s;}
+  .cycwrap.on{opacity:1;} .cycwrap .cyclbl{font-size:8.5px;font-weight:800;color:var(--anneal);} .cycwrap .cycbars{display:flex;align-items:flex-end;gap:2px;height:64px;}
+  .cycwrap .bar{width:16px;border-radius:4px 4px 0 0;}
+  /* LC gradient curve */
+  .lcchart{position:relative;height:96px;}
+  .lcchart svg{width:100%;height:100%;}
+
+  /* the focused step area */
+  .steps{flex:1;overflow-y:auto;padding:14px 16px 110px;}
+  .step{border-radius:18px;padding:16px;margin-bottom:12px;background:var(--raised);border:1px solid var(--border);opacity:.45;transform:scale(.97);transform-origin:center top;transition:opacity .25s,transform .25s,box-shadow .25s;}
+  .step.focused{opacity:1;transform:scale(1);border-color:var(--action);box-shadow:0 10px 30px rgba(18,131,201,.18);}
+  .step .kicker{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--action);}
+  .step .big{font-size:26px;font-weight:800;line-height:1.18;color:var(--ink);margin-top:6px;letter-spacing:-.01em;}
+  .step.focused .big{font-size:30px;}
+  .step .detail{font-size:18px;color:var(--muted);margin-top:8px;line-height:1.45;}
+  .step .detail b{color:var(--fg);}
+  /* big reagent checklist */
+  .check{display:flex;align-items:center;gap:12px;font-size:19px;padding:9px 0;border-bottom:1px solid var(--border);}
+  .check:last-child{border:none;} .check .box{width:24px;height:24px;border-radius:7px;border:2px solid var(--border);flex:0 0 24px;}
+  .check .amt{margin-left:auto;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .tempbig{font-size:44px;font-weight:900;letter-spacing:-.02em;} .tempbig.hot{color:var(--hot);} .tempbig.anneal{color:var(--anneal);} .tempbig.extend{color:var(--extend);} .tempbig.hold{color:var(--hold);}
+
+  /* bottom controls: prev/next + variation + progress */
+  .rmfoot{position:absolute;left:0;right:0;bottom:0;background:var(--raised);border-top:1px solid var(--border);padding:10px 14px 16px;display:flex;flex-direction:column;gap:9px;}
+  .dots{display:flex;justify-content:center;gap:6px;} .dot{width:7px;height:7px;border-radius:999px;background:var(--border);} .dot.on{background:var(--action);width:18px;}
+  .navrow{display:flex;gap:9px;align-items:center;}
+  .navbtn{flex:1;border-radius:13px;padding:14px;font-size:16px;font-weight:800;text-align:center;cursor:pointer;}
+  .navbtn.prev{background:var(--sunken);color:var(--fg);flex:0 0 64px;} .navbtn.next{background:var(--action);color:#fff;}
+  .varbtn{flex:0 0 52px;border-radius:13px;padding:14px 0;text-align:center;background:color-mix(in srgb,var(--amber) 16%,transparent);color:var(--warn);font-size:18px;cursor:pointer;border:1px solid color-mix(in srgb,var(--amber) 35%,transparent);}
+
+  /* tab bar with the NEW Method tab */
+  .tabbar{display:flex;border-top:1px solid var(--border);background:var(--raised);}
+  .tab{flex:1;text-align:center;padding:9px 0 14px;font-size:10px;font-weight:700;color:var(--muted);} .tab.on{color:var(--action);} .tab .ic{font-size:18px;display:block;margin-bottom:2px;} .tab.new{position:relative;} .tab.new::after{content:"new";position:absolute;top:2px;left:50%;transform:translateX(6px);font-size:7px;font-weight:800;color:#fff;background:var(--ok);border-radius:6px;padding:0 4px;}
+
+  /* comment harness */
+  body.cmt-on .cmt{cursor:crosshair;} body.cmt-on .cmt:hover{outline:2px solid var(--sky);outline-offset:2px;}
+  .pin{position:absolute;min-width:19px;height:19px;padding:0 4px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;z-index:40;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-50%);}
+  .panel{position:fixed;right:16px;bottom:16px;width:300px;max-height:66vh;display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--border);border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:50;overflow:hidden;}
+  .panel.collapsed .pbody,.panel.collapsed .pfoot{display:none;}
+  .phead{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;} .pbody{overflow-y:auto;padding:6px;} .pfoot{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .empty{color:var(--muted);font-size:12px;padding:14px;text-align:center;}
+  .citem{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:9px;} .citem .num{flex:0 0 20px;height:20px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;} .citem .tgt{font-size:11px;color:var(--muted);font-weight:600;} .citem .txt{font-size:12.5px;margin-top:1px;} .citem .x{margin-left:auto;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;}
+  .vbadge{font-size:9.5px;font-weight:800;}
+  .editor{position:fixed;width:270px;background:var(--raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.32);z-index:60;padding:11px;} .editor .lbl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;} .editor textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);font:inherit;font-size:12.5px;padding:8px;} .editor .vchoice{display:flex;gap:6px;margin:8px 0;} .editor .acts{display:flex;gap:6px;align-items:center;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:70;} .toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Companion method read mode</h1><p>Big-text, hybrid scroll + focused step, with the method graphic pinned as a map. Set verdicts, pin notes, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      Read mode layers a <b>NYT-Cooking-style big-text view</b> on the method you already send to the phone. You picked <b>hybrid</b> (a big-text scroll where the current step is enlarged and Next re-centers) and <b>both entry points</b> (a new Method tab + a full-screen Read-mode toggle inside it). The method's <b>signature graphic stays pinned at the top as a map</b> with the current phase highlighted, so it works per type. Switch the method type below to see PCR vs LC, tap Read mode, then use Next or tap a step.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="stage">
+      <div class="phone">
+        <div class="screen" id="screen">
+          <div class="notch"></div>
+
+          <!-- normal Method tab -->
+          <div class="view active" id="view-tab">
+            <div class="mhead cmt" data-clabel="Method tab header"><div class="ttl">Method</div><div class="exp">Af293 cyp51A knockout, run 3</div></div>
+            <div class="mbody">
+              <div class="readbtn cmt" id="enterRead" data-clabel="Read-mode entry button">&#9655;&nbsp; Read mode</div>
+              <div class="mcard cmt" data-clabel="Method summary card (normal size)">
+                <div class="mn" id="tabName">Colony PCR, GoTaq</div>
+                <div class="mt" id="tabType">pcr</div>
+                <div class="mchips" id="tabChips"></div>
+                <div id="tabRows" style="margin-top:10px"></div>
+              </div>
+              <div style="font-size:11.5px;color:var(--muted);text-align:center;padding:6px">Add a variation lives here too (already built).</div>
+            </div>
+            <div class="tabbar">
+              <div class="tab"><span class="ic">&#128221;</span>Notebook</div>
+              <div class="tab"><span class="ic">&#128230;</span>Inventory</div>
+              <div class="tab on new"><span class="ic">&#129514;</span>Method</div>
+              <div class="tab"><span class="ic">&#9201;</span>Timer</div>
+              <div class="tab"><span class="ic">&#128214;</span>Wiki</div>
+            </div>
+          </div>
+
+          <!-- READ MODE -->
+          <div class="view rm" id="view-read">
+            <div class="rmtop cmt" data-clabel="Read-mode top bar (minimal chrome)">
+              <div class="x" id="exitRead">&times;</div>
+              <div class="name"><div class="n" id="rmName">Colony PCR, GoTaq</div><div class="s" id="rmExp">Af293 cyp51A knockout, run 3</div></div>
+              <div class="awake"><span class="d"></span>SCREEN ON</div>
+            </div>
+
+            <div class="map cmt" data-clabel="Pinned graphic map (per-type)">
+              <div class="lbl" id="mapLbl">Thermocycler profile</div>
+              <div id="mapBody"></div>
+            </div>
+
+            <div class="steps" id="steps"></div>
+
+            <div class="rmfoot">
+              <div class="dots" id="dots"></div>
+              <div class="navrow">
+                <div class="navbtn prev" id="prevBtn">Prev</div>
+                <div class="varbtn cmt" data-clabel="Add variation (in read mode)" title="Add a variation">&#9998;</div>
+                <div class="navbtn next" id="nextBtn">Next step</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <div class="controls">
+        <h2>Preview a method type</h2>
+        <div class="seg" id="typeSeg">
+          <button data-type="pcr" class="on">PCR</button>
+          <button data-type="lc">LC gradient</button>
+        </div>
+        <h2 style="margin-top:8px">What it does</h2>
+        <ol>
+          <li><b>Pinned graphic map.</b> The signature visual stays at the top: a PCR thermocycler profile (temp/time blocks + the cycle bracket) or an LC gradient curve. The current phase is highlighted on it as you advance.</li>
+          <li><b>Hybrid steps.</b> Big-text steps scroll; the focused one enlarges. Reagents become a big checklist, temps render huge (44px) and color-coded.</li>
+          <li><b>Next / Prev</b> advance the focused step and re-center; tap any step to focus it. Progress dots at the bottom.</li>
+          <li><b>Both entry points.</b> A new Method tab (badged), plus the Read-mode button to go full-screen big-text.</li>
+          <li><b>Screen stays awake</b> (expo-keep-awake) and Add-variation is one tap, without leaving the flow.</li>
+        </ol>
+        <div class="tip">Tap Read mode on the phone, then Next.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="cpanel">
+    <div class="phead" id="phead"><b>Notes</b>&nbsp;<span style="color:var(--muted);font-size:12px">(<span id="cCount">0</span>)</span><span class="spacer"></span><span style="color:var(--muted);font-size:12px" id="chev">hide</span></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="pfoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const el = id => document.getElementById(id);
+
+  /* ---- method data (PCR + LC) ---- */
+  const METHODS = {
+    pcr: {
+      name:'Colony PCR, GoTaq', exp:'Af293 cyp51A knockout, run 3', type:'pcr',
+      chips:[['Cycles','30'],['Tm','60 C'],['Amplicon','~900 bp']],
+      rows:[['Initial 95 C','3:00'],['30x (95/60/72)','0:30 / 0:30 / 0:45'],['Final 72 C','5:00'],['Hold 4 C','hold']],
+      mapType:'pcr',
+      // profile segments map to step indices
+      steps:[
+        {kicker:'Step 1 of 5  -  Reaction mix', big:'Master mix, per reaction', seg:null,
+          check:[['GoTaq 2x','12.5 uL'],['Primer F (10 uM)','1 uL'],['Primer R (10 uM)','1 uL'],['Colony / template','1 uL'],['Nuclease-free water','9.5 uL']]},
+        {kicker:'Step 2 of 5  -  Initial denaturation', temp:'95', tone:'hot', big:'95 C for 3:00', detail:'One time, lid at 105 C. Melt the template fully before cycling.', seg:'init'},
+        {kicker:'Step 3 of 5  -  Cycle x30', temp:'95 / 60 / 72', tone:'anneal', big:'Repeat 30 times', detail:'<b>95 C 0:30</b> denature, <b>60 C 0:30</b> anneal, <b>72 C 0:45</b> extend.', seg:'cycle'},
+        {kicker:'Step 4 of 5  -  Final extension', temp:'72', tone:'extend', big:'72 C for 5:00', detail:'Fill in any incomplete products.', seg:'final'},
+        {kicker:'Step 5 of 5  -  Hold', temp:'4', tone:'hold', big:'4 C, hold', detail:'Safe to leave overnight, or move to the gel.', seg:'hold'},
+      ],
+    },
+    lc: {
+      name:'Reverse-phase LC, gliotoxin', exp:'Gliotoxin quant, batch 7', type:'lc_gradient',
+      chips:[['Column','C18 2.1x100'],['Flow','0.4 mL/min'],['Run','12 min']],
+      rows:[['0 min','95% A / 5% B'],['1 min','95% A / 5% B'],['8 min','5% A / 95% B'],['10 min','5% A / 95% B'],['12 min','95% A / 5% B']],
+      mapType:'lc',
+      steps:[
+        {kicker:'Step 1 of 4  -  Equilibrate', big:'Hold 5% B for 1:00', detail:'Column at <b>0.4 mL/min</b>, 40 C. Baseline must be flat before injection.', lcseg:0},
+        {kicker:'Step 2 of 4  -  Inject + ramp', big:'5% to 95% B over 7 min', detail:'Inject 2 uL. Linear gradient, gliotoxin elutes near <b>6.2 min</b>.', lcseg:1},
+        {kicker:'Step 3 of 4  -  Wash', big:'Hold 95% B for 2:00', detail:'Flush late eluters off the column.', lcseg:2},
+        {kicker:'Step 4 of 4  -  Re-equilibrate', big:'Back to 5% B for 2:00', detail:'Return to start conditions for the next sample.', lcseg:3},
+      ],
+    },
+  };
+
+  let curType = 'pcr', focus = 0;
+
+  function renderMaps(m, focusSeg) {
+    if (m.mapType === 'pcr') {
+      el('mapLbl').textContent = 'Thermocycler profile';
+      const h = t => 18 + (t-4)/(95-4)*64; // temp -> bar height
+      const onCls = s => focusSeg===s ? 'on' : '';
+      el('mapBody').innerHTML = `<div class="pcrprof">
+        <div class="seg-block ${onCls('init')}" data-seg="init"><div class="bar" style="height:${h(95)}px;background:var(--hot)"></div><div class="t">95</div><div class="tm">3:00</div></div>
+        <div class="cycwrap ${onCls('cycle')}" data-seg="cycle"><div class="cycbars"><div class="bar" style="height:${h(95)}px;background:var(--hot)"></div><div class="bar" style="height:${h(60)}px;background:var(--anneal)"></div><div class="bar" style="height:${h(72)}px;background:var(--extend)"></div></div><div class="cyclbl">x30</div></div>
+        <div class="seg-block ${onCls('final')}" data-seg="final"><div class="bar" style="height:${h(72)}px;background:var(--extend)"></div><div class="t">72</div><div class="tm">5:00</div></div>
+        <div class="seg-block ${onCls('hold')}" data-seg="hold"><div class="bar" style="height:${h(4)}px;background:var(--hold)"></div><div class="t">4</div><div class="tm">hold</div></div>
+      </div>`;
+      el('mapBody').querySelectorAll('[data-seg]').forEach(b=>b.addEventListener('click',()=>{const i=m.steps.findIndex(s=>s.seg===b.dataset.seg);if(i>=0)setFocus(i);}));
+    } else {
+      el('mapLbl').textContent = 'Gradient (% B over time)';
+      // points: x in 0..1, y is %B (5..95)
+      const segXs=[0.0,0.08,0.66,0.83,1.0];
+      const W=300,H=84,pad=4;
+      const xy=(x,b)=>[pad+x*(W-2*pad), pad+(1-(b-5)/90)*(H-2*pad)];
+      const pts=[[0,5],[1,5],[8,95],[10,95],[12,5]].map(([t,b])=>xy(t/12,b));
+      const path='M'+pts.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' L');
+      const cx = pad + segXs[(focusSeg??0)]*(W-2*pad);
+      el('mapBody').innerHTML = `<div class="lcchart"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none">
+        <polyline points="${pts.map(p=>p.join(',')).join(' ')}" fill="none" stroke="var(--action)" stroke-width="3" stroke-linejoin="round"/>
+        <line x1="${cx}" y1="0" x2="${cx}" y2="${H}" stroke="var(--amber)" stroke-width="2" stroke-dasharray="4 3"/>
+      </svg></div>`;
+    }
+  }
+
+  function renderSteps(m) {
+    el('steps').innerHTML = m.steps.map((s,i)=>{
+      let inner = `<div class="kicker">${s.kicker}</div>`;
+      if (s.temp) inner += `<div class="tempbig ${s.tone}">${s.big}</div>`;
+      else inner += `<div class="big">${s.big}</div>`;
+      if (s.detail) inner += `<div class="detail">${s.detail}</div>`;
+      if (s.check) inner += s.check.map(c=>`<div class="check"><span class="box"></span><span>${c[0]}</span><span class="amt">${c[1]}</span></div>`).join('');
+      return `<div class="step ${i===focus?'focused':''}" data-i="${i}">${inner}</div>`;
+    }).join('');
+    el('steps').querySelectorAll('.step').forEach(s=>s.addEventListener('click',()=>setFocus(+s.dataset.i)));
+    el('dots').innerHTML = m.steps.map((_,i)=>`<span class="dot ${i===focus?'on':''}"></span>`).join('');
+  }
+
+  function setFocus(i) {
+    const m = METHODS[curType];
+    focus = Math.max(0, Math.min(m.steps.length-1, i));
+    renderSteps(m);
+    const seg = m.mapType==='pcr' ? m.steps[focus].seg : m.steps[focus].lcseg;
+    renderMaps(m, seg);
+    const node = el('steps').querySelector('.step.focused');
+    if (node) node.scrollIntoView({behavior:'smooth', block:'center'});
+    el('nextBtn').textContent = focus >= m.steps.length-1 ? 'Done' : 'Next step';
+  }
+
+  function loadType(t) {
+    curType = t; focus = 0;
+    const m = METHODS[t];
+    el('tabName').textContent = m.name; el('tabType').textContent = m.type;
+    el('tabChips').innerHTML = m.chips.map(c=>`<span class="mchip">${c[0]} <b>${c[1]}</b></span>`).join('');
+    el('tabRows').innerHTML = m.rows.map(r=>`<div class="mrow"><span>${r[0]}</span><span class="d">${r[1]}</span></div>`).join('');
+    el('rmName').textContent = m.name; el('rmExp').textContent = m.exp;
+    renderSteps(m); renderMaps(m, m.mapType==='pcr'?m.steps[0].seg:m.steps[0].lcseg);
+  }
+
+  el('typeSeg').querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{el('typeSeg').querySelectorAll('button').forEach(x=>x.classList.remove('on'));b.classList.add('on');loadType(b.dataset.type);}));
+  el('enterRead').addEventListener('click',()=>{el('view-tab').classList.remove('active');el('view-read').classList.add('active');setFocus(0);});
+  el('exitRead').addEventListener('click',()=>{el('view-read').classList.remove('active');el('view-tab').classList.add('active');});
+  el('nextBtn').addEventListener('click',()=>setFocus(focus+1));
+  el('prevBtn').addEventListener('click',()=>setFocus(focus-1));
+  loadType('pcr');
+
+  /* ---- review harness ---- */
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  const STORE='ros-method-readmode-comments-v1'; let comments=[];
+  try{comments=JSON.parse(localStorage.getItem(STORE)||'[]');}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){
+    document.querySelectorAll('.pin').forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll('.cmt').forEach(elm=>{const lbl=elm.getAttribute('data-clabel');const nums=byT[lbl];if(!nums)return;const r=elm.getBoundingClientRect();if(r.width===0)return;const pin=document.createElement('span');pin.className='pin';pin.textContent=nums.join(',');pin.style.left=(window.scrollX+r.left+12)+'px';pin.style.top=(window.scrollY+r.top+12)+'px';pin.addEventListener('click',ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});document.body.appendChild(pin);});
+  }
+  function renderPanel(){
+    const body=el('pbody'); el('cCount').textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any part of the phone.</div>';return;}
+    const vt=v=>v==='approve'?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==='disapprove'?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':'';
+    body.innerHTML=comments.map((c,i)=>`<div class="citem"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{comments.splice(+b.dataset.del,1);save();renderAll();}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+  window.addEventListener('resize',renderPins); window.addEventListener('scroll',renderPins,true);
+
+  const CHANGES=[
+    {id:'readmode',tag:'1',title:'NYT-cooking-style big-text read mode',desc:'Full-screen, minimal chrome, huge type readable feet away. Layered on the method already sent to the phone.'},
+    {id:'hybrid',tag:'2',title:'Hybrid scroll + focused step',desc:'Big-text steps scroll; the focused one enlarges; Next/Prev advance + re-center; tap a step to focus. Progress dots.'},
+    {id:'map',tag:'3',title:'Pinned per-type graphic map',desc:'The signature graphic stays at the top (PCR thermocycler profile, LC gradient curve) with the current phase highlighted. The hard "works for all method types" part.'},
+    {id:'graphics',tag:'4',title:'Per-type big rendering',desc:'Reagents become a big checklist, temps render huge + color-coded (hot/anneal/extend/hold), LC shows the gradient. PCR + LC shown; the other catalog types follow the same map-plus-steps pattern.'},
+    {id:'entry',tag:'5',title:'Both entry points',desc:'A new Method tab (badged) AND a full-screen Read-mode toggle inside it. Per your pick.'},
+    {id:'awake-var',tag:'6',title:'Screen-awake + in-flow variation',desc:'expo-keep-awake holds the screen on; Add-variation is one tap in read mode without leaving the step you are on.'},
+  ];
+  const VSTORE='ros-method-readmode-verdicts-v1'; let verdicts={};
+  try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}');}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=el('changes');
+    wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:''}</div></div>`;}).join('');
+    wrap.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));
+  }
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor();
+    const target=targetEl.getAttribute('data-clabel')||'Page';
+    const existing=existingIndex!=null?comments[existingIndex]:null; let pv=existing?(existing.verdict||''):'';
+    const ed=document.createElement('div');ed.className='editor';
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note or change request">${existing?esc(existing.text):''}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll('[data-vc]').forEach(b=>b.classList.toggle('on',(b.dataset.vc==='note'&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll('[data-vc]').forEach(b=>b.addEventListener('click',()=>{pv=b.dataset.vc==='note'?'':b.dataset.vc;paint();}));paint();
+    const x=ev?ev.clientX:0,y=ev?ev.clientY:0; ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-286)+'px'; ed.style.top=Math.min(y+10,window.innerHeight-200)+'px';
+    ed.querySelector('textarea').focus();
+    ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ed.querySelector('textarea').value.trim();if(!t&&!pv)return closeEditor();if(existing){existing.text=t;existing.verdict=pv;}else comments.push({target,text:t,verdict:pv});save();renderAll();closeEditor();}}));
+  }
+  document.addEventListener('click',e=>{
+    if(!document.body.classList.contains('cmt-on'))return;
+    if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin')||e.target.closest('.changes')||e.target.closest('.seg'))return;
+    const cmt=e.target.closest('.cmt');if(!cmt)return;e.preventDefault();e.stopPropagation();openEditor(cmt,null,e);
+  },true);
+  const cBtn=el('commentToggle');
+  cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  el('themeToggle').addEventListener('click',function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Switch to dark':'Switch to light';renderPins();});
+  el('phead').addEventListener('click',()=>{const p=el('cpanel');const c=p.classList.toggle('collapsed');el('chev').textContent=c?'show':'hide';});
+  function buildMd(){let o='Method read mode, feedback\n\nVerdicts\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nNotes\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>{const t=c.verdict==='approve'?'[APPROVE] ':c.verdict==='disapprove'?'[DISAPPROVE] ':'';o+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return o;}
+  function toast(m){const t=el('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+  async function doCopy(){try{await navigator.clipboard.writeText(buildMd());toast('Feedback copied, paste it back to me');}catch{window.prompt('Copy',buildMd());}}
+  el('exportBtn').addEventListener('click',doCopy); el('exportBtn2').addEventListener('click',doCopy);
+  el('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all notes?'))return;comments=[];save();renderAll();});
+  renderChanges(); renderAll();
+</script>
+</body>
+</html>

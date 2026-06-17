@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Department admin, mockup</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61;
+    --green:#16a34a; --red:#dc2626; --violet:#5B47D6; --chipbg:#eef2f7;
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650; --chipbg:#28344c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:30;background:var(--panel);border-bottom:1px solid var(--border);padding:11px 20px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  h1{font-size:16px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  button.tool.primary{background:var(--action);color:#fff;border-color:var(--action)}
+
+  .wrap{max-width:1080px;margin:0 auto;padding:22px 20px 120px}
+
+  /* in-app chrome */
+  .appbar{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:9px 13px;margin-bottom:8px;flex-wrap:wrap}
+  .brand{font-weight:800;font-size:13px;display:flex;align-items:center;gap:7px}
+  .dot{width:14px;height:14px;border-radius:4px;background:var(--sky)}
+  .lens{display:inline-flex;border:1px solid var(--border);border-radius:999px;overflow:hidden;font-size:11px;font-weight:700;margin-left:6px}
+  .lens span{padding:4px 11px;background:var(--raised);color:var(--muted);cursor:pointer}
+  .lens span.on{background:var(--violet);color:#fff}
+  .navset{display:flex;gap:4px;flex-wrap:wrap;margin-left:8px}
+  .navchip{font-size:11.5px;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:8px;cursor:pointer;border:1px solid transparent}
+  .navchip:hover{color:var(--ink)}
+  .navchip.on{background:var(--chipbg);color:var(--ink)}
+
+  .crumb{font-size:11.5px;color:var(--faint);margin:0 0 12px;font-weight:600}
+  .crumb b{color:var(--muted)}
+  .crumb .inst{color:var(--violet);cursor:pointer}
+
+  .ptitle{font-size:21px;font-weight:800;letter-spacing:-.3px;margin:0}
+  .pdesc{color:var(--muted);font-size:13px;margin:3px 0 18px}
+
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;margin-bottom:16px;overflow:hidden}
+  .card>.ch{padding:11px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .card .ch h3{margin:0;font-size:14px;font-weight:800}
+  .card .ch .csub{font-size:11.5px;color:var(--faint)}
+  .card>.cb{padding:15px 16px}
+  .ch .spacer{margin-left:auto}
+
+  .view{display:none}
+  .view.active{display:block}
+
+  .planband{display:grid;grid-template-columns:1.1fr 1fr;gap:16px}
+  @media(max-width:760px){.planband{grid-template-columns:1fr}}
+  .planbox{border:1px solid var(--border);border-radius:11px;padding:13px;background:var(--raised)}
+  .plabel{font-size:10.5px;text-transform:uppercase;letter-spacing:.06em;color:var(--faint);font-weight:700}
+  .pbig{font-size:22px;font-weight:800;letter-spacing:-.3px;margin-top:2px}
+  .pbig small{font-size:13px;color:var(--muted);font-weight:600}
+  .meter{height:9px;border-radius:999px;background:var(--sunken);overflow:hidden;margin:10px 0 5px}
+  .meter i{display:block;height:100%;background:var(--action)}
+  .meter i.warn{background:var(--amber)}
+  .mrow{display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted)}
+
+  .rightsize{border:1px dashed var(--action);border-radius:11px;padding:13px;background:rgba(18,131,201,.05)}
+  .rsrec{font-size:12.5px;color:var(--ink);margin:6px 0 9px}
+  .rsrec b{color:var(--action)}
+  .stepper{display:flex;align-items:center;border:1px solid var(--border);border-radius:9px;overflow:hidden;width:max-content;background:var(--raised)}
+  .stepper button{border:none;background:var(--sunken);color:var(--ink);font-size:15px;font-weight:800;width:30px;height:30px;cursor:pointer}
+  .stepper .val{padding:0 14px;font-size:12.5px;font-weight:700;min-width:150px;text-align:center}
+  .rsline{display:flex;align-items:center;gap:10px;margin-top:10px;flex-wrap:wrap}
+  .savechip{font-size:11px;font-weight:700;border-radius:999px;padding:3px 9px}
+  /* plan builder */
+  .bgrid{display:flex;gap:14px;flex-wrap:wrap;margin:4px 0 10px}
+  .bf{display:flex;flex-direction:column;gap:5px}
+  .bk{font-size:11px;font-weight:700;color:var(--muted)}
+  .bf .stepper .val{min-width:74px}
+  .brk{font-size:11.5px;color:var(--muted);background:var(--sunken);border-radius:8px;padding:7px 10px;margin-bottom:9px}
+  .brk b{color:var(--ink)}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--faint);font-weight:700;padding:6px 8px;border-bottom:1px solid var(--border)}
+  td{padding:8px;border-bottom:1px solid var(--border);vertical-align:middle}
+  tr:last-child td{border-bottom:none}
+  td.r{text-align:right;font-variant-numeric:tabular-nums}
+  .labrow{cursor:pointer}
+  .labrow:hover{background:var(--sunken)}
+  .caret{display:inline-block;width:12px;color:var(--faint);transition:transform .15s}
+  .labrow.open .caret{transform:rotate(90deg)}
+  .av{width:22px;height:22px;border-radius:999px;display:inline-grid;place-items:center;font-size:9.5px;font-weight:800;color:#fff;vertical-align:middle;margin-right:7px}
+  .acctsub td{padding:5px 8px;font-size:11.5px;color:var(--muted);background:var(--sunken)}
+  .acctname{padding-left:30px}
+  .pct{display:inline-block;height:6px;border-radius:999px;background:var(--action);vertical-align:middle}
+  .badge{font-size:9.5px;font-weight:700;border-radius:999px;padding:2px 8px}
+  .b-pi{background:rgba(91,71,214,.14);color:var(--violet)}
+  .b-pend{background:rgba(245,158,11,.16);color:#b45309}
+  .dark .b-pend{color:#fbbf24}
+  .b-ok{background:rgba(22,163,74,.14);color:var(--green)}
+
+  .trend{display:flex;align-items:flex-end;gap:10px;height:90px;padding:6px 2px}
+  .tb{flex:1;display:flex;flex-direction:column;align-items:center;gap:5px;justify-content:flex-end;height:100%}
+  .tb .bar{width:100%;max-width:34px;border-radius:6px 6px 0 0;background:linear-gradient(var(--sky),var(--action))}
+  .tb .mo{font-size:10px;color:var(--faint);font-weight:600}
+  .summ{font-size:12.5px;color:var(--muted);margin-top:8px}
+  .summ b{color:var(--ink)}
+
+  .invrow{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .inp{border:1px solid var(--border);border-radius:9px;padding:8px 11px;font-size:12.5px;background:var(--raised);color:var(--ink);min-width:200px;flex:1}
+  .linkbox{font-family:ui-monospace,monospace;font-size:11px;color:var(--muted);background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:7px 10px;flex:1;min-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .pendrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12.5px}
+  .pendrow:last-child{border-bottom:none}
+
+  /* billing */
+  .kv{display:grid;grid-template-columns:150px 1fr;gap:8px 14px;font-size:12.5px}
+  .kv .k{color:var(--faint);font-weight:600}
+  .invtbl td{font-size:12px}
+  .pill{font-size:10px;font-weight:700;border-radius:999px;padding:2px 8px;background:var(--sunken);color:var(--muted)}
+  .pill.paid{background:rgba(22,163,74,.14);color:var(--green)}
+
+  /* lab head accept screen */
+  .accept{max-width:480px;margin:10px auto;border:1px solid var(--border);border-radius:16px;background:var(--panel);overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  .accept .ah{padding:18px 20px;background:linear-gradient(135deg,rgba(91,71,214,.10),rgba(26,160,230,.08));border-bottom:1px solid var(--border)}
+  .accept .ah .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--violet)}
+  .accept .ah h3{margin:5px 0 0;font-size:18px;font-weight:800}
+  .accept .ab{padding:18px 20px}
+  .accept ul{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted)}
+  .accept li{margin-bottom:5px}
+  .accept li b{color:var(--ink)}
+  .accept .actions{display:flex;gap:10px;margin-top:18px}
+  .accept .actions button{flex:1;border-radius:10px;padding:10px;font-size:13px;font-weight:700;cursor:pointer;border:1px solid var(--border)}
+  .accept .actions .ok{background:var(--action);color:#fff;border-color:var(--action)}
+  .accept .actions .no{background:var(--raised);color:var(--muted)}
+
+  /* decisions drawer */
+  #fab{position:fixed;right:20px;bottom:20px;z-index:40;background:var(--violet);color:#fff;border:none;border-radius:999px;padding:12px 18px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+  #drawer{position:fixed;top:0;right:0;height:100%;width:380px;max-width:92vw;background:var(--panel);border-left:1px solid var(--border);z-index:45;transform:translateX(100%);transition:transform .2s;display:flex;flex-direction:column}
+  #drawer.open{transform:translateX(0)}
+  #drawer .dh{padding:14px 16px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+  #drawer .dh h3{margin:0;font-size:14px;font-weight:800}
+  #drawer .db{flex:1;overflow:auto;padding:14px 16px}
+  #drawer .df{padding:12px 16px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center}
+  .dec{border:1px solid var(--border);border-radius:11px;padding:11px;margin-bottom:11px;background:var(--raised)}
+  .dec .dt{font-size:12.5px;font-weight:700}
+  .dec .dd{font-size:11.5px;color:var(--muted);margin:3px 0 8px}
+  .dec .rec{font-size:10px;font-weight:700;color:var(--action);text-transform:uppercase;letter-spacing:.04em}
+  .dec .vtag{font-size:10px;font-weight:700;color:var(--faint);margin-left:6px}
+  .seg{display:flex;gap:6px;margin-bottom:7px}
+  .seg button{flex:1;border:1px solid var(--border);background:var(--sunken);color:var(--muted);border-radius:8px;padding:6px;font-size:11px;font-weight:700;cursor:pointer}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff;border-color:var(--green)}
+  .seg button.on[data-v="reject"]{background:var(--red);color:#fff;border-color:var(--red)}
+  .dec textarea{width:100%;border:1px solid var(--border);border-radius:8px;padding:7px;font-size:11.5px;background:var(--panel);color:var(--ink);resize:vertical;min-height:34px}
+  .scrim{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:44;display:none}
+  .scrim.on{display:block}
+  .estat{font-size:11px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Department admin</h1>
+    <div class="sub">Mockup v2. Click the nav tabs (Overview / Labs / Usage / Billing) and the "Lab head's view" toggle. Open Review to approve + comment, then Export.</div>
+  </div>
+  <span class="spacer"></span>
+  <button class="tool" id="lhBtn">Lab head&rsquo;s view</button>
+  <button class="tool" id="darkBtn">Dark</button>
+</header>
+
+<div class="wrap">
+  <!-- ADMIN APP (all dept-admin views) -->
+  <div id="adminApp">
+    <div class="appbar">
+      <span class="brand"><span class="dot"></span>ResearchOS</span>
+      <span class="lens"><span>My lab</span><span class="on">Department</span></span>
+      <span class="navset" id="navset">
+        <span class="navchip on" data-v="overview">Overview</span>
+        <span class="navchip" data-v="labs">Labs</span>
+        <span class="navchip" data-v="usage">Usage</span>
+        <span class="navchip" data-v="billing">Billing</span>
+        <span class="navchip" data-v="settings">Settings</span>
+      </span>
+      <span class="spacer"></span>
+      <span class="badge b-pi">Dr. Vega &middot; Dept admin</span>
+    </div>
+    <div class="crumb"><span class="inst" id="goInst">UW&ndash;Madison</span> <b>&rsaquo;</b> Microbiology Department</div>
+
+    <h2 class="ptitle">Department of Microbiology</h2>
+    <p class="pdesc">5 labs &middot; 23 registered accounts. You sponsor every lab in this department on one invoice.</p>
+
+    <!-- OVERVIEW -->
+    <div class="view active" data-view="overview">
+      <div class="card">
+        <div class="ch"><h3>Plan &amp; cost</h3><span class="csub">Sustaining rate, billed monthly to procurement</span></div>
+        <div class="cb planband">
+          <div class="planbox">
+            <div class="plabel">Your plan</div>
+            <div class="pbig">$420<small>/mo</small></div>
+            <div class="estat" style="margin:2px 0 9px">You built this: 5 labs &middot; 2 TB pooled &middot; 100k syncs/mo</div>
+            <div class="meter"><i style="width:71%"></i></div>
+            <div class="mrow"><span>Storage 1.42 TB of 2 TB pooled</span><span>71%</span></div>
+            <div class="meter" style="margin-top:9px"><i class="warn" style="width:88%"></i></div>
+            <div class="mrow"><span>Activity 88k of 100k edit syncs/mo</span><span>88%</span></div>
+          </div>
+          <div class="rightsize">
+            <div class="plabel" style="color:var(--action)">Right-size</div>
+            <div class="rsrec">Over the last 3 months you averaged <b>1.3 TB / 79k syncs</b> across 5 labs. Your built plan fits with a little headroom. If Rivera Lab&rsquo;s growth holds, add ~1 TB next quarter.</div>
+            <button class="tool primary" onclick="document.querySelector('#navset [data-v=billing]').click()">Adjust your plan in Billing &rarr;</button>
+            <p class="estat" style="margin-top:10px">No fixed tiers. You build the plan from your labs + storage; the price is cost recovery plus a per-lab sustaining contribution, adjustable any month.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><h3>Usage by lab</h3><span class="csub">Click a lab to see its accounts</span><span class="spacer"></span><span class="estat">Total: 1.42 TB &middot; 88k syncs</span></div>
+        <div class="cb" style="padding:0">
+          <table><thead><tr><th style="width:40%">Lab</th><th>Accounts</th><th class="r">Storage</th><th class="r">Activity/mo</th><th style="width:120px">% of dept</th></tr></thead><tbody id="labBody"></tbody></table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><h3>Usage over time</h3><span class="csub">Pooled storage, last 6 months</span></div>
+        <div class="cb"><div class="trend" id="trend"></div>
+          <div class="summ"><b>Up 12% over 6 months</b>, driven by Rivera Lab (sequencing). At this rate you cross 2 TB in ~4 months &mdash; add storage to your built plan then, or trim archived stocks now.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="ch"><h3>Lab heads</h3><span class="csub">Invite a PI; they enroll their own members</span></div>
+        <div class="cb">
+          <div class="invrow" style="margin-bottom:12px"><input class="inp" placeholder="pi-email@wisc.edu (optional)" /><button class="tool primary">Create invite link</button></div>
+          <div class="invrow" style="margin-bottom:14px"><span class="linkbox">https://research-os.app/dept/join#eyJkZXB0SWQiOiJtaWNyb2Jpb2xvZ3kiLCJub25j...</span><button class="tool">Copy</button></div>
+          <div class="plabel" style="margin-bottom:5px">Pending invites</div>
+          <div class="pendrow"><span class="av" style="background:var(--amber)">SW</span>Dr. Sam Whitley<span class="estat">&middot; invited 2d ago</span><span class="spacer"></span><span class="badge b-pend">Pending</span></div>
+          <div class="pendrow"><span class="av" style="background:var(--coral)">??</span>chen@wisc.edu<span class="estat">&middot; emailed, awaiting sign-in</span><span class="spacer"></span><span class="badge b-pend">Pending</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LABS -->
+    <div class="view" data-view="labs">
+      <div class="card">
+        <div class="ch"><h3>Labs in this department</h3><span class="csub">Each lab head runs their own members; you manage membership in the dept + the shared plan</span></div>
+        <div class="cb" style="padding:0"><table><thead><tr><th style="width:34%">Lab head</th><th>Members</th><th class="r">Storage</th><th>Status</th><th></th></tr></thead><tbody id="labMgmt"></tbody></table></div>
+      </div>
+      <p class="estat">Removing a lab from the department reverts it to billing on its own (the lab head keeps all data + members). Nothing is deleted.</p>
+    </div>
+
+    <!-- USAGE -->
+    <div class="view" data-view="usage">
+      <div class="card">
+        <div class="ch"><h3>Top consumers</h3><span class="csub">Where the department&rsquo;s storage is going</span><span class="spacer"></span><button class="tool">Download CSV</button></div>
+        <div class="cb" style="padding:0"><table><thead><tr><th>Account</th><th>Lab</th><th class="r">Storage</th><th style="width:160px">Share</th></tr></thead><tbody id="topAccts"></tbody></table></div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3>Per-lab trend</h3><span class="csub">6-month storage by lab</span></div>
+        <div class="cb"><div id="labTrends"></div>
+          <div class="summ" style="margin-top:12px"><b>Optimization:</b> Rivera Lab is 50% of growth. If you ask them to archive last year&rsquo;s raw reads (~180 GB), the department keeps its current build through next year &mdash; saving about $340/mo vs adding 2 TB of pooled storage.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- BILLING -->
+    <div class="view" data-view="billing">
+      <div class="card">
+        <div class="ch"><h3>Billing</h3><span class="csub">Departments are invoiced (no credit card) so procurement can pay it</span></div>
+        <div class="cb">
+          <div class="kv">
+            <span class="k">Plan</span><span><b>Your built plan</b> &middot; $420/mo &middot; 5 labs, 2 TB pooled, 100k syncs/mo</span>
+            <span class="k">Billing cycle</span><span>Monthly, invoice issued on the 1st</span>
+            <span class="k">Pay by</span><span>Recurring invoice to procurement (ACH / check / card on the invoice). No card on file.</span>
+            <span class="k">PO number</span><span><input class="inp" style="min-width:160px;max-width:220px" value="PO-2026-MICRO-0412" /> <span class="estat">prints on every invoice</span></span>
+            <span class="k">Billing contact</span><span>procurement@bact.wisc.edu &middot; Dr. Vega (cc)</span>
+            <span class="k">Tax status</span><span><span class="pill">Resolving WI sales tax</span></span>
+          </div>
+          <div class="rightsize" style="margin-top:16px">
+            <div class="plabel" style="color:var(--action)">Build your plan</div>
+            <p class="estat" style="margin:5px 0 10px">No fixed tiers. Enter your labs, members, and the storage you need; the monthly rate derives automatically (cost recovery + a per-active-lab sustaining contribution). Adjust any month, no lock-in.</p>
+            <div class="bgrid">
+              <div class="bf"><span class="bk">Active labs</span><div class="stepper"><button onclick="bld('labs',-1)">&minus;</button><span class="val" id="b_labs">5</span><button onclick="bld('labs',1)">+</button></div></div>
+              <div class="bf"><span class="bk">Avg members / lab</span><div class="stepper"><button onclick="bld('mem',-1)">&minus;</button><span class="val" id="b_mem">5</span><button onclick="bld('mem',1)">+</button></div></div>
+              <div class="bf"><span class="bk">Pooled storage</span><div class="stepper"><button onclick="bld('tb',-1)">&minus;</button><span class="val" id="b_tb">2 TB</span><button onclick="bld('tb',1)">+</button></div></div>
+            </div>
+            <div class="brk" id="brk"></div>
+            <div class="rsline"><span class="pbig" style="font-size:20px" id="b_total">$420<small>/mo</small></span><span class="savechip" id="b_delta" style="display:none"></span></div>
+            <p class="estat" id="prorate" style="margin:9px 0 0">Matches your current plan. Changes prorate on the next invoice; downsizing never deletes data, it lowers the pooled cap (over-cap labs get the standard freeze warning).</p>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="ch"><h3>Invoice history</h3></div>
+        <div class="cb" style="padding:0"><table class="invtbl"><thead><tr><th>Invoice</th><th>Period</th><th class="r">Amount</th><th>Status</th><th></th></tr></thead><tbody>
+          <tr><td>INV-0006</td><td>Jun 2026</td><td class="r">$420.00</td><td><span class="pill">Issued</span></td><td class="r"><a href="#" style="color:var(--action)">PDF</a></td></tr>
+          <tr><td>INV-0005</td><td>May 2026</td><td class="r">$420.00</td><td><span class="pill paid">Paid</span></td><td class="r"><a href="#" style="color:var(--action)">PDF</a></td></tr>
+          <tr><td>INV-0004</td><td>Apr 2026</td><td class="r">$420.00</td><td><span class="pill paid">Paid</span></td><td class="r"><a href="#" style="color:var(--action)">PDF</a></td></tr>
+        </tbody></table></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="view" data-view="settings">
+      <div class="card"><div class="ch"><h3>Department settings</h3></div><div class="cb">
+        <div class="kv">
+          <span class="k">Department name</span><span><input class="inp" style="min-width:200px" value="Department of Microbiology" /></span>
+          <span class="k">Institution</span><span>Part of <b>UW&ndash;Madison</b> (invited by the institution admin) &middot; <span class="estat">when in an institution, the institution covers billing and you manage labs only</span></span>
+          <span class="k">Co-admins</span><span>Dr. Vega (you) &middot; <a href="#" style="color:var(--action)">+ add a co-admin</a></span>
+          <span class="k">Directory listing</span><span><span class="pill">Unlisted</span> <span class="estat">list so PIs can request to join</span></span>
+        </div>
+      </div></div>
+    </div>
+  </div>
+
+  <!-- LAB HEAD'S VIEW: the /dept/join accept screen -->
+  <div id="lhApp" style="display:none">
+    <p class="crumb" style="text-align:center">What a PI sees when they open your invite link</p>
+    <div class="accept">
+      <div class="ah"><div class="lbl">Department invitation</div><h3>Join the Department of Microbiology</h3></div>
+      <div class="ab">
+        <p style="font-size:13px;margin:0 0 4px">Dr. Vega (Microbiology, UW&ndash;Madison) invited <b>your lab</b> to be sponsored by the department.</p>
+        <ul>
+          <li>The department <b>pays for your lab&rsquo;s cloud storage</b> on its invoice &mdash; you and your members stop being billed individually.</li>
+          <li>You keep <b>full control of your data and your members</b>. The department admin never sees your notes, experiments, or files.</li>
+          <li>They can see your <b>account names and storage/activity totals</b> (so they can size the shared plan), and that your lab is in the department.</li>
+          <li>You can leave the department anytime &mdash; your lab reverts to billing on its own, nothing is deleted.</li>
+        </ul>
+        <div class="actions"><button class="ok">Accept &amp; join</button><button class="no">Decline</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<button id="fab">Review design &middot; <span id="fabN">0/9</span></button>
+<div class="scrim" id="scrim"></div>
+<div id="drawer">
+  <div class="dh"><h3>Design decisions</h3><span class="spacer"></span><button class="tool" id="closeDrawer">Close</button></div>
+  <div class="db" id="decBody"></div>
+  <div class="df"><span class="estat" id="estat">No decisions yet</span><span class="spacer"></span><button class="tool primary" id="exportBtn">Export</button></div>
+</div>
+
+<script>
+// ---- demo data ----
+const LABS=[
+  {name:"Castellanos Lab",pi:"Dr. Mira Castellanos",init:"MC",color:"#5B47D6",accts:6,tb:0.34,syncs:21,status:"ok",
+    members:[["Mira Castellanos","PI",0.05],["Alex Rivera","",0.12],["morgan","",0.08],["Ivy Chen","",0.04],["Theo Park","",0.03],["Nia Adeyemi","",0.02]]},
+  {name:"Rivera Lab",pi:"Dr. Lina Rivera",init:"LR",color:"#1AA0E6",accts:7,tb:0.71,syncs:39,status:"ok",
+    members:[["Lina Rivera","PI",0.10],["Sam Okafor","",0.22],["Priya Rao","",0.18],["Leo Park","",0.11],["Mia Chen","",0.06],["Remy Okafor","",0.03],["guest-01","",0.01]]},
+  {name:"Adeyemi Lab",pi:"Dr. Nia Adeyemi",init:"NA",color:"#16a34a",accts:4,tb:0.19,syncs:14,status:"ok",
+    members:[["Nia Adeyemi","PI",0.07],["Theo Park","",0.06],["Ivy Chen","",0.04],["lab-shared","",0.02]]},
+  {name:"Park Lab",pi:"Dr. Theo Park",init:"TP",color:"#F59E0B",accts:4,tb:0.14,syncs:9,status:"ok",
+    members:[["Theo Park","PI",0.06],["Remy Okafor","",0.04],["Sam Whitley","",0.03],["intern-a","",0.01]]},
+  {name:"Whitley Lab",pi:"Dr. Sam Whitley",init:"SW",color:"#FF6F61",accts:2,tb:0.04,syncs:5,status:"pending",
+    members:[["Sam Whitley","PI",0.03],["rotation-student","",0.01]]},
+];
+const DEPT_TB=1.42;
+const fmtTb=t=>t>=1?t.toFixed(2)+" TB":(t*1000).toFixed(0)+" GB";
+
+// overview: usage by lab (expandable)
+const labBody=document.getElementById("labBody");
+LABS.forEach((l,i)=>{
+  const pct=Math.round(l.tb/DEPT_TB*100);
+  const tr=document.createElement("tr");tr.className="labrow";
+  tr.innerHTML=`<td><span class="caret">&#9656;</span><span class="av" style="background:${l.color}">${l.init}</span><b>${l.name}</b> <span class="estat">&middot; ${l.pi}</span></td><td>${l.accts}</td><td class="r">${fmtTb(l.tb)}</td><td class="r">${l.syncs}k</td><td><span class="pct" style="width:${Math.max(8,pct*0.9)}px"></span> <span class="estat">${pct}%</span></td>`;
+  labBody.appendChild(tr);
+  const sub=document.createElement("tr");sub.className="acctsub";sub.style.display="none";
+  sub.innerHTML=`<td colspan="5" style="padding:0"><table style="margin:0">${l.members.map(m=>`<tr><td class="acctname" style="width:40%">${m[0]} ${m[1]?'<span class="badge b-pi">PI</span>':''}</td><td></td><td class="r">${fmtTb(m[2])}</td><td class="r"></td><td></td></tr>`).join("")}</table></td>`;
+  labBody.appendChild(sub);
+  tr.onclick=()=>{const o=sub.style.display!=="none";sub.style.display=o?"none":"table-row";tr.classList.toggle("open",!o);};
+});
+
+// labs management
+document.getElementById("labMgmt").innerHTML=LABS.map(l=>`<tr><td><span class="av" style="background:${l.color}">${l.init}</span><b>${l.pi}</b><br><span class="estat" style="padding-left:29px">${l.name}</span></td><td>${l.accts}</td><td class="r">${fmtTb(l.tb)}</td><td>${l.status==="pending"?'<span class="badge b-pend">Invite pending</span>':'<span class="badge b-ok">Active</span>'}</td><td class="r"><button class="tool" style="padding:4px 9px">${l.status==="pending"?"Resend":"Remove"}</button></td></tr>`).join("");
+
+// top consumers (flatten accounts)
+const flat=[];LABS.forEach(l=>l.members.forEach(m=>flat.push({n:m[0],lab:l.name,color:l.color,tb:m[2]})));
+flat.sort((a,b)=>b.tb-a.tb);const top=flat.slice(0,8);const mxA=top[0].tb;
+document.getElementById("topAccts").innerHTML=top.map(a=>`<tr><td>${a.n}</td><td><span class="av" style="background:${a.color};width:16px;height:16px;font-size:8px">&nbsp;</span><span class="estat">${a.lab}</span></td><td class="r">${fmtTb(a.tb)}</td><td><span class="pct" style="width:${Math.round(a.tb/mxA*140)}px"></span></td></tr>`).join("");
+
+// per-lab mini trends
+document.getElementById("labTrends").innerHTML=LABS.slice(0,4).map(l=>{
+  const base=l.tb;const seq=[base*0.8,base*0.85,base*0.9,base*0.93,base*0.97,base];const mx=Math.max(...seq);
+  return `<div style="display:flex;align-items:center;gap:12px;margin-bottom:9px"><span style="width:120px;font-size:12px;font-weight:600"><span class="av" style="background:${l.color};width:14px;height:14px">&nbsp;</span>${l.name}</span><div class="trend" style="height:34px;flex:1;gap:5px">${seq.map(v=>`<div class="tb"><div class="bar" style="height:${Math.round(v/mx*30)}px;max-width:18px"></div></div>`).join("")}</div><span class="estat">${fmtTb(base)}</span></div>`;
+}).join("");
+
+// over-time
+const TREND=[1.10,1.18,1.21,1.30,1.36,1.42],mx=Math.max(...TREND),mos=["Jan","Feb","Mar","Apr","May","Jun"];
+document.getElementById("trend").innerHTML=TREND.map((v,i)=>`<div class="tb"><div class="estat">${v.toFixed(1)}T</div><div class="bar" style="height:${Math.round(v/mx*70)}px"></div><div class="mo">${mos[i]}</div></div>`).join("");
+
+// plan BUILDER (no fixed tiers). Rate = cost recovery (storage) + per-active-lab
+// sustaining. Illustrative numbers only; the real ones live in pricing/assumptions.ts.
+const RATE={storagePerTb:122.88 /* ~$0.12/GB x 1024 */, perLabSustain:35};
+const B={labs:5,mem:5,tb:2};
+const deriveTotal=()=>Math.round(B.tb*RATE.storagePerTb + B.labs*RATE.perLabSustain);
+const BASELINE=deriveTotal(); // current plan = the demo's starting build
+function renderBuild(){
+  const sb=document.getElementById("b_labs"); if(!sb) return; // billing view not in DOM yet is fine
+  document.getElementById("b_labs").textContent=B.labs;
+  document.getElementById("b_mem").textContent=B.mem;
+  document.getElementById("b_tb").textContent=B.tb+" TB";
+  const storage=Math.round(B.tb*RATE.storagePerTb), sustain=B.labs*RATE.perLabSustain, total=storage+sustain;
+  document.getElementById("brk").innerHTML=`Cost recovery (<b>${B.tb} TB</b>) $${storage} + Sustaining (<b>$${RATE.perLabSustain}/lab</b> &times; ${B.labs} labs) $${sustain} &middot; covers ~${B.labs*B.mem} accounts`;
+  document.getElementById("b_total").innerHTML=`$${total}<small>/mo</small>`;
+  const delta=total-BASELINE,e=document.getElementById("b_delta");
+  if(delta===0){e.style.display="none";}else{e.style.display="inline-block";e.textContent=(delta<0?"Save $"+(-delta):"+$"+delta)+"/mo vs current";e.style.color=delta<0?"var(--green)":"var(--amber)";e.style.background=delta<0?"rgba(22,163,74,.12)":"rgba(245,158,11,.14)";}
+  document.getElementById("prorate").textContent=delta===0
+    ? "Matches your current plan. Changes prorate on the next invoice; downsizing never deletes data, it lowers the pooled cap (over-cap labs get the standard freeze warning)."
+    : `${delta<0?"−$"+(-delta):"+$"+delta}/mo vs current, prorated on the next invoice. ${delta<0?"Downsizing lowers the pooled cap; no data is deleted.":"Adds pooled headroom immediately."}`;
+}
+function bld(k,d){
+  if(k==='labs')B.labs=Math.max(1,B.labs+d);
+  if(k==='mem')B.mem=Math.max(1,B.mem+d);
+  if(k==='tb')B.tb=Math.max(1,B.tb+d);
+  renderBuild();
+}
+renderBuild();
+
+// nav tab switching
+document.querySelectorAll("#navset .navchip").forEach(c=>c.onclick=()=>{
+  document.querySelectorAll("#navset .navchip").forEach(x=>x.classList.remove("on"));c.classList.add("on");
+  const v=c.dataset.v;document.querySelectorAll("#adminApp .view").forEach(view=>view.classList.toggle("active",view.dataset.view===v));
+});
+// lab-head view toggle
+let lh=false;const lhBtn=document.getElementById("lhBtn");
+lhBtn.onclick=()=>{lh=!lh;document.getElementById("lhApp").style.display=lh?"block":"none";document.getElementById("adminApp").style.display=lh?"none":"block";lhBtn.textContent=lh?"← Dept admin view":"Lab head’s view";};
+document.getElementById("goInst").onclick=()=>alert("Institution admin = the same screens one layer up: it invites DEPARTMENT admins, and (when set) the institution covers billing for its departments. Phase 4.");
+
+// dark
+document.getElementById("darkBtn").onclick=function(){document.body.classList.toggle("dark");this.textContent=document.body.classList.contains("dark")?"Light":"Dark";};
+
+// ---- decisions ----
+const DECISIONS=[
+  {id:"D1",t:"Single Overview + deeper tabs",rec:true,d:"Overview = the at-a-glance (plan, usage-by-lab, over-time, invites); Labs / Usage / Billing are deeper drill-downs. Alternative: everything tabbed from the start, or everything on one long page."},
+  {id:"D2",t:"Plan BUILDER, not fixed tiers",rec:true,d:"Depts/institutions do NOT pick Lite/Standard/Plus. They build the plan from inputs (active labs, avg members, pooled storage); the monthly rate derives = cost recovery + a per-active-lab sustaining contribution, adjustable any month. The dashboard surfaces actual usage so they right-size the inputs over time. (Confirmed against BILLING_FACTS.md.)"},
+  {id:"D3",t:"A 'Department' lens (like the PI lab lens)",rec:true,d:"Dept admins flip into a Department lens via the same toggle PIs use, not a separate /department silo. A PI who is also a dept admin switches lenses."},
+  {id:"D4",t:"Visibility: account names + per-lab/account usage, never data",rec:true,d:"The payer sees account names + usage by lab and account; never notes/experiments/files. Shown on Usage + the per-lab expand."},
+  {id:"D5",t:"Usage-over-time + optimization summaries",rec:true,d:"Trend + plain-English forecast + a concrete optimization tip. Needs a new per-owner usage-history (monthly snapshots)."},
+  {id:"D6",t:"Invite via signed link + Neon acceptance (no crypto DO)",rec:true,d:"Single-use signed lab-head invite link; acceptance recorded server-side. No DurableObject / sealed keys (no shared encrypted data at the dept level)."},
+  {id:"D7",t:"Billing = procurement invoice (PO + contact), not a card",rec:true,d:"Recurring invoice with a PO number that prints on it + a procurement billing contact + visible invoice history. No card on file. Matches the 'invoice to procurement' pricing model."},
+  {id:"D8",t:"Lab-head accept screen states the deal plainly",rec:true,d:"The /dept/join screen tells the PI exactly what they grant (dept pays + sees names/usage totals, NOT data) and that they keep control + can leave anytime. See the 'Lab head's view' toggle."},
+  {id:"D9",t:"Institution shown above the dept (context now, full tier later)",rec:true,d:"Even in dept view, show the institution in a breadcrumb; when a dept is inside an institution, the institution covers billing and the dept manages labs only. Full institution admin = Phase 4."},
+];
+const KEY="dept-dashboard-decisions-v2";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+const decBody=document.getElementById("decBody");
+function render(){
+  decBody.innerHTML=DECISIONS.map(x=>{const c=DEC[x.id]||{};return `<div class="dec"><div class="dt">${x.id} &middot; ${x.t} ${x.rec?'<span class="rec">rec</span>':''}</div><div class="dd">${x.d}</div><div class="seg"><button data-id="${x.id}" data-v="approve" class="${c.v==='approve'?'on':''}">Approve</button><button data-id="${x.id}" data-v="reject" class="${c.v==='reject'?'on':''}">Change</button></div><textarea data-id="${x.id}" placeholder="Notes / changes...">${c.note||""}</textarea></div>`;}).join("");
+  decBody.querySelectorAll(".seg button").forEach(b=>b.onclick=()=>{const id=b.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;persist();render();});
+  decBody.querySelectorAll("textarea").forEach(t=>t.oninput=()=>{const id=t.dataset.id;DEC[id]=DEC[id]||{};DEC[id].note=t.value;persist();});
+  stat();
+}
+function persist(){localStorage.setItem(KEY,JSON.stringify(DEC));}
+function stat(){const n=DECISIONS.filter(x=>DEC[x.id]&&DEC[x.id].v).length;document.getElementById("estat").textContent=n?`${n} of ${DECISIONS.length} decided`:"No decisions yet";document.getElementById("fabN").textContent=`${n}/${DECISIONS.length}`;}
+render();
+const drawer=document.getElementById("drawer"),scrim=document.getElementById("scrim");
+function openD(o){drawer.classList.toggle("open",o);scrim.classList.toggle("on",o);}
+document.getElementById("fab").onclick=()=>openD(true);document.getElementById("closeDrawer").onclick=()=>openD(false);scrim.onclick=()=>openD(false);
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Department admin dashboard, decisions","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  DECISIONS.forEach(x=>{const c=DEC[x.id]||{};lines.push(`## ${x.id} ${x.t}`);lines.push(`- Verdict: ${c.v==='approve'?'APPROVE':c.v==='reject'?'CHANGE':'(undecided)'}`);if(c.note&&c.note.trim())lines.push(`- Notes: ${c.note.trim()}`);lines.push("");});
+  const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([lines.join("\n")],{type:"text/markdown"}));a.download="dept-dashboard-decisions.md";a.click();
+};
+</script>
+</body>
+</html>

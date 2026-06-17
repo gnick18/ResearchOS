@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion method library (search + active recs + offline)</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#0f1b2e;--muted:#6b7280;--border:#e5e7eb;--page-bg:#e2e8f0;--sky:#1AA0E6;--action:#1283C9;--ink:#111827;--ok:#16a34a;--pin:#e11d48;--warn:#d97706;--amber:#f59e0b;--purple:#5B47D6;}
+  html[data-theme="dark"]{--surface:#0a0e1a;--raised:#16233c;--sunken:#0d1424;--fg:#eaf2fb;--muted:#9fb0c8;--border:rgba(255,255,255,.16);--page-bg:#060a13;--ink:#eaf2fb;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;background:var(--page-bg);color:var(--fg);}
+  .topbar{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:12px;padding:12px 22px;background:var(--raised);border-bottom:1px solid var(--border);flex-wrap:wrap;}
+  .topbar h1{font-size:15px;margin:0;font-weight:800;}.topbar p{margin:0;font-size:12px;color:var(--muted);}
+  .spacer{flex:1;}
+  .btn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:7px 12px;font-size:12.5px;font-weight:600;}
+  .btn:hover{border-color:var(--muted);}.btn.on{background:var(--action);border-color:var(--action);color:#fff;}.btn.danger{color:var(--pin);}
+  .wrap{max-width:1080px;margin:0 auto;padding:22px;}
+  .lead{font-size:13.5px;color:var(--muted);line-height:1.6;max-width:84ch;margin:4px 0 16px;}.lead b{color:var(--fg);}
+  .changes{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:10px;margin-bottom:20px;}
+  .change{border:1px solid var(--border);background:var(--raised);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;}
+  .change.approved{border-color:var(--ok);box-shadow:inset 3px 0 0 var(--ok);}.change.disapproved{border-color:var(--pin);box-shadow:inset 3px 0 0 var(--pin);}
+  .ctitle{font-weight:700;font-size:13px;}.ctitle .tag{font-size:10px;font-weight:700;color:var(--action);background:var(--sunken);border-radius:5px;padding:1px 5px;margin-right:6px;}
+  .cdesc{font-size:12px;color:var(--muted);line-height:1.55;}
+  .verdict{display:flex;align-items:center;gap:8px;}
+  .vbtn{appearance:none;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:5px 10px;font-size:11.5px;font-weight:700;}
+  .vbtn.app.on{background:var(--ok);border-color:var(--ok);color:#fff;}.vbtn.dis.on{background:var(--pin);border-color:var(--pin);color:#fff;}
+  .vclear{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:11px;text-decoration:underline;}
+  .stage{display:flex;gap:36px;flex-wrap:wrap;align-items:flex-start;}
+  .controls{flex:1;min-width:240px;}.controls h2{font-size:14px;font-weight:800;margin:0 0 8px;}
+  .controls ol{margin:8px 0 0;padding-left:18px;font-size:12.5px;color:var(--muted);line-height:1.7;}.controls ol b{color:var(--fg);}
+  .controls .tip{margin-top:12px;font-size:12px;color:var(--action);font-weight:700;}
+  .seg{display:inline-flex;padding:3px;gap:3px;border-radius:11px;background:var(--sunken);border:1px solid var(--border);margin-bottom:10px;flex-wrap:wrap;}
+  .seg button{appearance:none;cursor:pointer;border:none;background:none;color:var(--muted);font-size:12px;font-weight:700;padding:6px 11px;border-radius:8px;}
+  .seg button.on{background:var(--raised);color:var(--fg);box-shadow:0 1px 3px rgba(0,0,0,.08);}
+
+  .phone{position:relative;width:344px;height:730px;flex:0 0 344px;border-radius:46px;background:#0b1220;padding:12px;box-shadow:0 30px 70px rgba(8,30,60,.4);}
+  .screen{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--surface);display:flex;flex-direction:column;}
+  .notch{position:absolute;top:9px;left:50%;transform:translateX(-50%);width:96px;height:22px;background:#0b1220;border-radius:13px;z-index:9;}
+
+  .lhead{padding:44px 16px 8px;background:var(--raised);}
+  .lhead .row1{display:flex;align-items:center;justify-content:space-between;}
+  .lhead .ttl{font-size:25px;font-weight:800;color:var(--ink);}
+  /* offline status chip */
+  .offchip{display:inline-flex;align-items:center;gap:6px;font-size:10.5px;font-weight:700;border-radius:999px;padding:5px 10px;cursor:pointer;border:1px solid var(--border);background:var(--sunken);color:var(--muted);}
+  .offchip.ready{color:var(--ok);background:color-mix(in srgb,var(--ok) 12%,transparent);border-color:color-mix(in srgb,var(--ok) 30%,transparent);}
+  .offchip.update{color:var(--warn);background:color-mix(in srgb,var(--amber) 14%,transparent);border-color:color-mix(in srgb,var(--amber) 34%,transparent);}
+  .offchip .d{width:7px;height:7px;border-radius:999px;background:currentColor;}
+  /* search */
+  .search{display:flex;align-items:center;gap:9px;background:var(--sunken);border:1px solid var(--border);border-radius:13px;padding:11px 13px;margin-top:11px;}
+  .search svg{width:17px;height:17px;color:var(--muted);flex:0 0 17px;}
+  .search input{flex:1;border:none;background:none;outline:none;font:inherit;font-size:15px;color:var(--fg);}
+  .search input::placeholder{color:var(--muted);}
+  /* filter chips + sort */
+  .filters{display:flex;gap:7px;overflow-x:auto;padding:11px 16px 3px;background:var(--raised);}
+  .fchip{flex:0 0 auto;font-size:12px;font-weight:700;border-radius:999px;padding:6px 12px;border:1px solid var(--border);background:var(--sunken);color:var(--muted);cursor:pointer;white-space:nowrap;}
+  .fchip.on{background:var(--action);border-color:var(--action);color:#fff;}
+  .sortrow{display:flex;align-items:center;justify-content:space-between;padding:8px 16px 6px;background:var(--raised);border-bottom:1px solid var(--border);}
+  .sortrow .cnt{font-size:11px;color:var(--muted);font-weight:600;}
+  .sortrow .sort{font-size:11.5px;font-weight:700;color:var(--action);cursor:pointer;}
+
+  .list{flex:1;overflow-y:auto;padding:6px 14px 70px;}
+  /* active-experiment recommendations */
+  .reccard{border-radius:16px;padding:12px;margin:8px 2px 4px;background:linear-gradient(135deg,#eaf4fc,#e3edfa);border:1px solid #cfe0f3;}
+  html[data-theme="dark"] .reccard{background:linear-gradient(135deg,#102f49,#16233c);border-color:#1f4d72;}
+  .reclbl{font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--action);display:flex;align-items:center;gap:6px;margin-bottom:9px;}
+  .recexp{font-size:11px;color:var(--muted);font-weight:700;margin:8px 4px 5px;}
+  .recmeth{display:flex;align-items:center;gap:10px;background:var(--raised);border:1px solid var(--border);border-radius:11px;padding:10px 11px;margin-bottom:6px;cursor:pointer;}
+  .recmeth:last-child{margin-bottom:0;}
+  .recmeth .activedot{width:8px;height:8px;border-radius:999px;background:var(--ok);flex:0 0 8px;box-shadow:0 0 0 3px color-mix(in srgb,var(--ok) 18%,transparent);}
+  .grphdr{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);position:sticky;top:0;background:var(--surface);padding:12px 4px 6px;z-index:2;}
+  .mrow{display:flex;align-items:center;gap:11px;padding:11px;border-radius:12px;background:var(--raised);border:1px solid var(--border);margin-bottom:7px;cursor:pointer;}
+  .mrow .tico{width:34px;height:34px;border-radius:9px;flex:0 0 34px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;}
+  .mrow .b{flex:1;min-width:0;}
+  .mrow .n{font-size:14px;font-weight:700;color:var(--fg);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .mrow .s{font-size:11px;color:var(--muted);margin-top:1px;}
+  .mrow .star{color:var(--amber);font-size:14px;}
+  .mrow .pin2{font-size:13px;color:var(--ok);}
+  .noresult{text-align:center;color:var(--muted);font-size:13px;padding:40px 20px;}
+
+  /* offline download prompt (post-pair) */
+  .prompt{position:absolute;left:0;right:0;bottom:0;z-index:14;background:var(--raised);border-top:1px solid var(--border);border-radius:22px 22px 0 0;padding:18px 18px 22px;box-shadow:0 -16px 40px rgba(8,30,60,.22);transform:translateY(110%);transition:transform .4s cubic-bezier(.22,1,.36,1);}
+  .prompt.show{transform:translateY(0);}
+  .prompt .pttl{font-size:17px;font-weight:800;color:var(--ink);}
+  .prompt .pd{font-size:13px;color:var(--muted);line-height:1.5;margin:7px 0 14px;}
+  .prompt .pacts{display:flex;gap:10px;}
+  .prompt .pbtn{flex:1;border-radius:12px;padding:13px;font-size:14.5px;font-weight:800;text-align:center;cursor:pointer;}
+  .prompt .pbtn.go{background:var(--action);color:#fff;}.prompt .pbtn.no{background:var(--sunken);color:var(--fg);}
+  .scrim2{position:absolute;inset:0;background:rgba(8,18,34,.34);opacity:0;pointer-events:none;transition:opacity .3s;z-index:13;}.scrim2.show{opacity:1;}
+  .dlbar{height:6px;border-radius:999px;background:var(--sunken);overflow:hidden;margin-top:10px;}.dlbar>div{height:100%;width:42%;background:var(--action);border-radius:999px;}
+
+  .tabbar{display:flex;border-top:1px solid var(--border);background:var(--raised);}
+  .tab{flex:1;text-align:center;padding:9px 0 14px;font-size:10px;font-weight:700;color:var(--muted);}.tab.on{color:var(--action);}.tab .ic{font-size:18px;display:block;margin-bottom:2px;}
+
+  body.cmt-on .cmt{cursor:crosshair;}body.cmt-on .cmt:hover{outline:2px solid var(--sky);outline-offset:2px;}
+  .pin{position:absolute;min-width:19px;height:19px;padding:0 4px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;z-index:40;cursor:pointer;box-shadow:0 1px 3px rgba(0,0,0,.3);transform:translate(-50%,-50%);}
+  .panel{position:fixed;right:16px;bottom:16px;width:300px;max-height:66vh;display:flex;flex-direction:column;background:var(--raised);border:1px solid var(--border);border-radius:13px;box-shadow:0 12px 40px rgba(0,0,0,.25);z-index:50;overflow:hidden;}
+  .panel.collapsed .pbody,.panel.collapsed .pfoot{display:none;}
+  .phead{display:flex;align-items:center;gap:8px;padding:11px 13px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}.pbody{overflow-y:auto;padding:6px;}.pfoot{display:flex;gap:8px;padding:9px 11px;border-top:1px solid var(--border);}
+  .empty{color:var(--muted);font-size:12px;padding:14px;text-align:center;}
+  .citem{display:flex;gap:8px;align-items:flex-start;padding:8px;border-radius:9px;}.citem .num{flex:0 0 20px;height:20px;border-radius:999px;background:var(--pin);color:#fff;font-size:11px;font-weight:800;display:inline-flex;align-items:center;justify-content:center;}.citem .tgt{font-size:11px;color:var(--muted);font-weight:600;}.citem .txt{font-size:12.5px;margin-top:1px;}.citem .x{margin-left:auto;border:none;background:none;color:var(--muted);font-size:16px;cursor:pointer;}
+  .vbadge{font-size:9.5px;font-weight:800;}
+  .editor{position:fixed;width:270px;background:var(--raised);border:1px solid var(--border);border-radius:12px;box-shadow:0 14px 44px rgba(0,0,0,.32);z-index:60;padding:11px;}.editor .lbl{font-size:11px;color:var(--muted);font-weight:700;margin-bottom:6px;}.editor textarea{width:100%;min-height:60px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);font:inherit;font-size:12.5px;padding:8px;}.editor .vchoice{display:flex;gap:6px;margin:8px 0;}.editor .acts{display:flex;gap:6px;align-items:center;}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;font-size:12.5px;font-weight:600;padding:9px 16px;border-radius:999px;opacity:0;pointer-events:none;transition:all .25s;z-index:70;}.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Companion method library</h1><p>Search hundreds of methods, active-experiment recs on top, offline download. Set verdicts, pin notes, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn" id="promptBtn">Show offline prompt</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      The Method tab becomes your <b>whole library</b> (hundreds of methods) with phone-modern search, type filters, and sort. Methods attached to your <b>ongoing experiments are recommended at the very top</b> with a live "Active" dot, before the full library. And once you pair, the app offers a <b>one-time library download</b> so everything works offline at the bench, with an Update chip when the laptop changes something. Try the search and filter chips; tap "Show offline prompt" to see the post-pair download ask; tap the status chip to cycle offline states.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="stage">
+      <div class="phone">
+        <div class="screen">
+          <div class="notch"></div>
+          <div class="lhead">
+            <div class="row1">
+              <span class="ttl">Methods</span>
+              <span class="offchip ready cmt" id="offchip" data-clabel="Offline status chip"><span class="d"></span><span id="offtxt">247 offline</span></span>
+            </div>
+            <div class="search cmt" data-clabel="Search bar">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2" stroke-linecap="round"/></svg>
+              <input id="q" placeholder="Search 247 methods" />
+            </div>
+          </div>
+          <div class="filters cmt" id="filters" data-clabel="Type filter chips"></div>
+          <div class="sortrow"><span class="cnt" id="cnt"></span><span class="sort" id="sortBtn" data-clabel="Sort toggle">Sort: Type &#8645;</span></div>
+
+          <div class="list" id="list"></div>
+
+          <!-- offline download prompt -->
+          <div class="scrim2" id="scrim2"></div>
+          <div class="prompt cmt" id="prompt" data-clabel="Offline download prompt (post-pair)">
+            <div class="pttl">Download your method library?</div>
+            <div class="pd">Keep all 247 methods on this phone so read mode works at the bench with no signal. About 3 MB. We will quietly update it when your laptop changes a method.</div>
+            <div class="pacts"><div class="pbtn no" id="pno">Not now</div><div class="pbtn go" id="pgo">Download</div></div>
+          </div>
+
+          <div class="tabbar">
+            <div class="tab"><span class="ic">&#128221;</span>Notebook</div>
+            <div class="tab"><span class="ic">&#128230;</span>Inventory</div>
+            <div class="tab on"><span class="ic">&#129514;</span>Method</div>
+            <div class="tab"><span class="ic">&#9201;</span>Timer</div>
+            <div class="tab"><span class="ic">&#128214;</span>Wiki</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="controls">
+        <h2>How it works</h2>
+        <ol>
+          <li><b>Active recs on top.</b> Methods on your ongoing experiments float to a highlighted band with a live Active dot, so the thing you are running is one tap away. The full library follows.</li>
+          <li><b>Search + filter + sort.</b> Live search, horizontally scrolling type chips (PCR / LC-MS / Cloning / ...), and a Type/Recent/A-Z sort. Built for hundreds.</li>
+          <li><b>Offline download.</b> On pair, the app asks once to download the library. The status chip shows offline-ready, and turns amber Update when the laptop changes a method.</li>
+          <li><b>Grouped + scannable.</b> Sticky section headers, type-colored icons, favorites star, "on this phone" check.</li>
+          <li><b>Tap a method</b> to open the big-text read mode from the other mockup.</li>
+        </ol>
+        <div class="tip">Type "pcr" or "extract", tap a filter chip, or tap the green chip to cycle offline states.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="cpanel">
+    <div class="phead" id="phead"><b>Notes</b>&nbsp;<span style="color:var(--muted);font-size:12px">(<span id="cCount">0</span>)</span><span class="spacer"></span><span style="color:var(--muted);font-size:12px" id="chev">hide</span></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="pfoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const el=id=>document.getElementById(id);
+  const TYPES={pcr:['PCR','#ef5350'],lc_gradient:['LC-MS','#1283C9'],cloning:['Cloning','#5B47D6'],extraction:['Extraction','#16a34a'],western:['Western','#d97706'],qpcr:['qPCR','#0ea5e9'],staining:['Staining','#db2777'],culture:['Culture','#0891b2']};
+  const TYPE_LABEL={all:'All',pcr:'PCR',lc_gradient:'LC-MS',cloning:'Cloning',extraction:'Extraction',western:'Western',qpcr:'qPCR',staining:'Staining',culture:'Culture'};
+  // a believable library slice (stands in for hundreds)
+  const LIB=[
+    ['Colony PCR, GoTaq','pcr',1,1],['Q5 high-fidelity PCR','pcr',1,0],['Phusion PCR, GC-rich','pcr',0,0],['Gradient PCR optimization','pcr',0,0],
+    ['Reverse-phase LC, gliotoxin','lc_gradient',1,1],['LC-MS metabolite screen','lc_gradient',1,0],['Intact protein LC-MS','lc_gradient',0,0],['HILIC polar metabolites','lc_gradient',0,0],
+    ['Gibson assembly, 2-fragment','cloning',0,1],['Golden Gate, BsaI','cloning',0,0],['Site-directed mutagenesis','cloning',0,0],['Gateway BP/LR','cloning',0,0],
+    ['Phenol-chloroform DNA','extraction',0,0],['RNA TRIzol extraction','extraction',1,0],['Plasmid miniprep','extraction',0,1],['Protein lysate, RIPA','extraction',0,0],
+    ['Western blot, wet transfer','western',0,0],['Western, fluorescent','western',0,0],
+    ['qPCR, SYBR Green','qpcr',0,0],['qPCR, TaqMan','qpcr',0,0],
+    ['DAPI nuclear stain','staining',0,0],['Immunofluorescence, 3-color','staining',0,0],
+    ['HEK293 passage + split','culture',1,0],['Cryopreservation, cells','culture',0,0],
+  ].map(([name,type,fav,onphone])=>({name,type,fav:!!fav,onphone:!!onphone}));
+  // active experiments + their attached methods (the recommendations)
+  const ACTIVE=[
+    {exp:'Af293 cyp51A knockout, run 3', methods:['Colony PCR, GoTaq','Q5 high-fidelity PCR']},
+    {exp:'Gliotoxin quant, batch 7', methods:['Reverse-phase LC, gliotoxin']},
+  ];
+
+  let q='', filter='all', sort='type';
+  const OFF_STATES=[['ready','247 offline'],['update','Update available'],['','Download for offline']];
+  let offIdx=0;
+
+  function renderFilters(){
+    const types=['all',...Object.keys(TYPES)];
+    el('filters').innerHTML=types.map(t=>`<span class="fchip ${t===filter?'on':''}" data-t="${t}">${TYPE_LABEL[t]}</span>`).join('');
+    el('filters').querySelectorAll('[data-t]').forEach(c=>c.addEventListener('click',()=>{filter=c.dataset.t;render();}));
+  }
+  function typeIcon(t){const[lbl,col]=TYPES[t];return `<span class="tico" style="background:${col}">${lbl[0]}</span>`;}
+  function mrow(m){return `<div class="mrow" data-clabel="Method row"><span class="tico" style="background:${TYPES[m.type][1]}">${TYPES[m.type][0][0]}</span><div class="b"><div class="n">${m.name}</div><div class="s">${TYPES[m.type][0]}</div></div>${m.fav?'<span class="star">&#9733;</span>':''}${m.onphone?'<span class="pin2" title="On this phone">&#10003;</span>':''}</div>`;}
+
+  function render(){
+    const ql=q.trim().toLowerCase();
+    let rows=LIB.filter(m=>(filter==='all'||m.type===filter)&&(!ql||m.name.toLowerCase().includes(ql)||TYPES[m.type][0].toLowerCase().includes(ql)));
+    el('cnt').textContent=`${rows.length} of ${LIB.length} methods`;
+    let html='';
+    // active recs only when not searching/filtering hard
+    if(!ql && filter==='all'){
+      html+=`<div class="reccard cmt" data-clabel="Active-experiment recommendations"><div class="reclbl">&#9210; For your active experiments</div>`;
+      ACTIVE.forEach(a=>{html+=`<div class="recexp">${a.exp}</div>`;a.methods.forEach(name=>{const m=LIB.find(x=>x.name===name);if(m)html+=`<div class="recmeth"><span class="activedot"></span><span class="tico" style="background:${TYPES[m.type][1]}">${TYPES[m.type][0][0]}</span><div class="b"><div class="n">${m.name}</div><div class="s">${TYPES[m.type][0]}</div></div></div>`;});});
+      html+=`</div>`;
+    }
+    if(rows.length===0){html+='<div class="noresult">No methods match. Try a different term or filter.</div>';}
+    else if(sort==='name'){rows.sort((a,b)=>a.name.localeCompare(b.name));html+=rows.map(mrow).join('');}
+    else{ // group by type
+      const groups={};rows.forEach(m=>{(groups[m.type]=groups[m.type]||[]).push(m);});
+      Object.keys(groups).forEach(t=>{html+=`<div class="grphdr">${TYPES[t][0]}</div>`+groups[t].map(mrow).join('');});
+    }
+    el('list').innerHTML=html;
+    bindCmts();
+  }
+  function setOff(){const[cls,txt]=OFF_STATES[offIdx];el('offchip').className='offchip cmt '+cls;el('offchip').setAttribute('data-clabel','Offline status chip');el('offtxt').textContent=txt;}
+  el('offchip').addEventListener('click',()=>{if(document.body.classList.contains('cmt-on'))return;offIdx=(offIdx+1)%OFF_STATES.length;setOff();});
+  el('q').addEventListener('input',e=>{q=e.target.value;render();});
+  el('sortBtn').addEventListener('click',()=>{if(document.body.classList.contains('cmt-on'))return;sort=sort==='type'?'name':sort==='name'?'recent':'type';el('sortBtn').textContent='Sort: '+(sort==='type'?'Type':sort==='name'?'A-Z':'Recent')+' ↕';render();});
+  // offline prompt
+  function showPrompt(v){el('prompt').classList.toggle('show',v);el('scrim2').classList.toggle('show',v);}
+  el('promptBtn').addEventListener('click',()=>showPrompt(true));
+  el('scrim2').addEventListener('click',()=>showPrompt(false));
+  el('pno').addEventListener('click',()=>showPrompt(false));
+  el('pgo').addEventListener('click',()=>{el('prompt').querySelector('.pd').innerHTML='Downloading 247 methods...<div class="dlbar"><div></div></div>';setTimeout(()=>{showPrompt(false);offIdx=0;setOff();toast('Library saved for offline');},1200);});
+
+  renderFilters();setOff();render();
+
+  /* harness */
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  const STORE='ros-method-library-comments-v1';let comments=[];try{comments=JSON.parse(localStorage.getItem(STORE)||'[]');}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){document.querySelectorAll('.pin').forEach(p=>p.remove());const byT={};comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});document.querySelectorAll('.cmt').forEach(elm=>{const lbl=elm.getAttribute('data-clabel');const nums=byT[lbl];if(!nums)return;const r=elm.getBoundingClientRect();if(r.width===0)return;const pin=document.createElement('span');pin.className='pin';pin.textContent=nums.join(',');pin.style.left=(window.scrollX+r.left+12)+'px';pin.style.top=(window.scrollY+r.top+12)+'px';pin.addEventListener('click',ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});document.body.appendChild(pin);});}
+  function renderPanel(){const body=el('pbody');el('cCount').textContent=comments.length;if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any part of the phone.</div>';return;}const vt=v=>v==='approve'?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==='disapprove'?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':'';body.innerHTML=comments.map((c,i)=>`<div class="citem"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{comments.splice(+b.dataset.del,1);save();renderAll();}));}
+  function renderAll(){renderPins();renderPanel();}
+  window.addEventListener('resize',renderPins);window.addEventListener('scroll',renderPins,true);
+  el('list').addEventListener('scroll',renderPins);
+  const CHANGES=[
+    {id:'library',tag:'1',title:'Method tab = full library search',desc:'Search the entire method library (hundreds), with live search, horizontally scrolling type filters, and a Type/A-Z/Recent sort. Phone-modern.'},
+    {id:'recs',tag:'2',title:'Active-experiment methods recommended on top',desc:'Methods attached to ongoing experiment(s) float to a highlighted band with a live Active dot, before the rest of the library. One or many.'},
+    {id:'offline',tag:'3',title:'Offline library download on pair',desc:'After scan + pair, a one-time ask to download the whole library (~MB) so read mode works with no signal. Status chip shows offline-ready.'},
+    {id:'updates',tag:'4',title:'Quiet updates + Update chip',desc:'When the laptop changes a method, the chip turns amber Update; tap to re-sync. Versioned so only changed methods download.'},
+    {id:'scannable',tag:'5',title:'Grouped, scannable list',desc:'Sticky type headers, type-colored icons, favorites star, an on-this-phone check. Built to scan hundreds fast.'},
+    {id:'through',tag:'6',title:'Tap-through to read mode',desc:'Any method (rec or library) opens the big-text NYT-cooking read mode from the companion-method-read-mode mockup.'},
+  ];
+  const VSTORE='ros-method-library-verdicts-v1';let verdicts={};try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}');}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){const wrap=el('changes');wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:''}</div></div>`;}).join('');wrap.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));}
+  let editorEl=null;function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){closeEditor();const target=targetEl.getAttribute('data-clabel')||'Page';const existing=existingIndex!=null?comments[existingIndex]:null;let pv=existing?(existing.verdict||''):'';const ed=document.createElement('div');ed.className='editor';ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note or change request">${existing?esc(existing.text):''}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;document.body.appendChild(ed);editorEl=ed;const paint=()=>ed.querySelectorAll('[data-vc]').forEach(b=>b.classList.toggle('on',(b.dataset.vc==='note'&&!pv)||b.dataset.vc===pv));ed.querySelectorAll('[data-vc]').forEach(b=>b.addEventListener('click',()=>{pv=b.dataset.vc==='note'?'':b.dataset.vc;paint();}));paint();const x=ev?ev.clientX:0,y=ev?ev.clientY:0;ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-286)+'px';ed.style.top=Math.min(y+10,window.innerHeight-200)+'px';ed.querySelector('textarea').focus();ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ed.querySelector('textarea').value.trim();if(!t&&!pv)return closeEditor();if(existing){existing.text=t;existing.verdict=pv;}else comments.push({target,text:t,verdict:pv});save();renderAll();closeEditor();}}));}
+  function bindCmts(){/* pins reposition on render */ renderPins();}
+  document.addEventListener('click',e=>{if(!document.body.classList.contains('cmt-on'))return;if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin')||e.target.closest('.changes'))return;const cmt=e.target.closest('.cmt');if(!cmt)return;e.preventDefault();e.stopPropagation();openEditor(cmt,null,e);},true);
+  const cBtn=el('commentToggle');cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  el('themeToggle').addEventListener('click',function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Switch to dark':'Switch to light';renderPins();});
+  el('phead').addEventListener('click',()=>{const p=el('cpanel');const c=p.classList.toggle('collapsed');el('chev').textContent=c?'show':'hide';});
+  function buildMd(){let o='Method library, feedback\n\nVerdicts\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nNotes\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>{const t=c.verdict==='approve'?'[APPROVE] ':c.verdict==='disapprove'?'[DISAPPROVE] ':'';o+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return o;}
+  function toast(m){const t=el('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+  async function doCopy(){try{await navigator.clipboard.writeText(buildMd());toast('Feedback copied, paste it back to me');}catch{window.prompt('Copy',buildMd());}}
+  el('exportBtn').addEventListener('click',doCopy);el('exportBtn2').addEventListener('click',doCopy);
+  el('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all notes?'))return;comments=[];save();renderAll();});
+  renderChanges();renderAll();
+</script>
+</body>
+</html>

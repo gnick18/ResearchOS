@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot + BeakerSearch, GUI review</title>
+<style>
+  :root {
+    --bg:#eef1f5; --surface:#fff; --sunken:#f4f7f9;
+    --text:#1a2530; --text-2:#5a6b78; --text-3:#8a98a4;
+    --border:rgba(26,37,48,0.12); --border-2:rgba(26,37,48,0.22);
+    --sky:#38bdf8; --sky-deep:#15679c; --sky-soft:rgba(56,189,248,0.09); --sky-chip:rgba(56,189,248,0.14);
+    --ok:#1d7a3e; --ok-bg:#e7f6ec; --warn:#b45309; --warn-bg:#fef3e2;
+    --r:12px; --rm:8px; --sans:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);}
+  .topbar{position:sticky;top:0;z-index:60;display:flex;align-items:center;gap:16px;padding:11px 20px;background:var(--surface);border-bottom:1px solid var(--border-2);}
+  .topbar .title{font-size:15px;font-weight:600;}
+  .topbar .sum{margin-left:auto;font-size:12px;color:var(--text-2);}
+  .btn{font-family:inherit;font-size:13px;border:1px solid var(--border-2);background:var(--surface);color:var(--text);border-radius:var(--rm);padding:7px 13px;cursor:pointer;}
+  .btn.primary{background:var(--sky);border-color:var(--sky);color:#06243a;font-weight:600;}
+  .btn:hover{background:var(--sunken);} .btn.primary:hover{filter:brightness(0.97);}
+  .howto{background:#0f172a;color:#cfe8fb;font-size:13px;padding:10px 20px;display:flex;align-items:center;gap:8px;}
+  .howto b{color:#fff;}
+  .wrap{max-width:780px;margin:0 auto;padding:22px 22px 160px;}
+  .rs{margin-bottom:34px;}
+  .rs > header{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+  .rs h3{margin:0;font-size:14px;font-weight:600;flex:1;}
+  .seg{display:inline-flex;border:1px solid var(--border-2);border-radius:999px;overflow:hidden;font-size:11px;}
+  .seg button{font-family:inherit;border:0;background:transparent;color:var(--text-2);padding:4px 11px;cursor:pointer;}
+  .seg button.on-ok{background:var(--ok-bg);color:var(--ok);font-weight:600;}
+  .seg button.on-warn{background:var(--warn-bg);color:var(--warn);font-weight:600;}
+  .note{font-size:12px;color:var(--text-2);margin:8px 2px 0;line-height:1.5;}
+  .mockwrap{position:relative;}
+  .hint{position:absolute;top:8px;right:8px;z-index:4;display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--sky-deep);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);border-radius:999px;padding:3px 9px;pointer-events:none;}
+  .mock{position:relative;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;cursor:crosshair;}
+  .mock.dark{background:#0f172a;padding:46px 16px;display:flex;justify-content:center;}
+  .mock *{pointer-events:none;}
+  .pin{position:absolute;width:24px;height:24px;border-radius:999px;background:var(--sky);color:#06243a;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;transform:translate(-50%,-50%);box-shadow:0 1px 5px rgba(0,0,0,.35);z-index:6;cursor:pointer;pointer-events:auto;border:2px solid #fff;}
+  .editor{position:absolute;z-index:8;width:230px;background:#fff;border:1px solid var(--border-2);border-radius:var(--rm);box-shadow:0 8px 24px rgba(0,0,0,.22);padding:9px;pointer-events:auto;}
+  .editor textarea{width:100%;border:1px solid var(--border);border-radius:6px;padding:6px;font-family:inherit;font-size:12px;resize:vertical;min-height:54px;}
+  .editor .erow{display:flex;gap:6px;margin-top:7px;}
+  .editor .esave{flex:1;background:var(--sky);border:0;color:#06243a;font-weight:600;font-size:12px;border-radius:6px;padding:6px;cursor:pointer;}
+  .editor .edel{background:none;border:1px solid var(--border-2);color:var(--text-2);font-size:12px;border-radius:6px;padding:6px 9px;cursor:pointer;}
+  /* shared mock bits */
+  .flask{width:28px;height:28px;border-radius:var(--rm);background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  svg{stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;}
+  .pal{width:100%;max-width:520px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;box-shadow:0 20px 50px rgba(0,0,0,.35);}
+  .prow{display:flex;align-items:center;gap:11px;padding:14px 16px;border-bottom:1px solid var(--border);}
+  .q{flex:1;font-size:16px;} .q .cur{color:var(--text-3);}
+  .kbd{font-size:11px;color:var(--text-3);border:1px solid var(--border);border-radius:5px;padding:2px 6px;}
+  .ask{display:flex;align-items:center;gap:11px;padding:12px 16px;background:var(--sky-soft);border-bottom:1px solid var(--border);}
+  .ask .ai{width:23px;height:23px;border-radius:6px;background:var(--sky);color:#06243a;display:inline-flex;align-items:center;justify-content:center;flex:none;}
+  .ask .txt{flex:1;font-size:14px;} .ask .txt b{font-weight:600;} .ask .meta{font-size:11px;color:var(--text-3);} .ask .go{font-size:11px;color:var(--sky-deep);}
+  .grp{font-size:11px;letter-spacing:.04em;color:var(--text-3);padding:11px 16px 4px;}
+  .resrow{display:flex;align-items:center;gap:11px;padding:8px 16px;}
+  .resrow .ic{width:18px;color:var(--text-3);display:inline-flex;flex:none;} .resrow .nm{flex:1;font-size:13px;} .resrow .ty{font-size:11px;color:var(--text-3);}
+  .foot{display:flex;gap:14px;padding:10px 16px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);}
+  .smart{margin-left:auto;display:inline-flex;align-items:center;gap:5px;border:1px solid var(--border);border-radius:999px;padding:2px 8px;color:var(--text-2);}
+  .dot{width:6px;height:6px;border-radius:999px;background:var(--text-3);}
+  .panel{width:300px;background:var(--surface);border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;}
+  .phead{display:flex;align-items:center;gap:9px;padding:12px 13px;border-bottom:1px solid var(--border);}
+  .pav{width:26px;height:26px;border-radius:6px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;}
+  .pname{font-size:14px;font-weight:600;}
+  .ptoggle{margin-left:auto;display:inline-flex;border:1px solid var(--border-2);border-radius:7px;overflow:hidden;font-size:11px;}
+  .ptoggle span{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;color:var(--text-3);}
+  .ptoggle .on{background:var(--sky-chip);color:var(--sky-deep);}
+  .pbody{padding:12px 13px;display:flex;flex-direction:column;gap:10px;min-height:110px;}
+  .um{align-self:flex-end;max-width:85%;padding:7px 10px;border-radius:7px;background:var(--sunken);font-size:12px;}
+  .bm{font-size:12px;color:var(--text-2);line-height:1.55;}
+  .meter{display:flex;align-items:center;gap:6px;padding:9px 13px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);}
+  .meter .l{margin-left:auto;color:var(--text-2);}
+  .card{border:1px solid var(--sky);border-radius:var(--rm);overflow:hidden;font-size:12px;max-width:300px;}
+  .card .ch{display:flex;align-items:center;gap:7px;padding:9px 11px;background:var(--sky-soft);border-bottom:1px solid var(--border);font-weight:600;}
+  .card ol{padding:9px 12px 9px 26px;margin:0;} .card ol li{margin:2px 0;color:var(--text-2);}
+  .acts{display:flex;gap:7px;padding:9px 11px;border-top:1px solid var(--border);}
+  .mini{flex:1;text-align:center;padding:6px;border-radius:6px;font-size:12px;font-weight:600;}
+  .mini.ok{background:var(--sky);color:#06243a;} .mini.no{border:1px solid var(--border-2);color:var(--text-2);}
+  .chips{display:flex;flex-wrap:wrap;gap:7px;padding:11px;}
+  .chip{font-size:12px;border:1px solid var(--border-2);border-radius:999px;padding:5px 12px;color:var(--text);}
+  .chip.sel{background:var(--sky-deep);border-color:var(--sky-deep);color:#fff;font-weight:600;}
+  .toggle-demo{display:inline-flex;border:1px solid var(--border-2);border-radius:var(--rm);overflow:hidden;}
+  .toggle-demo span{display:inline-flex;align-items:center;gap:6px;padding:7px 13px;font-size:13px;color:var(--text-2);}
+  .toggle-demo .on{background:var(--sky-chip);color:var(--sky-deep);font-weight:600;}
+  .verdict{max-width:300px;font-size:12px;color:var(--text-2);line-height:1.6;} .verdict b{color:var(--text);font-weight:600;}
+  /* original concept sketch, scoped under cs- so it cannot collide with the mockups above */
+  .cs-win{background:#fff;border:1px solid var(--border-2);border-radius:var(--r);overflow:hidden;display:flex;min-height:300px;max-width:620px;margin:0 auto;}
+  .cs-rail{width:58px;border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:13px;padding:14px 0;color:var(--text-3);}
+  .cs-nav{display:flex;flex-direction:column;align-items:center;gap:3px;color:inherit;}
+  .cs-nav.on{color:var(--sky-deep);}
+  .cs-lbl{font-size:8.5px;letter-spacing:.02em;}
+  .cs-ico{width:20px;height:20px;display:inline-flex;}
+  .cs-center{flex:1;min-width:0;padding:16px;position:relative;}
+  .cs-meta{font-size:12px;color:var(--text-3);margin-bottom:8px;}
+  .cs-ntitle{font-size:15px;margin-bottom:6px;}
+  .cs-nbody{font-size:13px;color:var(--text-2);line-height:1.7;}
+  .cs-chip{display:inline-flex;align-items:center;gap:6px;margin-top:16px;padding:6px 11px;border:1px solid rgba(56,189,248,0.4);border-radius:7px;font-size:12px;color:var(--sky-deep);background:var(--sky-soft);}
+  .cs-summon{position:absolute;right:16px;bottom:16px;display:inline-flex;align-items:center;gap:7px;padding:9px 13px;border-radius:var(--rm);background:var(--sky-chip);border:1px solid rgba(56,189,248,0.4);color:var(--sky-deep);font-size:13px;}
+  .cs-panel{width:262px;border-left:1px solid var(--border);display:flex;flex-direction:column;background:var(--sunken);}
+  .cs-phead{display:flex;align-items:center;gap:9px;padding:12px 13px;border-bottom:1px solid var(--border);}
+  .cs-avatar{width:27px;height:27px;border-radius:7px;background:var(--sky-chip);color:var(--sky-deep);display:inline-flex;align-items:center;justify-content:center;}
+  .cs-pname{font-size:14px;font-weight:600;}
+  .cs-toggle{margin-left:auto;display:inline-flex;border:1px solid var(--border-2);border-radius:7px;overflow:hidden;font-size:11px;}
+  .cs-toggle span{padding:4px 9px;color:var(--text-3);}
+  .cs-toggle .active{background:var(--sky-chip);color:var(--sky-deep);}
+  .cs-pbody{flex:1;padding:13px;display:flex;flex-direction:column;gap:10px;}
+  .cs-usermsg{align-self:flex-end;max-width:86%;padding:7px 10px;border-radius:7px;background:#fff;border:1px solid var(--border);font-size:12px;}
+  .cs-botline{font-size:12px;color:var(--text-2);line-height:1.6;}
+  .cs-diff{border:1px solid var(--border-2);border-radius:7px;overflow:hidden;font-size:11px;}
+  .cs-add{padding:7px 9px;background:var(--ok-bg);color:var(--ok);line-height:1.6;}
+  .cs-add + .cs-add{border-top:1px solid var(--border);}
+  .cs-acts{display:flex;gap:7px;padding:8px;background:#fff;border-top:1px solid var(--border);}
+  .cs-acts span{flex:1;text-align:center;padding:6px;border-radius:7px;font-size:11px;}
+  .cs-approve{background:var(--sky-chip);color:var(--sky-deep);}
+  .cs-reject{border:1px solid var(--border-2);color:var(--text-2);}
+  .cs-meter{display:flex;align-items:center;gap:7px;padding:11px 13px;border-top:1px solid var(--border);font-size:11px;color:var(--text-3);}
+  .cs-meter .left{margin-left:auto;color:var(--text-2);}
+</style>
+</head>
+<body>
+<svg width="0" height="0" aria-hidden="true" style="position:absolute"><defs>
+<linearGradient id="bbliq" x1="0" y1="0" x2="0" y2="1">
+<stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/>
+</linearGradient></defs>
+<symbol id="bbmark" viewBox="8 3 24 31">
+<path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="#fff" stroke="none"/>
+<path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#bbliq)" stroke="none"/>
+<path d="M22 8 C 22 6, 24 4, 26 6" stroke="currentColor"/>
+<path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" stroke="currentColor"/>
+<path d="M11 12 L29 12" stroke="currentColor"/>
+<circle cx="17" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<circle cx="23" cy="18" r="1.2" fill="currentColor" stroke="none"/>
+<path d="M18 22 Q 20 24, 22 22" stroke="currentColor"/>
+<path d="M14 26 L15.5 26" stroke="currentColor"/><path d="M24.5 26 L26 26" stroke="currentColor"/>
+</symbol>
+</svg>
+<div class="topbar">
+  <span class="title">BeakerBot + BeakerSearch, GUI review</span>
+  <span class="sum" id="sum"></span>
+  <button class="btn primary" id="exportBtn">Export feedback</button>
+</div>
+<div class="howto">
+  <b>To comment:</b> click anywhere on a mockup and a note box opens right there. Set <b>Approve</b> or <b>Needs work</b> per section. Then <b>Export</b>.
+</div>
+
+<div class="wrap" id="wrap">
+
+  <section class="rs" data-name="Unified palette (front door)">
+    <header><h3>1. Unified palette, the front door</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock dark">
+      <div class="pal">
+        <div class="prow"><span class="flask"><svg width="16" height="16" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span><span class="q">qpcr<span class="cur"> |</span></span><span class="kbd">esc</span></div>
+        <div class="ask"><span class="ai"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span><span class="txt"><b>Ask BeakerBot</b> about "qpcr" <span class="meta">&middot; reasons, perceives, can act &middot; uses credit</span></span><span class="go">enter &#8629;</span></div>
+        <div class="grp">INSTANT &middot; NO AI &middot; FREE</div>
+        <div class="resrow"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M9 12l2 2 4-4"/></svg></span><span class="nm">qPCR, fakeGFP expression vs control</span><span class="ty">task</span></div>
+        <div class="resrow"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6"/></svg></span><span class="nm">qPCR analysis, Cq and standard curve</span><span class="ty">method</span></div>
+        <div class="resrow"><span class="ic"><svg width="16" height="16" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span><span class="nm">fakeGFP qPCR expression</span><span class="ty">table</span></div>
+        <div class="foot"><span>&#8597; navigate</span><span>&#8629; open</span><span class="smart"><span class="dot"></span> smart mode off</span></div>
+      </div>
+    </div></div>
+    <p class="note">One box. Typing gives instant free results (Tier 1). One sky-blue row escalates to the AI (Tier 2). Open question: Ask row top vs bottom.</p>
+  </section>
+
+  <section class="rs" data-name="Docked conversation panel">
+    <header><h3>2. Docked BeakerBot panel, the conversation</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:18px;display:flex;justify-content:center;background:var(--sunken);">
+      <div class="panel">
+        <div class="phead"><span class="pav"><svg width="15" height="15" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span><span class="pname">BeakerBot</span><span class="ptoggle"><span class="on"><svg width="11" height="11" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 1 1 3.7 2.8c-.9.3-1.4.9-1.4 1.9"/><path d="M12 17.3h.01"/></svg> Ask</span><span><svg width="11" height="11" viewBox="0 0 24 24"><path d="M13 3 5 13h6l-1 8 9-11h-6z"/></svg> Auto</span></span></div>
+        <div class="pbody"><div class="um">what am I working on today?</div><div class="bm">You have three today: the qPCR run, growth curves, and ordering LC-MS solvents. Two are overdue. Want a hand with any?</div></div>
+        <div class="meter">last task 31k tokens <span class="l">$4.10 credit left</span></div>
+      </div>
+    </div></div>
+    <p class="note">The room the palette escalates into. Persists across pages. Mode toggle (Ask / Auto icons) + live credit meter.</p>
+  </section>
+
+  <section class="rs" data-name="Plan-approve card">
+    <header><h3>3. Plan card, propose then approve</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:18px;display:flex;justify-content:center;background:var(--sunken);">
+      <div class="card"><div class="ch"><span class="flask" style="width:20px;height:20px;"><svg width="12" height="12" viewBox="0 0 24 24"><use href="#bbmark"/></svg></span> Open the new method form. Here is the plan.</div><ol><li>Go to the Methods page</li><li>Click the New Method button</li></ol><div class="acts"><span class="mini ok">Approve</span><span class="mini no">Cancel</span></div></div>
+    </div></div>
+    <p class="note">For a multi-step action, BeakerBot proposes the whole plan, you approve once, it runs every step. Destructive steps still re-confirm.</p>
+  </section>
+
+  <section class="rs" data-name="Choice buttons (ask_user)">
+    <header><h3>4. Choice buttons, pick instead of type</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:18px;display:flex;justify-content:center;background:var(--sunken);">
+      <div class="card" style="border-color:var(--border-2);"><div class="ch" style="background:var(--surface);border-color:var(--border);color:var(--text);">Which two groups should I compare?</div><div class="chips"><span class="chip sel">Control (WT)</span><span class="chip sel">FakeYeast-001</span><span class="chip">FakeYeast-002</span><span class="chip">FakeYeast-003</span></div><div class="acts"><span class="mini ok">Run on these two</span></div></div>
+    </div></div>
+    <p class="note">When BeakerBot needs a pick from a known set, it shows buttons, not a prose question. Single tap, or multi-select with a confirm. (Selected chip text now reads white on deep sky.)</p>
+  </section>
+
+  <section class="rs" data-name="Autonomy toggle">
+    <header><h3>5. Autonomy toggle, Ask vs Auto</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:22px;display:flex;gap:16px;justify-content:center;align-items:center;background:var(--sunken);">
+      <span class="toggle-demo"><span class="on"><svg width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.2 9.2a2.9 2.9 0 1 1 3.7 2.8c-.9.3-1.4.9-1.4 1.9"/><path d="M12 17.3h.01"/></svg> Ask</span></span>
+      <span class="toggle-demo"><span class="on"><svg width="14" height="14" viewBox="0 0 24 24"><path d="M13 3 5 13h6l-1 8 9-11h-6z"/></svg> Auto</span></span>
+    </div></div>
+    <p class="note">Ask, propose plan and approve once. Auto, just go. New glyphs: question-in-circle for Ask, lightning bolt for Auto.</p>
+  </section>
+
+  <section class="rs" data-name="Analysis result">
+    <header><h3>6. Analysis result, the engine answer</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:18px;display:flex;justify-content:center;background:var(--sunken);">
+      <div class="verdict"><b>Unpaired t-test, Control (WT) vs FakeYeast-001.</b><br>fakeGFP expression is significantly higher in FakeYeast-001 (<b>p = 4.2e-5</b>). Normality and equal-variance checks passed. Saved to the table, opening it in the Data Hub now.</div>
+    </div></div>
+    <p class="note">BeakerBot reports the verdict and the real p-value (engine-computed), then walks you to the result in Data Hub.</p>
+  </section>
+
+  <section class="rs" data-name="Original concept sketch (full app view)">
+    <header><h3>7. Original concept sketch, the full app view (from yesterday)</h3><div class="seg" data-approve><button data-v="ok">Approve</button><button data-v="warn">Needs work</button></div></header>
+    <div class="mockwrap"><span class="hint">click to comment</span><div class="mock" style="padding:18px;background:var(--sunken);">
+      <div class="cs-win">
+        <div class="cs-rail">
+          <span class="cs-nav on"><span class="cs-ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg></span><span class="cs-lbl">Work</span></span>
+          <span class="cs-nav"><span class="cs-ico"><svg viewBox="0 0 24 24"><path d="M6 3h9l3 3v15H6z"/><path d="M9 9h6M9 13h6"/></svg></span><span class="cs-lbl">Methods</span></span>
+          <span class="cs-nav"><span class="cs-ico"><svg viewBox="0 0 24 24"><path d="M7 4c5 4 5 12 10 16"/><path d="M17 4c-5 4-5 12-10 16"/></svg></span><span class="cs-lbl">Seq</span></span>
+          <span class="cs-nav"><span class="cs-ico"><svg viewBox="0 0 24 24"><path d="M12 3l7 4v8l-7 4-7-4V7z"/></svg></span><span class="cs-lbl">Chem</span></span>
+          <span class="cs-nav"><span class="cs-ico"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/></svg></span><span class="cs-lbl">Data</span></span>
+        </div>
+        <div class="cs-center">
+          <div class="cs-meta">Lab note, today</div>
+          <div class="cs-ntitle">PCR optimization, gradient 58 to 64 C</div>
+          <div class="cs-nbody">Band strongest at 61 C. 62 and 63 faint.<br>Primer dimer below 59. Re-run with 1.5 mM MgCl2.</div>
+          <div class="cs-chip"><span class="cs-ico" style="width:14px;height:14px"><svg viewBox="0 0 24 24"><use href="#bbmark"/></svg></span> Ask BeakerBot about this note</div>
+          <div class="cs-summon"><span class="cs-ico" style="width:16px;height:16px"><svg viewBox="0 0 24 24"><use href="#bbmark"/></svg></span> Ask</div>
+        </div>
+        <div class="cs-panel">
+          <div class="cs-phead"><span class="cs-avatar"><span class="cs-ico" style="width:16px;height:16px"><svg viewBox="0 0 24 24"><use href="#bbmark"/></svg></span></span><span class="cs-pname">BeakerBot</span><span class="cs-toggle"><span>Ask</span><span class="active">Coworker</span></span></div>
+          <div class="cs-pbody">
+            <div class="cs-usermsg">summarize today's results</div>
+            <div class="cs-botline">I drafted a summary to add to this note. Review before I write it:</div>
+            <div class="cs-diff"><div class="cs-add">+ Optimal anneal 61 C, clean single band.</div><div class="cs-add">+ Next: 1.5 mM MgCl2, narrow to 60 to 62 C.</div><div class="cs-acts"><span class="cs-approve">Approve</span><span class="cs-reject">Reject</span></div></div>
+          </div>
+          <div class="cs-meter">last task 31k tokens <span class="left">$4.10 credit left</span></div>
+        </div>
+      </div>
+    </div></div>
+    <p class="note">The earlier full-app concept you liked. The left rail is just the existing ResearchOS nav (Workbench, Methods, Sequences, Chemistry, Data Hub), now labeled so it is clear those tabs are our real sections, not new. The only NEW pieces are the AI ones, the contextual "ask about this note" chip on the object, the floating Ask summon, and the docked panel with an Ask / Coworker toggle, an approve-or-reject write diff, and the credit meter. The palette and panel pieces above slot into this fuller view.</p>
+  </section>
+
+</div>
+
+<script>
+(function(){
+  var comments=[]; var counter=0;
+  var sections=[].slice.call(document.querySelectorAll('.rs'));
+
+  sections.forEach(function(sec){
+    var seg=sec.querySelector('[data-approve]');
+    seg.querySelectorAll('button').forEach(function(b){
+      b.addEventListener('click',function(){
+        var v=b.getAttribute('data-v');
+        var already=b.classList.contains('on-'+v);
+        seg.querySelectorAll('button').forEach(function(x){x.classList.remove('on-ok','on-warn');});
+        if(!already){b.classList.add('on-'+v);sec.dataset.state=v;} else {delete sec.dataset.state;}
+        renderSum();
+      });
+    });
+  });
+
+  document.querySelectorAll('.mock').forEach(function(mock){
+    mock.addEventListener('click',function(e){
+      if(e.target.closest('.pin')||e.target.closest('.editor')) return;
+      var rect=mock.getBoundingClientRect();
+      var x=((e.clientX-rect.left)/rect.width)*100;
+      var y=((e.clientY-rect.top)/rect.height)*100;
+      counter++;
+      var c={id:counter, section:mock.closest('.rs').getAttribute('data-name'), text:'', x:x, y:y, mock:mock};
+      comments.push(c);
+      var pin=document.createElement('div');
+      pin.className='pin'; pin.textContent=c.id; pin.style.left=x+'%'; pin.style.top=y+'%';
+      pin.addEventListener('click',function(ev){ev.stopPropagation();openEditor(c,pin);});
+      mock.appendChild(pin); c.pin=pin;
+      openEditor(c,pin);
+      renderSum();
+    });
+  });
+
+  function openEditor(c,pin){
+    document.querySelectorAll('.editor').forEach(function(e){e.remove();});
+    var ed=document.createElement('div'); ed.className='editor';
+    var left=Math.min(c.x,72); var top=Math.min(c.y+4,80);
+    ed.style.left=left+'%'; ed.style.top=top+'%';
+    ed.innerHTML='<textarea placeholder="Your note on this..."></textarea><div class="erow"><button class="esave">Save</button><button class="edel">Delete</button></div>';
+    var ta=ed.querySelector('textarea'); ta.value=c.text;
+    // Auto-save every keystroke to the comment, so a note is never lost if the
+    // editor closes without a Save click (clicking elsewhere used to discard it).
+    ta.addEventListener('input',function(){c.text=ta.value;renderSum();});
+    ed.querySelector('.esave').addEventListener('click',function(){c.text=ta.value;ed.remove();renderSum();});
+    ed.querySelector('.edel').addEventListener('click',function(){
+      if(c.pin&&c.pin.parentNode)c.pin.parentNode.removeChild(c.pin);
+      comments=comments.filter(function(x){return x.id!==c.id;}); ed.remove(); renderSum();
+    });
+    c.mock.appendChild(ed); setTimeout(function(){ta.focus();},0);
+  }
+
+  function renderSum(){
+    var ok=0,warn=0; sections.forEach(function(s){if(s.dataset.state==='ok')ok++;else if(s.dataset.state==='warn')warn++;});
+    var withText=comments.filter(function(c){return c.text.trim();}).length;
+    document.getElementById('sum').textContent=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+    document.getElementById('sum').innerHTML=ok+' approved &middot; '+warn+' needs work &middot; '+withText+' comments';
+  }
+
+  document.getElementById('exportBtn').addEventListener('click',function(){
+    var lines=['# BeakerBot GUI review feedback','','Date: '+new Date().toString(),''];
+    sections.forEach(function(s){
+      var name=s.getAttribute('data-name');
+      var state=s.dataset.state==='ok'?'APPROVED':s.dataset.state==='warn'?'NEEDS WORK':'undecided';
+      lines.push('## '+name+'  ['+state+']');
+      var mine=comments.filter(function(c){return c.section===name&&c.text.trim();});
+      if(!mine.length)lines.push('(no comments)');
+      else mine.forEach(function(c){lines.push('- #'+c.id+': '+c.text.trim());});
+      lines.push('');
+    });
+    var blob=new Blob([lines.join('\n')],{type:'text/markdown'});
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='beakerbot-gui-feedback.md';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  });
+
+  renderSum();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion Today, pull-down redesign</title>
+<style>
+  :root {
+    --surface: #f8fafc; --raised: #ffffff; --sunken: #f1f5f9;
+    --fg: #0f1b2e; --muted: #6b7280; --border: #e5e7eb; --page-bg: #e2e8f0;
+    --sky: #1AA0E6; --action: #1283C9; --ink: #111827;
+    --ok: #16a34a; --pin: #e11d48; --warn: #d97706; --amber: #f59e0b;
+    --rainbow: linear-gradient(90deg,#ffd2b0,#fff1a8 25%,#b7ebb1 50%,#a6d2f4 75%,#d6b5f0);
+  }
+  html[data-theme="dark"] {
+    --surface:#0a0e1a; --raised:#16233c; --sunken:#0d1424; --fg:#eaf2fb;
+    --muted:#9fb0c8; --border:rgba(255,255,255,.16); --page-bg:#060a13; --ink:#eaf2fb;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background:var(--page-bg); color:var(--fg); }
+  .topbar { position:sticky; top:0; z-index:30; display:flex; align-items:center; gap:12px; padding:12px 22px; background:var(--raised); border-bottom:1px solid var(--border); flex-wrap:wrap; }
+  .topbar h1 { font-size:15px; margin:0; font-weight:800; }
+  .topbar p { margin:0; font-size:12px; color:var(--muted); }
+  .spacer { flex:1; }
+  .btn { appearance:none; cursor:pointer; border:1px solid var(--border); background:var(--sunken); color:var(--fg); border-radius:8px; padding:7px 12px; font-size:12.5px; font-weight:600; }
+  .btn:hover { border-color:var(--muted); }
+  .btn.on { background:var(--action); border-color:var(--action); color:#fff; }
+  .btn.danger { color:var(--pin); }
+  .wrap { max-width:1080px; margin:0 auto; padding:22px; }
+  .lead { font-size:13.5px; color:var(--muted); line-height:1.6; max-width:84ch; margin:4px 0 16px; }
+  .lead b { color:var(--fg); }
+
+  .changes { display:grid; grid-template-columns:repeat(auto-fill,minmax(330px,1fr)); gap:10px; margin-bottom:20px; }
+  .change { border:1px solid var(--border); background:var(--raised); border-radius:12px; padding:12px 14px; display:flex; flex-direction:column; gap:8px; }
+  .change.approved { border-color:var(--ok); box-shadow:inset 3px 0 0 var(--ok); }
+  .change.disapproved { border-color:var(--pin); box-shadow:inset 3px 0 0 var(--pin); }
+  .ctitle { font-weight:700; font-size:13px; }
+  .ctitle .tag { font-size:10px; font-weight:700; color:var(--action); background:var(--sunken); border-radius:5px; padding:1px 5px; margin-right:6px; }
+  .cdesc { font-size:12px; color:var(--muted); line-height:1.55; }
+  .verdict { display:flex; align-items:center; gap:8px; }
+  .vbtn { appearance:none; cursor:pointer; border:1px solid var(--border); background:var(--sunken); color:var(--fg); border-radius:7px; padding:5px 10px; font-size:11.5px; font-weight:700; }
+  .vbtn.app.on { background:var(--ok); border-color:var(--ok); color:#fff; }
+  .vbtn.dis.on { background:var(--pin); border-color:var(--pin); color:#fff; }
+  .vclear { appearance:none; cursor:pointer; border:none; background:none; color:var(--muted); font-size:11px; text-decoration:underline; }
+
+  .stage { display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start; }
+  .howto { flex:1; min-width:260px; }
+  .howto h2 { font-size:14px; font-weight:800; margin:0 0 8px; }
+  .howto ol { margin:0; padding-left:18px; font-size:13px; color:var(--muted); line-height:1.7; }
+  .howto ol b { color:var(--fg); }
+  .howto .tip { margin-top:14px; font-size:12px; color:var(--action); font-weight:700; }
+
+  /* ---- phone ---- */
+  .phone { position:relative; width:340px; height:720px; flex:0 0 340px; border-radius:46px; background:#0b1220; padding:12px; box-shadow:0 30px 70px rgba(8,30,60,.4); }
+  .screen { position:relative; width:100%; height:100%; border-radius:36px; overflow:hidden; background:var(--surface); }
+  .statusbar { position:absolute; top:0; left:0; right:0; height:34px; display:flex; align-items:center; justify-content:space-between; padding:0 22px; font-size:12px; font-weight:700; color:var(--fg); z-index:5; }
+  .notch { position:absolute; top:9px; left:50%; transform:translateX(-50%); width:96px; height:22px; background:#0b1220; border-radius:13px; z-index:6; }
+
+  /* pull affordance at the very top of the app content */
+  .pulltab { position:absolute; top:34px; left:0; right:0; z-index:7; display:flex; flex-direction:column; align-items:center; gap:3px; padding-top:5px; cursor:grab; user-select:none; }
+  .pulltab .bar { width:38px; height:5px; border-radius:999px; background:var(--border); }
+  .pulltab .hint { font-size:10px; font-weight:700; color:var(--muted); opacity:.8; display:flex; align-items:center; gap:3px; }
+
+  /* the notebook content (behind the panel) */
+  .app { position:absolute; inset:0; padding:54px 16px 64px; overflow-y:auto; }
+  .nbhead { display:flex; align-items:center; justify-content:space-between; }
+  .nbhead h2 { font-size:26px; font-weight:800; margin:0; color:var(--ink); }
+  .nbhead .icons { display:flex; gap:14px; color:var(--action); font-size:18px; }
+  .sub { font-size:12.5px; color:var(--muted); margin:4px 0 12px; }
+  .demopill { display:flex; align-items:center; gap:8px; background:#e8f3fc; border:1px solid #cfe6fb; color:#1f6fab; border-radius:10px; padding:8px 11px; font-size:11.5px; margin-bottom:14px; }
+  html[data-theme="dark"] .demopill { background:#10314b; border-color:#1f4d72; color:#bfe2fb; }
+  .demopill .dot { width:8px; height:8px; border-radius:999px; background:var(--ok); }
+  /* capture actions, now the TOP of the notebook (no scrolling past Today) */
+  .actions { display:grid; gap:9px; }
+  .act { display:flex; align-items:center; gap:11px; background:var(--raised); border:1px solid var(--border); border-radius:14px; padding:13px 14px; }
+  .act .ico { width:34px; height:34px; border-radius:9px; background:#eaf4fc; color:var(--action); display:flex; align-items:center; justify-content:center; font-size:17px; }
+  html[data-theme="dark"] .act .ico { background:#123047; }
+  .act.primary { background:var(--action); border-color:var(--action); }
+  .act.primary .t, .act.primary .ico { color:#fff; }
+  .act.primary .ico { background:rgba(255,255,255,.18); }
+  .act .t { font-size:14px; font-weight:700; color:var(--fg); }
+  .act .s { font-size:11px; color:var(--muted); }
+  .inboxhdr { font-size:11px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:18px 2px 8px; }
+  .inbox { display:grid; gap:8px; }
+  .irow { display:flex; gap:10px; align-items:center; background:var(--raised); border:1px solid var(--border); border-radius:12px; padding:10px 12px; }
+  .irow .th { width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg,#cfe6fb,#a9d3f4); flex:0 0 34px; }
+  .irow .t { font-size:12.5px; font-weight:700; }
+  .irow .s { font-size:10.5px; color:var(--muted); }
+
+  /* ---- the Today panel (slides DOWN from the top, Apple-style) ---- */
+  .scrim { position:absolute; inset:0; background:rgba(8,18,34,.34); opacity:0; pointer-events:none; transition:opacity .28s ease; z-index:9; backdrop-filter:blur(1.5px); }
+  .scrim.show { opacity:1; pointer-events:auto; }
+  .today { position:absolute; left:8px; right:8px; top:8px; z-index:10;
+           background:var(--raised); border:1px solid var(--border);
+           border-radius:30px; padding:16px 16px 10px; box-shadow:0 26px 60px rgba(8,30,60,.4);
+           transform:translateY(-115%); transition:transform .42s cubic-bezier(.22,1,.36,1); }
+  .today.open { transform:translateY(0); }
+  .today.dragging { transition:none; }
+  .t-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; padding:4px 4px 0; }
+  .t-head .ttl { font-size:21px; font-weight:800; color:var(--ink); }
+  .t-head .date { font-size:12px; font-weight:600; color:var(--muted); }
+  /* revamped quick-summary: three glanceable stat tiles */
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:9px; margin-bottom:13px; }
+  .stat { border-radius:16px; padding:12px 10px; background:var(--sunken); border:1px solid var(--border); text-align:center; }
+  .stat .n { font-size:26px; font-weight:800; line-height:1; color:var(--ink); }
+  .stat .l { font-size:10.5px; font-weight:700; color:var(--muted); margin-top:5px; text-transform:uppercase; letter-spacing:.04em; }
+  .stat.today { background:#eaf4fc; border-color:#cfe6fb; } html[data-theme="dark"] .stat.today { background:#102f49; border-color:#1f4d72; }
+  .stat.today .n { color:var(--action); }
+  .stat.over { background:#fdecef; border-color:#f7c9d2; } html[data-theme="dark"] .stat.over { background:#3a1622; border-color:#5e2435; }
+  .stat.over .n { color:var(--pin); }
+  .stat.soon .n { color:var(--amber); }
+  /* contained task rows grouped under the summary */
+  .grp { font-size:10.5px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; color:var(--muted); margin:10px 4px 6px; }
+  .trow { display:flex; align-items:center; gap:10px; padding:9px 11px; border-radius:12px; background:var(--sunken); margin-bottom:6px; }
+  .trow .tick { width:7px; height:7px; border-radius:999px; flex:0 0 7px; background:var(--action); }
+  .trow.over .tick { background:var(--pin); }
+  .trow.soon .tick { background:var(--amber); }
+  .trow .body { flex:1; min-width:0; }
+  .trow .tt { font-size:12.5px; font-weight:700; color:var(--fg); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .trow.over .tt { color:var(--pin); }
+  .trow .ts { font-size:10.5px; color:var(--muted); }
+  .t-foot { display:flex; align-items:center; justify-content:space-between; margin-top:8px; padding:0 4px; }
+  .synced { font-size:10.5px; color:var(--muted); }
+  /* the grab handle at the BOTTOM of the panel: pull up / tap to dismiss */
+  .grab { display:flex; flex-direction:column; align-items:center; gap:2px; padding:9px 0 3px; cursor:grab; }
+  .grab .bar { width:42px; height:5px; border-radius:999px; background:var(--border); }
+  .grab .lbl { font-size:9.5px; color:var(--muted); font-weight:700; }
+
+  /* comment harness */
+  body.cmt-on .cmt { cursor:crosshair; }
+  body.cmt-on .cmt:hover { outline:2px solid var(--sky); outline-offset:2px; }
+  .pin { position:absolute; min-width:19px; height:19px; padding:0 4px; border-radius:999px; background:var(--pin); color:#fff; font-size:11px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; z-index:40; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.3); transform:translate(-50%,-50%); }
+  .panel { position:fixed; right:16px; bottom:16px; width:300px; max-height:66vh; display:flex; flex-direction:column; background:var(--raised); border:1px solid var(--border); border-radius:13px; box-shadow:0 12px 40px rgba(0,0,0,.25); z-index:50; overflow:hidden; }
+  .panel.collapsed .pbody, .panel.collapsed .pfoot { display:none; }
+  .phead { display:flex; align-items:center; gap:8px; padding:11px 13px; border-bottom:1px solid var(--border); cursor:pointer; font-size:13px; }
+  .pbody { overflow-y:auto; padding:6px; } .pfoot { display:flex; gap:8px; padding:9px 11px; border-top:1px solid var(--border); }
+  .empty { color:var(--muted); font-size:12px; padding:14px; text-align:center; }
+  .citem { display:flex; gap:8px; align-items:flex-start; padding:8px; border-radius:9px; }
+  .citem .num { flex:0 0 20px; height:20px; border-radius:999px; background:var(--pin); color:#fff; font-size:11px; font-weight:800; display:inline-flex; align-items:center; justify-content:center; }
+  .citem .tgt { font-size:11px; color:var(--muted); font-weight:600; } .citem .txt { font-size:12.5px; margin-top:1px; }
+  .citem .x { margin-left:auto; border:none; background:none; color:var(--muted); font-size:16px; cursor:pointer; }
+  .vbadge { font-size:9.5px; font-weight:800; }
+  .editor { position:fixed; width:270px; background:var(--raised); border:1px solid var(--border); border-radius:12px; box-shadow:0 14px 44px rgba(0,0,0,.32); z-index:60; padding:11px; }
+  .editor .lbl { font-size:11px; color:var(--muted); font-weight:700; margin-bottom:6px; }
+  .editor textarea { width:100%; min-height:60px; border:1px solid var(--border); border-radius:8px; background:var(--sunken); color:var(--fg); font:inherit; font-size:12.5px; padding:8px; }
+  .editor .vchoice { display:flex; gap:6px; margin:8px 0; } .editor .acts { display:flex; gap:6px; align-items:center; }
+  .toast { position:fixed; left:50%; bottom:22px; transform:translateX(-50%) translateY(20px); background:var(--ink); color:#fff; font-size:12.5px; font-weight:600; padding:9px 16px; border-radius:999px; opacity:0; pointer-events:none; transition:all .25s; z-index:70; }
+  .toast.show { opacity:1; transform:translateX(-50%) translateY(0); }
+</style>
+</head>
+<body>
+  <div class="topbar">
+    <div><h1>Companion Today, pull-down redesign</h1><p>Drag the handle at the top of the phone down (or tap it) to reveal Today. Set verdicts, pin notes, Export.</p></div>
+    <span class="spacer"></span>
+    <button class="btn on" id="openBtn">Open Today</button>
+    <button class="btn" id="themeToggle">Switch to dark</button>
+    <button class="btn" id="commentToggle">Comment mode: off</button>
+    <button class="btn" id="exportBtn">Export (copy)</button>
+    <button class="btn danger" id="clearBtn">Clear notes</button>
+  </div>
+
+  <div class="wrap">
+    <p class="lead">
+      Today moves <b>off the Notebook body</b> and becomes an <b>Apple-style panel you pull down from the top of the screen</b>. The capture actions go back to the top (no scrolling past Today, which also fixes the demo clip). The summary is revamped into <b>three glanceable stat tiles</b> (Today / Overdue / Coming up) over contained task rows, so you sum up the day in one glance and one gesture. <b>Try it:</b> drag the grab handle at the very top of the phone downward, or tap it. Dismiss by dragging the bottom handle up, tapping the dimmed area, or the handle.
+    </p>
+
+    <div class="changes" id="changes"></div>
+
+    <div class="stage">
+      <div class="phone">
+        <div class="screen" id="screen">
+          <div class="notch"></div>
+          <div class="statusbar"><span>1:54</span><span>&#9201; &#128246; &#128267;</span></div>
+
+          <!-- the pull-down affordance -->
+          <div class="pulltab cmt" id="pulltab" data-clabel="Pull-down affordance (top of screen)">
+            <div class="bar"></div>
+            <div class="hint">Today &#9662;</div>
+          </div>
+
+          <!-- notebook content -->
+          <div class="app cmt" data-clabel="Notebook body (Today removed, capture on top)">
+            <div class="nbhead"><h2>Notebook</h2><div class="icons">&#128276; &#9881;</div></div>
+            <div class="sub">Capture the bench into your lab notebook.</div>
+            <div class="demopill"><span class="dot"></span> Demo mode &nbsp;Sample data only. Tap Unpair to exit.</div>
+            <div class="actions">
+              <div class="act primary"><div class="ico">&#128247;</div><div><div class="t">Take a photo</div><div class="s" style="color:#dbeefc">Into the experiment, full res</div></div></div>
+              <div class="act"><div class="ico">&#9998;</div><div><div class="t">Quick note</div><div class="s">A fast bench note to the lab</div></div></div>
+              <div class="act"><div class="ico">&#128196;</div><div><div class="t">Scan a handwritten note</div><div class="s">Page to searchable text</div></div></div>
+            </div>
+            <div class="inboxhdr">Inbox &middot; syncs automatically</div>
+            <div class="inbox">
+              <div class="irow"><div class="th"></div><div><div class="t">Plate 4, GFP channel, 20x</div><div class="s">Just now</div></div></div>
+              <div class="irow"><div class="th"></div><div><div class="t">HEK293 passage 18</div><div class="s">2 min ago</div></div></div>
+            </div>
+          </div>
+
+          <!-- the Today panel + scrim -->
+          <div class="scrim" id="scrim"></div>
+          <div class="today cmt" id="today" data-clabel="Today panel (the revamped summary)">
+            <div class="t-head"><span class="ttl">Today</span><span class="date">Fri, Jun 13</span></div>
+            <div class="stats cmt" data-clabel="Quick-summary stat tiles">
+              <div class="stat today"><div class="n">2</div><div class="l">Today</div></div>
+              <div class="stat over"><div class="n">1</div><div class="l">Overdue</div></div>
+              <div class="stat soon"><div class="n">1</div><div class="l">Coming up</div></div>
+            </div>
+
+            <div class="grp cmt" data-clabel="Grouped task rows">Today</div>
+            <div class="trow"><span class="tick"></span><div class="body"><div class="tt">Split HEK293 cells (passage 18)</div><div class="ts">Cell culture</div></div></div>
+            <div class="trow"><span class="tick"></span><div class="body"><div class="tt">Image plate 4 (GFP channel, 20x)</div><div class="ts">Imaging</div></div></div>
+
+            <div class="grp">Overdue</div>
+            <div class="trow over"><span class="tick"></span><div class="body"><div class="tt">qPCR validation of KO clone B7</div><div class="ts">Due yesterday &middot; PCR</div></div></div>
+
+            <div class="grp">Coming up</div>
+            <div class="trow soon"><span class="tick"></span><div class="body"><div class="tt">Western blot for p53 (lysate batch 3)</div><div class="ts">Tomorrow</div></div></div>
+
+            <div class="t-foot"><span class="synced">Last synced 2 min ago</span></div>
+            <div class="grab" id="grab" data-clabel="Bottom grab handle (pull up to dismiss)"><div class="bar"></div><div class="lbl">pull up to close</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="howto">
+        <h2>What changed</h2>
+        <ol>
+          <li><b>Today leaves the Notebook.</b> The capture actions (Take a photo, Quick note, Scan) sit at the very top now, nothing to scroll past.</li>
+          <li><b>Pull down from the top</b> to summon Today, like the iOS Notification Center / Today view. A slim grab handle at the top is the affordance.</li>
+          <li><b>One-glance summary.</b> Three stat tiles count Today, Overdue (red), and Coming up (amber) before any list, so you sum the day instantly.</li>
+          <li><b>Contained rows.</b> Compact, color-ticked rows grouped under the tiles, not full-height cards.</li>
+          <li><b>Dismiss</b> by dragging the bottom handle up, tapping the dimmed area, or the handle.</li>
+        </ol>
+        <div class="tip">Drag the top handle on the phone to feel the gesture.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" id="cpanel">
+    <div class="phead" id="phead"><b>Notes</b>&nbsp;<span style="color:var(--muted);font-size:12px">(<span id="cCount">0</span>)</span><span class="spacer"></span><span style="color:var(--muted);font-size:12px" id="chev">hide</span></div>
+    <div class="pbody" id="pbody"></div>
+    <div class="pfoot"><button class="btn" id="exportBtn2">Copy</button></div>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+  const el = id => document.getElementById(id);
+  const today = el('today'), scrim = el('scrim');
+
+  /* ---- open / close + drag gesture ---- */
+  let open = false;
+  function setOpen(v) { open = v; today.classList.toggle('open', v); scrim.classList.toggle('show', v); el('openBtn').textContent = v ? 'Close Today' : 'Open Today'; el('openBtn').classList.toggle('on', !v); }
+  el('openBtn').addEventListener('click', () => setOpen(!open));
+  scrim.addEventListener('click', () => setOpen(false));
+  el('grab').addEventListener('click', e => { if (!dragMoved) setOpen(false); });
+
+  // pull-down drag from the top affordance; pull-up drag from the bottom handle.
+  let dragging = false, startY = 0, dragMoved = false, panelH = 0;
+  function beginDrag(e, fromTop) {
+    if (document.body.classList.contains('cmt-on')) return;
+    dragging = true; dragMoved = false; startY = (e.touches ? e.touches[0].clientY : e.clientY);
+    panelH = today.offsetHeight; today.classList.add('dragging');
+    e.preventDefault();
+  }
+  function moveDrag(e) {
+    if (!dragging) return;
+    const y = (e.touches ? e.touches[0].clientY : e.clientY);
+    const dy = y - startY; if (Math.abs(dy) > 4) dragMoved = true;
+    // translate from current open/closed base
+    const base = open ? 0 : -(panelH + 16);
+    let t = base + dy;
+    t = Math.max(-(panelH + 16), Math.min(0, t));
+    today.style.transform = `translateY(${t}px)`;
+    scrim.classList.add('show'); scrim.style.opacity = String(1 - Math.abs(t) / (panelH + 16));
+  }
+  function endDrag() {
+    if (!dragging) return; dragging = false; today.classList.remove('dragging'); today.style.transform = ''; scrim.style.opacity = '';
+    const m = today.getBoundingClientRect();
+    // decide by how far it traveled
+    const shown = m.top > -10 || (open && m.top > -panelH * 0.55);
+    setOpen(shown ? (open ? true : true) : false);
+    // simpler: if dragged mostly visible -> open
+  }
+  el('pulltab').addEventListener('mousedown', e => beginDrag(e, true));
+  el('pulltab').addEventListener('touchstart', e => beginDrag(e, true), {passive:false});
+  el('grab').addEventListener('mousedown', e => beginDrag(e, false));
+  el('grab').addEventListener('touchstart', e => beginDrag(e, false), {passive:false});
+  window.addEventListener('mousemove', moveDrag); window.addEventListener('touchmove', moveDrag, {passive:false});
+  window.addEventListener('mouseup', endDrag); window.addEventListener('touchend', endDrag);
+
+  /* ---- review harness ---- */
+  function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+  const STORE='ros-today-pulldown-comments-v1'; let comments=[];
+  try{comments=JSON.parse(localStorage.getItem(STORE)||'[]');}catch{comments=[];}
+  function save(){try{localStorage.setItem(STORE,JSON.stringify(comments));}catch{}}
+  function renderPins(){
+    document.querySelectorAll('.pin').forEach(p=>p.remove());
+    const byT={}; comments.forEach((c,i)=>{(byT[c.target]=byT[c.target]||[]).push(i+1);});
+    document.querySelectorAll('.cmt').forEach(elm=>{const lbl=elm.getAttribute('data-clabel');const nums=byT[lbl];if(!nums)return;const r=elm.getBoundingClientRect();const pin=document.createElement('span');pin.className='pin';pin.textContent=nums.join(',');pin.style.left=(window.scrollX+r.left+12)+'px';pin.style.top=(window.scrollY+r.top+12)+'px';pin.addEventListener('click',ev=>{ev.stopPropagation();const f=comments.findIndex(c=>c.target===lbl);if(f>=0)openEditor(elm,f,ev);});document.body.appendChild(pin);});
+  }
+  function renderPanel(){
+    const body=el('pbody'); el('cCount').textContent=comments.length;
+    if(!comments.length){body.innerHTML='<div class="empty">No notes yet. Turn on Comment mode and click any part of the phone.</div>';return;}
+    const vt=v=>v==='approve'?'<span class="vbadge" style="color:var(--ok)">APPROVE</span> ':v==='disapprove'?'<span class="vbadge" style="color:var(--pin)">DISAPPROVE</span> ':'';
+    body.innerHTML=comments.map((c,i)=>`<div class="citem"><span class="num">${i+1}</span><div style="flex:1"><div class="tgt">${vt(c.verdict)}${esc(c.target)}</div><div class="txt">${esc(c.text)||'<i>no text</i>'}</div></div><button class="x" data-del="${i}">&times;</button></div>`).join('');
+    body.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click',()=>{comments.splice(+b.dataset.del,1);save();renderAll();}));
+  }
+  function renderAll(){renderPins();renderPanel();}
+  window.addEventListener('resize',renderPins); window.addEventListener('scroll',renderPins);
+
+  const CHANGES=[
+    {id:'move',tag:'1',title:'Move Today off the Notebook body',desc:'Capture actions (photo / note / scan) become the top of the Notebook, nothing to scroll past. Today no longer occupies inline layout.'},
+    {id:'pulldown',tag:'2',title:'Pull down from the top to open Today',desc:'Apple Notification-Center-style panel that swipes down over the screen with a dimmed scrim. A slim grab handle at the top is the affordance.'},
+    {id:'summary',tag:'3',title:'Revamped quick-summary (stat tiles)',desc:'Three glanceable tiles count Today / Overdue (red) / Coming up (amber) before any list, so the day sums up at a glance. This is the "quickly summing things" ask.'},
+    {id:'rows',tag:'4',title:'Contained, grouped task rows',desc:'Compact color-ticked rows grouped under the tiles, replacing the full-height TaskRow cards.'},
+    {id:'dismiss',tag:'5',title:'Dismiss gesture',desc:'Swipe the bottom handle up, tap the dimmed area, or tap the handle. Pull-to-refresh on the panel could re-sync (open question).'},
+  ];
+  const VSTORE='ros-today-pulldown-verdicts-v1'; let verdicts={};
+  try{verdicts=JSON.parse(localStorage.getItem(VSTORE)||'{}');}catch{verdicts={};}
+  function saveV(){try{localStorage.setItem(VSTORE,JSON.stringify(verdicts));}catch{}}
+  function renderChanges(){
+    const wrap=el('changes');
+    wrap.innerHTML=CHANGES.map(c=>{const v=verdicts[c.id]||'';const cls=v==='approve'?'approved':v==='disapprove'?'disapproved':'';return `<div class="change ${cls}"><div><div class="ctitle"><span class="tag">${c.tag}</span>${esc(c.title)}</div><div class="cdesc">${esc(c.desc)}</div></div><div class="verdict"><button class="vbtn app ${v==='approve'?'on':''}" data-c="${c.id}" data-v="approve">Approve</button><button class="vbtn dis ${v==='disapprove'?'on':''}" data-c="${c.id}" data-v="disapprove">Disapprove</button>${v?`<button class="vclear" data-c="${c.id}" data-v="clear">clear</button>`:''}</div></div>`;}).join('');
+    wrap.querySelectorAll('[data-v]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.c,v=b.dataset.v;if(v==='clear')delete verdicts[id];else verdicts[id]=verdicts[id]===v?undefined:v;if(!verdicts[id])delete verdicts[id];saveV();renderChanges();}));
+  }
+  let editorEl=null;
+  function closeEditor(){if(editorEl){editorEl.remove();editorEl=null;}}
+  function openEditor(targetEl,existingIndex,ev){
+    closeEditor();
+    const target=targetEl.getAttribute('data-clabel')||'Page';
+    const existing=existingIndex!=null?comments[existingIndex]:null; let pv=existing?(existing.verdict||''):'';
+    const ed=document.createElement('div');ed.className='editor';
+    ed.innerHTML=`<div class="lbl">${esc(target)}</div><textarea placeholder="Note or change request">${existing?esc(existing.text):''}</textarea><div class="vchoice"><button class="vbtn" data-vc="note">Note</button><button class="vbtn app" data-vc="approve">Approve</button><button class="vbtn dis" data-vc="disapprove">Disapprove</button></div><div class="acts">${existing?'<button class="btn danger" data-act="del">Delete</button>':''}<span class="spacer"></span><button class="btn" data-act="cancel">Cancel</button><button class="btn on" data-act="save">Save</button></div>`;
+    document.body.appendChild(ed);editorEl=ed;
+    const paint=()=>ed.querySelectorAll('[data-vc]').forEach(b=>b.classList.toggle('on',(b.dataset.vc==='note'&&!pv)||b.dataset.vc===pv));
+    ed.querySelectorAll('[data-vc]').forEach(b=>b.addEventListener('click',()=>{pv=b.dataset.vc==='note'?'':b.dataset.vc;paint();}));paint();
+    const x=ev?ev.clientX:0,y=ev?ev.clientY:0; ed.style.left=Math.min(Math.max(8,x-20),window.innerWidth-286)+'px'; ed.style.top=Math.min(y+10,window.innerHeight-200)+'px';
+    ed.querySelector('textarea').focus();
+    ed.querySelectorAll('[data-act]').forEach(b=>b.addEventListener('click',()=>{const a=b.dataset.act;if(a==='cancel')return closeEditor();if(a==='del'){if(existingIndex!=null){comments.splice(existingIndex,1);save();renderAll();}return closeEditor();}if(a==='save'){const t=ed.querySelector('textarea').value.trim();if(!t&&!pv)return closeEditor();if(existing){existing.text=t;existing.verdict=pv;}else comments.push({target,text:t,verdict:pv});save();renderAll();closeEditor();}}));
+  }
+  document.addEventListener('click',e=>{
+    if(!document.body.classList.contains('cmt-on'))return;
+    if(e.target.closest('.editor')||e.target.closest('.panel')||e.target.closest('.topbar')||e.target.closest('.pin')||e.target.closest('.changes'))return;
+    const cmt=e.target.closest('.cmt');if(!cmt)return;e.preventDefault();e.stopPropagation();openEditor(cmt,null,e);
+  },true);
+  const cBtn=el('commentToggle');
+  cBtn.addEventListener('click',()=>{const on=document.body.classList.toggle('cmt-on');cBtn.classList.toggle('on',on);cBtn.textContent='Comment mode: '+(on?'on':'off');if(!on)closeEditor();});
+  el('themeToggle').addEventListener('click',function(){const d=document.documentElement.getAttribute('data-theme')==='dark';document.documentElement.setAttribute('data-theme',d?'light':'dark');this.textContent=d?'Switch to dark':'Switch to light';renderPins();});
+  el('phead').addEventListener('click',()=>{const p=el('cpanel');const c=p.classList.toggle('collapsed');el('chev').textContent=c?'show':'hide';});
+  function buildMd(){let o='Companion Today pull-down, feedback\n\nVerdicts\n';CHANGES.forEach(c=>{const v=verdicts[c.id];o+=`- ${c.title}: ${v==='approve'?'APPROVE':v==='disapprove'?'DISAPPROVE':'undecided'}\n`;});o+='\nNotes\n';if(!comments.length)o+='- none\n';comments.forEach((c,i)=>{const t=c.verdict==='approve'?'[APPROVE] ':c.verdict==='disapprove'?'[DISAPPROVE] ':'';o+=`${i+1}. ${t}[${c.target}] ${c.text}\n`;});return o;}
+  function toast(m){const t=el('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),1500);}
+  async function doCopy(){try{await navigator.clipboard.writeText(buildMd());toast('Feedback copied, paste it back to me');}catch{window.prompt('Copy',buildMd());}}
+  el('exportBtn').addEventListener('click',doCopy); el('exportBtn2').addEventListener('click',doCopy);
+  el('clearBtn').addEventListener('click',()=>{if(comments.length&&!confirm('Delete all notes?'))return;comments=[];save();renderAll();});
+  renderChanges(); renderAll();
+  // open once on load so the revamped summary is visible immediately
+  setTimeout(()=>setOpen(true), 400);
+</script>
+</body>
+</html>

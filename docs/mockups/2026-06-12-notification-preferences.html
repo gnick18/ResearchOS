@@ -1,0 +1,252 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>Notification preferences (review)</title>
+<style>
+  :root{
+    --ink:#0f2350;--muted:#516079;--line:#dbe6f3;--tint:#f4f8fd;--card:#fff;--bg:#fbfcfe;
+    --action:#1283c9;--purple:#5b47d6;--green:#16a34a;--off:#cbd5e1;
+    --rainbow:linear-gradient(90deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0);
+  }
+  [data-theme="dark"]{--ink:#e8eefb;--muted:#9fb2cc;--line:#22324c;--tint:#0f1a2c;--card:#0f1a2c;--bg:#0a1120;--off:#33425e;}
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--ink)}
+  .ribbon{height:8px;background:var(--rainbow)}
+  .bar{position:sticky;top:0;z-index:40;display:flex;align-items:center;gap:12px;padding:10px 18px;background:color-mix(in srgb,var(--card) 92%,transparent);backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+  .bar h1{font-size:14px;margin:0;font-weight:800}.bar .sub{font-size:12px;color:var(--muted)}
+  .spacer{flex:1}
+  .tool{font-size:12px;font-weight:700;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:7px 12px;cursor:pointer}
+  .estat{font-size:12px;color:var(--muted)}
+  .wrap{max-width:880px;margin:0 auto;padding:26px 22px 60px}
+  .h2{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .lead{font-size:14px;color:var(--muted);margin:6px 0 22px;max-width:60ch;line-height:1.55}
+  .card{border:1px solid var(--line);border-radius:18px;background:var(--card);padding:18px 20px;margin-bottom:18px}
+  .card-h{font-size:14px;font-weight:800;margin:0 0 3px}
+  .card-s{font-size:12px;color:var(--muted);margin:0 0 14px;line-height:1.5}
+  /* where-to-reach rows */
+  .reach{display:flex;align-items:center;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+  .reach:first-of-type{border-top:0}
+  .reach .ic{width:34px;height:34px;border-radius:9px;background:#1283c914;color:var(--action);display:grid;place-items:center;flex:none}
+  .reach .ic svg{width:18px;height:18px}
+  .reach .body{flex:1;min-width:0}
+  .reach .t{font-size:13px;font-weight:700}
+  .reach .d{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .reach input[type=email]{width:230px;max-width:46vw;border:1px solid var(--line);border-radius:8px;padding:7px 10px;font-size:12.5px;background:var(--bg);color:var(--ink)}
+  .pill{font-size:11px;font-weight:800;border-radius:99px;padding:3px 9px}
+  .pill.ok{background:#16a34a18;color:var(--green)}
+  .pill.warn{background:#f59e0b18;color:#b45309}
+  .btn-sm{font-size:11.5px;font-weight:700;border:1px solid var(--action);color:var(--action);background:var(--card);border-radius:8px;padding:6px 11px;cursor:pointer}
+  .toggle-ba{display:inline-flex;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+  .toggle-ba button{font-size:12px;font-weight:800;border:0;background:var(--card);color:var(--muted);padding:7px 13px;cursor:pointer}
+  .toggle-ba button.on{background:var(--ink);color:#fff}
+  /* solo upsell */
+  .upsell{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding:13px 16px;border:1px solid #a6d2f4;border-radius:14px;background:linear-gradient(135deg,#1283c90c,#5b47d60c)}
+  .upsell .ut{font-size:13px;font-weight:800}
+  .upsell .ud{font-size:11.5px;color:var(--muted);margin-top:1px}
+  .upsell .cta{margin-left:auto;font-size:12px;font-weight:800;color:#fff;background:linear-gradient(90deg,var(--action),var(--purple));border:0;border-radius:9px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+  /* gated (solo) channel state */
+  body.solo .gated .ctl{display:none}
+  .gated .lock{display:none}
+  body.solo .gated .lock{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;color:var(--action);cursor:pointer}
+  body.solo .gated .d{opacity:.7}
+  body.solo th .chan-h[data-col="phone"],body.solo th .chan-h[data-col="email"]{opacity:.4}
+  body.solo .sw.locked{background:var(--off);opacity:.4;pointer-events:none}
+  body.solo .sw.locked::after{left:2px}
+  /* matrix */
+  .matrix{width:100%;border-collapse:collapse}
+  .matrix th,.matrix td{padding:11px 8px;text-align:center}
+  .matrix th.cat,.matrix td.cat{text-align:left;width:42%}
+  .matrix thead th{font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
+  .chan-h{display:flex;flex-direction:column;align-items:center;gap:4px}
+  .chan-h svg{width:17px;height:17px;color:var(--action)}
+  .matrix tbody tr{border-bottom:1px solid var(--line)}
+  .matrix tbody tr:last-child{border-bottom:0}
+  .cat .ct{font-size:13px;font-weight:700}
+  .cat .cd{font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;max-width:42ch}
+  /* switch */
+  .sw{width:38px;height:22px;border-radius:99px;background:var(--off);position:relative;cursor:pointer;transition:background .15s;display:inline-block;vertical-align:middle}
+  .sw::after{content:"";position:absolute;top:2px;left:2px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.25);transition:left .15s}
+  .sw.on{background:var(--action)}
+  .sw.on::after{left:18px}
+  .colgroup-on .sw.on{background:var(--action)}
+  /* quiet hours */
+  .qh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:12.5px;color:var(--muted)}
+  .qh input[type=time]{border:1px solid var(--line);border-radius:8px;padding:6px 8px;font-size:12.5px;background:var(--bg);color:var(--ink)}
+  .qh b{color:var(--ink)}
+  /* decisions */
+  .decision{max-width:880px;margin:16px auto;padding:14px 16px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+  .decision .q{font-size:13.5px;font-weight:800;margin-bottom:8px}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{font-size:12px;font-weight:700;border:0;background:var(--card);color:var(--ink);padding:6px 13px;cursor:pointer}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}.seg button.on[data-v="reject"]{background:#dc2626;color:#fff}
+  textarea.note{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font-size:12.5px;padding:8px;min-height:40px;resize:vertical;font-family:inherit}
+  dialog{border:0;border-radius:12px;max-width:560px;width:92%;padding:0;background:var(--card);color:var(--ink)}
+  dialog .dh{padding:12px 16px;border-bottom:1px solid var(--line);font-weight:800;font-size:13px}
+  dialog textarea{width:100%;border:0;background:var(--bg);color:var(--ink);min-height:280px;padding:14px;font-family:ui-monospace,monospace;font-size:12px}
+  dialog .df{padding:10px 16px;display:flex;gap:8px;justify-content:flex-end;border-top:1px solid var(--line)}
+</style>
+</head>
+<body>
+<div class="ribbon"></div>
+<div class="bar">
+  <div><h1>Notification preferences</h1><div class="sub">New Settings section. Toggle anything; it is fully interactive. Export when done.</div></div>
+  <div class="spacer"></div>
+  <div class="toggle-ba" id="viewAs"><button data-v="account" class="on">Account user</button><button data-v="solo">Solo (no account)</button></div>
+  <button class="tool" id="themeBtn">Dark</button>
+  <span class="estat" id="estat">No decisions</span>
+  <button class="tool" id="exportBtn">Export</button>
+</div>
+
+<div class="wrap">
+  <h2 class="h2">Notifications</h2>
+  <p class="lead">Decide what you hear about, and where. Every kind of notification can go to any combination of places, or nowhere at all. The in-app bell is always there; the rest is up to you.</p>
+
+  <div class="upsell" id="soloUpsell" style="display:none">
+    <div>
+      <div class="ut">Email and phone notifications come with a free account</div>
+      <div class="ud">Solo ResearchOS stays fully on your machine, so the bell and laptop pop-ups work right now. Add an account whenever you want email or your phone in the loop.</div>
+    </div>
+    <button class="cta">Create a free account</button>
+  </div>
+
+  <!-- where notifications reach you -->
+  <div class="card">
+    <p class="card-h">Where notifications can reach you</p>
+    <p class="card-s">Turn on the places you want to be reachable. Each one becomes a column in the table below.</p>
+
+    <div class="reach">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></span>
+      <div class="body"><div class="t">In-app bell</div><div class="d">The bell in the ResearchOS header. Always on.</div></div>
+      <span class="pill ok">Always on</span>
+    </div>
+
+    <div class="reach">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+      <div class="body"><div class="t">Laptop pop-ups</div><div class="d">Desktop notifications while a ResearchOS tab is open. Needs your browser's permission.</div></div>
+      <button class="btn-sm" onclick="this.textContent='Enabled';this.style.color='var(--green)';this.style.borderColor='var(--green)'">Enable</button>
+    </div>
+
+    <div class="reach gated">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2.5"/><path d="M11 18h2"/></svg></span>
+      <div class="body"><div class="t">Companion phone app</div><div class="d">Push to your paired phone, even when your laptop is closed.</div></div>
+      <span class="ctl pill ok">iPhone 15 paired</span>
+      <span class="lock">Add with a free account &rarr;</span>
+    </div>
+
+    <div class="reach gated">
+      <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/></svg></span>
+      <div class="body"><div class="t">Email</div><div class="d">A short note lands in your inbox. We verify the address once.</div></div>
+      <input class="ctl" type="email" placeholder="you@university.edu" value="gnickles@wisc.edu" />
+      <span class="lock">Add with a free account &rarr;</span>
+    </div>
+  </div>
+
+  <!-- the matrix -->
+  <div class="card">
+    <p class="card-h">What goes where</p>
+    <p class="card-s">Pick a channel per kind of notification. Tap a column header to flip the whole column.</p>
+    <table class="matrix">
+      <thead>
+        <tr>
+          <th class="cat"></th>
+          <th><div class="chan-h" data-col="inapp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>Bell</div></th>
+          <th><div class="chan-h" data-col="laptop"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>Laptop</div></th>
+          <th><div class="chan-h" data-col="phone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2.5"/></svg>Phone</div></th>
+          <th><div class="chan-h" data-col="email"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 6 10 7L22 6"/></svg>Email</div></th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <!-- quiet hours -->
+  <div class="card">
+    <p class="card-h">Quiet hours</p>
+    <p class="card-s">During these hours, laptop, phone, and email stay silent. The bell still collects everything for when you are back.</p>
+    <div class="qh">
+      <span class="sw on" data-qh></span>
+      <span>From <input type="time" value="19:00"></span>
+      <span>to <input type="time" value="08:00"></span>
+      <span>&middot; <b>weekends fully quiet</b> <span class="sw on" style="margin-left:6px"></span></span>
+    </div>
+  </div>
+</div>
+
+<!-- decisions -->
+<div class="wrap" style="padding-top:0">
+  <div class="decision"><div class="q">1. Overall direction (per-category matrix, the 4 channels)?</div>
+    <div class="seg" data-id="direction"><button data-v="approve">Approve</button><button data-v="reject">Not it</button></div>
+    <textarea class="note" data-note="direction" placeholder="What works / what to change..."></textarea></div>
+  <div class="decision"><div class="q">2. Grouping the 10 notification types into these 5 categories?</div>
+    <div class="seg" data-id="grouping"><button data-v="approve">Good grouping</button><button data-v="reject">Change it</button></div>
+    <textarea class="note" data-note="grouping" placeholder="Split/merge categories, or want all 10 types listed raw..."></textarea></div>
+  <div class="decision"><div class="q">3. "Where notifications reach you" setup (email field + verify, laptop permission, paired phone)?</div>
+    <div class="seg" data-id="reach"><button data-v="approve">Approve</button><button data-v="reject">Rework</button></div>
+    <textarea class="note" data-note="reach" placeholder="Notes on the channel setup..."></textarea></div>
+  <div class="decision"><div class="q">4. Quiet hours (and weekends-quiet)?</div>
+    <div class="seg" data-id="quiet"><button data-v="approve">Keep it</button><button data-v="reject">Drop/change</button></div>
+    <textarea class="note" data-note="quiet" placeholder="Quiet hours feedback..."></textarea></div>
+</div>
+
+<dialog id="exp"><div class="dh">Decisions + current toggle state, paste back into chat</div><textarea id="expText" readonly></textarea>
+  <div class="df"><button class="tool" id="copyExp">Copy</button><button class="tool" id="closeExp">Close</button></div></dialog>
+
+<script>
+const CATS=[
+  {id:"shared",t:"Shared & assigned to me",d:"A task, method, or project shared with you, or a task assigned or flagged for your review.",def:{inapp:1,laptop:1,phone:1,email:0}},
+  {id:"comments",t:"Comments & mentions",d:"Someone comments on your work or @-mentions you.",def:{inapp:1,laptop:1,phone:0,email:0}},
+  {id:"lab",t:"Lab announcements",d:"Your PI posts a lab-wide announcement.",def:{inapp:1,laptop:0,phone:0,email:1}},
+  {id:"purchases",t:"Purchases & orders",d:"An order you requested is placed or approved, or one is assigned to you.",def:{inapp:1,laptop:0,phone:0,email:0}},
+  {id:"reminders",t:"Reminders & schedule changes",d:"Calendar reminders, and when a shared task's date shifts.",def:{inapp:1,laptop:1,phone:1,email:0}},
+];
+const CH=["inapp","laptop","phone","email"];
+const rows=document.getElementById("rows");
+CATS.forEach(c=>{
+  const tr=document.createElement("tr");
+  let cells=`<td class="cat"><div class="ct">${c.t}</div><div class="cd">${c.d}</div></td>`;
+  CH.forEach(ch=>{cells+=`<td><span class="sw ${c.def[ch]?"on":""}" data-cat="${c.id}" data-ch="${ch}"></span></td>`;});
+  tr.innerHTML=cells; rows.appendChild(tr);
+});
+// toggles
+document.querySelectorAll(".sw").forEach(s=>s.addEventListener("click",()=>s.classList.toggle("on")));
+// column header flip
+document.querySelectorAll(".chan-h").forEach(h=>{const col=h.dataset.col; if(!col)return;
+  h.style.cursor="pointer";
+  h.addEventListener("click",()=>{const sws=[...document.querySelectorAll(`.sw[data-ch="${col}"]`)];
+    const anyOff=sws.some(s=>!s.classList.contains("on"));sws.forEach(s=>s.classList.toggle("on",anyOff));});});
+// view-as: Account vs Solo (no account). Solo loses email + phone (no account
+// = no cloud/AI/share), so those become a gentle "free account" upsell.
+function applyView(v){
+  const solo=v==="solo";
+  document.body.classList.toggle("solo",solo);
+  document.getElementById("soloUpsell").style.display=solo?"flex":"none";
+  document.querySelectorAll('.sw[data-ch="phone"],.sw[data-ch="email"]').forEach(s=>s.classList.toggle("locked",solo));
+}
+document.querySelectorAll("#viewAs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#viewAs button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");applyView(b.dataset.v);});
+
+// decisions
+const KEY="ros-notif-prefs-review";const state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function render(){const n=Object.keys(state).filter(k=>state[k]).length;document.getElementById("estat").textContent=n?`${n} recorded`:"No decisions";}
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+document.querySelectorAll(".seg").forEach(seg=>{const id=seg.dataset.id;
+  seg.querySelectorAll("button").forEach(b=>{if(state[id]===b.dataset.v)b.classList.add("on");
+    b.onclick=()=>{seg.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");state[id]=b.dataset.v;save();};});});
+document.querySelectorAll("[data-note]").forEach(t=>{const id="note:"+t.dataset.note;t.value=state[id]||"";t.oninput=()=>{state[id]=t.value;save();};});
+document.getElementById("themeBtn").onclick=()=>{const d=document.documentElement.getAttribute("data-theme")==="dark";document.documentElement.setAttribute("data-theme",d?"":"dark");document.getElementById("themeBtn").textContent=d?"Dark":"Light";};
+document.getElementById("exportBtn").onclick=()=>{const L=["Notification preferences, decisions",""];
+  const lab={direction:"1. Direction",grouping:"2. Grouping",reach:"3. Reach setup",quiet:"4. Quiet hours"};
+  for(const k of ["direction","grouping","reach","quiet"])L.push(`${lab[k]}: ${state[k]||"(no answer)"}`);
+  L.push("","Toggle state set:");
+  CATS.forEach(c=>{const on=CH.filter(ch=>document.querySelector(`.sw[data-cat="${c.id}"][data-ch="${ch}"]`).classList.contains("on"));L.push(`  ${c.t}: ${on.join(", ")||"(none)"}`);});
+  for(const k of Object.keys(state).filter(k=>k.startsWith("note:")&&state[k]))L.push(`Note [${k.slice(5)}]: ${state[k]}`);
+  document.getElementById("expText").value=L.join("\n");document.getElementById("exp").showModal();};
+document.getElementById("copyExp").onclick=()=>navigator.clipboard.writeText(document.getElementById("expText").value);
+document.getElementById("closeExp").onclick=()=>document.getElementById("exp").close();
+render();
+</script>
+</body>
+</html>

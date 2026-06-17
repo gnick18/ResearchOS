@@ -1,0 +1,167 @@
+diff --git a/frontend/src/lib/ai/conversation-store.ts b/frontend/src/lib/ai/conversation-store.ts
+index 3e0e9ddc6..a5c7dfb95 100644
+--- a/frontend/src/lib/ai/conversation-store.ts
++++ b/frontend/src/lib/ai/conversation-store.ts
+@@ -237,8 +237,40 @@ interface ConversationState {
+   //   turn) and on clearConversation/newChat. The composer reads this to show the
+   //   PDF chip with extracting/ready states.
+   attachedPaper: AttachedPaper | null;
++
++  // ---- @ mention attached refs state --------------------------------------------
++  //
++  // attachedRefs: the list of objects the user has picked via the @ picker and
++  //   staged for the next send. Each ref is rendered as a per-type colored chip
++  //   above the composer input. Cleared on every send() (injected as a per-turn
++  //   context system note on that turn, then discarded via the identity-filter
++  //   pattern so it is NOT re-sent on every later turn) and on
++  //   clearConversation/newChat.
++  attachedRefs: AttachedRef[];
+ }
+ 
++// ---- Attached object refs (@ mentions) ----------------------------------------
++//
++// An AttachedRef is one object the user selected via the @ picker. It carries
++// just enough metadata to inject a per-turn context note for the model (the
++// model uses the id + type + name to call the right read tool) and to render
++// the chip in the composer.
++//
++// Cleared on send() and on clearConversation/newChat so they never carry over
++// to the next turn.
++
++/** One user-selected object attached via the @ mention picker. */
++export type AttachedRef = {
++  /** The canonical object type from the global index. */
++  type: "task" | "project" | "method" | "sequence" | "inventory" | "note" | "datahub" | "molecule" | "purchase";
++  /** The composite key (e.g. "note-gnickles:42"), unique within the index. */
++  id: string;
++  /** Display name shown on the chip and injected into the per-turn note. */
++  name: string;
++  /** Deep-link href to open the object (carried for future chip-click nav). */
++  deepLink: string;
++};
++
+ /** A paper PDF that has been extracted and staged for the next send. */
+ export type AttachedPaper = {
+   /** Original file name (for display in the chip). */
+@@ -270,6 +302,12 @@ interface ConversationActions {
+   setAttachedPaper: (paper: AttachedPaper) => void;
+   /** Remove the staged paper without sending. */
+   clearAttachedPaper: () => void;
++  /** Add an object ref via the @ picker. Deduplicates by id. */
++  addAttachedRef: (ref: AttachedRef) => void;
++  /** Remove one attached ref by its id. */
++  removeAttachedRef: (id: string) => void;
++  /** Clear all attached refs without sending. */
++  clearAttachedRefs: () => void;
+   /**
+    * Abort the currently in-flight send. Clears the sending/loading state and
+    * removes the empty assistant placeholder bubble so it does not hang on
+@@ -501,6 +539,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+   pendingImages: [],
+   // PDF paper attachment state.
+   attachedPaper: null,
++  // @ mention attached refs.
++  attachedRefs: [],
+ 
+   stop: (placeholderAssistantId?: string) => {
+     // Guard: nothing to abort when idle.
+@@ -561,6 +601,24 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+     set({ attachedPaper: null });
+   },
+ 
++  addAttachedRef: (ref: AttachedRef) => {
++    set((state) => {
++      // Deduplicate by id so double-selecting the same object is a no-op.
++      if (state.attachedRefs.some((r) => r.id === ref.id)) return state;
++      return { attachedRefs: [...state.attachedRefs, ref] };
++    });
++  },
++
++  removeAttachedRef: (id: string) => {
++    set((state) => ({
++      attachedRefs: state.attachedRefs.filter((r) => r.id !== id),
++    }));
++  },
++
++  clearAttachedRefs: () => {
++    set({ attachedRefs: [] });
++  },
++
+   clearQueue: () => {
+     pendingQueuedText = null;
+     set({ queuedText: null });
+@@ -595,6 +653,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+       pendingImages: [],
+       // Clear any staged paper when starting fresh.
+       attachedPaper: null,
++      // Clear any attached refs when starting fresh.
++      attachedRefs: [],
+     });
+   },
+ 
+@@ -651,6 +711,8 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+       pendingImages: [],
+       // Discard any staged paper when switching threads.
+       attachedPaper: null,
++      // Discard any attached refs when switching threads.
++      attachedRefs: [],
+     });
+   },
+ 
+@@ -781,7 +843,12 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+     // re-sent on every subsequent turn (the same pattern as contextMessage /
+     // memoryMessage). Cleared here so it does not carry over to the next turn.
+     const capturedPaper = get().attachedPaper;
+-    set({ pendingImages: [], attachedPaper: null });
++    // Snapshot and clear any @ mention attached refs atomically with the send.
++    // Injected as a per-turn refsMessage (identity-filtered out after the loop
++    // so they are NOT re-sent on every later turn). Cleared here so chips do
++    // not carry over to the next message.
++    const capturedRefs = get().attachedRefs;
++    set({ pendingImages: [], attachedPaper: null, attachedRefs: [] });
+ 
+     const userMessage: ChatMessage = {
+       id: nextId(),
+@@ -913,6 +980,25 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+         }
+       : null;
+ 
++    // Inject the @ mention attached refs as a per-turn system message. The
++    // note lists each object by type, name, and id so the model can call the
++    // correct read tool without guessing. Held by reference for the same
++    // identity-filter-before-persist pattern as contextMessage; stripped from
++    // result.messages before historyStore is updated so it is NOT re-sent on
++    // every later turn. Null when no refs are attached on this turn.
++    const refsMessage: LoopMessage | null =
++      capturedRefs.length > 0
++        ? {
++            role: "system",
++            content: [
++              "The user attached these objects via @ mention. Act on exactly these objects. Do not guess or infer other objects from the conversation.",
++              ...capturedRefs.map(
++                (r) => `- ${r.type} "${r.name}" (id: ${r.id})`,
++              ),
++            ].join("\n"),
++          }
++        : null;
++
+     // Build the user turn for the loop. When images are staged, content is a
+     // LoopContentBlock array so the vision router in the API proxy selects the
+     // vision model. The text block is omitted when the message is image-only
+@@ -961,6 +1047,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+       contextMessage, // fresh per-turn review mode + context
+       ...(memoryMessage ? [memoryMessage] : []), // per-turn user preferences
+       ...(paperMessage ? [paperMessage] : []), // per-turn attached paper text (if any)
++      ...(refsMessage ? [refsMessage] : []), // per-turn @ mention refs (if any)
+       ...historyStore.slice(1), // rest of persisted history
+       userLoopMessage, // this turn's user message (may be multimodal)
+     ];
+@@ -1029,7 +1116,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
+       // re-sent on every subsequent turn. The display ChatMessage.images still
+       // holds the thumbnails for rendering; only the historyStore entry is collapsed.
+       const filteredMessages = result.messages.filter(
+-        (m) => m !== contextMessage && m !== memoryMessage && m !== paperMessage,
++        (m) => m !== contextMessage && m !== memoryMessage && m !== paperMessage && m !== refsMessage,
+       );
+       if (collapseMessage !== null) {
+         historyStore = filteredMessages.map((m) =>

@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub, transform builder + wide-column manager</title>
+<style>
+  :root {
+    --bg:#f2f3f7; --surface:#fff; --raised:#f7f8fb; --ink:#111827; --muted:#5b6472;
+    --border:#e5e7eb; --soft:#eef0f4; --sky:#1AA0E6; --action:#1283C9; --purple:#5B47D6;
+    --coral:#FF6F61; --amber:#F59E0B; --green:#18a558;
+    --mono:ui-monospace,SFMono-Regular,Menlo,monospace;
+  }
+  body.dark { --bg:#0a0e1a; --surface:#1c2638; --raised:#28344c; --ink:#f3f5f9; --muted:#9aa6ba; --border:#2c3a52; --soft:#243047; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; -webkit-font-smoothing:antialiased; padding-bottom:78px; }
+  .brandbar { height:6px; background:linear-gradient(90deg,#FF6F61,#F59E0B,#18a558,#1AA0E6,#5B47D6); }
+  header.top { position:sticky; top:0; z-index:40; background:var(--surface); border-bottom:1px solid var(--border); padding:13px 22px; display:flex; gap:14px; align-items:center; }
+  h1 { font-size:16px; font-weight:800; margin:0; }
+  .sub { color:var(--muted); font-size:12px; }
+  .spacer { flex:1; }
+  .ctrl { font:inherit; font-size:12.5px; font-weight:700; padding:7px 13px; border-radius:9px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .ctrl:hover { border-color:var(--action); } .ctrl.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .wrap { max-width:1240px; margin:0 auto; padding:24px 22px; }
+  .lede { background:var(--surface); border:1px solid var(--border); border-radius:16px; padding:20px 22px; margin-bottom:22px; }
+  .lede h2 { margin:0 0 6px; font-size:18px; } .lede p { margin:6px 0 0; color:var(--muted); max-width:84ch; }
+
+  .sec { background:var(--surface); border:1px solid var(--border); border-radius:16px; margin-bottom:22px; overflow:hidden; }
+  .sec.ok { border-color:var(--green); } .sec.no { border-color:var(--coral); opacity:.85; }
+  .shead { padding:16px 22px 12px; display:flex; gap:12px; align-items:flex-start; }
+  .snum { flex:none; width:28px; height:28px; border-radius:8px; background:var(--action); color:#fff; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:12px; }
+  .stitle { font-size:15.5px; font-weight:800; margin:1px 0; } .stag { font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.05em; color:var(--purple); }
+  .sbody { padding:0 22px 18px; } .why { color:var(--muted); margin:14px 0 0; max-width:84ch; } .why b { color:var(--ink); }
+
+  /* builder layout */
+  .builder { display:grid; grid-template-columns:200px 1fr; gap:14px; }
+  @media (max-width:860px){ .builder { grid-template-columns:1fr; } }
+  .palette { border:1px solid var(--border); border-radius:12px; background:var(--raised); padding:10px; max-height:560px; overflow:auto; }
+  .pgroup { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); margin:10px 4px 5px; }
+  .pgroup:first-child { margin-top:2px; }
+  .pop { display:block; width:100%; text-align:left; font:inherit; font-size:12px; padding:5px 9px; border:none; background:none; color:var(--ink); border-radius:7px; cursor:pointer; }
+  .pop:hover { background:color-mix(in srgb,var(--action) 14%,transparent); color:var(--action); }
+  .stage { display:flex; flex-direction:column; gap:12px; min-width:0; }
+  .pipe { display:flex; flex-direction:column; gap:8px; }
+  .step { border:1px solid var(--border); border-radius:11px; background:var(--surface); padding:10px 12px; }
+  .step .sh { display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:700; }
+  .step .verb { color:var(--action); font-weight:800; }
+  .step .x { margin-left:auto; cursor:pointer; color:var(--muted); border:none; background:none; font-size:14px; }
+  .step .params { display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-top:8px; }
+  .step select, .step input { font:inherit; font-size:12px; padding:4px 7px; border:1px solid var(--border); border-radius:7px; background:var(--surface); color:var(--ink); }
+  .step input { width:92px; } .pill { font-size:11px; color:var(--muted); font-weight:700; }
+  .est { margin-top:7px; font-size:11.5px; color:var(--muted); } .est b { color:var(--action); }
+  .empty { border:1px dashed var(--border); border-radius:11px; padding:18px; text-align:center; color:var(--muted); font-size:12.5px; }
+
+  .mini { border:1px solid var(--border); border-radius:11px; overflow:hidden; background:var(--surface); }
+  .minihead { padding:7px 12px; border-bottom:1px solid var(--soft); font-weight:700; font-size:12px; display:flex; gap:8px; align-items:center; }
+  .gs { max-height:200px; overflow:auto; }
+  table.dh { border-collapse:collapse; width:100%; font-size:11px; font-variant-numeric:tabular-nums; }
+  table.dh th, table.dh td { border-bottom:1px solid var(--soft); border-right:1px solid var(--soft); padding:3px 8px; text-align:right; white-space:nowrap; }
+  table.dh th { position:sticky; top:0; background:var(--raised); font-weight:700; }
+  table.dh td.txt, table.dh th.txt { text-align:left; } td .em { color:var(--coral); }
+  td.chg { background:color-mix(in srgb,var(--amber) 22%,transparent); }
+
+  .codewrap { border:1px solid var(--border); border-radius:11px; overflow:hidden; }
+  .codetabs { display:flex; gap:0; border-bottom:1px solid var(--soft); background:var(--raised); }
+  .codetab { font:inherit; font-size:11.5px; font-weight:800; padding:7px 14px; border:none; background:none; color:var(--muted); cursor:pointer; }
+  .codetab.on { color:var(--action); box-shadow:inset 0 -2px 0 var(--action); }
+  pre.code { margin:0; padding:11px 13px; font-family:var(--mono); font-size:11px; line-height:1.55; background:#0d1830; color:#cfe6ff; overflow-x:auto; max-height:200px; }
+  body.dark pre.code { background:#060c1c; }
+
+  /* column manager tiers */
+  .tiersel { display:flex; gap:6px; margin-bottom:12px; }
+  .tiersel button { font:inherit; font-size:12px; font-weight:700; padding:6px 12px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); cursor:pointer; }
+  .tiersel button.on { background:var(--purple); color:#fff; border-color:var(--purple); }
+  .chips { display:flex; flex-wrap:wrap; gap:6px; }
+  .chips label { font-size:11px; padding:3px 9px; border:1px solid var(--border); border-radius:99px; cursor:pointer; }
+  .chips label.on { background:var(--action); color:#fff; border-color:var(--action); }
+  .colsearch { width:100%; font:inherit; font-size:12px; padding:7px 10px; border:1px solid var(--border); border-radius:9px; background:var(--surface); color:var(--ink); margin-bottom:8px; }
+  .collist { max-height:200px; overflow:auto; border:1px solid var(--soft); border-radius:9px; }
+  .colrow { display:flex; align-items:center; gap:9px; padding:5px 11px; border-bottom:1px solid var(--soft); font-size:12px; }
+  .colrow .ty { font-size:10px; color:var(--muted); margin-left:auto; font-family:var(--mono); }
+  .colrow .nul { font-size:10px; color:var(--muted); width:62px; text-align:right; }
+  .patternbar { display:flex; gap:6px; align-items:center; margin:10px 0; flex-wrap:wrap; }
+  .patternbar input { font:inherit; font-size:12px; padding:6px 9px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); width:160px; font-family:var(--mono); }
+  .schemahint { font-size:12px; color:var(--muted); background:var(--raised); border:1px solid var(--soft); border-radius:9px; padding:11px 13px; }
+
+  .switchbox { border:1px solid var(--border); border-radius:12px; background:var(--raised); padding:14px 16px; display:flex; gap:12px; align-items:center; }
+  .switchbox .grow { flex:1; } .switchbox h4 { margin:0 0 3px; font-size:13.5px; } .switchbox p { margin:0; color:var(--muted); font-size:12px; }
+  .warn { border:1px solid color-mix(in srgb,var(--amber) 50%,transparent); background:color-mix(in srgb,var(--amber) 11%,var(--surface)); border-radius:10px; padding:11px 13px; font-size:12px; color:var(--muted); margin-top:9px; display:none; }
+  .warn.show { display:block; }
+  .btn-brand { background:linear-gradient(135deg,var(--action),var(--purple)); color:#fff; border:none; padding:7px 14px; border-radius:9px; font:inherit; font-size:12.5px; font-weight:800; cursor:pointer; }
+
+  .verdict { display:flex; align-items:center; gap:8px; padding:11px 22px; border-top:1px solid var(--soft); background:var(--raised); }
+  .vbtn { font:inherit; font-size:12px; font-weight:800; padding:6px 13px; border-radius:8px; border:1px solid var(--border); background:var(--surface); color:var(--ink); cursor:pointer; }
+  .vbtn.approve.sel { background:var(--green); border-color:var(--green); color:#fff; }
+  .vbtn.deny.sel { background:var(--coral); border-color:var(--coral); color:#fff; }
+  .vnote { flex:1; font:inherit; font-size:12px; padding:6px 10px; border:1px solid var(--border); border-radius:8px; background:var(--surface); color:var(--ink); }
+  body.commenting [data-pin] { cursor:crosshair; } body.commenting [data-pin]:hover { outline:2px dashed var(--purple); outline-offset:2px; }
+  .pin { position:absolute; width:20px; height:20px; border-radius:99px 99px 99px 2px; background:var(--purple); color:#fff; font-size:10px; font-weight:800; display:flex; align-items:center; justify-content:center; transform:translate(-50%,-100%); z-index:30; }
+  #pinPanel { position:fixed; right:0; top:0; bottom:0; width:300px; background:var(--surface); border-left:1px solid var(--border); transform:translateX(100%); transition:.2s; z-index:50; padding:16px; overflow:auto; }
+  #pinPanel.show { transform:none; }
+  .ccard { border:1px solid var(--border); border-radius:10px; padding:9px; margin-bottom:8px; font-size:12px; } .ccard .cn { font-weight:800; color:var(--purple); font-size:11px; }
+  .footbar { position:fixed; left:0; right:0; bottom:0; background:var(--surface); border-top:1px solid var(--border); padding:11px 22px; display:flex; gap:10px; align-items:center; z-index:45; }
+  textarea#exp { width:100%; height:200px; font-family:var(--mono); font-size:11px; margin-top:10px; display:none; }
+</style>
+</head>
+<body>
+<div class="brandbar"></div>
+<header class="top">
+  <div><h1>Data Hub, transform builder + wide columns</h1>
+    <div class="sub">Phase 2 + 3 UI, 2026-06-13. The "edit with code" builder and the wide-column manager. Mark up and Export.</div></div>
+  <div class="spacer"></div>
+  <button class="ctrl" id="commentBtn" onclick="toggleComment()">Comment mode</button>
+  <button class="ctrl" onclick="openExport()">Export</button>
+  <button class="ctrl" id="themeBtn" onclick="toggleTheme()">Dark</button>
+</header>
+
+<div class="wrap">
+  <div class="lede">
+    <h2>What you are reviewing</h2>
+    <p>Two surfaces. The <b>transform builder</b> is the fleshed-out "edit with code" tool. It is the Data Hub's existing pandas-matched transform engine, given a full operation menu and a live code preview, running in the background engine on the whole dataset. The <b>wide-column manager</b> is how the preview behaves when a table has dozens, hundreds, or thousands of columns. Add a few operations, switch the column tier, and feel both.</p>
+  </div>
+
+  <!-- builder -->
+  <section class="sec" data-sec="builder">
+    <div class="shead"><div class="snum">1</div>
+      <div><div class="stag">Edit by rule, full vocabulary</div><div class="stitle">Transform builder</div></div>
+    </div>
+    <div class="sbody">
+      <div class="builder">
+        <div class="palette" id="palette" data-pin></div>
+        <div class="stage">
+          <div>
+            <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:7px">Pipeline</div>
+            <div class="pipe" id="pipe"></div>
+          </div>
+          <div class="mini" data-pin>
+            <div class="minihead">Live preview, first rows of <span id="rowtotal">247,000</span> &nbsp;<span class="pill" id="afterct"></span></div>
+            <div class="gs"><table class="dh" id="prev"></table></div>
+          </div>
+          <div class="codewrap" data-pin>
+            <div class="codetabs">
+              <button class="codetab on" id="tabpd" onclick="setCode('pandas')">pandas</button>
+              <button class="codetab" id="tabsql" onclick="setCode('sql')">SQL</button>
+              <span class="spacer" style="flex:1"></span>
+              <span style="align-self:center;padding-right:12px;font-size:11px;color:var(--muted)">show-the-code parity, both export</span>
+            </div>
+            <pre class="code" id="code"></pre>
+          </div>
+        </div>
+      </div>
+      <p class="why">Every op below is one verb plus params, previewed live with an affected-row estimate, and reflected in both the pandas and SQL code. The same recipe runs in JS for a small table or compiles to one engine query for a huge one, so a rule reads identically at any size. Reuses the shared expression language, so derived-column formulas are the same ones the Custom Calculator Builder uses. Click ops in the left menu to stack them.</p>
+    </div>
+    <div class="verdict" data-verdict="builder"></div>
+  </section>
+
+  <!-- column manager -->
+  <section class="sec" data-sec="columns">
+    <div class="shead"><div class="snum">2</div>
+      <div><div class="stag">Scales to thousands of columns</div><div class="stitle">Wide-column manager</div></div>
+    </div>
+    <div class="sbody">
+      <div class="tiersel" data-pin>
+        <button class="on" onclick="setTier('a',this)">A. ~20 columns</button>
+        <button onclick="setTier('b',this)">B. ~200 columns</button>
+        <button onclick="setTier('c',this)">C. 3,400 columns</button>
+      </div>
+      <div id="tierBody" data-pin></div>
+      <p class="why">Tier A uses inline chips. Tier B switches to a searchable column panel (filter, type, null rate). Tier C, where chips and lists both break down, renders <b>no grid by default</b>, shows a schema browser, and lets you <b>select columns by rule</b> (a name pattern), the wide-table mirror of the row rules in surface 1. You preview only the handful you choose.</p>
+    </div>
+    <div class="verdict" data-verdict="columns"></div>
+  </section>
+
+  <!-- manual switch -->
+  <section class="sec" data-sec="switch">
+    <div class="shead"><div class="snum">3</div>
+      <div><div class="stag">Available on any table</div><div class="stitle">Manual switch into large-dataset mode</div></div>
+    </div>
+    <div class="sbody">
+      <div class="switchbox" data-pin>
+        <div class="grow"><h4>Currently in editable mode, 1,200 rows</h4>
+          <p>Switch to large-dataset mode to use the rule builder and faster ops on this table too.</p></div>
+        <button class="btn-brand" onclick="document.getElementById('switchWarn').classList.toggle('show')">Switch to large-dataset mode</button>
+      </div>
+      <div class="warn" id="switchWarn">Loading the background engine takes a few seconds. Do not refresh while it loads. Cell-by-cell editing is replaced by the rule builder. A table this size can switch back later.</div>
+      <p class="why">The heavy lane is not only an automatic safety net. A user may want it on a medium table for speed and the rule tooling, so it is offered everywhere with an honest one-time load warning (Grant, 2026-06-13). Above the threshold it still trips automatically.</p>
+    </div>
+    <div class="verdict" data-verdict="switch"></div>
+  </section>
+</div>
+
+<div id="pinPanel">
+  <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><b style="font-size:13px">Comments</b><span class="spacer" style="flex:1"></span><button class="ctrl" onclick="document.getElementById('pinPanel').classList.remove('show')">Close</button></div>
+  <div id="ccards"></div>
+  <textarea id="exp"></textarea>
+</div>
+
+<div class="footbar">
+  <span style="font-size:12px;color:var(--muted)" id="footstat">0 approved, 0 flagged</span>
+  <span class="spacer" style="flex:1"></span>
+  <button class="ctrl" onclick="resetAll()">Reset</button>
+  <button class="btn-brand" onclick="openExport()">Export decisions</button>
+</div>
+
+<script>
+const SECS=["builder","columns","switch"];
+const TITLES={builder:"Transform builder (full op vocabulary)",columns:"Wide-column manager (3 tiers)",switch:"Manual switch into large-dataset mode"};
+const STORE="ros-dh-transformbuilder-v1";
+let state=load();
+function load(){ try{return JSON.parse(localStorage.getItem(STORE))||{dark:false,verdicts:{},notes:{},comments:[]};}catch(e){return {dark:false,verdicts:{},notes:{},comments:[]};} }
+function save(){ localStorage.setItem(STORE,JSON.stringify(state)); }
+function applyTheme(){ document.body.classList.toggle("dark",state.dark); themeBtn.textContent=state.dark?"Light":"Dark"; }
+function toggleTheme(){ state.dark=!state.dark; applyTheme(); save(); }
+
+// ---------- op catalog ----------
+const OPS = {
+  "Filter & select":[
+    ["filter","keep rows where"],["isin","keep rows in set"],["between","keep rows between"],
+    ["topn","top N by column"],["sample","random sample"],["select","keep columns"],["drop","drop columns"]
+  ],
+  "Edit values":[
+    ["setwhere","set value where"],["replace","replace value"],["clip","clip to range"],["round","round"],["map","map via lookup"]
+  ],
+  "Missing data":[
+    ["fillna","fill empty with"],["dropna","drop empty rows"],["interpolate","interpolate"]
+  ],
+  "Strings":[
+    ["str_slice","slice characters"],["str_replace","replace text / regex"],["str_extract","extract regex group"],
+    ["str_split","split into columns"],["str_case","upper / lower / title"],["str_strip","trim whitespace"],["str_cat","concatenate columns"]
+  ],
+  "Compute":[
+    ["derive","new column from formula"],["conditional","if / else column"],["bin","bin into categories"],
+    ["rank","rank"],["cumulative","cumulative sum / max"],["lag","shift / diff / pct change"],["rolling","rolling window"]
+  ],
+  "Type & schema":[
+    ["astype","cast type"],["todate","parse date"],["dateparts","extract date parts"],["rename","rename column"]
+  ],
+  "Reshape & summarize":[
+    ["sort","sort"],["dedupe","drop duplicates"],["groupby","group + aggregate"],["valuecounts","value counts"],
+    ["describe","describe"],["pivot","pivot wide"],["melt","melt long"]
+  ],
+  "Combine":[
+    ["join","merge / join"],["concat","stack rows"]
+  ]
+};
+const VERB = {
+  filter:"Filter", isin:"Keep in set", between:"Between", topn:"Top N", sample:"Sample", select:"Keep cols", drop:"Drop cols",
+  setwhere:"Set where", replace:"Replace", clip:"Clip", round:"Round", map:"Map",
+  fillna:"Fill empty", dropna:"Drop empty", interpolate:"Interpolate",
+  str_slice:"Slice chars", str_replace:"Replace text", str_extract:"Extract", str_split:"Split", str_case:"Case", str_strip:"Trim", str_cat:"Concat",
+  derive:"Derive", conditional:"If/else", bin:"Bin", rank:"Rank", cumulative:"Cumulative", lag:"Lag", rolling:"Rolling",
+  astype:"Cast", todate:"To date", dateparts:"Date parts", rename:"Rename",
+  sort:"Sort", dedupe:"Dedupe", groupby:"Group + agg", valuecounts:"Value counts", describe:"Describe", pivot:"Pivot", melt:"Melt",
+  join:"Join", concat:"Concat"
+};
+
+// ---------- sample data ----------
+const COLS=["gene_id","sample","tpm","log2fc","pvalue","cluster"];
+const TYPES={gene_id:"text",sample:"text",tpm:"number",log2fc:"number",pvalue:"number",cluster:"text"};
+const rng=(s=>()=>(s=Math.imul(48271,s)%2147483647)/2147483647)(7);
+const PRE=["sbc","ttr","abc","sbc","xyz","sbc"];
+function genRows(n){const o=[];for(let i=0;i<n;i++){o.push({gene_id:PRE[i%PRE.length]+(1000+i),sample:["ctrl","treated","ctrl","treated"][i%4],tpm:+(rng()*900).toFixed(1),log2fc:+((rng()*8)-4).toFixed(2),pvalue:i%13===0?"":+(rng()*0.2).toFixed(4),cluster:"C"+(i%7)});}return o;}
+const BASE=genRows(60);
+const TOTAL=247000;
+
+// ---------- pipeline ----------
+let pipe=[]; let codeMode="pandas";
+function addOp(kind){
+  const o={kind};
+  if(kind==="filter"){o.col="pvalue";o.pred="lt";o.val="0.05";}
+  else if(kind==="setwhere"){o.col="pvalue";o.pred="empty";o.val="";o.to="1.0";}
+  else if(kind==="str_slice"){o.col="gene_id";o.start="0";o.end="3";o.to="dog";}
+  else if(kind==="str_case"){o.col="sample";o.mode="upper";}
+  else if(kind==="fillna"){o.col="pvalue";o.to="1.0";}
+  else if(kind==="derive"){o.name="tpm_pct";o.formula="tpm / 900 * 100";}
+  else if(kind==="sort"){o.col="tpm";o.dir="desc";}
+  else if(kind==="select"){o.cols="gene_id, tpm, pvalue";}
+  else if(kind==="bin"){o.col="log2fc";o.name="fc_bin";}
+  else if(kind==="groupby"){o.by="cluster";o.agg="mean";o.col="tpm";}
+  pipe.push(o); renderPipe(); compute();
+}
+function renderPipe(){
+  const el=document.getElementById("pipe");
+  if(!pipe.length){ el.innerHTML='<div class="empty">No operations yet. Pick from the menu on the left. Try Filter, then Set where, then Slice characters.</div>'; return; }
+  el.innerHTML="";
+  pipe.forEach((o,i)=>{
+    const d=document.createElement("div"); d.className="step";
+    d.innerHTML='<div class="sh"><span class="verb">'+VERB[o.kind]+'</span>'+paramSummary(o)+'<button class="x" title="remove">x</button></div>';
+    d.querySelector(".x").onclick=()=>{pipe.splice(i,1);renderPipe();compute();};
+    const p=document.createElement("div"); p.className="params"; buildParams(p,o,i); d.appendChild(p);
+    const est=document.createElement("div"); est.className="est"; est.id="est"+i; d.appendChild(est);
+    el.appendChild(d);
+  });
+}
+function paramSummary(o){
+  if(o.kind==="filter") return '<span class="pill">'+o.col+' '+predTxt(o.pred)+' '+(o.pred==="empty"?"":o.val)+'</span>';
+  return "";
+}
+function predTxt(p){return {lt:"<",gt:">",eq:"=",empty:"is empty",starts:"starts with"}[p]||p;}
+function opt(val,sel){return '<option'+(val===sel?' selected':'')+'>'+val+'</option>';}
+function colSel(cur){return COLS.map(c=>'<option'+(c===cur?' selected':'')+'>'+c+'</option>').join("");}
+function buildParams(p,o,i){
+  const re=()=>{readParams(o,p);compute();};
+  function s(label,html){const w=document.createElement("span");w.className="pill";w.textContent=label;p.appendChild(w);const t=document.createElement("template");t.innerHTML=html.trim();const node=t.content.firstChild;node.dataset.k=node.dataset.k||"";p.appendChild(node);node.onchange=re;node.oninput=re;return node;}
+  if(o.kind==="filter"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();});
+    mkSelect(p,"where",[["lt","<"],["gt",">"],["eq","="],["empty","is empty"],["starts","starts with"]],o.pred,v=>{o.pred=v;compute();renderPipe();});
+    if(o.pred!=="empty") mkInput(p,"",o.val,v=>{o.val=v;compute();});
+  } else if(o.kind==="setwhere"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();});
+    mkSelect(p,"where",[["empty","is empty"],["lt","<"],["gt",">"],["eq","="]],o.pred,v=>{o.pred=v;compute();});
+    if(o.pred!=="empty") mkInput(p,"",o.val,v=>{o.val=v;compute();});
+    mkInput(p,"set to",o.to,v=>{o.to=v;compute();});
+  } else if(o.kind==="str_slice"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();});
+    mkInput(p,"chars",o.start,v=>{o.start=v;compute();}); mkInput(p,"to",o.end,v=>{o.end=v;compute();});
+    mkInput(p,"replace with",o.to,v=>{o.to=v;compute();});
+  } else if(o.kind==="str_case"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();});
+    mkSelect(p,"",[["upper","UPPER"],["lower","lower"],["title","Title"]],o.mode,v=>{o.mode=v;compute();});
+  } else if(o.kind==="fillna"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();}); mkInput(p,"with",o.to,v=>{o.to=v;compute();});
+  } else if(o.kind==="derive"){
+    mkInput(p,"new column",o.name,v=>{o.name=v;compute();}); mkInput(p,"=",o.formula,v=>{o.formula=v;compute();},170);
+  } else if(o.kind==="sort"){
+    mkSelect(p,"by",COLS,o.col,v=>{o.col=v;compute();}); mkSelect(p,"",[["desc","descending"],["asc","ascending"]],o.dir,v=>{o.dir=v;compute();});
+  } else if(o.kind==="select"){
+    mkInput(p,"keep",o.cols,v=>{o.cols=v;compute();},220);
+  } else if(o.kind==="bin"){
+    mkSelect(p,"in",COLS,o.col,v=>{o.col=v;compute();}); mkInput(p,"new column",o.name,v=>{o.name=v;compute();});
+  } else if(o.kind==="groupby"){
+    mkSelect(p,"by",COLS,o.by,v=>{o.by=v;compute();}); mkSelect(p,"",[["mean","mean"],["sum","sum"],["count","count"],["median","median"]],o.agg,v=>{o.agg=v;compute();}); mkSelect(p,"of",COLS,o.col,v=>{o.col=v;compute();});
+  } else {
+    const w=document.createElement("span"); w.className="pill"; w.textContent="parameters for "+VERB[o.kind]+" (code preview only in this mockup)"; p.appendChild(w);
+  }
+}
+function mkSelect(p,label,opts,cur,cb){ if(label){const l=document.createElement("span");l.className="pill";l.textContent=label;p.appendChild(l);} const s=document.createElement("select"); opts.forEach(o=>{const val=Array.isArray(o)?o[0]:o; const txt=Array.isArray(o)?o[1]:o; const op=document.createElement("option"); op.value=val; op.textContent=txt; if(val===cur)op.selected=true; s.appendChild(op);}); s.onchange=()=>cb(s.value); p.appendChild(s); }
+function mkInput(p,label,cur,cb,w){ if(label){const l=document.createElement("span");l.className="pill";l.textContent=label;p.appendChild(l);} const inp=document.createElement("input"); inp.value=cur||""; if(w)inp.style.width=w+"px"; inp.oninput=()=>cb(inp.value); p.appendChild(inp); }
+
+// ---------- compute preview + estimates ----------
+function applyOp(rows,o){
+  if(o.kind==="filter"){ return rows.filter(r=>match(r[o.col],o.pred,o.val)); }
+  if(o.kind==="setwhere"){ return rows.map(r=>{ if(match(r[o.col],o.pred,o.val)){const c={...r}; c[o.col]=coerce(o.to); c.__chg=(c.__chg||new Set()); c.__chg.add(o.col); return c;} return r; }); }
+  if(o.kind==="str_slice"){ const a=+o.start||0,b=(o.end===""?undefined:+o.end); return rows.map(r=>{const s=String(r[o.col]??""); const c={...r}; c[o.col]=(o.to||"")+s.slice(b==null?a:b); c.__chg=(c.__chg||new Set()); c.__chg.add(o.col); return c;}); }
+  if(o.kind==="str_case"){ return rows.map(r=>{const s=String(r[o.col]??""); const c={...r}; c[o.col]=o.mode==="upper"?s.toUpperCase():o.mode==="lower"?s.toLowerCase():s.replace(/\b\w/g,m=>m.toUpperCase()); c.__chg=(c.__chg||new Set()); c.__chg.add(o.col); return c;}); }
+  if(o.kind==="fillna"){ return rows.map(r=>{ if(r[o.col]===""||r[o.col]==null){const c={...r}; c[o.col]=coerce(o.to); c.__chg=(c.__chg||new Set()); c.__chg.add(o.col); return c;} return r;}); }
+  if(o.kind==="derive"){ return rows.map(r=>{const c={...r}; c[o.name]=evalFormula(o.formula,r); c.__chg=(c.__chg||new Set()); c.__chg.add(o.name); return c;}); }
+  if(o.kind==="sort"){ const s=[...rows].sort((a,b)=>{const x=a[o.col],y=b[o.col]; return (x>y?1:x<y?-1:0)*(o.dir==="desc"?-1:1);}); return s; }
+  if(o.kind==="select"){ const keep=o.cols.split(",").map(x=>x.trim()).filter(Boolean); return rows.map(r=>{const c={}; keep.forEach(k=>c[k]=r[k]); if(r.__chg)c.__chg=r.__chg; return c;}); }
+  if(o.kind==="bin"){ return rows.map(r=>{const c={...r}; const v=+r[o.col]; c[o.name]=v<-1?"down":v>1?"up":"flat"; c.__chg=(c.__chg||new Set()); c.__chg.add(o.name); return c;}); }
+  if(o.kind==="groupby"){ const g={}; rows.forEach(r=>{(g[r[o.by]]=g[r[o.by]]||[]).push(+r[o.col]||0);}); return Object.keys(g).map(k=>{const a=g[k]; let v=0; if(o.agg==="sum")v=a.reduce((x,y)=>x+y,0); else if(o.agg==="count")v=a.length; else if(o.agg==="median"){const s=[...a].sort((x,y)=>x-y);v=s[Math.floor(s.length/2)];} else v=a.reduce((x,y)=>x+y,0)/a.length; const row={}; row[o.by]=k; row[o.agg+"_"+o.col]=+v.toFixed(2); return row;}); }
+  return rows;
+}
+function match(v,pred,val){ if(pred==="empty")return v===""||v==null; if(pred==="lt")return typeof v==="number"&&v<+val; if(pred==="gt")return typeof v==="number"&&v>+val; if(pred==="eq")return String(v)===val; if(pred==="starts")return typeof v==="string"&&val&&v.startsWith(val); return false; }
+function coerce(v){ if(v==="")return ""; const n=Number(v); return Number.isFinite(n)&&v.trim?n:v; }
+function evalFormula(f,r){ try{ let e=f; COLS.forEach(c=>{e=e.replaceAll(c,JSON.stringify(r[c]));}); /*eslint-disable*/ const v=Function('"use strict";return ('+e+')')(); return typeof v==="number"?+v.toFixed(2):v; }catch(_){return "?";} }
+
+function compute(){
+  let rows=BASE.map(r=>({...r}));
+  pipe.forEach((o,i)=>{
+    const before=rows.length;
+    rows=applyOp(rows,o);
+    const est=document.getElementById("est"+i);
+    if(est){
+      if(o.kind==="filter"){ const frac=rows.length/before; est.innerHTML="keeps about <b>"+Math.round(frac*estRows()).toLocaleString()+"</b> rows"; }
+      else if(o.kind==="setwhere"||o.kind==="fillna"){ const n=rows.filter(r=>r.__chg&&r.__chg.has(o.col)).length; est.innerHTML="changes about <b>"+Math.round(n/BASE.length*estRows()).toLocaleString()+"</b> rows"; }
+      else if(o.kind==="groupby"){ est.innerHTML="produces <b>"+rows.length+"</b> groups"; }
+      else est.innerHTML="";
+    }
+  });
+  renderPrev(rows);
+  document.getElementById("afterct").textContent = pipe.length? ("result: ~"+estRows().toLocaleString()+" rows") : "";
+  renderCode();
+}
+function estRows(){ let r=TOTAL; pipe.forEach(o=>{ if(o.kind==="filter"){ const b=BASE.length; const a=applyOp(BASE.map(x=>({...x})),o).length; r=Math.round(r*a/b);} if(o.kind==="groupby")r=7; }); return r; }
+function renderPrev(rows){
+  const cols = rows.length? Object.keys(rows[0]).filter(k=>k!=="__chg") : [];
+  const t=document.getElementById("prev");
+  let h="<thead><tr>"+cols.map(c=>'<th class="'+(TYPES[c]==="text"||!TYPES[c]?'txt':'')+'">'+c+'</th>').join("")+"</tr></thead><tbody>";
+  rows.slice(0,18).forEach(r=>{ h+="<tr>"+cols.map(c=>{const chg=r.__chg&&r.__chg.has(c); const txt=TYPES[c]==="text"||!TYPES[c]; const v=r[c]; return '<td class="'+(txt?'txt ':'')+(chg?'chg':'')+'">'+(v===""?'<span class="em">(empty)</span>':v)+'</td>';}).join("")+"</tr>"; });
+  t.innerHTML=h+"</tbody>";
+}
+
+// ---------- code generation ----------
+function setCode(m){ codeMode=m; tabpd.classList.toggle("on",m==="pandas"); tabsql.classList.toggle("on",m==="sql"); renderCode(); }
+function renderCode(){
+  const el=document.getElementById("code");
+  if(!pipe.length){ el.textContent = codeMode==="pandas"? "# add operations to see the pandas equivalent" : "-- add operations to see the SQL equivalent"; return; }
+  el.textContent = pipe.map(o=>codeMode==="pandas"?pdCode(o):sqlCode(o)).join("\n");
+}
+function pdCode(o){
+  switch(o.kind){
+    case "filter": return o.pred==="empty"?`df = df[df['${o.col}'].isna()]`:o.pred==="starts"?`df = df[df['${o.col}'].str.startswith('${o.val}')]`:`df = df[df['${o.col}'] ${pdOp(o.pred)} ${q(o)}]`;
+    case "setwhere": return o.pred==="empty"?`df.loc[df['${o.col}'].isna(), '${o.col}'] = ${q2(o.to)}`:`df.loc[df['${o.col}'] ${pdOp(o.pred)} ${q(o)}, '${o.col}'] = ${q2(o.to)}`;
+    case "str_slice": return `df['${o.col}'] = '${o.to}' + df['${o.col}'].str[${o.end||o.start}:]`;
+    case "str_case": return `df['${o.col}'] = df['${o.col}'].str.${o.mode==='title'?'title':o.mode}()`;
+    case "fillna": return `df['${o.col}'] = df['${o.col}'].fillna(${q2(o.to)})`;
+    case "derive": return `df['${o.name}'] = ${o.formula}`;
+    case "sort": return `df = df.sort_values('${o.col}', ascending=${o.dir==='asc'?'True':'False'})`;
+    case "select": return `df = df[[${o.cols.split(',').map(c=>"'"+c.trim()+"'").join(', ')}]]`;
+    case "bin": return `df['${o.name}'] = pd.cut(df['${o.col}'], [-inf,-1,1,inf], labels=['down','flat','up'])`;
+    case "groupby": return `df = df.groupby('${o.by}')['${o.col}'].${o.agg}().reset_index()`;
+    default: return `# ${VERB[o.kind]} (params in the builder)`;
+  }
+}
+function sqlCode(o){
+  switch(o.kind){
+    case "filter": return o.pred==="empty"?`WHERE ${o.col} IS NULL`:o.pred==="starts"?`WHERE ${o.col} LIKE '${o.val}%'`:`WHERE ${o.col} ${sqlOp(o.pred)} ${qv(o)}`;
+    case "setwhere": return o.pred==="empty"?`UPDATE t SET ${o.col} = ${qv2(o.to)} WHERE ${o.col} IS NULL;`:`UPDATE t SET ${o.col} = ${qv2(o.to)} WHERE ${o.col} ${sqlOp(o.pred)} ${qv(o)};`;
+    case "str_slice": return `SELECT *, '${o.to}' || substr(${o.col}, ${(+o.end||+o.start)+1}) AS ${o.col} FROM t;`;
+    case "str_case": return `SELECT ${o.mode==='upper'?'upper':o.mode==='lower'?'lower':'initcap'}(${o.col}) AS ${o.col} FROM t;`;
+    case "fillna": return `UPDATE t SET ${o.col} = ${qv2(o.to)} WHERE ${o.col} IS NULL;`;
+    case "derive": return `SELECT *, (${o.formula}) AS ${o.name} FROM t;`;
+    case "sort": return `SELECT * FROM t ORDER BY ${o.col} ${o.dir==='asc'?'ASC':'DESC'};`;
+    case "select": return `SELECT ${o.cols.split(',').map(c=>c.trim()).join(', ')} FROM t;`;
+    case "bin": return `SELECT *, CASE WHEN ${o.col} < -1 THEN 'down' WHEN ${o.col} > 1 THEN 'up' ELSE 'flat' END AS ${o.name} FROM t;`;
+    case "groupby": return `SELECT ${o.by}, ${o.agg}(${o.col}) AS ${o.agg}_${o.col} FROM t GROUP BY ${o.by};`;
+    default: return `-- ${VERB[o.kind]} (params in the builder)`;
+  }
+}
+function pdOp(p){return {lt:"<",gt:">",eq:"=="}[p]||p;} function sqlOp(p){return {lt:"<",gt:">",eq:"="}[p]||p;}
+function q(o){return TYPES[o.col]==="number"?o.val:"'"+o.val+"'";} function q2(v){return isNaN(+v)||v===""?"'"+v+"'":v;}
+function qv(o){return TYPES[o.col]==="number"?o.val:"'"+o.val+"'";} function qv2(v){return isNaN(+v)||v===""?"'"+v+"'":v;}
+
+// ---------- palette ----------
+function buildPalette(){
+  const el=document.getElementById("palette"); el.innerHTML="";
+  Object.keys(OPS).forEach(g=>{ const h=document.createElement("div"); h.className="pgroup"; h.textContent=g; el.appendChild(h);
+    OPS[g].forEach(([kind,label])=>{ const b=document.createElement("button"); b.className="pop"; b.textContent=label; b.onclick=()=>addOp(kind); el.appendChild(b); }); });
+}
+
+// ---------- column manager tiers ----------
+function setTier(t,btn){ document.querySelectorAll(".tiersel button").forEach(b=>b.classList.remove("on")); if(btn)btn.classList.add("on"); renderTier(t); }
+function renderTier(t){
+  const el=document.getElementById("tierBody");
+  if(t==="a"){
+    const cols=["gene_id","sample","tpm","log2fc","pvalue","cluster","baseMean","stat","padj","lfcSE"];
+    el.innerHTML='<div class="chips" id="chA"></div>';
+    const w=el.querySelector("#chA"); w.innerHTML='<span style="font-size:11px;font-weight:800;color:var(--muted);align-self:center;margin-right:4px">Columns</span>';
+    cols.forEach((c,i)=>{const l=document.createElement("label"); l.className=i<6?"on":""; l.textContent=c; l.onclick=()=>l.classList.toggle("on"); w.appendChild(l);});
+  } else if(t==="b"){
+    el.innerHTML='<input class="colsearch" placeholder="Filter 214 columns by name..." oninput="filterB(this.value)"><div class="collist" id="lstB"></div>';
+    window.__colsB=Array.from({length:214},(_,i)=> i<6?["gene_id","sample","tpm","log2fc","pvalue","cluster"][i] : (i%3===0?"expr_t"+i:i%3===1?"meta_"+i:"raw_"+i));
+    filterB("");
+  } else {
+    el.innerHTML=
+      '<div class="schemahint">3,400 columns is too many to list or chip. No grid is shown until you choose columns. Browse the schema, or select columns by a name rule.</div>'+
+      '<div class="patternbar"><span class="pill">Keep columns matching</span><input id="patIn" value="^expr_" oninput="patPreview()"><button class="ctrl" onclick="patPreview()">Preview match</button><span id="patOut" style="font-size:12px;color:var(--muted)"></span></div>'+
+      '<div class="collist" id="lstC"></div>';
+    window.__colsC=Array.from({length:3400},(_,i)=> i<3? ["gene_id","sample","cluster"][i] : (i%2===0?"expr_g"+i:"raw_g"+i));
+    renderSchema(window.__colsC.slice(0,40));
+    patPreview();
+  }
+}
+function filterB(q){ const list=document.getElementById("lstB"); const cols=window.__colsB.filter(c=>c.toLowerCase().includes(q.toLowerCase())).slice(0,60); list.innerHTML=cols.map((c,i)=>row(c,i)).join(""); }
+function renderSchema(cols){ document.getElementById("lstC").innerHTML=cols.map((c,i)=>row(c,i)).join(""); }
+function row(c,i){ const ty=c.startsWith("expr")||c==="tpm"||c==="log2fc"||c==="pvalue"?"number":c==="sample"||c==="cluster"||c==="gene_id"?"text":"number"; const nul=(i*7%11)+"%"; return '<div class="colrow"><input type="checkbox" '+(i<3?'checked':'')+'><span>'+c+'</span><span class="ty">'+ty+'</span><span class="nul">'+nul+' null</span></div>'; }
+function patPreview(){ const p=document.getElementById("patIn").value; let re; try{re=new RegExp(p);}catch(_){document.getElementById("patOut").textContent="invalid pattern";return;} const all=window.__colsC||[]; const m=all.filter(c=>re.test(c)); document.getElementById("patOut").innerHTML="matches <b style='color:var(--action)'>"+m.length.toLocaleString()+"</b> of 3,400 columns"; renderSchema(m.slice(0,40)); }
+
+// ---------- verdicts / comments / export ----------
+function buildVerdicts(){ SECS.forEach(id=>{ const el=document.querySelector('[data-verdict="'+id+'"]'); el.innerHTML=""; el.append(mkBtn("Approve","approve",id),mkBtn("Flag / discuss","deny",id)); const n=document.createElement("input"); n.className="vnote"; n.placeholder="optional note..."; n.value=state.notes[id]||""; n.oninput=()=>{state.notes[id]=n.value;save();}; el.append(n); }); refresh(); }
+function mkBtn(l,k,id){ const b=document.createElement("button"); b.className="vbtn "+k; b.textContent=l; b.onclick=()=>{state.verdicts[id]=(state.verdicts[id]===k)?null:k; save(); refresh();}; return b; }
+function refresh(){ let a=0,d=0; SECS.forEach(id=>{const v=state.verdicts[id]; const s=document.querySelector('[data-sec="'+id+'"]'); s.classList.toggle("ok",v==="approve"); s.classList.toggle("no",v==="deny"); const el=document.querySelector('[data-verdict="'+id+'"]'); el.querySelector(".approve").classList.toggle("sel",v==="approve"); el.querySelector(".deny").classList.toggle("sel",v==="deny"); if(v==="approve")a++; if(v==="deny")d++;}); document.getElementById("footstat").textContent=a+" approved, "+d+" flagged"; }
+function resetAll(){ if(!confirm("Clear verdicts, notes, comments?"))return; state={dark:state.dark,verdicts:{},notes:{},comments:[]}; save(); buildVerdicts(); renderComments(); document.querySelectorAll(".pin").forEach(p=>p.remove()); }
+let commenting=false;
+function toggleComment(){ commenting=!commenting; document.body.classList.toggle("commenting",commenting); document.getElementById("commentBtn").classList.toggle("on",commenting); if(commenting)document.getElementById("pinPanel").classList.add("show"); }
+document.addEventListener("click",e=>{ if(!commenting)return; const t=e.target.closest("[data-pin]"); if(!t)return; e.preventDefault(); const txt=prompt("Comment:"); if(!txt)return; const c={n:state.comments.length+1,txt,x:e.pageX,y:e.pageY}; state.comments.push(c); save(); placePin(c); renderComments(); });
+function placePin(c){ const p=document.createElement("div"); p.className="pin"; p.textContent=c.n; p.style.left=c.x+"px"; p.style.top=c.y+"px"; document.body.appendChild(p); }
+function renderComments(){ const b=document.getElementById("ccards"); if(!state.comments.length){b.innerHTML='<div style="color:var(--muted);font-size:12px">Comment mode on, click any outlined panel to pin a note.</div>';return;} b.innerHTML=""; state.comments.forEach(c=>{const d=document.createElement("div"); d.className="ccard"; d.innerHTML='<div class="cn">Pin '+c.n+'</div>'+esc(c.txt); b.appendChild(d);}); }
+function esc(s){return (s||"").replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m]));}
+function openExport(){ const ta=document.getElementById("exp"); ta.style.display="block"; document.getElementById("pinPanel").classList.add("show"); let o="# Data Hub transform builder + wide columns, decisions\n\n"; SECS.forEach(id=>{const v=state.verdicts[id]; o+="## "+TITLES[id]+"\n- Verdict: "+(v==="approve"?"APPROVE":v==="deny"?"FLAG":"(none)")+"\n"; if(state.notes[id])o+="- Note: "+state.notes[id]+"\n"; o+="\n";}); if(state.comments.length){o+="## Comment pins\n"; state.comments.forEach(c=>o+="- Pin "+c.n+": "+c.txt+"\n");} ta.value=o; navigator.clipboard&&navigator.clipboard.writeText(o).then(()=>{},()=>{}); ta.focus(); ta.select(); }
+
+// init
+applyTheme(); buildPalette(); renderPipe(); compute(); setCode("pandas"); renderTier("a"); buildVerdicts(); renderComments(); state.comments.forEach(placePin);
+// seed an example pipeline so it is not empty
+addOp("filter"); addOp("setwhere"); addOp("str_slice");
+</script>
+</body>
+</html>

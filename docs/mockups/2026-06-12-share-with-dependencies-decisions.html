@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Phase 6 share-with-dependencies, decisions</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --raised:#ffffff; --sunken:#eef1f5;
+    --ink:#111827; --muted:#6b7280; --faint:#9ca3af; --border:#e5e7eb;
+    --sky:#1AA0E6; --action:#1283C9; --amber:#F59E0B; --coral:#FF6F61; --green:#16a34a; --red:#dc2626;
+    --chipbg:#eef2f7;
+  }
+  .dark{
+    --bg:#0a0e1a; --panel:#1c2638; --raised:#1c2638; --sunken:#141b2b;
+    --ink:#e7ecf3; --muted:#9aa6b8; --faint:#6b7890; --border:#2a3650;
+    --chipbg:#28344c;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 -apple-system,Inter,system-ui,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--border);padding:14px 22px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+  h1{font-size:17px;margin:0;font-weight:800;letter-spacing:-.2px}
+  .sub{color:var(--muted);font-size:12px;margin-top:2px}
+  .spacer{margin-left:auto}
+  button.tool{background:var(--sunken);color:var(--ink);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer}
+  button.tool:hover{border-color:var(--action)}
+  .estat{font-size:12px;color:var(--muted)}
+  main{max-width:1080px;margin:0 auto;padding:26px 22px 90px}
+  h2{font-size:13px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin:34px 0 12px;font-weight:700}
+  .lead{color:var(--muted);font-size:13px;max-width:760px;margin:0 0 8px}
+
+  /* mock screens */
+  .screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:16px}
+  .screen{background:var(--panel);border:1px solid var(--border);border-radius:14px;overflow:hidden;display:flex;flex-direction:column}
+  .scaph{padding:10px 14px;border-bottom:1px solid var(--border);font-weight:700;font-size:12.5px;display:flex;align-items:center;gap:8px;background:var(--sunken)}
+  .scaph .tag{margin-left:auto;font-size:10px;font-weight:700;color:#fff;background:var(--sky);border-radius:999px;padding:2px 8px}
+  .scbody{padding:14px;display:flex;flex-direction:column;gap:10px}
+  .note-card{border:1px solid var(--border);border-radius:10px;padding:10px 12px;background:var(--raised)}
+  .note-title{font-weight:700;font-size:13px}
+  .note-meta{color:var(--faint);font-size:11px;margin-top:2px}
+  .dep-row{display:flex;align-items:center;gap:9px;border:1px solid var(--border);border-radius:9px;padding:8px 10px;background:var(--raised)}
+  .ico{width:22px;height:22px;border-radius:6px;display:grid;place-items:center;font-size:11px;font-weight:800;color:#fff;flex:none}
+  .ico.mol{background:#5B47D6}.ico.seq{background:var(--sky)}.ico.dh{background:var(--amber)}.ico.note{background:#0ea5a3}.ico.meth{background:var(--coral)}
+  .dep-name{font-weight:600;font-size:12.5px}
+  .dep-sub{color:var(--faint);font-size:11px}
+  .dep-state{margin-left:auto;font-size:10.5px;font-weight:700;padding:3px 8px;border-radius:999px}
+  .st-include{background:rgba(22,163,74,.14);color:var(--green)}
+  .st-have{background:rgba(18,131,201,.14);color:var(--action)}
+  .st-noid{background:rgba(245,158,11,.16);color:#b45309}
+  .dark .st-noid{color:#fbbf24}
+  .toggle{width:30px;height:18px;border-radius:999px;background:var(--green);position:relative;flex:none}
+  .toggle::after{content:"";position:absolute;width:14px;height:14px;border-radius:999px;background:#fff;top:2px;right:2px}
+  .toggle.off{background:var(--border)}.toggle.off::after{right:auto;left:2px}
+  .safety{font-size:11.5px;color:var(--muted);border-top:1px dashed var(--border);padding-top:9px}
+  .picker{display:flex;align-items:center;gap:8px;font-size:11.5px}
+  .pill-sel{margin-left:auto;border:1px solid var(--border);border-radius:8px;padding:4px 9px;background:var(--sunken);font-weight:600}
+  .dedup{font-size:11px;color:var(--action);margin-top:3px}
+  .cta{margin-top:4px;background:linear-gradient(90deg,var(--action),#5B47D6);color:#fff;border:none;border-radius:9px;padding:9px;font-weight:700;font-size:12.5px;text-align:center}
+  .ghost{border:1px solid var(--border);border-radius:9px;padding:7px;text-align:center;font-size:11.5px;color:var(--muted)}
+  .placeholder{border:1px dashed var(--border);border-radius:10px;padding:12px;background:var(--sunken);display:flex;align-items:center;gap:10px}
+  .placeholder .lock{width:26px;height:26px;border-radius:7px;background:var(--chipbg);display:grid;place-items:center;font-size:13px;flex:none}
+
+  /* decision cards */
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  .card .top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+  .did{font-size:11px;color:var(--faint);font-weight:700}
+  .ctitle{font-weight:800;font-size:15px;letter-spacing:-.2px}
+  .rec{margin-left:auto;font-size:10.5px;font-weight:800;color:#fff;background:var(--green);border-radius:999px;padding:3px 9px}
+  .opts{display:flex;flex-direction:column;gap:7px;margin:10px 0}
+  .opt{border:1px solid var(--border);border-radius:10px;padding:9px 11px;background:var(--raised)}
+  .opt b{font-size:12.5px}
+  .opt.recommend{border-color:var(--green);box-shadow:inset 0 0 0 1px rgba(22,163,74,.25)}
+  .opt .ob{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .why{font-size:12px;color:var(--muted);margin-top:4px}
+  .why b{color:var(--ink)}
+  .decide{display:flex;align-items:center;gap:10px;margin-top:12px;flex-wrap:wrap}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{background:var(--panel);color:var(--muted);border:none;padding:7px 13px;font-size:12px;font-weight:700;cursor:pointer}
+  .seg button+button{border-left:1px solid var(--border)}
+  .seg button.on[data-v="approve"]{background:var(--green);color:#fff}
+  .seg button.on[data-v="modify"]{background:var(--amber);color:#1a1205}
+  .seg button.on[data-v="reject"]{background:var(--red);color:#fff}
+  .decide input{flex:1;min-width:200px;background:var(--sunken);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--ink);font-size:12px}
+  .foot{color:var(--faint);font-size:11px;text-align:center;margin-top:30px}
+  code{background:var(--chipbg);border-radius:5px;padding:1px 5px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Phase 6, share a note with its embedded objects</h1>
+    <div class="sub">Mark up the flow and the eight forks. Decisions persist locally; Export when done and paste back into chat.</div>
+  </div>
+  <div class="spacer"></div>
+  <span class="estat" id="estat">No decisions yet</span>
+  <button class="tool" id="themeBtn">Toggle dark</button>
+  <button class="tool" id="exportBtn">Export decisions</button>
+</header>
+
+<main>
+  <h2>The proposed flow</h2>
+  <p class="lead">A note often embeds molecules, sequences, Data Hub results, or other notes. Today sharing a note across labs sends only the text, so the embeds land as dead links for the recipient. The flow below bundles the note and what it references into one sealed package, lets the sender see and trim the dependencies, and lets the recipient choose where each item lands. Same-lab shares are unchanged (embeds already resolve natively).</p>
+
+  <div class="screens">
+    <!-- SENDER -->
+    <div class="screen">
+      <div class="scaph">Sender, share outside your lab <span class="tag">new panel</span></div>
+      <div class="scbody">
+        <div class="note-card">
+          <div class="note-title">RNA-seq prep, batch 7</div>
+          <div class="note-meta">Note, references 4 objects</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em">This note references</div>
+        <div class="dep-row">
+          <span class="ico mol">M</span>
+          <div><div class="dep-name">Doxorubicin</div><div class="dep-sub">Molecule</div></div>
+          <span class="dep-state st-include">Include</span>
+          <span class="toggle"></span>
+        </div>
+        <div class="dep-row">
+          <span class="ico seq">S</span>
+          <div><div class="dep-name">pUC19-insert</div><div class="dep-sub">Sequence, 2686 bp</div></div>
+          <span class="dep-state st-include">Include</span>
+          <span class="toggle"></span>
+        </div>
+        <div class="dep-row">
+          <span class="ico dh">D</span>
+          <div><div class="dep-name">qPCR fold-change</div><div class="dep-sub">Data Hub result, frozen snapshot</div></div>
+          <span class="dep-state st-include">Include</span>
+          <span class="toggle"></span>
+        </div>
+        <div class="dep-row" style="opacity:.65">
+          <span class="ico note">N</span>
+          <div><div class="dep-name">Lab SOP, lysis</div><div class="dep-sub">Note</div></div>
+          <span class="dep-state st-have">Excluded</span>
+          <span class="toggle off"></span>
+        </div>
+        <div class="safety">3 of 4 will be included. The recipient already has nothing matching, so all three import fresh. You can deselect any item; the note still sends, that embed shows as a calm placeholder.</div>
+        <div class="cta">Send 1 note + 3 objects to morgan@uw.edu</div>
+      </div>
+    </div>
+
+    <!-- RECIPIENT -->
+    <div class="screen">
+      <div class="scaph">Recipient, accept the share <span class="tag">new step</span></div>
+      <div class="scbody">
+        <div class="note-card">
+          <div class="note-title">RNA-seq prep, batch 7</div>
+          <div class="note-meta">From Dr. Alex Rivera, verified sender</div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em">Where should each item go?</div>
+        <div class="dep-row" style="flex-wrap:wrap">
+          <span class="ico mol">M</span>
+          <div><div class="dep-name">Doxorubicin</div>
+            <div class="dedup">You already have this molecule. Link instead of copy.</div></div>
+          <span class="pill-sel">Link existing</span>
+        </div>
+        <div class="dep-row">
+          <span class="ico seq">S</span>
+          <div><div class="dep-name">pUC19-insert</div><div class="dep-sub">Sequence</div></div>
+          <span class="pill-sel">Cloning project</span>
+        </div>
+        <div class="dep-row">
+          <span class="ico dh">D</span>
+          <div><div class="dep-name">qPCR fold-change</div><div class="dep-sub">Data Hub, read-only</div></div>
+          <span class="pill-sel">Shared by Alex</span>
+        </div>
+        <div class="safety">Defaults to a <code>Shared by Alex</code> collection. Change any row. Re-file later anytime.</div>
+        <div class="cta">Import note + 2 objects, link 1</div>
+      </div>
+    </div>
+
+    <!-- NO ACCESS -->
+    <div class="screen">
+      <div class="scaph">When an embed is not available <span class="tag">placeholder</span></div>
+      <div class="scbody">
+        <p style="font-size:12px;color:var(--muted);margin:0">If an embed was deselected, or points at something the viewer cannot see, it renders as a calm card showing only the name (already in the note text, so no data leaks).</p>
+        <div class="placeholder">
+          <span class="lock">lock</span>
+          <div><div class="dep-name">Lab SOP, lysis</div>
+          <div class="dep-sub">Referenced note, not included in this share</div></div>
+        </div>
+        <div class="placeholder">
+          <span class="lock">lock</span>
+          <div><div class="dep-name">Internal assay A</div>
+          <div class="dep-sub">You do not have access</div>
+          <div class="dedup" style="margin-top:4px">Request access from Alex &rarr;</div></div>
+        </div>
+        <p style="font-size:11px;color:var(--faint);margin:0">The Request access action is a fork below (D6). Without it, the placeholder is read-only.</p>
+      </div>
+    </div>
+  </div>
+
+  <h2>Decisions, mark up each</h2>
+  <p class="lead">Each fork has a recommended option (green). Approve to take the recommendation, Modify with a note, or Reject. I build exactly what you approve.</p>
+  <div id="list"></div>
+
+  <div class="foot">Self-contained, nothing leaves your machine until you Export. Phase 6 mockup, 2026-06-12.</div>
+</main>
+
+<script>
+const D=[
+  {id:"D1",title:"Dependency bundling default",rec:"A",
+   why:"<b>Why:</b> the whole point of sharing the note is so the recipient can use it. Starting empty means people forget to include the molecule the note is about, and it lands broken on the other side.",
+   opts:[
+     {k:"A",t:"Include all, deselect to trim",b:"Every embedded object is on by default; the sender flicks off anything private. One glance, hard to under-share.",rec:true},
+     {k:"B",t:"Opt-in checklist, nothing by default",b:"Sender checks each object to include. Safer against over-sharing, but easy to send a broken note."}
+   ]},
+  {id:"D2",title:"What the recipient gets, copy or read-only",rec:"A",
+   why:"<b>Why:</b> a received note is the recipient's to build on, so a real copy is usually right. But a Data Hub dataset can be large and is often shared just to show a result, not to hand over the raw data.",
+   opts:[
+     {k:"A",t:"Full editable copy, with provenance stamp",b:"Recipient owns a real copy; we stamp received-from + fingerprint so origin is never lost. Data Hub objects default to a frozen result snapshot unless the sender opts to send the full dataset.",rec:true},
+     {k:"B",t:"Read-only snapshot for every type",b:"Recipient gets a frozen view they cannot edit. Cleaner provenance, but they cannot continue the work in their own folder."}
+   ]},
+  {id:"D3",title:"Where imported items land",rec:"A",
+   why:"<b>Why:</b> dumping everything into one inbox makes the recipient re-file by hand. A sensible default plus a per-item override is the least tedious that still keeps things organized.",
+   opts:[
+     {k:"A",t:"Per-item picker, default to a Shared-by-sender collection",b:"Each object shows a destination you can change; the default is a tidy <code>Shared by Alex</code> collection. Re-file anytime later.",rec:true},
+     {k:"B",t:"Single inbox, re-file later",b:"Everything imports into one inbox bucket, no per-item choice. Fastest accept, messiest aftermath."}
+   ]},
+  {id:"D4",title:"Duplicate detection on import",rec:"A",
+   why:"<b>Why:</b> if the recipient already has the exact same molecule or sequence, importing a second copy clutters their library and splits the embed across two identical objects.",
+   opts:[
+     {k:"A",t:"Detect by content identity, offer Link instead of copy",b:"Match molecules by InChIKey, sequences by content-hash, others by a stable id. Show a Link existing row; recipient decides per item.",rec:true},
+     {k:"B",t:"Always import a fresh copy",b:"Never dedup; every share creates new objects. Simplest, but produces duplicates the recipient must merge by hand."}
+   ]},
+  {id:"D5",title:"Portable identity, when minted",rec:"A",
+   why:"<b>Why:</b> embeds resolve cross-user by content identity, not by the sender's local numeric id (which means nothing in the recipient's folder). That identity has to exist before the first share for dedup to work.",
+   opts:[
+     {k:"A",t:"Mint a stable id at object creation, plus natural keys",b:"Every object gets a <code>sourceUuid</code> when created; molecules also carry InChIKey, sequences a GenBank content-hash. Encoded in the embed <code>ref=</code> fragment. Lazy-backfilled on read for existing objects.",rec:true},
+     {k:"B",t:"Mint only at first share",b:"No identity until an object is shared. Lighter, but two people who independently created and shared the same object can never be deduped."}
+   ]},
+  {id:"D6",title:"No-access embeds, request access?",rec:"A",
+   why:"<b>Why:</b> the calm name-only placeholder is already safe and ships with the rest of Phase 6. A Request-access round trip is useful but is its own flow (notify the owner, grant, re-share) and can follow.",
+   opts:[
+     {k:"A",t:"Calm placeholder now, Request access as a later sub-phase",b:"Ship the name-only card first. Add the request-and-grant loop in a follow-up once the core share-with-deps is solid.",rec:true},
+     {k:"B",t:"Build Request access into Phase 6 now",b:"Include the notify-owner, grant, and re-light-the-embed loop in this phase. More complete, larger build, more of your UX input needed up front."}
+   ]},
+  {id:"D7",title:"Same-folder (same-lab) shares",rec:"A",
+   why:"<b>Why:</b> when sender and recipient share a folder, the recipient can already resolve the embed natively. Bundling there would copy objects that are already visible and create needless duplicates.",
+   opts:[
+     {k:"A",t:"No bundling for same-lab shares, embeds resolve natively",b:"The dependency panel and import picker only appear for cross-boundary sends. Same-lab sharing is unchanged.",rec:true},
+     {k:"B",t:"Always bundle, even same-lab",b:"Uniform flow everywhere. Simpler to reason about, but duplicates objects the recipient could already see."}
+   ]},
+  {id:"D8",title:"Heavy objects (Data Hub datasets)",rec:"A",
+   why:"<b>Why:</b> a Data Hub doc with raw data can be megabytes and is often shared to communicate a result, not to transfer the dataset. The relay caps payload size, so a default snapshot keeps shares small and fast.",
+   opts:[
+     {k:"A",t:"Default to a frozen result/figure snapshot, opt in to full data",b:"The embed ships as a baked result or plot the recipient can read. A checkbox sends the full editable dataset when that is actually the intent.",rec:true},
+     {k:"B",t:"Always send the full dataset",b:"Every Data Hub embed transfers the complete doc. Most faithful, but big and slow, and frequently more than the recipient needs."}
+   ]}
+];
+
+const KEY="phase6ShareDecisions";
+const DEC=JSON.parse(localStorage.getItem(KEY)||"{}");
+function save(){localStorage.setItem(KEY,JSON.stringify(DEC));stat();}
+
+function render(){
+  document.getElementById("list").innerHTML=D.map(d=>{
+    const cur=DEC[d.id]||{};
+    return `<div class="card">
+      <div class="top"><span class="did">${d.id}</span><span class="ctitle">${d.title}</span><span class="rec">rec ${d.rec}</span></div>
+      <div class="opts">${d.opts.map(o=>`
+        <div class="opt ${o.rec?'recommend':''}">
+          <b>${o.k}. ${o.t}</b>${o.rec?' <span style="color:var(--green);font-weight:700;font-size:11px">recommended</span>':''}
+          <div class="ob">${o.b}</div>
+        </div>`).join("")}</div>
+      <div class="why">${d.why}</div>
+      <div class="decide">
+        <span class="seg" data-id="${d.id}">
+          <button data-v="approve" class="${cur.v==='approve'?'on':''}">Approve</button>
+          <button data-v="modify" class="${cur.v==='modify'?'on':''}">Modify</button>
+          <button data-v="reject" class="${cur.v==='reject'?'on':''}">Reject</button>
+        </span>
+        <input data-note="${d.id}" placeholder="note or which option you want (optional)" value="${(cur.note||'').replace(/"/g,'&quot;')}"/>
+      </div>
+    </div>`;
+  }).join("");
+  bind();stat();
+}
+function bind(){
+  document.querySelectorAll(".seg").forEach(s=>{
+    s.querySelectorAll("button").forEach(b=>b.onclick=()=>{
+      const id=s.dataset.id;DEC[id]=DEC[id]||{};DEC[id].v=b.dataset.v;
+      s.querySelectorAll("button").forEach(x=>x.classList.remove("on"));b.classList.add("on");save();
+    });
+  });
+  document.querySelectorAll("[data-note]").forEach(i=>i.oninput=()=>{
+    const id=i.dataset.note;DEC[id]=DEC[id]||{};DEC[id].note=i.value;save();
+  });
+}
+function stat(){
+  const n=Object.values(DEC).filter(d=>d.v).length;
+  document.getElementById("estat").textContent=n?`${n} of ${D.length} decided`:"No decisions yet";
+}
+document.getElementById("themeBtn").onclick=()=>document.documentElement.classList.toggle("dark");
+document.getElementById("exportBtn").onclick=()=>{
+  const lines=["# Phase 6 share-with-dependencies, decisions","",`_Marked up ${new Date().toISOString().slice(0,10)}_`,""];
+  D.forEach(d=>{
+    const c=DEC[d.id]||{};
+    const v=c.v?c.v.toUpperCase():"(undecided)";
+    lines.push(`## ${d.id} ${d.title}  ->  ${v}`);
+    lines.push(`Recommended: ${d.rec}.${c.note?"  Note: "+c.note:""}`);
+    lines.push("");
+  });
+  const txt=lines.join("\n");
+  navigator.clipboard.writeText(txt).then(()=>{},()=>{});
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([txt],{type:"text/markdown"}));
+  a.download="phase6-share-decisions.md";a.click();
+};
+render();
+</script>
+</body>
+</html>

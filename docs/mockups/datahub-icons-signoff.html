@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub icons — sign-off</title>
+<style>
+  :root{--sky:#1AA0E6;--action:#1283C9;--ink:#111827;--bg:#eef0f5;--surface:#fff;--text:#1b2230;--dim:#5b6577;--border:#e2e6ee;}
+  html[data-theme=dark]{--bg:#0a0e1a;--surface:#1c2638;--text:#e7ecf5;--dim:#93a0b8;--border:#2b3850;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,Inter,system-ui,sans-serif;background:var(--bg);color:var(--text);}
+  .wrap{max-width:760px;margin:0 auto;padding:28px 22px;}
+  h1{font-size:22px;font-weight:800;margin:0 0 4px;}
+  p.sub{color:var(--dim);font-size:14px;margin:0 0 18px;}
+  .toolbar{display:flex;gap:8px;margin-bottom:18px;}
+  button{font-size:13px;font-weight:700;padding:7px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface);color:var(--text);cursor:pointer;}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px 20px;margin-bottom:16px;}
+  .card h2{font-size:16px;margin:0 0 2px;}
+  .card .what{font-size:13px;color:var(--dim);margin:0 0 14px;}
+  .sizes{display:flex;align-items:flex-end;gap:26px;flex-wrap:wrap;margin-bottom:14px;}
+  .sz{display:flex;flex-direction:column;align-items:center;gap:6px;color:var(--action);}
+  .sz small{color:var(--dim);font-size:11px;}
+  .ctx{display:flex;align-items:center;gap:9px;font-size:13.5px;color:var(--text);background:color-mix(in srgb,var(--action) 12%,transparent);border-radius:8px;padding:8px 11px;width:max-content;}
+  .ctx .ic{color:var(--action);}
+  pre{background:#0d1626;color:#d7e2f4;border-radius:9px;padding:11px 13px;font-size:12px;overflow:auto;font-family:ui-monospace,Menlo,monospace;margin-top:12px;}
+  .ico{display:inline-flex;}
+  .neutral{color:var(--dim);}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Two new glyphs for the Data Hub tab</h1>
+  <p class="sub">Drawn in the house style (viewBox 24, stroke-width 2, round caps, no fill, currentColor), the same as the rest of the registry. These replace the temporary list and tree placeholders. Approve, tweak, or reject. Toggle dark to check both themes.</p>
+  <div class="toolbar"><button id="themeBtn">Dark</button></div>
+
+  <div class="card">
+    <h2>table</h2>
+    <p class="what">For data-table rows in the navigator (replaces the list placeholder). A framed grid.</p>
+    <div class="sizes" id="tableSizes"></div>
+    <div class="ctx"><span class="ico" id="tableCtx"></span> Cell viability assay</div>
+    <pre>table: {
+  concept: "Table / data grid",
+  body: (
+    &lt;&gt;
+      &lt;rect x="3.5" y="5" width="17" height="14" rx="1.5" /&gt;
+      &lt;path d="M3.5 10h17M3.5 14.5h17M11.5 5v14" /&gt;
+    &lt;/&gt;
+  ),
+},</pre>
+  </div>
+
+  <div class="card">
+    <h2>chart</h2>
+    <p class="what">For graph rows in the navigator (replaces the tree placeholder on Graphs). An axis with three bars.</p>
+    <div class="sizes" id="chartSizes"></div>
+    <div class="ctx"><span class="ico" id="chartCtx"></span> Viability column scatter</div>
+    <pre>chart: {
+  concept: "Chart / graph",
+  body: (
+    &lt;&gt;
+      &lt;path d="M5 4v15h15" /&gt;
+      &lt;path d="M9 19v-5M13 19v-9M17 19v-7" /&gt;
+    &lt;/&gt;
+  ),
+},</pre>
+  </div>
+</div>
+
+<script>
+const ICONS={
+  table:'<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M3.5 10h17M3.5 14.5h17M11.5 5v14"/>',
+  chart:'<path d="M5 4v15h15"/><path d="M9 19v-5M13 19v-9M17 19v-7"/>',
+};
+function svg(name,size){
+  return '<svg class="ico" width="'+size+'" height="'+size+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">'+ICONS[name]+'</svg>';
+}
+function sizeRow(name){
+  return [16,20,24,40].map(s=>'<div class="sz">'+svg(name,s)+'<small>'+s+'px</small></div>').join('')+
+    '<div class="sz neutral">'+svg(name,24)+'<small>neutral</small></div>';
+}
+document.getElementById('tableSizes').innerHTML=sizeRow('table');
+document.getElementById('chartSizes').innerHTML=sizeRow('chart');
+document.getElementById('tableCtx').innerHTML=svg('table',16);
+document.getElementById('chartCtx').innerHTML=svg('chart',16);
+const tb=document.getElementById('themeBtn');
+tb.onclick=()=>{const d=document.documentElement.dataset.theme==='dark';document.documentElement.dataset.theme=d?'light':'dark';tb.textContent=d?'Dark':'Light';};
+</script>
+</body>
+</html>

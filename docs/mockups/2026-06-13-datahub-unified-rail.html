@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Data Hub rail on the unified shell (before / after)</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff; --surface-sunken: #f1f5f9;
+    --border: #e5e7eb; --border-strong: #cbd5e1;
+    --fg: #111827; --fg-muted: #64748b; --fg-faint: #94a3b8;
+    --brand-sky: #1AA0E6; --brand-action: #1283C9; --brand-purple: #5B47D6;
+    --pin: #e11d48; --ok: #16a34a;
+    --recycle: #0f766e; --recycle-soft: #e0f2ee;
+    --gain: #b45309; --gain-soft: #fef3c7;
+  }
+  body.dark {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c; --surface-sunken: #0d1424;
+    --border: rgba(255,255,255,0.16); --border-strong: rgba(255,255,255,0.28);
+    --fg: #e9eef7; --fg-muted: #9fb0c8; --fg-faint: #6b7c96;
+    --pin: #fb7185; --ok: #4ade80; --recycle: #5eead4; --recycle-soft: rgba(15,118,110,0.22);
+    --gain: #fbbf24; --gain-soft: rgba(180,83,9,0.25);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background: var(--surface); color: var(--fg); line-height: 1.45; -webkit-font-smoothing: antialiased; }
+  header.top { position: sticky; top: 0; z-index: 40; display: flex; align-items: center; gap: 14px; padding: 14px 22px; background: var(--surface-overlay); border-bottom: 1px solid var(--border); }
+  header.top h1 { font-size: 17px; margin: 0; font-weight: 800; letter-spacing: -0.01em; }
+  header.top .sub { font-size: 12.5px; color: var(--fg-muted); }
+  header.top .spacer { flex: 1; }
+  .btn { font: inherit; font-size: 13px; font-weight: 600; padding: 7px 13px; border-radius: 9px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+  .btn.danger { color: var(--pin); }
+  .wrap { max-width: 1360px; margin: 0 auto; padding: 22px; }
+  .lead { color: var(--fg-muted); font-size: 14px; max-width: 940px; margin: 0 0 6px; }
+  .keys { display: flex; gap: 10px; flex-wrap: wrap; margin: 8px 0 0; }
+  .k { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; }
+  .k .sw { width: 11px; height: 11px; border-radius: 3px; }
+
+  .panes { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 18px; }
+  @media (max-width: 1120px) { .panes { grid-template-columns: 1fr; } }
+  .pane { background: var(--surface-raised); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; }
+  .pane > .label { padding: 9px 16px; font-size: 11px; font-weight: 800; letter-spacing: 0.09em; text-transform: uppercase; color: var(--fg-faint); border-bottom: 1px solid var(--border); }
+  .pane.before > .label { background: var(--surface-sunken); }
+  .pane.after > .label { background: linear-gradient(90deg, rgba(18,131,201,0.12), rgba(91,71,214,0.10)); color: var(--brand-action); }
+
+  .hub { display: flex; min-height: 440px; }
+  .rail { flex: none; display: flex; flex-direction: column; background: var(--surface-sunken); border-right: 1px solid var(--border); overflow: hidden; transition: width .2s; }
+  .rail.before { width: 200px; }
+  .rail.after { width: 210px; }
+  .rail .rhead { display: flex; align-items: center; justify-content: space-between; padding: 9px 10px; }
+  .rail .rhead .t { font-size: 13px; font-weight: 800; }
+  .rail .rhead .ic { display: flex; gap: 4px; color: var(--fg-faint); }
+  .seclabel { font-size: 10px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--fg-faint); padding: 6px 10px 4px; display: flex; align-items: center; justify-content: space-between; }
+  .rsel { margin: 0 10px 6px; }
+  .rsel select, .rfilter input { width: 100%; font-size: 12px; padding: 5px 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-raised); color: var(--fg); }
+  .rfilter { margin: 0 10px 8px; position: relative; }
+  .rfilter input { padding-left: 24px; }
+  .rfilter i { position: absolute; left: 7px; top: 6px; font-size: 13px; color: var(--fg-faint); }
+  .node { font-size: 12px; }
+  .node .row { display: flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 6px; color: var(--fg); cursor: default; white-space: nowrap; overflow: hidden; }
+  .node .row:hover { background: var(--surface-raised); }
+  .node .row.sel { background: var(--brand-action); color: #fff; }
+  .node .row .tag { margin-left: auto; font-size: 9px; font-weight: 700; padding: 0 5px; border-radius: 5px; background: var(--surface-raised); color: var(--fg-muted); }
+  .node .row.sel .tag { background: rgba(255,255,255,0.2); color: #fff; }
+  .node .ind1 { padding-left: 24px; }
+  .node .child { padding-left: 30px; display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--fg-muted); padding-top: 3px; padding-bottom: 3px; border-left: 1px solid var(--border-strong); margin-left: 17px; }
+  .truncwarn { font-size: 10px; color: var(--gain); padding: 2px 10px; font-style: italic; }
+
+  .divider { flex: none; width: 8px; cursor: col-resize; display: flex; align-items: center; justify-content: center; }
+  .divider .grip { width: 4px; height: 46px; border-radius: 999px; background: var(--border-strong); }
+  .reopen { flex: none; width: 26px; display: flex; align-items: flex-start; justify-content: center; padding-top: 8px; }
+  .reopen button { width: 22px; height: 30px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-raised); color: var(--fg-muted); cursor: pointer; }
+
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--fg-muted); }
+  .toolbar .crumb { font-weight: 700; color: var(--fg); font-size: 13px; }
+  .tablewrap { flex: 1; overflow: auto; padding: 0; }
+  table.grid { border-collapse: collapse; font-size: 11.5px; width: 100%; }
+  table.grid th, table.grid td { border: 1px solid var(--border); padding: 4px 8px; white-space: nowrap; text-align: left; }
+  table.grid th { background: var(--surface-sunken); font-weight: 700; color: var(--fg-muted); position: sticky; top: 0; }
+  .clipnote { font-size: 11px; color: var(--gain); padding: 6px 12px; background: var(--gain-soft); border-top: 1px solid var(--border); }
+
+  .controlbar { display: flex; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .mini { font-size: 11px; border: 1px solid var(--border); border-radius: 7px; padding: 4px 8px; background: var(--surface-raised); color: var(--fg); cursor: pointer; }
+  .mini.on { background: var(--brand-action); border-color: var(--brand-action); color: #fff; }
+
+  .section-h { font-size: 18px; font-weight: 800; margin: 34px 0 4px; letter-spacing: -0.01em; }
+  .section-sub { color: var(--fg-muted); font-size: 13.5px; margin: 0 0 14px; }
+  .changes { display: grid; gap: 12px; }
+  .change { display: flex; gap: 14px; background: var(--surface-raised); border: 1px solid var(--border); border-left: 4px solid var(--border-strong); border-radius: 12px; padding: 14px 16px; }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .body h4 { margin: 0 0 4px; font-size: 14.5px; font-weight: 700; }
+  .change .body p { margin: 0; font-size: 13px; color: var(--fg-muted); }
+  .tagrow { margin-top: 6px; display: flex; gap: 6px; flex-wrap: wrap; }
+  .rtag { font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+  .rtag.rec { background: var(--recycle-soft); color: var(--recycle); }
+  .rtag.gain { background: var(--gain-soft); color: var(--gain); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 140px; }
+  .vbtn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 6px 10px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--surface-raised); color: var(--fg); cursor: pointer; text-align: center; }
+  .vbtn.ok.on { background: var(--ok); border-color: var(--ok); color: #fff; }
+  .vbtn.dis.on { background: var(--pin); border-color: var(--pin); color: #fff; }
+  .change textarea { margin-top: 8px; width: 100%; height: 30px; resize: vertical; font: inherit; font-size: 12.5px; padding: 5px 8px; border-radius: 7px; border: 1px solid var(--border); background: var(--surface-sunken); color: var(--fg); }
+
+  body.cmt-on { cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); min-width: 18px; height: 18px; padding: 0 4px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; z-index: 50; cursor: pointer; box-shadow: 0 1px 4px rgba(0,0,0,0.3); }
+  .cpanel { position: fixed; right: 16px; bottom: 16px; width: 320px; max-height: 70vh; display: flex; flex-direction: column; background: var(--surface-overlay); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 18px 50px rgba(0,0,0,0.3); z-index: 55; overflow: hidden; }
+  .cpanel .ch { display: flex; align-items: center; gap: 8px; padding: 11px 14px; border-bottom: 1px solid var(--border); }
+  .cpanel .ch h3 { margin: 0; font-size: 14px; font-weight: 800; flex: 1; }
+  .cbody { overflow: auto; padding: 8px; }
+  .cempty { color: var(--fg-faint); font-size: 12.5px; padding: 14px 8px; text-align: center; }
+  .citem { display: flex; gap: 8px; padding: 8px; border-radius: 9px; }
+  .citem .num { flex: none; width: 18px; height: 18px; background: var(--pin); color: #fff; border-radius: 9px; font-size: 11px; font-weight: 700; line-height: 18px; text-align: center; }
+  .citem .ctxt { font-size: 12.5px; flex: 1; }
+  .citem .ctxt .tgt { color: var(--fg-faint); font-size: 11px; display: block; }
+  .citem .del { background: none; border: none; color: var(--fg-faint); cursor: pointer; font-size: 14px; }
+  .cfoot { display: flex; gap: 8px; padding: 10px; border-top: 1px solid var(--border); }
+  .cfoot .btn { flex: 1; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div>
+    <h1>Data Hub rail on the unified shell</h1>
+    <div class="sub">Before / after. Same family-tree, gains resize + collapse + filter, matches the other pages.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentToggle">Comment mode: off</button>
+</header>
+
+<div class="wrap">
+  <p class="lead">Data Hub already has a good rail, so this is not a rebuild. It is the one rail of the four data pages that is a fixed 232px, cannot collapse, and has no type-to-filter. Data Hub is also where the widest tables live, so a rail that can get out of the way matters most here. The proposal keeps the signature family-tree (folders, then tables, with each table's Results and Graphs nested under it) exactly as-is, and puts it on the same shell Sequences, Chemistry, and Tree Studio use.</p>
+  <div class="keys">
+    <span class="k"><span class="sw" style="background:var(--recycle)"></span> recycled chrome from the other pages</span>
+    <span class="k"><span class="sw" style="background:var(--gain)"></span> a new affordance Data Hub lacks today</span>
+  </div>
+  <p class="lead" style="margin-top:12px"><strong>Try the after:</strong> drag the divider, hit Collapse to reclaim the table width, and type in the filter. Then mark each decision below and hit Copy feedback.</p>
+
+  <div class="panes">
+    <div class="pane before">
+      <div class="label">Before — today</div>
+      <div class="hub">
+        <div class="rail before" data-cmt="before: fixed 232px rail">
+          <div class="rhead"><span class="t">Data Hub</span><span class="ic"><i class="ti ti-plus" aria-hidden="true"></i><i class="ti ti-folder-plus" aria-hidden="true"></i></span></div>
+          <div class="seclabel">Collection</div>
+          <div class="rsel"><select><option>All collections (12)</option></select></div>
+          <div class="seclabel">Data tables</div>
+          <div class="node" id="beforeTree"></div>
+          <div class="truncwarn">Fixed 232px: deep folders and long names clip, no way to widen.</div>
+        </div>
+        <div class="main">
+          <div class="toolbar"><span class="crumb">Growth curves</span><span style="flex:1"></span><span>14 columns, 9,420 rows</span></div>
+          <div class="tablewrap" id="beforeTable"></div>
+          <div class="clipnote">No collapse: a wide table can never use the full width, the rail always holds 232px.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pane after">
+      <div class="label">After — unified shell</div>
+      <div class="hub" id="afterHub">
+        <div class="rail after" id="afterRail" data-cmt="after: shared shell rail">
+          <div class="rhead"><span class="t">Data Hub</span><span class="ic"><i class="ti ti-plus" aria-hidden="true"></i><i class="ti ti-folder-plus" aria-hidden="true"></i><i class="ti ti-layout-sidebar-left-collapse" id="collapseBtn" style="cursor:pointer" title="Collapse rail" aria-hidden="true"></i></span></div>
+          <div class="seclabel">Collection</div>
+          <div class="rsel"><select><option>All collections (12)</option><option>Unfiled (3)</option></select></div>
+          <div class="rfilter"><i class="ti ti-search" aria-hidden="true"></i><input id="afterFilter" placeholder="Filter tables" /></div>
+          <div class="seclabel">Data tables</div>
+          <div class="node" id="afterTree"></div>
+        </div>
+        <div class="divider" id="afterDivider" title="Drag to resize"><span class="grip"></span></div>
+        <div class="reopen" id="afterReopen" style="display:none"><button id="reopenBtn" title="Show the rail"><i class="ti ti-layout-sidebar-left-expand" aria-hidden="true"></i></button></div>
+        <div class="main">
+          <div class="controlbar">
+            <button class="mini" id="collapseToggle"><i class="ti ti-layout-sidebar-left-collapse" aria-hidden="true"></i> Collapse rail</button>
+            <span style="font-size:11px;color:var(--fg-faint)">drag the divider, or collapse to give the table the full width</span>
+          </div>
+          <div class="toolbar"><span class="crumb">Growth curves</span><span style="flex:1"></span><span id="afterDims">14 columns, 9,420 rows</span></div>
+          <div class="tablewrap" id="afterTable"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2 class="section-h">What changed, and why</h2>
+  <p class="section-sub">Five decisions. The family-tree itself does not change. Mark each so I build only what you want.</p>
+  <div class="changes" id="changes"></div>
+</div>
+
+<div class="cpanel" id="cpanel" style="display:none">
+  <div class="ch"><h3>Comments</h3><span class="cCount" id="cCount">0</span></div>
+  <div class="cbody" id="cbody"><div class="cempty">No comments yet. Turn on Comment mode and click any element.</div></div>
+  <div class="cfoot"><button class="btn" id="exportBtn">Copy feedback</button><button class="btn danger" id="clearBtn">Clear</button></div>
+</div>
+
+<script>
+(function(){
+  var TABLES = [
+    { f: "Assays", name: "qPCR plate 3", tag: "table" },
+    { f: "Assays", name: "Growth curves", tag: "table", sel: true, kids: [["t-test vs control","result"],["Dose-response","graph"]] },
+    { f: "Sequencing", name: "Read counts (long)", tag: "table" },
+    { f: null, name: "Sample registry", tag: "table" },
+  ];
+  function tree(containerId, opts){
+    var byFolder = {}; var roots = [];
+    TABLES.forEach(function(t){ if(t.f===null) roots.push(t); else (byFolder[t.f]=byFolder[t.f]||[]).push(t); });
+    var html = "";
+    Object.keys(byFolder).forEach(function(f){
+      html += '<div class="row" data-cmt="folder: '+f+'"><i class="ti ti-chevron-down" style="font-size:13px;color:var(--fg-faint)" aria-hidden="true"></i><i class="ti ti-folder" style="font-size:13px;color:var(--fg-faint)" aria-hidden="true"></i> '+f+'</div>';
+      byFolder[f].forEach(function(t){ html += tableRow(t, true); });
+    });
+    roots.forEach(function(t){ html += tableRow(t, false); });
+    document.getElementById(containerId).innerHTML = html;
+  }
+  function tableRow(t, indented){
+    var cls = "row" + (indented?" ind1":"") + (t.sel?" sel":"");
+    var h = '<div class="'+cls+'" data-name="'+t.name.toLowerCase()+'" data-cmt="table: '+t.name+'"><i class="ti ti-table" style="font-size:13px" aria-hidden="true"></i><span style="overflow:hidden;text-overflow:ellipsis">'+t.name+'</span><span class="tag">'+t.tag+'</span></div>';
+    if (t.sel && t.kids) t.kids.forEach(function(k){ h += '<div class="child" data-name="'+k[0].toLowerCase()+'"><i class="ti ti-'+(k[1]==="graph"?"chart-dots":"binary-tree")+'" style="font-size:12px" aria-hidden="true"></i>'+k[0]+'</div>'; });
+    return h;
+  }
+  function buildTable(containerId, cols){
+    var heads = ["well","sample","t0","t6","t12","t24","t48","OD600","gain","r2","flag","operator","run","notes"].slice(0, cols);
+    var th = heads.map(function(h){ return "<th>"+h+"</th>"; }).join("");
+    var rows = "";
+    for (var r=0;r<14;r++){ var tds = heads.map(function(h,ci){ return "<td>"+(ci===0?("A"+(r+1)):(ci===1?("S-"+(100+r)):(Math.round(Math.random()*1000)/10))); }).join(""); rows += "<tr>"+tds+"</tr>"; }
+    document.getElementById(containerId).innerHTML = "<table class='grid'><thead><tr>"+th+"</tr></thead><tbody>"+rows+"</tbody></table>";
+  }
+  tree("beforeTree"); tree("afterTree");
+  buildTable("beforeTable", 8); buildTable("afterTable", 8);
+
+  var collapsed = false;
+  function setCollapsed(v){
+    collapsed = v;
+    var rail = document.getElementById("afterRail");
+    var div = document.getElementById("afterDivider");
+    var re = document.getElementById("afterReopen");
+    rail.style.width = v ? "0px" : "210px";
+    rail.style.borderRight = v ? "none" : "";
+    div.style.display = v ? "none" : "flex";
+    re.style.display = v ? "flex" : "none";
+    document.getElementById("collapseToggle").classList.toggle("on", v);
+    buildTable("afterTable", v ? 14 : 8);
+    document.getElementById("afterDims").textContent = v ? "14 columns shown, 9,420 rows" : "14 columns, 9,420 rows";
+  }
+  document.getElementById("collapseToggle").addEventListener("click", function(){ if(!document.body.classList.contains("cmt-on")) setCollapsed(!collapsed); });
+  document.getElementById("collapseBtn").addEventListener("click", function(){ if(!document.body.classList.contains("cmt-on")) setCollapsed(true); });
+  document.getElementById("reopenBtn").addEventListener("click", function(){ if(!document.body.classList.contains("cmt-on")) setCollapsed(false); });
+
+  document.getElementById("afterFilter").addEventListener("input", function(e){
+    var q = e.target.value.trim().toLowerCase();
+    document.querySelectorAll("#afterTree .row, #afterTree .child").forEach(function(el){
+      var n = el.getAttribute("data-name");
+      if (!n) { el.style.display = ""; return; }
+      el.style.display = (!q || n.indexOf(q) !== -1) ? "" : "none";
+    });
+  });
+
+  var drag = false;
+  document.getElementById("afterDivider").addEventListener("pointerdown", function(e){ if(document.body.classList.contains("cmt-on")) return; drag = true; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); });
+  document.getElementById("afterDivider").addEventListener("pointermove", function(e){
+    if (!drag) return;
+    var hub = document.getElementById("afterHub").getBoundingClientRect();
+    var w = Math.max(150, Math.min(380, e.clientX - hub.left));
+    document.getElementById("afterRail").style.width = w + "px";
+  });
+  document.getElementById("afterDivider").addEventListener("pointerup", function(){ drag = false; });
+
+  var CHANGES = [
+    ["Drag to resize the rail", "A draggable divider so a deep folder tree or a long table name gets the room it needs, instead of clipping at a fixed 232px.", ["rec","gain"]],
+    ["Collapse to focus the table", "A collapse control that drops the rail to zero and gives a wide table the full width, then a pill re-opens it. This matters most on Data Hub, where the widest tables live.", ["rec","gain"]],
+    ["Type-to-filter box", "A filter field that narrows the table tree as you type, the same instant filter the other three pages have. No more scrolling the tree to find a table.", ["rec","gain"]],
+    ["Unify the rail chrome", "The collection selector, search, and header adopt the same styling and behavior as Sequences, Chemistry, and Tree Studio, so the rail is identical muscle memory across every data page.", ["rec"]],
+    ["Keep the family-tree nesting exactly as-is", "Folders, then tables, with each table's Results and Graphs nested under it, stays untouched. This is Data Hub's signature and the proposal does not flatten it.", []],
+  ];
+  var VSTORE = "datahub-rail-verdicts-v1";
+  var verdicts = {}; try { verdicts = JSON.parse(localStorage.getItem(VSTORE) || "{}"); } catch (e) { verdicts = {}; }
+  function saveV(){ try { localStorage.setItem(VSTORE, JSON.stringify(verdicts)); } catch (e) {} }
+  function tagHtml(arr){ return arr.map(function(t){ return t==="rec" ? '<span class="rtag rec">recycled chrome</span>' : '<span class="rtag gain">new affordance</span>'; }).join(""); }
+  function renderChanges(){
+    document.getElementById("changes").innerHTML = CHANGES.map(function(c,i){
+      var v = verdicts[i] || {}; var cls = v.verdict==="ok"?"approved":v.verdict==="dis"?"disapproved":"";
+      return '<div class="change '+cls+'"><div class="body"><h4>'+(i+1)+'. '+c[0]+'</h4><p>'+c[1]+'</p>'
+        + (c[2].length?'<div class="tagrow">'+tagHtml(c[2])+'</div>':'')
+        + '<textarea data-note="'+i+'" placeholder="Optional note...">'+(v.note||"")+'</textarea></div>'
+        + '<div class="verdict"><button class="vbtn ok '+(v.verdict==="ok"?"on":"")+'" data-v="ok" data-i="'+i+'">Approve</button>'
+        + '<button class="vbtn dis '+(v.verdict==="dis"?"on":"")+'" data-v="dis" data-i="'+i+'">Disapprove</button></div></div>';
+    }).join("");
+  }
+  document.getElementById("changes").addEventListener("click", function(e){
+    var b = e.target.closest(".vbtn"); if (!b) return; var i = b.dataset.i;
+    verdicts[i] = verdicts[i] || {}; verdicts[i].verdict = verdicts[i].verdict === b.dataset.v ? null : b.dataset.v;
+    saveV(); renderChanges();
+  });
+  document.getElementById("changes").addEventListener("input", function(e){
+    if (!e.target.dataset.note) return; var i = e.target.dataset.note; verdicts[i] = verdicts[i] || {}; verdicts[i].note = e.target.value; saveV();
+  });
+
+  var CSTORE = "datahub-rail-comments-v1";
+  var comments = []; try { comments = JSON.parse(localStorage.getItem(CSTORE) || "[]"); } catch (e) { comments = []; }
+  function saveC(){ try { localStorage.setItem(CSTORE, JSON.stringify(comments)); } catch (e) {} }
+  var cpanel = document.getElementById("cpanel");
+  document.getElementById("commentToggle").addEventListener("click", function(){
+    var on = document.body.classList.toggle("cmt-on");
+    document.getElementById("commentToggle").textContent = "Comment mode: " + (on?"on":"off");
+    document.getElementById("commentToggle").classList.toggle("on", on);
+    cpanel.style.display = on ? "flex" : (comments.length ? "flex" : "none");
+  });
+  document.addEventListener("click", function(e){
+    if (!document.body.classList.contains("cmt-on")) return;
+    if (e.target.closest(".cpanel") || e.target.closest("header.top")) return;
+    var host = e.target.closest("[data-cmt]"); var target = host ? host.dataset.cmt : "page";
+    var note = prompt('Comment on "'+target+'":');
+    if (note){ comments.push({ x: e.pageX, y: e.pageY, target: target, note: note }); saveC(); renderComments(); }
+    e.preventDefault(); e.stopPropagation();
+  }, true);
+  function renderComments(){
+    document.querySelectorAll(".pin").forEach(function(p){ p.remove(); });
+    comments.forEach(function(c,i){ var pin = document.createElement("span"); pin.className = "pin"; pin.textContent = (i+1); pin.style.left = c.x+"px"; pin.style.top = c.y+"px"; pin.title = c.note; document.body.appendChild(pin); });
+    document.getElementById("cCount").textContent = comments.length;
+    var body = document.getElementById("cbody");
+    if (!comments.length){ body.innerHTML = '<div class="cempty">No comments yet. Turn on Comment mode and click any element.</div>'; return; }
+    body.innerHTML = comments.map(function(c,i){ return '<div class="citem"><span class="num">'+(i+1)+'</span><span class="ctxt">'+c.note+'<span class="tgt">'+c.target+'</span></span><button class="del" data-i="'+i+'">&times;</button></div>'; }).join("");
+  }
+  document.getElementById("cbody").addEventListener("click", function(e){ var d = e.target.closest(".del"); if (!d) return; comments.splice(+d.dataset.i,1); saveC(); renderComments(); });
+  document.getElementById("clearBtn").addEventListener("click", function(){ if (confirm("Clear all comments?")){ comments = []; saveC(); renderComments(); } });
+  document.getElementById("exportBtn").addEventListener("click", function(){
+    var out = "DATA HUB UNIFIED RAIL — FEEDBACK\n================================\n\nDECISIONS:\n";
+    CHANGES.forEach(function(c,i){ var v = verdicts[i]||{}; var mark = v.verdict==="ok"?"[APPROVE]":v.verdict==="dis"?"[DISAPPROVE]":"[ -- ]"; out += "\n"+mark+" "+(i+1)+". "+c[0]; if (v.note) out += "\n      note: "+v.note; });
+    out += "\n\nPINNED COMMENTS:\n"; if (!comments.length) out += "(none)\n";
+    comments.forEach(function(c,i){ out += "\n"+(i+1)+". ["+c.target+"] "+c.note; });
+    navigator.clipboard.writeText(out).then(function(){ var b = document.getElementById("exportBtn"); var t = b.textContent; b.textContent = "Copied!"; setTimeout(function(){ b.textContent = t; }, 1400); });
+  });
+
+  document.getElementById("themeBtn").addEventListener("click", function(){
+    var dark = document.body.classList.toggle("dark");
+    document.getElementById("themeBtn").textContent = dark ? "Light" : "Dark";
+    renderComments();
+  });
+
+  renderChanges(); renderComments();
+  if (comments.length) cpanel.style.display = "flex";
+})();
+</script>
+</body>
+</html>
