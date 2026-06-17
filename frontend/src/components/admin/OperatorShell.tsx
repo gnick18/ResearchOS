@@ -35,6 +35,7 @@ import Link from "next/link";
 import { Icon, type IconName } from "@/components/icons";
 import AppFooter from "@/components/AppFooter";
 
+import AccountsPanel from "@/components/admin/AccountsPanel";
 import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
 import BroadcastPanel from "@/components/admin/BroadcastPanel";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
@@ -157,6 +158,19 @@ const GROUPS: RailGroup[] = [
         icon: "chart",
         desc: "Anonymous aggregate counts over the last 30 days. Totals only, never per-user.",
         keywords: "shares profiles events analytics",
+      },
+    ],
+  },
+  {
+    label: "Accounts",
+    sections: [
+      {
+        id: "accounts-roster",
+        group: "Accounts",
+        title: "Accounts roster",
+        icon: "users",
+        desc: "Every registered solo user, lab, and department or institution, each with a guarded full-account wipe. Destructive and operator-only. Local files on a user's own computer are never touched.",
+        keywords: "users labs departments institutions wipe delete account roster stripe card",
       },
     ],
   },
@@ -918,6 +932,11 @@ export default function OperatorShell() {
               ) : (
                 <MetricsPhasePlaceholder phase={metrics.phase} />
               )}
+            </Section>
+
+            {/* ACCOUNTS */}
+            <Section section={byId("accounts-roster")}>
+              <AccountsPanel />
             </Section>
 
             {/* FINANCES */}
