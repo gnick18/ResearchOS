@@ -24,6 +24,7 @@ import type { LabSessionState } from "./lab-session";
 import { enumerateLabWork, type LabWorkSource } from "./lab-work-enumerate";
 import { syncLabWorkToMirror } from "./lab-sync";
 import type { ManifestStore } from "./lab-sync-manifest-store";
+import { buildLabIndex, pushLabIndex } from "./lab-index";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -45,6 +46,12 @@ export interface LabSyncRunDeps {
    * Injected in tests to avoid real R2 network calls.
    */
   syncImpl?: typeof syncLabWorkToMirror;
+
+  /**
+   * Optional override for the index push (default: pushLabIndex). Injected in
+   * tests to avoid real R2 network calls.
+   */
+  pushIndexImpl?: typeof pushLabIndex;
 
   /**
    * Optional override for Date.now() (not used in this function directly but
@@ -131,7 +138,31 @@ export async function runLabSyncForSession(
   // Step 4: persist the updated manifest ONLY on success.
   await deps.manifestStore.save(owner, result.manifest);
 
-  // Step 5: return summary.
+  // Step 5: rebuild and push the index when the content actually changed. The
+  // index is derived from the same enumerated records, so it only moves when a
+  // record pushed or was tombstoned this run. On a fully-skipped (idle) run the
+  // index is unchanged, so we skip the write. Best-effort: an index push hiccup
+  // must not fail a content sync that already succeeded (the next changed run
+  // rebuilds it).
+  const contentChanged =
+    result.pushed.length > 0 || result.tombstoned.length > 0;
+  if (contentChanged) {
+    const pushIndex = deps.pushIndexImpl ?? pushLabIndex;
+    try {
+      await pushIndex({
+        labId: session.labId,
+        owner,
+        index: buildLabIndex(owner, records),
+        labKey: session.labKey,
+        signerEd25519Priv: session.signingKeyPair.ed25519Priv,
+        signerEd25519Pub: session.signingKeyPair.ed25519Pub,
+      });
+    } catch (err) {
+      console.warn("[lab-sync-runner] index push failed", err);
+    }
+  }
+
+  // Step 6: return summary.
   return {
     ran: true,
     owner,

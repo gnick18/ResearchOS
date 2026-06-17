@@ -168,9 +168,12 @@ export async function readLabMembersWork(
         signerEd25519Priv: identity.keys.signing.privateKey,
         signerEd25519Pub: identity.keys.signing.publicKey,
       });
+      // The reserved "_index" record is the member's search index, not work.
+      // It is read through the index readers, never returned as a work record.
+      const work = pulled.filter((r) => r.recordType !== "_index");
       const records = opts.recordTypes
-        ? pulled.filter((r) => opts.recordTypes!.includes(r.recordType))
-        : pulled;
+        ? work.filter((r) => opts.recordTypes!.includes(r.recordType))
+        : work;
       out.push({ owner: member.username, records });
 
       // 5. Audit the access, written to the MEMBER's own audit log so their

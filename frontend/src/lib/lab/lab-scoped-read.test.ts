@@ -150,6 +150,22 @@ describe("readLabMembersWork", () => {
     expect(aliceAudit![1][0].record_id).toBe(1);
   });
 
+  it("filters out the reserved _index record (it is not member work)", async () => {
+    const pull = vi.fn(async (p: { memberOwner: string }) => [
+      rec("experiment", `${p.memberOwner}-e1`),
+      rec("_index", "manifest"),
+    ]);
+    const { deps, audit } = makeDeps({
+      pullRecords: pull as unknown as LabScopedReadDeps["pullRecords"],
+    });
+    const res = await readLabMembersWork({}, deps);
+    const alice = res.members.find((m) => m.owner === "alice");
+    expect(alice?.records.map((r) => r.recordType)).toEqual(["experiment"]);
+    // The audited count reflects only the real work record, not the index.
+    const aliceAudit = audit.mock.calls.find((c) => c[0] === "alice");
+    expect(aliceAudit![1][0].record_id).toBe(1);
+  });
+
   it("isolates one member's pull failure, the rest of the lab still reads", async () => {
     const pull = vi.fn(async (p: { memberOwner: string }) => {
       if (p.memberOwner === "alice") throw new Error("relay 500");

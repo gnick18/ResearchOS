@@ -151,6 +151,70 @@ describe("runLabSyncForSession – live session", () => {
     expect(params.tombstoneRemoved).toBe(true);
   });
 
+  it("rebuilds and pushes the member index when content changed", async () => {
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async () => makeSyncResult()); // pushed: ["key/a"]
+    const pushIndexImpl = vi.fn(async () => {});
+    const { store } = makeManifestStore();
+
+    await runLabSyncForSession(session, {
+      source: makeEmptySource(),
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+    });
+
+    expect(pushIndexImpl).toHaveBeenCalledOnce();
+    const p = (pushIndexImpl.mock.calls as unknown as [Record<string, unknown>][])[0][0];
+    expect(p.labId).toBe("lab-abc");
+    expect(p.owner).toBe("alice");
+    expect((p.index as { owner: string }).owner).toBe("alice");
+    expect(Array.isArray((p.index as { entries: unknown }).entries)).toBe(true);
+  });
+
+  it("skips the index push on an idle run (nothing pushed or tombstoned)", async () => {
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async () => ({
+      manifest: {},
+      pushed: [],
+      skipped: ["lab-abc/alice/note/n1"],
+      removedKeys: [],
+      tombstoned: [],
+    }));
+    const pushIndexImpl = vi.fn(async () => {});
+    const { store } = makeManifestStore();
+
+    await runLabSyncForSession(session, {
+      source: makeEmptySource(),
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+    });
+
+    expect(pushIndexImpl).not.toHaveBeenCalled();
+  });
+
+  it("a failed index push does not fail a content sync that already succeeded", async () => {
+    const session = makeLiveSession();
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const pushIndexImpl = vi.fn(async () => {
+      throw new Error("index relay down");
+    });
+    const { store } = makeManifestStore();
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const result = await runLabSyncForSession(session, {
+      source: makeEmptySource(),
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+    });
+
+    expect(result.ran).toBe(true);
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
   it("returns { ran: true, owner, pushed, skipped, tombstoned } from syncImpl result", async () => {
     const session = makeLiveSession();
     const syncImpl = vi.fn(async () => ({
