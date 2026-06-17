@@ -9,7 +9,7 @@
 // correct owner's record.
 
 import { describe, expect, it, vi } from "vitest";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { Method, Task, TaskMethodAttachment } from "@/lib/types";
 
@@ -150,8 +150,9 @@ describe("MethodTabs — composite (owner:method_id) active key", () => {
     // Both tabs visible. Each tab labels itself with the method name from
     // its resolved owner, so two distinct labels appear even though
     // method_id is the same on both.
-    const alexTab = screen.getByText("Alex's lysis buffer");
-    const publicTab = screen.getByText("Public lysis buffer");
+    const rail = screen.getByTestId("method-tab-rail");
+    const alexTab = within(rail).getByText("Alex's lysis buffer");
+    const publicTab = within(rail).getByText("Public lysis buffer");
     expect(alexTab).toBeInTheDocument();
     expect(publicTab).toBeInTheDocument();
 

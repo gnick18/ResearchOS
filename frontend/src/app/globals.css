@@ -28,7 +28,7 @@
   --surface-raised: #ffffff; /* cards, panels */
   --surface-overlay: #ffffff; /* popups, modals */
   --surface-sunken: #f1f5f9; /* input wells, insets (slate-100) */
-  --foreground-muted: #6b7280; /* secondary text, gray-500 */
+  --foreground-muted: #6b7080; /* secondary text — nudged 2 pts blue from gray-500 to clear WCAG AA on --surface-sunken */
   --border-subtle: #e5e7eb; /* hairlines, gray-200 */
 
   /* Interactive accent (links, active nav, selected states). brand-action on

@@ -170,7 +170,7 @@ export default function MethodTabs({ task, onTaskUpdate, readOnly = false, piAct
       {/* Left rail: method components, color-coded by type. Replaces the old
           cramped top tab bar so long names get vertical room and each type
           carries its own accent color instead of blurring into grey. */}
-      <div className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-surface-sunken">
+      <div data-testid="method-tab-rail" className="flex w-56 flex-shrink-0 flex-col border-r border-border bg-surface-sunken">
         <div className="px-3 pb-1.5 pt-3 text-meta font-medium text-foreground-muted">
           Components
         </div>
