@@ -17,6 +17,7 @@ import {
   splitSegment,
   mergeSegment,
   deleteSegment,
+  validateAllSegments,
 } from "@/lib/sequences/feature-edit";
 import { gcPercent } from "@/lib/sequences/edit-model";
 import {
@@ -137,6 +138,14 @@ export default function FeatureEditorDialog({
     [color, type],
   );
 
+  // Per-segment coordinate validation. Computed from the live segment state +
+  // seqLength so the dialog can show inline messages and block submit when any
+  // segment is out of range (end > seqLength, start >= end, etc.).
+  const segValidation = useMemo(
+    () => (request ? validateAllSegments(segments, request.seqLength) : { results: [], allOk: true }),
+    [segments, request],
+  );
+
   // The overall span + total length across all segments (exon total).
   const span = useMemo(() => {
     if (!segments.length) return { start: 0, end: 0, length: 0 };
@@ -162,6 +171,10 @@ export default function FeatureEditorDialog({
   if (!request) return null;
 
   const submit = () => {
+    // Guard: never submit a draft with out-of-range coordinates. The segment
+    // mutators already clamp input but this is the last line of defense before
+    // the value reaches the renderer.
+    if (!segValidation.allOk) return;
     request.onSubmit?.({
       name,
       type,
@@ -191,10 +204,21 @@ export default function FeatureEditorDialog({
     strandDisplay === "none" ? 0 : strandDisplay === "reverse" ? -1 : 1;
 
   // --- segment table mutators (no-ops in read-only mode) ---
+  // Clamp to [0, seqLength] on every keystroke so an out-of-range value can
+  // never reach the renderer (defensive — validateAllSegments also guards the
+  // submit path).
   const setSegStart = (idx: number, v: number) =>
-    setSegments((segs) => segs.map((s, i) => (i === idx ? { ...s, start: Math.max(0, v) } : s)));
+    setSegments((segs) =>
+      segs.map((s, i) =>
+        i === idx ? { ...s, start: Math.max(0, Math.min(v, request?.seqLength ?? v)) } : s,
+      ),
+    );
   const setSegEnd = (idx: number, v: number) =>
-    setSegments((segs) => segs.map((s, i) => (i === idx ? { ...s, end: Math.max(0, v) } : s)));
+    setSegments((segs) =>
+      segs.map((s, i) =>
+        i === idx ? { ...s, end: Math.max(0, Math.min(v, request?.seqLength ?? v)) } : s,
+      ),
+    );
   const setSegColor = (idx: number, c: string) =>
     setSegments((segs) => segs.map((s, i) => (i === idx ? { ...s, color: c || undefined } : s)));
   const onSplit = (idx: number) => setSegments((segs) => splitSegment(segs, idx));
@@ -238,7 +262,7 @@ export default function FeatureEditorDialog({
           onKeyDown={(e) => {
             if (!readOnly && e.key === "Enter" && !e.shiftKey && (e.target as HTMLElement).tagName !== "TEXTAREA") {
               e.preventDefault();
-              submit();
+              if (segValidation.allOk) submit();
             }
           }}
         >
@@ -419,6 +443,18 @@ export default function FeatureEditorDialog({
                 </tbody>
               </table>
             </div>
+            {/* Per-segment inline error messages when a coordinate is out of range. */}
+            {segValidation.results.map((r, i) =>
+              !r.ok ? (
+                <p key={i} className="mt-1 text-meta text-rose-600 dark:text-rose-400" role="alert">
+                  Segment {i + 1}: {r.message}
+                </p>
+              ) : r.message ? (
+                <p key={i} className="mt-1 text-meta text-amber-600 dark:text-amber-400">
+                  Segment {i + 1}: {r.message}
+                </p>
+              ) : null,
+            )}
             <p className="mt-1 text-meta text-foreground-muted">
               Positions are 1-based inclusive (span {(span.start + 1).toLocaleString()}..
               {span.end.toLocaleString()}). Sequence is {request.seqLength.toLocaleString()} bp.
@@ -582,7 +618,8 @@ export default function FeatureEditorDialog({
               <button
                 type="button"
                 onClick={submit}
-                className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90"
+                disabled={!segValidation.allOk}
+                className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 {isAdd ? "Add feature" : "Save"}
               </button>
