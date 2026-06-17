@@ -30,26 +30,30 @@ SERVICES the relay enables, on a pay-for-what-you-use basis:
 
 ## What each plan is, and the prices (working lock)
 
-The segmentation: solo researchers often pay out of pocket, so keep them cheap
-(the "medium" level). Labs and departments run on grant and institutional
-budgets, so they sit at the "premium" level for the enterprise value they get.
-Lab and dept carry the revenue; cheap solo barely dents the total.
+The segmentation: solo researchers often pay out of pocket, so keep them cheap.
+The LAB is the core paid unit, priced to reflect the bundle it now carries (the
+companion app, lab companion sites, real-time collab, the dashboard). The
+DEPARTMENT is the institutional VOLUME tier, priced BELOW a standalone lab per
+lab, on purpose: landing a department brings many labs at once, so we reward that
+distribution win instead of taxing it. Lab volume + dept breadth carry the
+revenue; cheap solo barely dents the total.
 
 - **Free** (the network audience): unlimited local notebook, shared-folder
   workspaces (sync through your own cloud), directory presence, RECEIVE shared
   work (the sender pays the relay), accept invites, all public surfaces. No cloud
   produce features.
-- **Solo** (medium): **$3/mo base + cloud usage at 5x cost.** Unlocks the
-  produce side: send, live co-edit, phone capture, push. About **$4.50/mo**
-  all-in at typical use.
-- **Lab** (premium): **$25/mo flat per lab + usage at 7x cost**, billed per
-  active seat's activity. About **$38/mo** for a 6-seat lab (~$6.30/seat). Adds
-  the lab dashboard, shared library, pooled budgets.
-- **Department** (premium, enterprise): **$50/mo per lab + usage at 6x cost.**
-  About **$304/mo** for a 5-lab, 30-seat department (~$10.10/seat). This is the
-  governance tier: the Department Commons, compliance and data-continuity, admin
-  and per-lab budgets, one consolidated invoice. A dept lab is still cheaper than
-  a standalone lab because dept usage is marked up less (6x vs 7x).
+- **Solo**: **$3/mo base + cloud usage at 5x cost.** Unlocks the produce side:
+  send, live co-edit, the paired companion app, push.
+- **Lab**: **$40/mo per lab + usage at 7x cost**, billed per active seat's
+  activity. The core paid unit, priced for the bundle it carries (companion app
+  pairing, the lab's web home + paper companion pages, real-time co-edit, the lab
+  dashboard, shared library, pooled budgets). Still a fraction of a per-seat ELN.
+- **Department** (institutional VOLUME tier): **$35/mo per lab + usage at 6x
+  cost**, CHEAPER per lab than a standalone lab on BOTH base ($35 vs $40) and
+  markup (6x vs 7x). The governance layer (Department Commons, compliance and
+  data-continuity, multi-lab admin, one consolidated procurement invoice) is
+  INCLUDED value, not a premium. We price depts down because each one brings many
+  labs at once; that is our distribution lever, so we reward it.
 - **Storage** (any plan): a-la-carte at ~1.15x our cost (fee recovery, no
   margin), only for objects you choose to push to cloud. Per-object opt-in is
   sacred; nothing is ever force-pushed.
@@ -57,8 +61,10 @@ Lab and dept carry the revenue; cheap solo barely dents the total.
   **2x** (dept) over our ~$0.153/M measured cost. Roughly a few percent of
   revenue, deliberately not the money-maker.
 
-Every unit is a fraction of what it replaces: LabArchives alone is ~$27.50 per
-user per month. Here a solo seat is ~$4.50, a lab seat ~$6.30, a dept seat ~$10.
+Every unit is still a fraction of what it replaces: LabArchives alone is ~$27.50
+per user per month. A 6-seat lab here is ~$40 base plus usage (well under
+$165/mo for the same seats on LabArchives), and a department pays even less per
+lab.
 
 ## Billing mechanics
 
@@ -72,10 +78,12 @@ user per month. Here a solo seat is ~$4.50, a lab seat ~$6.30, a dept seat ~$10.
 
 ## Economics at the working config
 
-- Blended net ~**$5.87 per paying customer**. Break-even ~**40 paying customers**
-  (~1,000 signups at a 5% paid rate).
-- Net ~**$14.3k/mo (~$172k/yr) at 2,500 paying** (~50k signups), ~$29k/mo at
-  5,000 paying.
+- TO RE-DERIVE in `service-model.ts` from the 2026-06-16 reprice (Lab $25 -> $40,
+  Dept $50 -> $35 per lab). Direction is clearly positive: the Lab raise lifts
+  per-lab revenue and lowers break-even; Dept priced down trades per-lab margin
+  for volume (each dept brings many labs). The pre-reprice baseline was blended
+  net ~$5.87/paid, break-even ~40 paying (~1,000 signups at 5% paid), ~$172k/yr
+  at 2,500 paying; the new numbers move up on Lab and lean on dept breadth.
 - Fixed cost ~**$262/mo** (Claude Max $200 that co-runs ops, infra ~$37,
   software + tax software + LLC phone ~$25), growing only slightly with scale.
 - Owner taxes (single-member LLC pass-through) modeled at ~32% on profit only;
