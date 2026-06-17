@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>BeakerBot drives the big-table screen</title>
+<style>
+  :root{
+    --ink:#0f172a; --muted:#64748b; --line:#e2e8f0; --surface:#ffffff;
+    --page:#f1f5f9; --sky:#1AA0E6; --blue:#1283c9; --blue-d:#0f6fa8;
+    --violet:#7c4dca; --green:#16a34a; --amber:#d97706;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    background:var(--page);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1120px;margin:0 auto;padding:24px 20px 120px}
+  .lede{display:flex;align-items:flex-start;gap:14px;margin:4px 0 18px}
+  .lede h1{font-size:20px;margin:0 0 4px;font-weight:800;letter-spacing:-.01em}
+  .lede p{margin:0;color:var(--muted);font-size:13.5px;line-height:1.5;max-width:70ch}
+  .bot{width:40px;height:48px;flex:none}
+
+  /* faux app window */
+  .app{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    overflow:hidden;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+  .nav{display:flex;align-items:center;gap:10px;height:52px;padding:0 16px;
+    border-bottom:1px solid var(--line);background:linear-gradient(#fff,#fbfdff)}
+  .wordmark{font-weight:800;letter-spacing:-.02em}
+  .wordmark span{color:var(--sky)}
+  .tabs{display:flex;gap:4px;margin-left:8px}
+  .tab{font-size:12.5px;font-weight:700;color:#475569;padding:6px 11px;border-radius:9px}
+  .tab.on{background:#e6f4fe;color:var(--blue)}
+  .navspacer{flex:1}
+  .pill{font-size:11px;font-weight:700;color:#0c447c;background:#e6f1fb;border:1px solid #cfe3f7;
+    padding:4px 9px;border-radius:999px}
+
+  /* stage: page on left, dock on right (split view) */
+  .stage{display:grid;grid-template-columns:1fr 0fr;transition:grid-template-columns .5s cubic-bezier(.4,0,.2,1);min-height:430px}
+  .stage.docked{grid-template-columns:1fr 340px}
+  .page{position:relative;padding:18px;min-width:0;border-right:1px solid transparent}
+  .stage.docked .page{border-right:1px solid var(--line)}
+
+  /* the dock (persists ON TOP across page changes) */
+  .dock{position:relative;background:#fbfdff;overflow:hidden;width:340px;
+    transform:translateX(100%);transition:transform .5s cubic-bezier(.4,0,.2,1);opacity:0}
+  .stage.docked .dock{transform:none;opacity:1}
+  .dockhead{display:flex;align-items:center;gap:9px;padding:11px 13px;border-bottom:1px solid var(--line)}
+  .dockhead b{font-size:13px}
+  .dockhead .sub{font-size:11px;color:var(--muted)}
+  .dotlive{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 0 3px #16a34a22}
+  .stream{padding:13px;display:flex;flex-direction:column;gap:10px}
+  .msg{font-size:12.5px;line-height:1.5}
+  .msg.me{align-self:flex-end;background:#1283c9;color:#fff;padding:8px 11px;border-radius:13px 13px 3px 13px;max-width:85%}
+  .msg.bk{display:flex;gap:8px;align-items:flex-start}
+  .msg.bk .mb{background:#fff;border:1px solid var(--line);padding:8px 11px;border-radius:13px 13px 13px 3px;max-width:88%}
+  .minibot{width:22px;height:26px;flex:none;margin-top:1px}
+
+  /* plan card */
+  .plan{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .plan .ph{padding:9px 12px;border-bottom:1px solid var(--line);font-size:11px;font-weight:800;
+    letter-spacing:.04em;text-transform:uppercase;color:#475569;display:flex;align-items:center;gap:6px}
+  .step{display:flex;gap:9px;align-items:flex-start;padding:9px 12px;font-size:12px;border-top:1px solid #f1f5f9}
+  .step:first-of-type{border-top:0}
+  .stepnum{width:18px;height:18px;border-radius:50%;border:1.5px solid #cbd5e1;color:#94a3b8;
+    font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;flex:none;margin-top:1px;background:#fff}
+  .step.done .stepnum{background:var(--green);border-color:var(--green);color:#fff}
+  .step.run .stepnum{border-color:var(--blue);color:var(--blue);animation:pulse 1s infinite}
+  .step .sx b{font-weight:700}
+  .step .sx small{display:block;color:var(--muted);font-size:11px;margin-top:1px}
+  @keyframes pulse{50%{box-shadow:0 0 0 4px #1283c922}}
+  .planfoot{padding:10px 12px;border-top:1px solid var(--line);display:flex;gap:8px}
+  .btn{font-size:12px;font-weight:700;padding:7px 13px;border-radius:9px;border:1px solid var(--line);
+    background:#fff;color:#334155;cursor:pointer}
+  .btn.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+  .btn.pri:hover{background:var(--blue-d)}
+
+  /* join callout */
+  .join{margin-top:2px;background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:9px 11px;font-size:11.5px;color:#7c2d12}
+  .join b{color:#9a3412}
+  .join .ja{display:flex;gap:6px;margin-top:7px}
+  .join .ja button{font-size:11px;font-weight:700;padding:5px 9px;border-radius:8px;border:1px solid #fed7aa;background:#fff;color:#9a3412;cursor:pointer}
+  .join .ja button.ok{background:#16a34a;border-color:#16a34a;color:#fff}
+
+  /* page content: workbench + grid */
+  .ph2{font-size:13px;font-weight:800;color:#334155;margin:0 0 10px;display:flex;align-items:center;gap:7px}
+  .grid{border:1px solid var(--line);border-radius:11px;overflow:hidden;font-size:11.5px}
+  .gr{display:grid;border-top:1px solid #f1f5f9}
+  .gr:first-child{border-top:0}
+  .gh{background:#f8fafc;font-weight:800;color:#475569}
+  .gc{padding:6px 9px;border-left:1px solid #f1f5f9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .gc:first-child{border-left:0}
+  .gridcap{font-size:11px;color:var(--muted);margin:7px 2px 0;display:flex;justify-content:space-between}
+  .newcol{background:#ecfdf5}
+  .shim{position:absolute;inset:0;background:#fff;display:flex;align-items:center;justify-content:center;gap:9px;
+    color:var(--muted);font-size:12px;z-index:2;opacity:0;pointer-events:none;transition:opacity .25s}
+  .shim.on{opacity:1}
+  .spin{width:15px;height:15px;border:2px solid #cbd5e1;border-top-color:var(--blue);border-radius:50%;animation:sp .7s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:330px;color:var(--muted);gap:10px;text-align:center}
+  .empty .bot{width:54px;height:64px;opacity:.85}
+
+  /* big-table guard chip */
+  .guard{background:#eef6ff;border:1px solid #cfe3f7;border-radius:10px;padding:9px 11px;font-size:11.5px;color:#0c447c}
+  .guard b{color:#042c53}
+  .preview{margin-top:8px;background:#fff;border:1px solid var(--line);border-radius:9px;padding:8px 10px;font-size:11px;color:#475569}
+
+  /* step controller */
+  .ctrl{position:sticky;bottom:0;margin-top:18px;background:#fff;border:1px solid var(--line);
+    border-radius:13px;padding:10px 12px;display:flex;align-items:center;gap:10px;box-shadow:0 -1px 12px rgba(15,23,42,.05)}
+  .scenes{display:flex;gap:6px;flex:1;flex-wrap:wrap}
+  .sc{font-size:11.5px;font-weight:700;color:#64748b;padding:6px 10px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .sc.on{background:#0f172a;color:#fff;border-color:#0f172a}
+  .nb{font-size:12.5px;font-weight:800;padding:8px 15px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer}
+  .nb.pri{background:var(--blue);border-color:var(--blue);color:#fff}
+  .cap{font-size:12px;color:var(--muted);text-align:center;margin:11px 4px 0;min-height:18px}
+  .tag{display:inline-block;font-size:10.5px;font-weight:800;color:#534ab7;background:#eeedfe;border:1px solid #cecbf6;padding:2px 7px;border-radius:999px;vertical-align:1px}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="lede">
+    <svg class="bot" viewBox="0 0 40 48" fill="none" aria-hidden="true">
+      <path d="M14 4h12M16 4v9l-8 22a6 6 0 0 0 5.6 8h12.8A6 6 0 0 0 32 35l-8-22V4" stroke="#1283c9" stroke-width="2.4" stroke-linejoin="round"/>
+      <path d="M11 30h18l3 7a5 5 0 0 1-4.6 7H12.6A5 5 0 0 1 8 37z" fill="#bfe6fb"/>
+      <circle cx="16" cy="38" r="1.7" fill="#0f172a"/><circle cx="24" cy="38" r="1.7" fill="#0f172a"/>
+      <path d="M16.5 42c1.6 1.4 5.4 1.4 7 0" stroke="#0f172a" stroke-width="1.6" stroke-linecap="round"/>
+    </svg>
+    <div>
+      <h1>BeakerBot drives the big-table screen <span class="tag">mockup</span></h1>
+      <p>He never loads a big table into the chat. He opens the Data Hub, docks to the side in split view, shows a plan you approve once, then runs each step live on the grid. The dock stays pinned on top the whole time, so it feels like he is using the site with you.</p>
+    </div>
+  </div>
+
+  <div class="app">
+    <div class="nav">
+      <span class="wordmark">Research<span>OS</span></span>
+      <div class="tabs">
+        <span class="tab" id="tab-wb">Workbench</span>
+        <span class="tab" id="tab-dh">Data Hub</span>
+        <span class="tab">Methods</span>
+        <span class="tab">Calendar</span>
+      </div>
+      <span class="navspacer"></span>
+      <span class="pill" id="navpill">Dr. Nickles</span>
+    </div>
+
+    <div class="stage" id="stage">
+      <div class="page">
+        <div class="shim" id="shim"><span class="spin"></span> opening the Data Hub</div>
+        <div id="pagebody"></div>
+      </div>
+
+      <div class="dock">
+        <div class="dockhead">
+          <svg class="minibot" viewBox="0 0 40 48" fill="none" aria-hidden="true">
+            <path d="M16 4v9l-8 22a6 6 0 0 0 5.6 8h12.8A6 6 0 0 0 32 35l-8-22V4M14 4h12" stroke="#1283c9" stroke-width="2.6" stroke-linejoin="round"/>
+            <path d="M11 30h18l3 7a5 5 0 0 1-4.6 7H12.6A5 5 0 0 1 8 37z" fill="#bfe6fb"/>
+          </svg>
+          <div style="flex:1">
+            <b>BeakerBot</b><br><span class="sub">docked on the Data Hub</span>
+          </div>
+          <span class="dotlive" title="live"></span>
+        </div>
+        <div class="stream" id="stream"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="cap" id="cap"></div>
+
+  <div class="ctrl">
+    <div class="scenes" id="scenes"></div>
+    <button class="nb" id="back">Back</button>
+    <button class="nb pri" id="next">Next</button>
+  </div>
+
+</div>
+
+<script>
+const BOT = '<svg class="minibot" viewBox="0 0 40 48" fill="none" aria-hidden="true"><path d="M16 4v9l-8 22a6 6 0 0 0 5.6 8h12.8A6 6 0 0 0 32 35l-8-22V4M14 4h12" stroke="#1283c9" stroke-width="2.6" stroke-linejoin="round"/><path d="M11 30h18l3 7a5 5 0 0 1-4.6 7H12.6A5 5 0 0 1 8 37z" fill="#bfe6fb"/></svg>';
+
+const stage=document.getElementById('stage'), shim=document.getElementById('shim'),
+  body=document.getElementById('pagebody'), stream=document.getElementById('stream'),
+  cap=document.getElementById('cap'), tabWb=document.getElementById('tab-wb'), tabDh=document.getElementById('tab-dh');
+
+function rows(cols, data, widths, hi){
+  const tmpl = widths || cols.map(()=>'1fr').join(' ');
+  let h = `<div class="gr gh" style="grid-template-columns:${tmpl}">`+cols.map((c,i)=>`<span class="gc ${hi&&hi.includes(i)?'newcol':''}">${c}</span>`).join('')+`</div>`;
+  for(const r of data){ h += `<div class="gr" style="grid-template-columns:${tmpl}">`+r.map((v,i)=>`<span class="gc ${hi&&hi.includes(i)?'newcol':''}">${v}</span>`).join('')+`</div>`; }
+  return `<div class="grid">${h}</div>`;
+}
+
+const scenes = [
+  {
+    name:'Ask', tab:'wb',
+    cap:'1. The user asks a real data question from the normal chat. Nothing renders the table yet.',
+    page:()=>`<div class="ph2"><i></i>Workbench</div>
+      <div class="empty">${'<svg class="bot" viewBox="0 0 40 48" fill="none"><path d="M16 4v9l-8 22a6 6 0 0 0 5.6 8h12.8A6 6 0 0 0 32 35l-8-22V4M14 4h12" stroke="#1283c9" stroke-width="2.4" stroke-linejoin="round"/><path d="M11 30h18l3 7a5 5 0 0 1-4.6 7H12.6A5 5 0 0 1 8 37z" fill="#bfe6fb"/></svg>'}
+        <div style="max-width:42ch">Your projects and notebook. Ask BeakerBot anything, including heavy data work on the Data Hub.</div></div>`,
+    docked:false,
+    stream:()=>`<div class="msg me">Merge my OD readings with the plate map and give me the average OD per strain</div>`
+  },
+  {
+    name:'Open + dock', tab:'dh', loading:true,
+    cap:'2. He auto-routes to the Data Hub and the chat docks in split view. The page loads UNDER the dock, which never unmounts or flickers.',
+    page:()=>`<div class="ph2">Data Hub</div>${rows(['Well','Strain','OD600','Date'],
+      [['A1','BY4741','0.82','06-14'],['A2','BY4741','0.79','06-14'],['A3','yfg1Δ','0.61','06-14'],['A4','yfg1Δ','0.58','06-14'],['B1','cyp51A','0.44','06-15'],['B2','cyp51A','0.47','06-15']],'70px 1fr 80px 70px')}
+      <div class="gridcap"><span>OD readings</span><span>192 rows</span></div>`,
+    docked:true,
+    stream:()=>`<div class="msg me">Merge my OD readings with the plate map and average OD per strain</div>
+      <div class="msg bk">${BOT}<div class="mb">On it. Opening this on the Data Hub so we can work on the full table together.</div></div>`
+  },
+  {
+    name:'Plan', tab:'dh',
+    cap:'3. One plan, in plain English. You approve once. Nothing has changed on the grid yet.',
+    page:()=>`<div class="ph2">Data Hub</div>${rows(['Well','Strain','OD600','Date'],
+      [['A1','BY4741','0.82','06-14'],['A2','BY4741','0.79','06-14'],['A3','yfg1Δ','0.61','06-14'],['A4','yfg1Δ','0.58','06-14'],['B1','cyp51A','0.44','06-15'],['B2','cyp51A','0.47','06-15']],'70px 1fr 80px 70px')}
+      <div class="gridcap"><span>OD readings</span><span>192 rows</span></div>`,
+    docked:true,
+    stream:()=>`<div class="msg bk">${BOT}<div class="mb">Here is my plan. I will build a new derived table and leave your originals untouched.</div></div>
+      <div class="plan">
+        <div class="ph">Plan, 4 steps</div>
+        <div class="step"><span class="stepnum">1</span><span class="sx"><b>Filter</b> the readings<small>keep rows where OD600 is not blank</small></span></div>
+        <div class="step"><span class="stepnum">2</span><span class="sx"><b>Join</b> the plate map<small>match on Well</small></span></div>
+        <div class="step"><span class="stepnum">3</span><span class="sx"><b>Group by</b> Strain<small>average the OD600</small></span></div>
+        <div class="step"><span class="stepnum">4</span><span class="sx"><b>Sort</b> by average OD<small>highest first</small></span></div>
+        <div class="planfoot"><button class="btn pri" id="approve">Approve and run</button><button class="btn">Edit plan</button></div>
+      </div>`
+  },
+  {
+    name:'Run', tab:'dh',
+    cap:'4. Approved. Each step ticks through live on the grid, including a human join check. Pause or cancel any time.',
+    page:()=>`<div class="ph2">Data Hub <span style="font-size:11px;font-weight:700;color:#16a34a;margin-left:6px">building derived table</span></div>${rows(['Strain','avg OD600','n wells'],
+      [['BY4741','0.80','48'],['his3Δ','0.74','24'],['yfg1Δ','0.59','48'],['cyp51A','0.45','48'],['rad52Δ','0.38','24']],'1fr 100px 80px',[1,2])}
+      <div class="gridcap"><span>OD readings + Plate map, averaged</span><span>5 strains</span></div>`,
+    docked:true,
+    stream:()=>`<div class="plan">
+        <div class="ph">Running</div>
+        <div class="step done"><span class="stepnum"><i class="chk">✓</i></span><span class="sx"><b>Filtered</b><small>184 of 192 rows kept</small></span></div>
+        <div class="step done"><span class="stepnum">✓</span><span class="sx"><b>Joined</b> the plate map<small>on Well</small></span></div>
+        <div class="step run"><span class="stepnum">3</span><span class="sx"><b>Grouping by Strain</b><small>averaging OD600...</small></span></div>
+        <div class="step"><span class="stepnum">4</span><span class="sx"><b>Sort</b> by average OD</span></div>
+      </div>
+      <div class="join"><b>Join check.</b> Matching OD readings to the plate map on <b>Well</b>. 184 of 192 rows matched, 8 wells had no plate-map entry.
+        <div class="ja"><button class="ok">Looks right</button><button>Match on a different column</button></div>
+      </div>`
+  },
+  {
+    name:'Big table', tab:'dh',
+    cap:'5. The guard. A 240k-row table never enters the chat. He operates it in place and shows a compact preview instead.',
+    page:()=>`<div class="ph2">Data Hub <span style="font-size:11px;font-weight:700;color:#64748b;margin-left:6px">flow-cytometry export</span></div>${rows(['event','FSC-A','SSC-A','FITC-A','gate'],
+      [['1','61204','22118','910','live'],['2','58880','20440','1203','live'],['3','12044','8800','77','debris'],['4','60112','21990','1788','live'],['5','59010','21110','1442','live'],['6','13320','9011','61','debris']],'1fr 80px 80px 80px 70px')}
+      <div class="gridcap"><span>cytometry_run_07</span><span style="color:#d97706;font-weight:700">240,118 rows, big-table lane</span></div>`,
+    docked:true,
+    stream:()=>`<div class="msg me">How many live cells are FITC positive?</div>
+      <div class="msg bk">${BOT}<div class="mb"><div class="guard"><b>That table has 240,118 rows</b>, so I will work on it here on the Data Hub rather than load it into the chat.
+        <div class="preview">preview, first rows + column stats<br>FITC-A: min 12, median 1,204, max 48,900<br>gate: live 71%, debris 29%</div></div>
+        Filtering to live and FITC-A over 1,000 now.</div></div>`
+  }
+];
+
+let i=0;
+const scenesEl=document.getElementById('scenes');
+scenes.forEach((s,idx)=>{ const b=document.createElement('button'); b.className='sc'; b.textContent=(idx+1)+'. '+s.name;
+  b.onclick=()=>go(idx); scenesEl.appendChild(b); });
+
+function go(n){
+  i=Math.max(0,Math.min(scenes.length-1,n)); const s=scenes[i];
+  [...scenesEl.children].forEach((c,idx)=>c.classList.toggle('on',idx===i));
+  tabWb.classList.toggle('on',s.tab==='wb'); tabDh.classList.toggle('on',s.tab==='dh');
+  body.innerHTML=s.page(); stream.innerHTML=s.stream(); cap.textContent=s.cap;
+  stage.classList.toggle('docked',!!s.docked);
+  if(s.loading){ shim.classList.add('on'); setTimeout(()=>shim.classList.remove('on'),1100); } else shim.classList.remove('on');
+  document.getElementById('back').disabled=i===0; document.getElementById('next').disabled=i===scenes.length-1;
+  const ap=document.getElementById('approve'); if(ap) ap.onclick=()=>go(3);
+}
+document.getElementById('next').onclick=()=>go(i+1);
+document.getElementById('back').onclick=()=>go(i-1);
+go(0);
+</script>
+</body>
+</html>
