@@ -2181,7 +2181,7 @@ export default function LiveMarkdownEditor({
             {insertMenuOpen && (
               <div
                 role="menu"
-                className={`absolute top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay shadow-lg ${expanded ? "left-0" : "right-0"}`}
+                className={`absolute top-full mt-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay ros-popover-shadow ${expanded ? "left-0" : "right-0"}`}
               >
                 {/* Add File / Add Image */}
                 <button
@@ -2822,7 +2822,7 @@ export default function LiveMarkdownEditor({
                 {railVisible && (
                   <div
                     data-testid="editor-insert-rail"
-                    className={`absolute left-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                    className={`absolute left-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 ros-popover-shadow backdrop-blur transition-opacity duration-500 ${
                       chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
                     }`}
                   >
@@ -2856,7 +2856,7 @@ export default function LiveMarkdownEditor({
                   <div
                     ref={contextRailRef}
                     data-testid="editor-context-rail"
-                    className={`absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 shadow-lg backdrop-blur transition-opacity duration-500 ${
+                    className={`absolute right-3 top-1/2 -translate-y-1/2 z-[4] flex flex-col gap-1 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 ros-popover-shadow backdrop-blur transition-opacity duration-500 ${
                       chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
                     }`}
                   >
@@ -2922,7 +2922,7 @@ export default function LiveMarkdownEditor({
                           ? "Embeds in this note"
                           : "Attachments"
                     }
-                    className={`absolute right-16 top-1/2 -translate-y-1/2 z-[5] flex max-h-[78%] w-64 flex-col overflow-hidden rounded-2xl border border-border bg-surface-overlay/95 shadow-xl backdrop-blur transition-opacity duration-500 ${
+                    className={`absolute right-16 top-1/2 -translate-y-1/2 z-[5] flex max-h-[78%] w-64 flex-col overflow-hidden rounded-2xl border border-border bg-surface-overlay/95 ros-popover-shadow backdrop-blur transition-opacity duration-500 ${
                       chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
                     }`}
                   >

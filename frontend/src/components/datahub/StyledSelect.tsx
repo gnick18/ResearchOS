@@ -111,7 +111,7 @@ export default function StyledSelect({
         <ul
           role="listbox"
           aria-label={ariaLabel}
-          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-md border border-border bg-surface-overlay py-1 shadow-lg"
+          className="absolute left-0 right-0 top-full z-50 mt-1 max-h-60 overflow-auto rounded-md border border-border bg-surface-overlay py-1 ros-popover-shadow"
         >
           {options.map((o, i) => {
             const isSelected = o.value === value;

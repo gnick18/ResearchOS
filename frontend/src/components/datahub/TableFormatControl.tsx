@@ -146,7 +146,7 @@ export default function TableFormatControl({
         <div
           role="dialog"
           aria-label="Table format"
-          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-surface-overlay p-3 shadow-lg"
+          className="absolute left-0 top-full z-50 mt-1 w-72 rounded-lg border border-border bg-surface-overlay p-3 ros-popover-shadow"
           data-testid="datahub-table-format-popover"
         >
           <p className="mb-1 text-[11px] font-bold uppercase tracking-wide text-foreground">

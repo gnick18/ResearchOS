@@ -534,7 +534,7 @@ export default function AppNavBar({
               ref={moreWrapRef}
               data-nav-morewrap
               role="menu"
-              className={`absolute top-[calc(100%+7px)] right-0 min-w-[220px] bg-surface-overlay border rounded-xl shadow-xl p-1.5 z-30 ${
+              className={`absolute top-[calc(100%+7px)] right-0 min-w-[220px] bg-surface-overlay border rounded-xl ros-popover-shadow p-1.5 z-30 ${
                 editing
                   ? dropTarget?.zone === "more" && drag?.active
                     ? "border-green-500 outline outline-2 outline-dashed outline-green-500"

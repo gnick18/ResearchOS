@@ -514,6 +514,21 @@
     0 20px 50px -12px rgba(120, 150, 210, 0.3);
 }
 
+/* .ros-popover-shadow: the SMALLER sibling of .ros-popup-card-shadow for floating
+ * menus / dropdowns / popovers (not full modal cards). Same theme-aware idea — a
+ * dark drop in light, a bluish-white lift + 1px edge ring in dark — but a tighter
+ * drop so a menu floats without the heavy modal shadow (and so it's visible in
+ * dark, where the old black shadow-lg vanished). */
+.ros-popover-shadow {
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px -6px rgba(0, 0, 0, 0.18);
+}
+[data-theme="dark"] .ros-popover-shadow {
+  box-shadow:
+    0 0 0 1px rgba(190, 205, 235, 0.08),
+    0 1px 2px rgba(150, 180, 225, 0.06),
+    0 8px 20px -6px rgba(120, 150, 210, 0.34);
+}
+
 /* .ros-btn-neutral: the canonical neutral/grey button on the calm surface. A
  * raised fill + hairline + soft two-layer shadow so it reads as a real button,
  * never a flat grey patch. Dark recolors the shadow bluish-white and INVERTS the

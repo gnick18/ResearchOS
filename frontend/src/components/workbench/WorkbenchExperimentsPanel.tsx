@@ -236,7 +236,7 @@ function ResultHoverThumb({
         <Icon name="camera" className="w-3.5 h-3.5" />
       </span>
       {hover && (path || preview) && (
-        <span className="absolute right-8 top-1/2 -translate-y-1/2 z-50 w-48 rounded-lg border border-border bg-surface-overlay shadow-xl overflow-hidden">
+        <span className="absolute right-8 top-1/2 -translate-y-1/2 z-50 w-48 rounded-lg border border-border bg-surface-overlay ros-popover-shadow overflow-hidden">
           {path ? (
             url ? (
               // eslint-disable-next-line @next/next/no-img-element
