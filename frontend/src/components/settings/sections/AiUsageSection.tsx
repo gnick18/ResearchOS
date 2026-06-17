@@ -22,6 +22,7 @@ import Link from "next/link";
 
 import { Icon } from "@/components/icons";
 import { PACK_TOKENS, type AiPack } from "@/lib/billing/ai-config";
+import { AI_PACK_DOLLARS, usd } from "@/lib/billing/catalog";
 import { fetchAiStatus, type AiStatus } from "@/lib/billing/ai-client";
 import { TOKEN_BLOCKS_FIXTURE } from "@/lib/usage/usage-fixtures";
 
@@ -29,13 +30,17 @@ function formatTokens(n: number): string {
   return n.toLocaleString("en-US");
 }
 
-/** The display-only packs, the dollar tile + its rough coverage label (fixture)
- *  paired with the token amount the live rate buys (PACK_TOKENS). */
-const PACKS: { price: string; dollars: 10 | 25 | 50; pack: AiPack; tasks: string; recommended?: boolean }[] = [
-  { price: "$10", dollars: 10, pack: "10", tasks: TOKEN_BLOCKS_FIXTURE[0]?.tasks ?? "", },
-  { price: "$25", dollars: 25, pack: "25", tasks: TOKEN_BLOCKS_FIXTURE[1]?.tasks ?? "", recommended: true },
-  { price: "$50", dollars: 50, pack: "50", tasks: TOKEN_BLOCKS_FIXTURE[2]?.tasks ?? "", },
-];
+/** The display-only packs. The dollar tiers come from the canonical catalog
+ *  (AI_PACK_DOLLARS), the rough coverage label is fixture, and the token amount
+ *  the live rate buys is PACK_TOKENS. No hardcoded "$N" here. */
+const PACKS: { price: string; dollars: number; pack: AiPack; tasks: string; recommended?: boolean }[] =
+  AI_PACK_DOLLARS.map((dollars, i) => ({
+    price: usd(dollars * 100),
+    dollars,
+    pack: String(dollars) as AiPack,
+    tasks: TOKEN_BLOCKS_FIXTURE[i]?.tasks ?? "",
+    recommended: dollars === 25,
+  }));
 
 /** The body of the /api/billing/ai-topup response. */
 type TopupResponse = { url?: string; error?: string };
