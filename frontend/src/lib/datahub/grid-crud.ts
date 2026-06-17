@@ -108,6 +108,21 @@ export function canDeleteRow(content: DataHubDocContent): boolean {
 }
 
 /**
+ * Mint a unique row id. A bare timestamp ("row-" + Date.now()) collides when the
+ * user rapid-clicks Add row, since several rows can be born inside the same
+ * millisecond, which gave duplicate React keys and undefined row behavior. We
+ * keep the same on-disk shape (a "row-" string prefix) but append a monotonic
+ * per-session counter so two ids minted in the same millisecond still differ.
+ * The timestamp keeps ids from colliding with rows persisted in a PRIOR session
+ * (where the counter would have reset to 0), so this is safe across reloads too.
+ */
+let rowIdCounter = 0;
+export function mintRowId(): string {
+  rowIdCounter += 1;
+  return `row-${Date.now()}-${rowIdCounter}`;
+}
+
+/**
  * Build a blank row (every existing column's cell null), with a caller-supplied
  * id. The same shape handleAddRow builds, lifted here so insert-at-position reuses
  * it. Pure, so a test can assert every column key is present and null.

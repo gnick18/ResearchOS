@@ -87,6 +87,7 @@ import {
   canDeleteColumn,
   canDeleteRow,
   columnIndex,
+  mintRowId,
   rowIndex,
 } from "@/lib/datahub/grid-crud";
 import {
@@ -682,7 +683,7 @@ export default function DataHubPage() {
         cells[col.id] = null;
       }
     }
-    const rowId = `row-${Date.now()}`;
+    const rowId = mintRowId();
     addRowToDoc(handle.doc, { id: rowId, cells });
     void handle.commit();
     setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
@@ -981,7 +982,7 @@ export default function DataHubPage() {
     (index: number) => {
       const handle = handleRef.current;
       if (!handle || !openContent || openIdRef.current == null) return;
-      const row = buildBlankRow(openContent, `row-${Date.now()}`);
+      const row = buildBlankRow(openContent, mintRowId());
       addRowAtInDoc(handle.doc, row, index);
       void handle.commit();
       setOpenContent(getDataHubContent(handle.doc, openIdRef.current));
