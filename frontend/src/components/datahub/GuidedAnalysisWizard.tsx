@@ -225,7 +225,7 @@ export default function GuidedAnalysisWizard({
         role="dialog"
         aria-modal="true"
         aria-label="Guided analysis"
-        className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface-overlay ros-popup-card-shadow"
       >
         {/* Header */}
         <div className="flex flex-none items-center gap-2 border-b border-border px-4 py-3">

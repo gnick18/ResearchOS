@@ -371,7 +371,7 @@ export default function TransformDialog({
         role="dialog"
         aria-modal="true"
         aria-label={isEdit ? "Edit transform" : "New transform"}
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
       >
         <div className="border-b border-border px-5 pb-3 pt-4">
           <h2 className="text-title font-semibold text-foreground">

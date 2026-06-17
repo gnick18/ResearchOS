@@ -164,7 +164,7 @@ export default function MacroEditorSheet({
       }}
     >
       <div
-        className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface-raised shadow-xl"
+        className="flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-xl border border-border bg-surface-raised ros-popup-card-shadow"
         data-testid="macro-editor-sheet"
       >
         {/* header */}

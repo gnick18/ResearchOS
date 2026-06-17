@@ -109,7 +109,7 @@ export default function SequenceSendOutsideDialog({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-border flex items-start justify-between">

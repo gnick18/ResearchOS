@@ -378,7 +378,7 @@ export default function ProjectDepositDialog({
     >
       <div
         data-testid="project-deposit-dialog"
-        className="pointer-events-auto bg-surface-raised rounded-xl shadow-xl w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-xl ros-popup-card-shadow w-full max-w-2xl max-h-[88vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

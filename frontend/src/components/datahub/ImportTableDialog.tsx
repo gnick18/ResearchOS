@@ -222,7 +222,7 @@ export default function ImportTableDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Import data"
-        className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
       >
         <div className="border-b border-border px-5 pb-4 pt-5">
           <h2 className="text-title font-semibold text-foreground">Import data</h2>

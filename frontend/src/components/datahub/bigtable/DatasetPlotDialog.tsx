@@ -256,7 +256,7 @@ export default function DatasetPlotDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Graph dataset"
-        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-2xl flex-col rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
       >
         <div className="flex-none px-5 pt-5">
           <h2 className="text-title font-semibold text-foreground">

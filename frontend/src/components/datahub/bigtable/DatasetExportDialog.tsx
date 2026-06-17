@@ -162,7 +162,7 @@ export default function DatasetExportDialog({
         role="dialog"
         aria-modal="true"
         aria-label="Export dataset"
-        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-lg border border-border bg-surface-overlay shadow-xl"
+        className="relative flex max-h-[90vh] w-full max-w-md flex-col rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
       >
         <div className="flex items-center gap-2 border-b border-border px-5 py-4">
           <Icon name="download" className="h-4 w-4 text-foreground-muted" />

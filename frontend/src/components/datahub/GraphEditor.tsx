@@ -1328,7 +1328,7 @@ export default function GraphEditor({
             role="dialog"
             aria-modal="true"
             aria-label="Browse all palettes"
-            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface-overlay shadow-xl"
+            className="relative flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
           >
             <div className="flex items-center gap-2 border-b border-border px-4 py-3">
               <h2 className="text-title font-semibold text-foreground">

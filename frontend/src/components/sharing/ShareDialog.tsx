@@ -493,7 +493,7 @@ export default function ShareDialog({
       data-tour-popup-occluding="share-dialog"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="bg-surface-raised rounded-xl shadow-xl max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">

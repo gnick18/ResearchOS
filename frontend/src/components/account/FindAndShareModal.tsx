@@ -237,7 +237,7 @@ export default function FindAndShareModal({
       onClick={onClose}
     >
       <div
-        className="mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-raised shadow-xl"
+        className="mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-raised ros-popup-card-shadow"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between border-b border-border px-5 py-4">

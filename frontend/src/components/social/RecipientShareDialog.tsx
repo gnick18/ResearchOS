@@ -280,7 +280,7 @@ export default function RecipientShareDialog({
       onClick={onClose}
     >
       <div
-        className="mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-raised shadow-xl"
+        className="mx-4 flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-xl bg-surface-raised ros-popup-card-shadow"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header: who you are sharing with */}

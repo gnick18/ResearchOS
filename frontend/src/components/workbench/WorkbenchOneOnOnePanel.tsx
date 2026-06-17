@@ -2304,7 +2304,7 @@ function NewOneOnOneDialog({
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-surface-raised shadow-xl">
+      <div className="flex max-h-[85vh] w-full max-w-md flex-col rounded-xl bg-surface-raised ros-popup-card-shadow">
         <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
           <div className="flex items-center gap-2">
             <span aria-hidden="true" className="text-brand-action">
