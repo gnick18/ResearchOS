@@ -44,8 +44,13 @@ export interface ModelAPlan {
 export const MODEL_A_PLANS: Record<ModelAPlanId, ModelAPlan> = {
   free: { id: "free", name: "Free", audience: "free", baseFeeCents: 0, usageMarkup: 0, produce: false },
   solo: { id: "solo", name: "Solo", audience: "solo", baseFeeCents: 300, usageMarkup: 5, produce: true },
-  lab: { id: "lab", name: "Lab", audience: "lab", baseFeeCents: 2500, usageMarkup: 7, produce: true },
-  dept: { id: "dept", name: "Department", audience: "dept", baseFeeCents: 5000, usageMarkup: 6, produce: true },
+  lab: { id: "lab", name: "Lab", audience: "lab", baseFeeCents: 4000, usageMarkup: 7, produce: true },
+  // Department is the INSTITUTIONAL VOLUME tier (Grant 2026-06-16): cheaper PER LAB
+  // than a standalone lab on both base ($35 vs $40) and markup (6x vs 7x), because
+  // landing a department brings many labs at once and is our distribution win. The
+  // governance layer (Commons, cross-lab compliance, one consolidated invoice) is
+  // included value, NOT a premium. So we reward depts, never tax them.
+  dept: { id: "dept", name: "Department", audience: "dept", baseFeeCents: 3500, usageMarkup: 6, produce: true },
 };
 
 /** Run the card on file once a payer's accrued balance crosses this (~$5), or at

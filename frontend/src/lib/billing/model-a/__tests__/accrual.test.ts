@@ -84,7 +84,7 @@ describe("accrueOwnerForPeriod", () => {
       labCount: 3,
     });
     expect(res.chargedCents).toBe(expected.totalCents);
-    expect(expected.baseCents).toBe(7500); // 3 labs x $25
+    expect(expected.baseCents).toBe(12000); // 3 labs x $40
   });
 
   it("free payers accrue nothing, even with usage", async () => {

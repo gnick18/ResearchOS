@@ -41,11 +41,11 @@ describe("Model A pricing core", () => {
   it("base fee is per-lab for lab and dept", () => {
     const lab1 = periodCharge(MODEL_A_PLANS.lab, { ...noUsage, labCount: 1 });
     const lab3 = periodCharge(MODEL_A_PLANS.lab, { ...noUsage, labCount: 3 });
-    expect(lab1.baseCents).toBe(2500);
-    expect(lab3.baseCents).toBe(7500);
+    expect(lab1.baseCents).toBe(4000);
+    expect(lab3.baseCents).toBe(12000);
 
     const dept5 = periodCharge(MODEL_A_PLANS.dept, { ...noUsage, labCount: 5 });
-    expect(dept5.baseCents).toBe(25000);
+    expect(dept5.baseCents).toBe(17500);
   });
 
   it("lab marks usage up more than dept, dept more than solo (7 > 6 > 5)", () => {
