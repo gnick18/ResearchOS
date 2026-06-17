@@ -313,7 +313,7 @@ function ResetStreakModal({
       aria-labelledby="streaks-reset-title"
       data-testid="streaks-reset-modal"
     >
-      <div className="w-full max-w-sm rounded-xl bg-surface-raised p-5 shadow-xl">
+      <div className="w-full max-w-sm rounded-xl bg-surface-raised p-5 ros-popup-card-shadow">
         <h3
           id="streaks-reset-title"
           className="text-title font-semibold text-foreground"

@@ -142,7 +142,7 @@ export default function SplashReviewPage() {
       )}
 
       {/* Dev control dock */}
-      <div className="fixed bottom-4 left-4 z-[20000] w-[min(92vw,420px)] rounded-2xl border border-border bg-surface-overlay p-4 text-foreground shadow-xl">
+      <div className="fixed bottom-4 left-4 z-[20000] w-[min(92vw,420px)] rounded-2xl border border-border bg-surface-overlay p-4 text-foreground ros-popover-shadow">
         <div className="mb-3 flex items-center justify-between">
           <span className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
             Splash review

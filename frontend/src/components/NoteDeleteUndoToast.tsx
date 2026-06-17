@@ -73,7 +73,7 @@ export default function NoteDeleteUndoToast() {
 
   return (
     <div
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-surface-overlay text-foreground border border-border rounded-lg shadow-xl px-4 py-3 flex items-center gap-3 max-w-md"
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[110] bg-surface-overlay text-foreground border border-border rounded-lg ros-popover-shadow px-4 py-3 flex items-center gap-3 max-w-md"
       role="status"
       aria-live="polite"
       data-testid="note-delete-undo-toast"

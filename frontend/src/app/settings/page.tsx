@@ -1289,7 +1289,7 @@ function AccountTypeSection({ settings, update }: SectionProps) {
           aria-labelledby="account-type-confirm-title"
           data-testid="account-type-confirm"
         >
-          <div className="bg-surface-overlay rounded-xl shadow-xl max-w-md w-full mx-4 p-5">
+          <div className="bg-surface-overlay rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 p-5">
             <h3
               id="account-type-confirm-title"
               className="text-title font-semibold text-foreground"

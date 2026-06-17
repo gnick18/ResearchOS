@@ -659,7 +659,7 @@ export default function AppNavBar({
       {ctxMenu ? (
         <div
           data-nav-ctxmenu
-          className="fixed min-w-[160px] bg-surface-overlay border border-border rounded-xl shadow-xl p-1.5 z-[80]"
+          className="fixed min-w-[160px] bg-surface-overlay border border-border rounded-xl ros-popover-shadow p-1.5 z-[80]"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
           <button
