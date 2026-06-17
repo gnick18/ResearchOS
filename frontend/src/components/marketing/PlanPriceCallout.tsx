@@ -56,6 +56,11 @@ export function PlanPriceCallout({ planId }: { planId: PaidPlanId }) {
           monthly cap you set so there are no surprises.
         </p>
       )}
+      <p className="mt-3 border-t border-[#eef2f7] pt-3 text-meta leading-relaxed text-[#64748b]">
+        Shown per month, but we only run your card once you have built up about
+        $5, or when you close your account. In practice that is a couple of
+        charges a year, never a monthly nickel-and-dime.
+      </p>
     </div>
   );
 }
