@@ -35,6 +35,7 @@ import {
   type PairingGrant,
 } from "@/lib/mobile-relay/client";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
+import { triggerUpgradeNudge } from "@/lib/billing/upgrade-nudge";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
@@ -273,6 +274,27 @@ export default function DevicesSection({
     setPaired(false);
     setBusy(true);
     try {
+      // Model A: pairing the app to your real lab is a PAID produce feature. Once
+      // billing is live, a free owner is gated here (a paid-lab member reads as
+      // entitled via produceEntitled). The status route 404s while billing is off,
+      // so the beta is unaffected, and any billing hiccup fails OPEN (never blocks
+      // pairing). The CF relay is the authoritative gate; this is the front door.
+      try {
+        const res = await fetch("/api/billing/model-a/status");
+        if (res.ok) {
+          const s = (await res.json()) as { produceEntitled?: boolean };
+          if (s.produceEntitled === false) {
+            triggerUpgradeNudge("app");
+            setError(
+              "Pairing the app to your lab is on a paid plan. Open Plan and storage to start one.",
+            );
+            return;
+          }
+        }
+      } catch {
+        // fail open, a billing hiccup must never block pairing
+      }
+
       const keys = await loadUserCaptureKeys();
       if (!keys) {
         setError("Your identity is locked. Set up or restore your account first.");
