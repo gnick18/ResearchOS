@@ -64,6 +64,10 @@ export default function PublicDatasetEmbed({
   descriptor: EmbedDescriptor;
 }) {
   const [state, setState] = useState<ViewState>({ k: "loading" });
+  // Honest progress (0..100) for the one-time ~38 MB DuckDB engine load, so the
+  // public reader sees a real bar instead of a static "loading" line. The engine
+  // is the dominant cost; init() reports coarse milestones as it loads.
+  const [progress, setProgress] = useState(0);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [columns, setColumns] = useState<string[]>(asset.columns ?? []);
   const [offset, setOffset] = useState(0);
@@ -77,6 +81,7 @@ export default function PublicDatasetEmbed({
   useEffect(() => {
     let cancelled = false;
     setState({ k: "loading" });
+    setProgress(0);
     (async () => {
       try {
         // Dynamically import the client-only DuckDB engine so it never enters the
@@ -88,7 +93,11 @@ export default function PublicDatasetEmbed({
         if (!res.ok) throw new Error(`asset fetch failed: ${res.status}`);
         const buffer = await res.arrayBuffer();
         if (cancelled) return;
-        await init();
+        // init() carries a timeout + retry (a hung worker rejects instead of
+        // hanging forever) and reports load milestones for the progress bar.
+        await init((frac) => {
+          if (!cancelled) setProgress(Math.round(frac * 100));
+        });
         const fileName = `labsite_${asset.assetId}_${Date.now()}.parquet`;
         await registerParquetBuffer(fileName, buffer);
         if (cancelled) return;
@@ -161,11 +170,28 @@ export default function PublicDatasetEmbed({
   // ── Loading skeleton ────────────────────────────────────────────────────────
   if (state.k === "loading") {
     return (
-      <figure className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised">
-        <div className="flex items-center gap-3 px-4 py-6">
-          <span className="text-meta text-foreground-muted">
-            Loading interactive dataset...
-          </span>
+      <figure
+        className="my-3 mx-0 overflow-hidden rounded-xl border border-border bg-surface-raised"
+        role="status"
+        aria-live="polite"
+        aria-label={`Loading interactive dataset, ${progress} percent`}
+      >
+        <div className="flex flex-col gap-2 px-4 py-6">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-meta text-foreground-muted">
+              Loading interactive dataset. It runs in your browser and caches after
+              the first time.
+            </span>
+            <span className="shrink-0 text-meta font-medium tabular-nums text-foreground-muted">
+              {progress}%
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full border border-border bg-surface-sunken">
+            <div
+              className="h-full rounded-full bg-brand-action"
+              style={{ width: `${progress}%`, transition: "width 0.3s ease" }}
+            />
+          </div>
         </div>
       </figure>
     );
