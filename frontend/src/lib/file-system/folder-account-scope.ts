@@ -11,6 +11,14 @@
 // unlocked, getFolderRegistryScope returns null and the registry falls back to
 // the legacy unscoped keys, which is exactly the pre-account behavior.
 //
+// KNOWN LIMITATION (v1, acceptable; flagged by BeakerAI 2026-06-16). A key
+// ROTATION (SharingSection onRotate) changes the signing public key, so the
+// scope hex changes and the remembered set under the OLD scope orphans (the user
+// sees an empty folder list and re-adds). Rotation is rare (recovery or
+// compromise only), so this is fine for v1. A future refinement could
+// re-namespace the registry from the old scope to the new on rotation, reusing
+// the first-account-inherit claim-sentinel pattern in indexeddb-store.ts.
+//
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
 import { loadIdentity } from "@/lib/sharing/identity/storage";
