@@ -59,8 +59,11 @@ Recommend moving the lab-head CAPABILITY to the account tier (so a PI is always 
 
 New cloud `account_settings` store (new table keyed by identity hash) + a migration that lifts account-scoped fields out of folder `settings.json`. This is a data-shape + new-cloud-surface change, so it needs sign-off on the split + the privacy stance before code, and it merges only after verification.
 
-## Open decisions
+## Locked decisions (Grant, 2026-06-17)
 
-1. Privacy stance, E2E-encrypted account blob (recommended) vs plaintext in our cloud.
-2. Move the lab-head CAPABILITY to the account tier (recommended) vs keep role purely folder-local.
-3. Confirm the account-scoped vs folder-scoped field list above, especially the ambiguous ones (visible tabs as account-default-with-override, created calendar events staying folder-local).
+1. Privacy stance = E2E-ENCRYPTED account blob. Encrypt the account-settings blob to the user's identity key so our cloud stores ciphertext we cannot read, keeping the local-first promise intact. Decryptable on any device via the user's recoverable identity (OAuth + recovery code).
+2. The lab-head / PI CAPABILITY moves to the ACCOUNT tier. A PI is recognized as a PI regardless of which folder they open; the per-folder context (which lab vs which class) stays local. Direct fix for the Owen "individual not PI" case and required for Class Mode.
+
+## Still to confirm
+
+- The exact account-scoped vs folder-scoped field list above, especially the ambiguous ones (visible tabs as account-default-with-override, created calendar events staying folder-local). Defaults as written unless flagged.
