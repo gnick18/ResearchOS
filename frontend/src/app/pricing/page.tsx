@@ -1,59 +1,32 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
+import { Icon } from "@/components/icons";
+import type { IconName } from "@/components/icons/registry";
 import MadeInMadison from "@/components/MadeInMadison";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingNav from "@/components/MarketingNav";
-import CompetitorSavings from "@/components/pricing/CompetitorSavings";
-import CostMath from "@/components/pricing/CostMath";
-import FeatureGrid, {
-  type FeatureItem,
-} from "@/components/pricing/FeatureGrid";
-import PlanPicker from "@/components/pricing/PlanPicker";
-import PricingFaq from "@/components/pricing/PricingFaq";
-import PricingHero from "@/components/pricing/PricingHero";
+import FeatureGrid, { type FeatureItem } from "@/components/pricing/FeatureGrid";
 import { Section, SectionHeading } from "@/components/pricing/Section";
-import TrustBand from "@/components/pricing/TrustBand";
-import TwoPartModel from "@/components/pricing/TwoPartModel";
+import PlanPriceCallout from "@/components/marketing/PlanPriceCallout";
 import { isAiBillingEnabled, isBillingEnabled } from "@/lib/billing/config";
 
 /**
- * Public `/pricing` route. The first real pricing page, a faithful port of the
- * approved mockup `docs/mockups/2026-06-10-pricing-page.html`. Every word comes
- * from BILLING_FACTS in the house voice. No Plus or Pro dollar figures are
- * printed (those are still provisional). Beta-free copy is flag-driven: it
- * shows only while the relevant billing flag (BILLING_ENABLED for storage,
- * AI_BILLING_ENABLED for the AI) is off, and switches to live-pricing copy
- * once the flag is on, so the page is always truthful.
- *
- * Marketing / informational page, intentionally excluded from the wiki-coverage
- * map (alongside /transparency) and rendered without the AppShell
- * or a connected data folder so anyone can read it.
+ * Public `/pricing` route, rebuilt for Model A (2026-06-16): a local-first
+ * cloud-SERVICES company, pay-for-what-you-use. The local app is free and open
+ * source forever; paid plans are a small base fee plus your actual cloud usage,
+ * billed off an accrued ledger (run at ~$5 owed or at close). Every dollar figure
+ * comes from the shared PlanPriceCallout (lib/billing/catalog), the single source,
+ * so this page, /labs, /departments, and the chooser never drift.
  *
  * Voice: no em-dashes, no emojis, no mid-sentence colons.
  */
 export const metadata: Metadata = {
   title: "Pricing | ResearchOS",
   description:
-    "The ResearchOS local notebook is free and open source forever. The only paid parts are optional cloud storage and the optional AI assistant, both metered at cost. Individuals and labs pay what it costs us, larger institutions pay a little more to keep it free for everyone else. See the competitor savings, the plan builders, the AI pricing, and the actual cost math.",
+    "The ResearchOS local notebook is free and open source forever. Paid plans are pay-for-what-you-use, a small base fee plus your actual cloud usage, with a cap you set. Solo, Lab, and Department, plus a separate metered AI assistant and storage at roughly cost.",
 };
-
-const SUPPORT_ITEMS: FeatureItem[] = [
-  {
-    icon: "database",
-    title: "Buy only the storage you use",
-    body: [
-      "The most direct support is to buy the cloud storage you actually use, and no more. That keeps us sustainable without overpaying for space you do not need.",
-    ],
-  },
-  {
-    icon: "heart",
-    title: "Sponsor us on GitHub Sponsors",
-    body: [
-      "A sponsorship is a direct contribution that funds development. It is also not subject to sales tax the way a product purchase can be, so more of your money reaches the actual dev work.",
-    ],
-  },
-];
 
 const AI_ITEMS: FeatureItem[] = [
   {
@@ -65,9 +38,9 @@ const AI_ITEMS: FeatureItem[] = [
   },
   {
     icon: "gauge",
-    title: "Then prepaid top-ups, near cost",
+    title: "Then prepaid top-ups, at a small markup",
     body: [
-      "After the gift runs out you buy a prepaid top-up, and each task draws down what it actually cost us to run plus a thin buffer for processing. Because a full task is only a couple cents of compute, a $10 top-up is a few hundred tasks. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
+      "After the gift runs out you buy a prepaid top-up, and each task draws down a small markup over what it actually cost us to run. Because a full task is only a couple cents of compute, a $10 top-up is a few hundred tasks. You always see your token balance and what the last task cost. No subscription, you pay only for what you use.",
     ],
   },
   {
@@ -79,19 +52,90 @@ const AI_ITEMS: FeatureItem[] = [
   },
   {
     icon: "users",
-    title: "Or have your lab or institution cover it",
+    title: "Or have your lab or department cover it",
     body: [
-      "A lab, department, or institution can fund a shared pool, so members use BeakerBot without paying out of pocket. Departments and institutions pay a small sustaining rate above cost, the same as storage, and that keeps the free sign-up tokens free for everyone.",
+      "A lab or department can fund a shared pool, so members use BeakerBot without paying out of pocket. The whole AI meter stays a small markup over our measured cost, never the money-maker.",
     ],
   },
 ];
 
+const SUPPORT_ITEMS: FeatureItem[] = [
+  {
+    icon: "database",
+    title: "Buy only the cloud you use",
+    body: [
+      "The most direct support is to pay for the cloud services you actually use, and no more. Pay-for-what-you-use keeps us sustainable without you overpaying for capacity you do not need.",
+    ],
+  },
+  {
+    icon: "heart",
+    title: "Sponsor us on GitHub Sponsors",
+    body: [
+      "A sponsorship is a direct contribution that funds development. It is also not subject to sales tax the way a product purchase can be, so more of your money reaches the actual dev work.",
+    ],
+  },
+];
+
+// ---- A paid plan card (price comes from the shared PlanPriceCallout) ----
+function PlanCard({
+  eyebrow,
+  planId,
+  features,
+}: {
+  eyebrow: string;
+  planId: "solo" | "lab" | "dept";
+  features: { icon: IconName; text: ReactNode }[];
+}) {
+  return (
+    <div className="flex flex-col rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
+      <div className="text-[11px] font-extrabold uppercase tracking-widest text-brand-action">
+        {eyebrow}
+      </div>
+      <div className="mt-3">
+        <PlanPriceCallout planId={planId} />
+      </div>
+      <ul className="mt-4 flex flex-col gap-2.5">
+        {features.map((f, i) => (
+          <li key={i} className="flex items-start gap-2.5 text-body text-foreground-muted">
+            <span aria-hidden className="mt-0.5 text-brand-action">
+              <Icon name={f.icon} className="h-4 w-4" />
+            </span>
+            <span>{f.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+const FAQ: { q: string; a: string }[] = [
+  {
+    q: "Is the app really free?",
+    a: "Yes. The local notebook and every feature on your own machine are free and open source forever. You only pay for the optional cloud services that send, co-edit, and sync your work beyond your own disk.",
+  },
+  {
+    q: "How am I billed?",
+    a: "Prices show per month, but we bill off a running balance to avoid per-charge fees. We only run your card once you have built up about $5, or when you close your account, so in practice it is a couple of charges a year, never a monthly nickel-and-dime. You set a monthly cap, so cloud sync pauses before any surprise and the local app keeps working.",
+  },
+  {
+    q: "Do my lab members pay?",
+    a: "No. Only the lab head pays. Members join free with an invite, and they are never asked for a card. A joining member should accept the invite, not start a new lab.",
+  },
+  {
+    q: "Why is a department cheaper per lab than a standalone lab?",
+    a: "Because a department brings many labs at once, which is our distribution win, so we reward it with a volume discount instead of taxing it. The governance layer (the Commons, compliance, and one consolidated invoice) is included value, not a premium.",
+  },
+  {
+    q: "Why is this so much cheaper than LabArchives or Benchling?",
+    a: "Because the app is local-first, your everyday work never touches our servers, so we only bill the small slice you sync. Storage is billed at roughly cost, and even our usage markup lands far below a per-seat license.",
+  },
+];
+
 export default function PricingPage() {
-  // TEMP: hide the public pricing page on deployed builds while we finalize the
-  // new (Model A) pricing, so visitors never see stale tiers. Shows a Beaker
-  // maintenance state on prod/preview; the real page still renders in local
-  // `next dev` so we keep building it. Set PRICING_LIVE=true to expose it, or
-  // remove this block once pricing is locked.
+  // TEMP: hide the public pricing page on deployed builds while pricing is
+  // finalized (Grant + Emile sign-off). Shows a Beaker maintenance state on
+  // prod/preview; the real page renders in local `next dev`. Set PRICING_LIVE=true
+  // to expose it, or remove this block once pricing is locked.
   if (
     process.env.NODE_ENV === "production" &&
     process.env.PRICING_LIVE !== "true"
@@ -134,26 +178,100 @@ export default function PricingPage() {
       <MarketingNav />
       <div className="mx-auto max-w-7xl px-2 py-6 sm:px-6 sm:py-10 lg:px-8">
         <div className="overflow-hidden rounded-2xl border border-border bg-surface sm:rounded-3xl">
-          <PricingHero billingEnabled={billingEnabled} />
-
-          {/* Two-part model */}
-          <Section>
-            <SectionHeading
-              title="The app is free. Two optional things ever cost money."
-              subtitle="Your data has two parts, your folder on your own disk which is free, and the cloud copy you choose to sync or share which is the paid storage part. The one other optional paid thing is the AI assistant, also metered at cost and covered below. The reason it all stays cheap is the local-first design, your daily work never leaves your disk."
-            />
-            <TwoPartModel />
+          {/* HERO */}
+          <Section className="text-center">
+            <h1 className="mx-auto max-w-[22ch] text-3xl font-extrabold leading-[1.08] tracking-tight text-brand-ink dark:text-foreground sm:text-4xl">
+              The app is free. You pay only for the cloud you use.
+            </h1>
+            <p className="mx-auto mt-4 max-w-[62ch] text-body leading-relaxed text-foreground-muted sm:text-title">
+              ResearchOS is local-first, so your everyday work never touches our
+              servers. The notebook is free and open source forever. Paid plans
+              are pay-for-what-you-use, a small base fee plus your actual cloud
+              usage, with a monthly cap you set.
+              {billingEnabled ? "" : " Everything is free during the beta."}
+            </p>
           </Section>
 
-          {/* BeakerBot, the AI assistant over your own data. Leads with the free
-              token gift as the hook, then the at-cost framing. Placed high (right
-              after the two-part model) so the free gift is the first concrete
-              perk, not buried below the storage math. id="ai-pricing" so the
-              competitor-savings AI highlight can link here. */}
+          {/* PLANS: Free on-ramp + three customer types */}
+          <Section id="plans">
+            <SectionHeading
+              title="Pick what fits who you are"
+              subtitle="Free is the on-ramp for everyone. The paid plans are priced for three different people, not stacked tiers, an individual researcher, a lab head, and a department."
+            />
+
+            {/* Free banner */}
+            <div className="mb-5 flex flex-col items-start justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 p-5 sm:flex-row sm:items-center dark:border-green-900/40 dark:bg-green-950/20">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded-full bg-green-100 px-2.5 py-0.5 text-[11px] font-bold text-green-700">
+                    Free
+                  </span>
+                  <span className="text-title font-extrabold text-brand-ink dark:text-foreground">
+                    For everyone, to start
+                  </span>
+                </div>
+                <p className="mt-1 max-w-[64ch] text-body text-foreground-muted">
+                  $0, no card. Unlimited local notebook, receive work others
+                  share with you, directory presence, and a one-time gift of
+                  about 1.6M AI tokens. Sending, co-editing, and pairing the app
+                  are the paid part.
+                </p>
+              </div>
+              <a
+                href="/"
+                className="inline-flex flex-none items-center gap-2 rounded-xl border border-green-300 bg-white px-5 py-2.5 text-body font-semibold text-green-800 transition-colors hover:border-green-500"
+              >
+                Start free
+              </a>
+            </div>
+
+            <div className="grid gap-4 lg:grid-cols-3">
+              <PlanCard
+                eyebrow="For one researcher"
+                planId="solo"
+                features={[
+                  { icon: "share", text: "Send and co-edit your work with anyone" },
+                  { icon: "camera", text: "Pair the companion app for bench capture" },
+                  { icon: "bell", text: "Push notifications and cross-device sync" },
+                ]}
+              />
+              <PlanCard
+                eyebrow="For a lab head"
+                planId="lab"
+                features={[
+                  { icon: "users", text: "One shared workspace for your whole team" },
+                  { icon: "pencil", text: "Real-time co-editing and PI oversight" },
+                  { icon: "reference", text: "Your lab's web home and paper companion pages" },
+                  { icon: "check", text: "You pay; your members join free" },
+                ]}
+              />
+              <PlanCard
+                eyebrow="For a department"
+                planId="dept"
+                features={[
+                  { icon: "folder", text: "Many labs under one admin" },
+                  { icon: "lock", text: "The Commons, compliance, and data continuity" },
+                  { icon: "reference", text: "One consolidated procurement invoice" },
+                  { icon: "check", text: "Cheaper per lab than a standalone lab" },
+                ]}
+              />
+            </div>
+
+            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
+              <b className="text-foreground">Joining a lab is free.</b> Only the
+              lab head pays. If your PI invited you, accept the invite, do not
+              start a new lab.
+              {billingEnabled
+                ? ""
+                : " During the beta every plan is free."}
+            </p>
+          </Section>
+
+          {/* BeakerBot AI */}
           <Section id="ai-pricing">
             <SectionHeading
               title="BeakerBot, an AI assistant over your own data, free to start"
-              subtitle="BeakerBot reasons over your notes and results, runs an analysis, makes a plot, and writes it up, always with your approval. It is the one optional thing that is metered, because each task calls a hosted model that costs us real money. Every new account starts with a free batch of tokens, and after that it is priced near our actual cost."
+              subtitle="BeakerBot reasons over your notes and results, runs an analysis, makes a plot, and writes it up, always with your approval. It is a separate metered token product, because each task calls a hosted model that costs real money. Every new account starts with a free batch of tokens, and after that it is priced at a small markup over our measured cost."
             />
             <div className="mx-auto mb-6 max-w-2xl rounded-2xl border border-brand-action/30 bg-brand-action/[0.06] px-5 py-4 text-center">
               <div className="text-2xl font-extrabold tracking-tight text-brand-ink dark:text-foreground">
@@ -170,68 +288,54 @@ export default function PricingPage() {
                 href="/ai"
                 className="inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
               >
-                See everything BeakerBot can do{" "}
-                <span aria-hidden>&rarr;</span>
+                See everything BeakerBot can do <span aria-hidden>&rarr;</span>
               </a>
             </p>
-            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
-              <b className="text-foreground">Why no final AI prices yet.</b> We
-              hold the exact top-up prices until a few real tasks show what they
-              actually cost, the same way we set storage from data instead of
-              guessing. The free sign-up gift is set so realistic use lands near
-              25 cents of compute
-              {aiBillingEnabled
-                ? "."
-                : ", and during the beta the AI is free."}
+            {!aiBillingEnabled && (
+              <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
+                During the beta the AI is free.
+              </p>
+            )}
+          </Section>
+
+          {/* How you pay (the model + the cadence) */}
+          <Section className="bg-surface-raised">
+            <SectionHeading
+              title="How you pay, in plain terms"
+              subtitle="No per-gigabyte meter, no surprise bills. A small base fee plus the cloud you actually use, and storage at roughly what it costs us."
+            />
+            <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-3">
+              {[
+                {
+                  icon: "gauge" as IconName,
+                  h: "Pay for what you use",
+                  p: "A small base fee plus your actual cloud usage at a fair markup. Storage is a-la-carte at roughly our cost, never a profit center.",
+                },
+                {
+                  icon: "reference" as IconName,
+                  h: "Billed a couple times a year",
+                  p: "Shown per month, but we run your card only once you owe about $5, or when you close. A running balance, not a monthly bill.",
+                },
+                {
+                  icon: "lock" as IconName,
+                  h: "A cap you control",
+                  p: "Set a monthly cap and cloud sync pauses before any surprise charge. The local app and your data always keep working.",
+                },
+              ].map((c) => (
+                <div key={c.h} className="rounded-2xl border border-border bg-surface p-5">
+                  <span aria-hidden className="mb-3 inline-flex h-10 w-10 items-center justify-center rounded-xl bg-brand-sky/10 text-brand-action">
+                    <Icon name={c.icon} className="h-5 w-5" />
+                  </span>
+                  <h3 className="text-body font-extrabold text-brand-ink dark:text-foreground">{c.h}</h3>
+                  <p className="mt-1.5 text-meta leading-relaxed text-foreground-muted">{c.p}</p>
+                </div>
+              ))}
+            </div>
+            <p className="mx-auto mt-5 max-w-2xl text-center text-[12.5px] leading-relaxed text-foreground-muted">
+              Every unit is a fraction of a per-seat ELN. LabArchives alone is
+              about $27.50 per user per month, so a six-seat lab there is roughly
+              $165 a month, far above a lab here.
             </p>
-          </Section>
-
-          {/* What you pay today, competitor savings */}
-          <Section>
-            <SectionHeading
-              title="What you are paying for today"
-              subtitle="Tick the tools your lab already pays for. These are academic list prices from the vendors, and ResearchOS replaces all of them in one app. Benchling is shown free because its academic tier is, we are not padding the number."
-            />
-            <CompetitorSavings />
-          </Section>
-
-          {/* Plans */}
-          <Section id="plans">
-            <SectionHeading
-              title="One plan covers your storage and your editing, on one invoice"
-              subtitle="Pick a plan, not a pile of meters. Each plan bundles a storage allowance and an editing allowance into a single monthly price. Most people stay on Free."
-            />
-            <PlanPicker billingEnabled={billingEnabled} />
-            <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">
-              <b className="text-foreground">
-                Why no final Plus and Pro prices yet.
-              </b>{" "}
-              We hold the exact figure until a few weeks of real usage show what
-              storage actually costs, so we set it from data instead of guessing
-              high.{" "}
-              {billingEnabled
-                ? "The plan structure itself is final, six plans, one picker, Free at 5 GB and zero dollars."
-                : "During the beta every plan is free. The plan structure itself is final, six plans, one picker, Free at 5 GB and zero dollars."}
-            </p>
-          </Section>
-
-          {/* Cost math */}
-          <Section>
-            <SectionHeading
-              title="How we would price it, our actual costs"
-              subtitle={
-                billingEnabled
-                  ? "No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers."
-                  : "No guessing. Here is the real math, our infrastructure cost plus payment processing plus a small buffer. Individuals and labs pay exactly this, and larger institutions pay a transparent bit more that funds the free tiers. Everything is free during the beta."
-              }
-            />
-            <CostMath billingEnabled={billingEnabled} />
-          </Section>
-
-          {/* Trust band: metering + labs + guardrails as one designed band with
-              mechanic illustrations, replacing the three flat FeatureGrids. */}
-          <Section>
-            <TrustBand />
           </Section>
 
           {/* Supporting us */}
@@ -243,9 +347,18 @@ export default function PricingPage() {
             <FeatureGrid items={SUPPORT_ITEMS} />
           </Section>
 
-          {/* Pricing FAQ (saas-landing-pages framework: answer the billing and
-              switching objections right before the closing reassurance). */}
-          <PricingFaq billingEnabled={billingEnabled} />
+          {/* FAQ */}
+          <Section>
+            <SectionHeading title="Questions, answered" />
+            <div className="mx-auto max-w-3xl divide-y divide-border">
+              {FAQ.map((f) => (
+                <div key={f.q} className="py-4">
+                  <h3 className="text-body font-extrabold text-brand-ink dark:text-foreground">{f.q}</h3>
+                  <p className="mt-1.5 text-body leading-relaxed text-foreground-muted">{f.a}</p>
+                </div>
+              ))}
+            </div>
+          </Section>
 
           {/* Credibility + beta note */}
           <Section className="bg-surface-raised text-center">
@@ -257,13 +370,10 @@ export default function PricingPage() {
             </div>
             <p className="mx-auto max-w-[64ch] text-[12.5px] leading-relaxed text-foreground-muted">
               We are the merchant of record, with real banking and Stripe set up,
-              so paid storage is a real and accountable business, not a hobby
+              so paid plans are a real and accountable business, not a hobby
               donation link.{" "}
               {billingEnabled || aiBillingEnabled ? (
-                <>
-                  Cloud storage and the AI are billed at what they cost us,
-                  with a transparent cost breakdown above.
-                </>
+                <>Cloud usage and AI are billed at a fair markup, and storage at roughly cost.</>
               ) : (
                 <>
                   Until then we are in beta, and everything, including sharing
