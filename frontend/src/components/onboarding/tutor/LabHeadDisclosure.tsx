@@ -59,9 +59,9 @@ export default function LabHeadDisclosure({ onConfirm, onSolo }: LabHeadDisclosu
           like send, live co-edit, and phone capture.
         </p>
 
-        {/* TODO(lab-head-page) wire to the future lab-head product page, which does not exist yet. */}
+        {/* The lab-head product page (built by the Popup Unifier lane, on main). */}
         <a
-          href="#"
+          href="/labs"
           className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--violet,#7c4dca)] hover:underline"
         >
           What a lab account does
