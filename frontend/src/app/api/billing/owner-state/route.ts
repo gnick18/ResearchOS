@@ -31,6 +31,8 @@ import { isBillingEnabled } from "@/lib/billing/config";
 import { activityAllowanceForOwner, quotaBytesForOwner } from "@/lib/billing/db";
 import { ensureLabSchema, resolveBillingOwner } from "@/lib/billing/lab";
 import { currentWritePeriod } from "@/lib/billing/period";
+import { resolveModelAPlanId } from "@/lib/billing/model-a/resolve";
+import { modelACapState } from "@/lib/billing/model-a/enforcement";
 import { getLabPoolUsage, getLabPoolWrites } from "@/lib/collab/server/db";
 import { getBindingByPubkey } from "@/lib/sharing/directory/db";
 
@@ -76,6 +78,21 @@ export async function GET(req: Request) {
     await ensureLabSchema();
     const ownerKey = await resolveBillingOwner(binding.emailHash);
     const period = currentWritePeriod();
+
+    // Model A: a paid owner (solo/lab) is gated by their SETTABLE MONTHLY $ CAP,
+    // not a storage byte cap (storage is a-la-carte, never a hard wall). A null
+    // cap never trips, so an uncapped paid owner is only ever bounded by the
+    // global cost breaker. Free owners fall through to the legacy free-allowance
+    // check below (they have no produce/cloud usage to bill anyway).
+    const planId = await resolveModelAPlanId(ownerKey);
+    if (planId === "solo" || planId === "lab") {
+      const capState = await modelACapState(ownerKey, period, { planId, labCount: 1 });
+      return NextResponse.json(
+        { over: capState.over, reason: capState.reason },
+        { headers: { "cache-control": "no-store" } },
+      );
+    }
+
     const [usage, cap, writes, writeAllowance] = await Promise.all([
       getLabPoolUsage(ownerKey),
       quotaBytesForOwner(ownerKey),

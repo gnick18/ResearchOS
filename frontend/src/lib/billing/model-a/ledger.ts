@@ -159,6 +159,37 @@ export async function getCloudPaymentMethod(
   return { customerId: row.stripe_customer_id, paymentMethodId: row.stripe_payment_method_id };
 }
 
+/** Set (or clear, with null) a payer's settable monthly spend cap in cents. When
+ *  the period's projected charge exceeds it, cloud sync pauses (the local app
+ *  never stops) until the next period or the cap is raised. */
+export async function setMonthlyCap(
+  ownerKey: string,
+  capCents: number | null,
+  sql: Sql = getSql(),
+): Promise<void> {
+  await ensureCloudLedgerSchema(sql);
+  await sql`
+    INSERT INTO cloud_balance (owner_key, monthly_cap_cents)
+    VALUES (${ownerKey}, ${capCents})
+    ON CONFLICT (owner_key) DO UPDATE
+      SET monthly_cap_cents = ${capCents}, updated_at = now()
+  `;
+}
+
+/** A payer's monthly cap in cents, or null if none set (no per-owner cap; the
+ *  global cost breaker still applies). */
+export async function getMonthlyCap(
+  ownerKey: string,
+  sql: Sql = getSql(),
+): Promise<number | null> {
+  await ensureCloudLedgerSchema(sql);
+  const rows = (await sql`
+    SELECT monthly_cap_cents FROM cloud_balance WHERE owner_key = ${ownerKey}
+  `) as Array<{ monthly_cap_cents: number | null }>;
+  const v = rows[0]?.monthly_cap_cents;
+  return v == null ? null : Number(v);
+}
+
 export interface ChargeableOwner {
   ownerKey: string;
   accruedCents: number;

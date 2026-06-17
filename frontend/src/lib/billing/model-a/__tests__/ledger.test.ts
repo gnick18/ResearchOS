@@ -16,6 +16,8 @@ import {
   setCloudPaymentMethod,
   getCloudPaymentMethod,
   listChargeableOwners,
+  setMonthlyCap,
+  getMonthlyCap,
 } from "../ledger";
 import { ACCRUAL_CHARGE_THRESHOLD_CENTS } from "../pricing";
 import { MODEL_A_PLANS, periodCharge } from "../pricing";
@@ -33,6 +35,7 @@ interface BalanceRow {
   accrued_cents: number;
   stripe_customer_id?: string;
   stripe_payment_method_id?: string;
+  monthly_cap_cents?: number | null;
 }
 
 function makeMockSql() {
@@ -45,6 +48,22 @@ function makeMockSql() {
 
     if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) {
       return Promise.resolve([]);
+    }
+
+    // setMonthlyCap: balance upsert carrying the cap.
+    if (/INSERT INTO cloud_balance/i.test(text) && /monthly_cap_cents/i.test(text)) {
+      const owner = values[0] as string;
+      const existing = balances.get(owner) ?? { accrued_cents: 0 };
+      existing.monthly_cap_cents = values[1] as number | null;
+      balances.set(owner, existing);
+      return Promise.resolve([]);
+    }
+
+    // getMonthlyCap read.
+    if (/SELECT monthly_cap_cents FROM cloud_balance/i.test(text)) {
+      const owner = values[0] as string;
+      const row = balances.get(owner);
+      return Promise.resolve(row ? [{ monthly_cap_cents: row.monthly_cap_cents ?? null }] : []);
     }
 
     // setCloudPaymentMethod: balance upsert carrying the card on file.
@@ -256,5 +275,22 @@ describe("cloud ledger card on file", () => {
     const chargeable = await listChargeableOwners(ACCRUAL_CHARGE_THRESHOLD_CENTS, sql);
     expect(chargeable.map((c) => c.ownerKey)).toEqual(["rich"]);
     expect(chargeable[0]).toMatchObject({ customerId: "cus_r", paymentMethodId: "pm_r" });
+  });
+});
+
+describe("cloud ledger monthly cap", () => {
+  beforeEach(() => __resetCloudSchemaCacheForTests());
+
+  it("defaults to null (no cap)", async () => {
+    const { sql } = makeMockSql();
+    expect(await getMonthlyCap("payer-a", sql)).toBeNull();
+  });
+
+  it("sets and reads a cap, and can clear it back to null", async () => {
+    const { sql } = makeMockSql();
+    await setMonthlyCap("payer-a", 2000, sql);
+    expect(await getMonthlyCap("payer-a", sql)).toBe(2000);
+    await setMonthlyCap("payer-a", null, sql);
+    expect(await getMonthlyCap("payer-a", sql)).toBeNull();
   });
 });

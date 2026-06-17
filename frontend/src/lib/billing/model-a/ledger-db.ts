@@ -47,6 +47,7 @@ export async function ensureCloudLedgerSchema(sql: Sql = getSql()): Promise<void
       last_charged_at timestamptz,
       stripe_customer_id text,
       stripe_payment_method_id text,
+      monthly_cap_cents bigint,
       updated_at timestamptz default now()
     )
   `;
