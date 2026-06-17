@@ -897,37 +897,20 @@ export function SalesTaxBanner({
   status: EntityConfig["salesTaxStatus"];
   note: string | null;
 }) {
-  if (status === "exempt") {
-    return (
-      <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
-        <p className="text-body font-semibold text-emerald-800">
-          Wisconsin sales tax: exempt. Clear to charge.
-        </p>
-        {note ? <p className="mt-1 text-meta text-emerald-700">{note}</p> : null}
-      </div>
-    );
-  }
-  const taxable = status === "taxable";
+  // Sales tax is handled by Stripe Tax (automatic_tax), which computes and
+  // collects the right tax per buyer location at charge time. So this is a
+  // RECORD only, never a billing gate (Grant, settled). No "do not bill".
   return (
-    <div
-      className={`mb-4 rounded-xl border px-4 py-3 ${
-        taxable ? "border-amber-300 bg-amber-50" : "border-rose-300 bg-rose-50"
-      }`}
-    >
-      <p
-        className={`text-body font-semibold ${
-          taxable ? "text-amber-800" : "text-rose-800"
-        }`}
-      >
-        {taxable
-          ? "Wisconsin taxable. Register with the WI DOR before charging a real customer."
-          : "Hard gate: sales-tax determination pending. Do not bill a real customer until the WI DOR replies."}
+    <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
+      <p className="text-body font-semibold text-emerald-800">
+        Sales tax is handled automatically by Stripe Tax.
       </p>
-      {note ? (
-        <p className={`mt-1 text-meta ${taxable ? "text-amber-700" : "text-rose-700"}`}>
-          {note}
-        </p>
-      ) : null}
+      <p className="mt-1 text-meta text-emerald-700">
+        Stripe computes and collects sales tax per buyer location at charge time.
+        The status here is a record only, not a billing gate
+        {status ? ` (recorded: ${status})` : ""}.
+      </p>
+      {note ? <p className="mt-1 text-meta text-emerald-700">{note}</p> : null}
     </div>
   );
 }

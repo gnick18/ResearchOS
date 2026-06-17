@@ -7,9 +7,9 @@
 // plan-input shape. So the logic lives here once, parameterized by an OrgBilling
 // spec, and each route is a thin wrapper that supplies its spec.
 //
-// Charging is doubly gated: the route is dark unless its tier flag is on, and a
-// live Stripe key additionally requires the Wisconsin sales-tax determination to
-// be resolved (mirrors /api/billing/plan). Test-mode is unaffected.
+// Charging is gated by the tier flag (the route is dark unless it is on). Sales
+// tax is handled by Stripe Tax (automatic_tax), so there is no manual sales-tax
+// gate (Grant, settled).
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -17,7 +17,6 @@ import { json } from "@/lib/sharing/directory/guard";
 import { auth } from "@/lib/sharing/auth";
 import { ownerKeyForEmailSafe } from "@/lib/billing/owner";
 import { isBillingEnabled } from "@/lib/billing/config";
-import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 import {
   ensureOrgBillingSchema,
   getOrgBilling,
@@ -43,21 +42,6 @@ export interface OrgBillingSpec {
   parsePlanInputs: (body: Record<string, unknown>) => Record<string, number> | null;
   /** Derive the monthly rate (cents) from the validated plan inputs. */
   deriveMonthlyCents: (inputs: Record<string, number>) => number;
-}
-
-async function liveTaxGateBlocks(): Promise<string | null> {
-  const isLive = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_") ?? false;
-  if (!isLive) return null;
-  try {
-    await ensureBusinessSchema();
-    const entity = await getEntity();
-    if (entity.salesTaxStatus === "pending") {
-      return "Billing is blocked until the Wisconsin sales-tax determination is resolved.";
-    }
-    return null;
-  } catch {
-    return "sales-tax status unavailable";
-  }
 }
 
 /** GET: the caller's current org billing status (plan inputs, rate, state). */
@@ -142,8 +126,8 @@ export async function runOrgBillingPost(
     const entity = await spec.resolveEntity(adminOwnerKey);
     if (!entity) return json(404, { error: "no org entity for this account" });
 
-    const blocked = await liveTaxGateBlocks();
-    if (blocked) return json(409, { error: blocked });
+    // Sales tax is handled by Stripe Tax (automatic_tax), so there is no manual
+    // sales-tax gate (Grant, settled).
 
     const monthlyCents = spec.deriveMonthlyCents(inputs);
 

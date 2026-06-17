@@ -10,8 +10,8 @@
 //   recurring subscription addressed to the institution.
 //
 // Dark unless INSTITUTION_TIER_ENABLED; POST additionally dark unless
-// BILLING_ENABLED, and a live Stripe key requires the WI sales-tax determination
-// resolved.
+// BILLING_ENABLED. Sales tax is handled by Stripe Tax (automatic_tax), no
+// manual gate.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 

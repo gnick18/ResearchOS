@@ -18,7 +18,6 @@ import { json } from "@/lib/sharing/directory/guard";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { ensureBillingSchema } from "@/lib/billing/db";
-import { ensureBusinessSchema, getEntity } from "@/lib/business/db";
 import { getModelAPlan } from "@/lib/billing/model-a/pricing";
 import { createCardSetupCheckout } from "@/lib/billing/model-a/stripe-charger";
 
@@ -49,23 +48,9 @@ export async function POST(request: Request): Promise<Response> {
   try {
     await ensureBillingSchema();
 
-    // HARD GATE: never save a card toward a real charge until the WI DOR sales-tax
-    // determination lands. Test mode (sk_test_) is unaffected.
-    const isLive = process.env.STRIPE_SECRET_KEY?.startsWith("sk_live_") ?? false;
-    if (isLive) {
-      try {
-        await ensureBusinessSchema();
-        const entity = await getEntity();
-        if (entity.salesTaxStatus === "pending") {
-          return json(409, {
-            error:
-              "Billing is blocked until the Wisconsin sales-tax determination is resolved.",
-          });
-        }
-      } catch {
-        return json(409, { error: "sales-tax status unavailable" });
-      }
-    }
+    // Sales tax is handled by Stripe Tax (automatic_tax on the Checkout), so
+    // there is no manual sales-tax gate here (Grant, settled). Stripe computes
+    // and collects the right tax per jurisdiction at charge time.
 
     let origin: string;
     try {

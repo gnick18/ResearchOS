@@ -6,8 +6,8 @@
 //   cost-recovery math the dashboard preview and /pricing show) and creates or
 //   updates a send-invoice recurring subscription addressed to the department.
 //
-// Dark unless DEPT_TIER_ENABLED; POST additionally dark unless BILLING_ENABLED,
-// and a live Stripe key requires the WI sales-tax determination resolved.
+// Dark unless DEPT_TIER_ENABLED; POST additionally dark unless BILLING_ENABLED.
+// Sales tax is handled by Stripe Tax (automatic_tax), no manual gate.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
