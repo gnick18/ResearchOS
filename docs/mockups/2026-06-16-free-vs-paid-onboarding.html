@@ -69,6 +69,10 @@
   .persona .ribbon { position:absolute; top:-10px; right:14px; background:#5b47d6; color:#fff; font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:999px; }
   .whychip { margin:14px 0 0; font-size:13px; color:var(--muted); background:#faf8ff; border:1px solid #e9e3fb; border-radius:12px; padding:10px 14px; }
   .whychip b { color:var(--ink); }
+  .joinrow { margin:14px 0 0; display:flex; justify-content:space-between; align-items:center; gap:20px; background:linear-gradient(#f0fdf4,#fff); border:1px solid #bbf7d0; border-radius:14px; padding:14px 18px; }
+  .joinrow .jh { font-weight:800; font-size:15px; color:var(--ink); }
+  .joinrow p { margin:3px 0 0; font-size:13px; color:var(--muted); max-width:62ch; }
+  .joinrow b { color:var(--ink); }
 
   .tiers { display:grid; gap:10px; margin-top:6px; }
   .tier { border:1px solid var(--line); border-radius:14px; padding:14px; }
@@ -142,9 +146,9 @@
         <a class="plearn" href="#">What Solo includes &rarr;</a>
       </div>
       <div class="persona lab">
-        <div class="eyebrow">For a lab</div>
-        <div class="prow"><span class="pname">Lab</span><span class="pamt">$40<small>/mo per lab + usage</small></span></div>
-        <p>A PI and their team in one shared workspace, real-time co-edit, the companion app, and your lab's web home.</p>
+        <div class="eyebrow">For a lab head, starting a lab</div>
+        <div class="prow"><span class="pname">Start a lab</span><span class="pamt">$40<small>/mo per lab + usage</small></span></div>
+        <p>You are the PI. Create the lab and invite your team to one shared workspace, real-time co-edit, the companion app, and your lab's web home. <b>You pay; your members join free.</b></p>
         <a class="plearn" href="/labs">What a lab includes &rarr;</a>
       </div>
       <div class="persona dept">
@@ -156,6 +160,15 @@
       </div>
     </div>
     <p class="whychip">A department costs <b>less per lab</b> than a standalone lab, on purpose. Landing a whole department brings many labs at once, so we reward it instead of taxing it.</p>
+
+    <!-- JOIN path: a member joining is FREE and must never hit "Start a lab" -->
+    <div class="joinrow">
+      <div>
+        <div class="jh">Joining a lab your PI runs?</div>
+        <p>That is <b>free</b>, not a paid plan. Accept the invite your lab head sent you. Only the lab head pays, members never do, so do not start a new lab.</p>
+      </div>
+      <button class="btn ghost nowrap">Join with an invite</button>
+    </div>
   </div>
   <p class="note" style="margin-top:14px;">Sequencing keeps your locked "free wizard first" intent: a brand-new visitor can still hit "Start free" and explore with no login. This Free-vs-Paid screen is the choice moment, and "Start free" still leads to the account pitch (1.6M token gift + AI-tailored onboarding) or staying local.</p>
 
