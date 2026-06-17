@@ -38,6 +38,8 @@ import {
   isSharingEnabled,
   json,
 } from "@/lib/sharing/directory/guard";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { isProduceEntitled } from "@/lib/billing/model-a/resolve";
 import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
 import {
   countInboxByRecipient,
@@ -108,6 +110,15 @@ export async function POST(request: Request): Promise<Response> {
   );
   if (!identityVerdict.success) {
     return json(429, { error: "rate limited" });
+  }
+
+  // Model A produce gate: SENDING is the paid produce side (the sender pays the
+  // relay), so once billing is live a FREE sender cannot send. A free member of a
+  // paid lab still can, the PI covers them (isProduceEntitled resolves member ->
+  // PI). Returns 402 so the client surfaces the gentle upgrade nudge. Entirely
+  // inert while billing is off, so the beta is byte-for-byte unchanged.
+  if (isBillingEnabled() && !(await isProduceEntitled(verified.emailHash))) {
+    return json(402, { error: "upgrade required", reason: "send-is-paid" });
   }
 
   // Resolve the recipient via the directory. Registered-to-registered only, an

@@ -75,6 +75,7 @@ import {
   sealUnderOneTimeKey,
 } from "@/lib/sharing/encryption";
 import { decodePublicKey, encodePublicKey } from "@/lib/sharing/identity/keys";
+import { triggerUpgradeNudge } from "@/lib/billing/upgrade-nudge";
 import { notifyRecipient } from "@/lib/mobile-relay/client";
 import { loadIdentity } from "@/lib/sharing/identity/storage";
 import { trackShareSent } from "@/lib/analytics/events";
@@ -170,6 +171,13 @@ async function postJson<T>(path: string, body: unknown): Promise<T> {
     parsed = null;
   }
   if (!res.ok) {
+    // Model A produce paywall: a 402 means a free user reached the paid produce
+    // side (sending). Surface the gentle upgrade nudge (rare, dismissible,
+    // dormant until billing is live), then throw as usual so the caller still
+    // handles the failure.
+    if (res.status === 402) {
+      triggerUpgradeNudge("send");
+    }
     throw new RelayError(extractError(parsed, path), res.status);
   }
   return parsed as T;

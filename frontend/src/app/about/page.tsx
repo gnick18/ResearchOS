@@ -8,21 +8,24 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
-import { Icon } from "@/components/icons";
-import type { IconName } from "@/components/icons/registry";
 
 /**
- * Public `/about` company page. The origin story and the "real, accountable
- * business" signal, where Dr. Grant Nickles is named as the founder. Brand hero
- * with a rainbow-connected founder-journey rail (swim lessons to a research
- * fellowship) in place of a portrait, the founder story, branded section blocks,
- * and the Built-in-Madison credibility. Same premium chrome as the welcome and
- * pricing pages (rainbow ribbon, brand backdrop, Reveal scroll-ins, pastel
- * rainbow kickers).
+ * Public `/about` company page. The honest origin story of ResearchOS, built by
+ * two researchers on the same team. It started when one of them was setting his
+ * lab up on a clunky, expensive electronic lab notebook and we decided to build
+ * a better, cheaper one tailored to academics. Brand hero (kept from the prior
+ * version), a rainbow-connected origin timeline, the two people behind it, why
+ * it exists, the company, and the Built-in-Madison credibility. Same premium
+ * chrome as the welcome and pricing pages (rainbow ribbon, brand backdrop,
+ * Reveal scroll-ins, pastel rainbow kickers).
  *
  * Marketing page, rendered without the AppShell or a connected folder so anyone
  * can read it. Mission and positioning copy inherited from the welcome page and
  * docs/branding/POSITIONING.md, kept real and not salesy.
+ *
+ * NOTE: Emile is named by first name only on purpose. His surname, lab name, and
+ * background are deliberately left out until Grant confirms what to publish, so
+ * nothing about a real co-founder is fabricated here. Fill those in when ready.
  *
  * Voice rules: no em-dashes, no emojis, no mid-sentence colons. State the why.
  */
@@ -32,31 +35,79 @@ const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 export const metadata: Metadata = {
   title: "About | ResearchOS",
   description:
-    "ResearchOS is an open-source company that grew out of a research fellowship at UW-Madison. It builds free, local-first alternatives to the expensive tools labs depend on, so researchers own their data and can verify the science in public. A registered Wisconsin LLC stands behind it.",
+    "ResearchOS is an open-source, local-first set of tools for academic labs, built by two researchers on the same team. It started when one of us was setting a lab up on a clunky, expensive electronic lab notebook, so we built a better, cheaper one. A registered Wisconsin LLC stands behind it, and anything it earns goes back into our science.",
 };
 
-// The founder's path, rendered as a rainbow-connected rail beside the story.
-// Each is a true beat from the origin story below. The mark is the school
-// monogram (ISU / UW) for the academic stops and a registry glyph for the
-// bookends, in the schools' own colors. These are plain letter marks, not the
-// trademarked logos (no ISU asset exists and the official UW crest display is
-// pending OVCR sign-off), so they are safe to ship.
-type JourneyStep = {
-  label: string;
+// The product journey, the big features in the order they actually landed
+// (dates from git history). Rendered as a winding-trail map on desktop, where
+// each checkpoint sits on the path background (public/about/feature-trail.svg),
+// and as a simple stacked list on mobile. `x`/`y` are percentages into the map
+// box and MUST match the path control points in the SVG so a pin lands on the
+// trail. `side` is which side the label card sits on relative to its pin.
+type Checkpoint = {
+  when: string;
+  title: string;
   sub: string;
-  /** Monogram text, e.g. "ISU". Mutually exclusive with icon. */
-  mono?: string;
-  /** Registry glyph name, e.g. "dropletLow". Mutually exclusive with mono. */
-  icon?: IconName;
-  /** Chip background + foreground (school colors; off-brand on purpose). */
-  bg: string;
-  fg: string;
+  x: number;
+  y: number;
+  side: "left" | "right";
 };
-const JOURNEY: JourneyStep[] = [
-  { label: "Swim lessons", sub: "Co-founded with other family members", icon: "dropletLow", bg: "#0EA5E9", fg: "#FFFFFF" },
-  { label: "Iowa State", sub: "B.S. in genetics", mono: "ISU", bg: "#C8102E", fg: "#F1BE48" },
-  { label: "UW-Madison", sub: "PhD mining fungal genomes", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
-  { label: "UW Fellow", sub: "Distinguished Research Fellowship", mono: "UW", bg: "#C5050C", fg: "#FFFFFF" },
+const TRAIL: Checkpoint[] = [
+  {
+    when: "Feb 2026",
+    title: "The lab notebook",
+    sub: "A free electronic lab notebook. Where ResearchOS began.",
+    x: 22,
+    y: 10,
+    side: "right",
+  },
+  {
+    when: "May 2026",
+    title: "Version control",
+    sub: "Edit history, attribution, and a recycle bin for your notes.",
+    x: 78,
+    y: 32,
+    side: "left",
+  },
+  {
+    when: "Jun 2026",
+    title: "First cloud features",
+    sub: "Optional sealed sharing between labs. Your data still lives on your disk.",
+    x: 22,
+    y: 54,
+    side: "right",
+  },
+  {
+    when: "Jun 2026",
+    title: "Sequences",
+    sub: "A built-in plasmid and sequence editor, no separate license.",
+    x: 78,
+    y: 76,
+    side: "left",
+  },
+];
+// The trail ends at an open flag, since we are still building.
+const TRAIL_END = { x: 50, y: 94 };
+
+// The two people behind ResearchOS, honest about where we are right now. Plain
+// initial chips (letter marks, not logos), the same safe approach the prior
+// journey rail used.
+type Person = { initial: string; name: string; role: string; blurb: string };
+const PEOPLE: Person[] = [
+  {
+    initial: "G",
+    name: "Grant",
+    role: "Builds ResearchOS",
+    blurb:
+      "I came up through genetics at Iowa State and did my PhD at UW-Madison mining fungal genomes, so I lived in a dozen lab tools at once. I write most of the code.",
+  },
+  {
+    initial: "E",
+    name: "Emile",
+    role: "Pilots it in the lab",
+    blurb:
+      "Emile runs lab work on our team. He is putting ResearchOS to use in his own lab as we build it, and he will lead getting it in front of other academic labs.",
+  },
 ];
 
 const ONWARD: { href: string; title: string; sub: string; external?: boolean }[] = [
@@ -141,84 +192,180 @@ export default function AboutPage() {
       </header>
 
       <main className="flex-1">
-        {/* ── The story (human anchor) ────────────────────────────────── */}
+        {/* ── The story (how it actually started) ─────────────────────── */}
         <section className="border-b border-border">
-          <Reveal className="mx-auto grid w-full max-w-[1120px] gap-10 px-6 py-14 md:grid-cols-[1.5fr_0.85fr] md:items-start">
-            <div>
-            <Kicker>the story</Kicker>
-            <h2 className="mt-3 max-w-[24ch] text-heading font-extrabold tracking-tight text-foreground">
-              Why one researcher built this
+          <Reveal className="mx-auto w-full max-w-[760px] px-6 py-14">
+            <Kicker>how it started</Kicker>
+            <h2 className="mt-3 max-w-[26ch] text-heading font-extrabold tracking-tight text-foreground">
+              It started with a lab notebook we did not like
             </h2>
-            <div className="mt-6 max-w-[68ch]">
-              <div>
-                <p className="text-title leading-relaxed text-foreground-muted">
-                  I came up through genetics at Iowa State, then did my PhD at
-                  UW-Madison mining fungal genomes for natural products and
-                  running the chemistry to back it up. So I lived in a dozen tools
-                  at once. A lot of my PhD wasn&apos;t spent on science. It went to
-                  fighting software that cost too much and locked my own data away
-                  from me. Every tool wanted another license and another login,
-                  and on a grad student stipend, the stack a lab is told it needs
-                  just wasn&apos;t affordable.
-                </p>
-                <p className="mt-4 text-title leading-relaxed text-foreground-muted">
-                  I&apos;ve always been a builder. I co-founded a swim-lesson
-                  business with family through college and spent a summer doing R&amp;D at a
-                  food-security startup, so when the tooling kept getting in the
-                  way of the science, I built the thing I wished I had instead.
-                  That&apos;s ResearchOS. It&apos;s free, it&apos;s open, and
-                  it&apos;s local-first, which is a fancy way of saying your work
-                  lives on your own machine and stays yours.
-                </p>
-                <blockquote
-                  className="mt-6 pl-4 text-xl font-bold leading-snug tracking-tight text-foreground"
-                  style={{ borderLeft: "3px solid transparent", borderImage: "var(--brand-rainbow) 1" }}
-                >
-                  &ldquo;I wanted my data to be mine, and the tools to be something
-                  any lab could afford. So I built them.&rdquo;
-                </blockquote>
-                <p className="mt-4 text-body font-semibold text-foreground">
-                  Dr. Grant Nickles, founder
-                </p>
-              </div>
-            </div>
-            </div>
-            {/* Founder journey, a rainbow-connected rail of school monogram
-                chips. Marks are plain letter monograms (ISU / UW) + a registry
-                glyph, in school colors, not the trademarked logos. */}
-            <div className="md:pt-1">
-              <p className="mb-5 text-meta font-semibold text-foreground-muted">
-                From the pool deck to a research fellowship
+            <div className="mt-6">
+              <p className="text-title leading-relaxed text-foreground-muted">
+                ResearchOS began with a real problem. Emile was setting his lab
+                up on an electronic lab notebook, LabArchives, and asked what I
+                thought. I tried it and came away really dissatisfied. It was
+                expensive, it got in the way more than it helped, and it kept the
+                lab&apos;s own data locked inside someone else&apos;s cloud.
               </p>
-              <ol className="relative space-y-4">
-                {/* The connecting rainbow line, behind the chips. */}
-                <span
-                  aria-hidden
-                  className="absolute left-[21px] top-6 bottom-6 w-[2px] rounded-full bg-gradient-to-b from-brand-action via-brand-purple to-brand-action opacity-60"
-                />
-                {JOURNEY.map((step) => (
-                  <li key={step.label} className="relative flex items-center gap-4">
-                    <span
-                      className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-xl text-[12px] font-extrabold tracking-tight shadow-[0_10px_24px_-14px_rgba(15,40,80,0.7)]"
-                      style={{ background: step.bg, color: step.fg }}
-                    >
-                      {step.mono ? (
-                        step.mono
-                      ) : (
-                        <Icon name={step.icon ?? "more"} className="h-5 w-5" />
-                      )}
+              <p className="mt-4 text-title leading-relaxed text-foreground-muted">
+                So for fun I started building a better, cheaper notebook, one
+                actually tailored to how academics work. That side project turned
+                into months of the two of us going back and forth, spitballing
+                ideas, throwing out what did not work and keeping what did.
+                ResearchOS is where that landed.
+              </p>
+              <p className="mt-4 text-title leading-relaxed text-foreground-muted">
+                We are honest about where we are. We are still building. I write
+                most of the code, Emile is piloting ResearchOS day to day in his
+                lab, and he will help bring it to other labs as we go. We are on
+                the same research team, and the plan is simple, anything
+                ResearchOS earns goes back into our own science.
+              </p>
+              <blockquote
+                className="mt-6 pl-4 text-xl font-bold leading-snug tracking-tight text-foreground"
+                style={{ borderLeft: "3px solid transparent", borderImage: "var(--brand-rainbow) 1" }}
+              >
+                &ldquo;We were tired of paying too much for tools that held our
+                data hostage, so we built the one we wanted.&rdquo;
+              </blockquote>
+              <p className="mt-4 text-body font-semibold text-foreground">
+                Grant and Emile
+              </p>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* ── The journey (winding feature map) ───────────────────────── */}
+        <section className="border-b border-border">
+          <Reveal className="mx-auto w-full max-w-[1120px] px-6 py-14">
+            <Kicker>the journey</Kicker>
+            <h2 className="mt-3 max-w-[26ch] text-heading font-extrabold tracking-tight text-foreground">
+              What we have built so far
+            </h2>
+            <p className="mt-4 max-w-[60ch] text-body leading-relaxed text-foreground-muted">
+              The big features, in the order they actually landed. We are not done,
+              the trail keeps going.
+            </p>
+
+            {/* Desktop: a winding-trail map. The dashed path is a static SVG so
+                it never trips the inline-svg icon guard; pins are positioned to
+                sit on the path's control points. */}
+            <div className="relative mx-auto mt-10 hidden h-[620px] w-full max-w-[760px] md:block">
+              <img
+                src="/about/feature-trail.svg"
+                alt=""
+                aria-hidden
+                className="pointer-events-none absolute inset-0 h-full w-full"
+              />
+              {TRAIL.map((c, i) => (
+                <div key={c.title}>
+                  {/* The label card, on the inner side of its pin. */}
+                  <div
+                    className="absolute w-[42%] -translate-y-1/2 rounded-2xl border border-border bg-surface-raised px-4 py-3 shadow-[0_18px_40px_-26px_rgba(15,40,80,0.55)]"
+                    style={
+                      c.side === "right"
+                        ? { left: `${c.x + 7}%`, top: `${c.y}%` }
+                        : { right: `${100 - c.x + 7}%`, top: `${c.y}%`, textAlign: "right" }
+                    }
+                  >
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-action">
+                      {c.when}
                     </span>
-                    <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5 transition-transform duration-200 hover:-translate-y-0.5 hover:border-brand-action/40">
-                      <span className="block text-body font-extrabold text-foreground">
-                        {step.label}
-                      </span>
-                      <span className="block text-[11.5px] leading-snug text-foreground-muted">
-                        {step.sub}
-                      </span>
+                    <span className="mt-0.5 block text-body font-extrabold text-foreground">
+                      {c.title}
                     </span>
-                  </li>
-                ))}
-              </ol>
+                    <span className="mt-1 block text-[12px] leading-snug text-foreground-muted">
+                      {c.sub}
+                    </span>
+                  </div>
+                  {/* The pin, on the path. */}
+                  <span
+                    className="absolute z-10 grid h-12 w-12 -translate-x-1/2 -translate-y-1/2 place-items-center rounded-full bg-gradient-to-br from-brand-action to-brand-purple text-[15px] font-extrabold text-white ring-4 ring-surface-sunken shadow-[0_12px_28px_-12px_rgba(15,40,80,0.8)]"
+                    style={{ left: `${c.x}%`, top: `${c.y}%` }}
+                  >
+                    {i + 1}
+                  </span>
+                </div>
+              ))}
+              {/* The open end of the trail, since the work continues. */}
+              <span
+                className="absolute z-10 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-full border border-dashed border-brand-action/50 bg-surface-raised px-4 py-2 text-meta font-semibold text-brand-action"
+                style={{ left: `${TRAIL_END.x}%`, top: `${TRAIL_END.y}%` }}
+              >
+                Still building
+              </span>
+            </div>
+
+            {/* Mobile: a plain stacked list with a straight dashed spine. */}
+            <ol className="relative mt-8 space-y-4 md:hidden">
+              <span
+                aria-hidden
+                className="absolute left-[21px] top-6 bottom-6 w-[2px] rounded-full bg-gradient-to-b from-brand-action via-brand-purple to-brand-action opacity-60"
+              />
+              {TRAIL.map((c, i) => (
+                <li key={c.title} className="relative flex items-start gap-4">
+                  <span className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full bg-gradient-to-br from-brand-action to-brand-purple text-[13px] font-extrabold text-white shadow-[0_10px_24px_-14px_rgba(15,40,80,0.7)]">
+                    {i + 1}
+                  </span>
+                  <span className="flex-1 rounded-xl border border-border bg-surface-raised px-4 py-2.5">
+                    <span className="block text-[11px] font-semibold uppercase tracking-wide text-brand-action">
+                      {c.when}
+                    </span>
+                    <span className="block text-body font-extrabold text-foreground">
+                      {c.title}
+                    </span>
+                    <span className="block text-[11.5px] leading-snug text-foreground-muted">
+                      {c.sub}
+                    </span>
+                  </span>
+                </li>
+              ))}
+              <li className="relative flex items-center gap-4">
+                <span className="relative z-10 grid h-11 w-11 shrink-0 place-items-center rounded-full border border-dashed border-brand-action/50 bg-surface-raised text-[11px] font-bold text-brand-action">
+                  +
+                </span>
+                <span className="text-meta font-semibold text-brand-action">
+                  Still building, more on the way.
+                </span>
+              </li>
+            </ol>
+          </Reveal>
+        </section>
+
+        {/* ── The two people behind it ────────────────────────────────── */}
+        <section className="border-b border-border">
+          <Reveal className="mx-auto w-full max-w-[1120px] px-6 py-14">
+            <Kicker>who is building it</Kicker>
+            <h2 className="mt-3 max-w-[24ch] text-heading font-extrabold tracking-tight text-foreground">
+              Two researchers, one team
+            </h2>
+            <p className="mt-4 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
+              ResearchOS is built by two people on the same research team, not a
+              faceless company. We are still small and still building, and we would
+              rather tell you that plainly than pretend otherwise.
+            </p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              {PEOPLE.map((p) => (
+                <div
+                  key={p.name}
+                  className="flex gap-4 rounded-2xl border border-border bg-surface-raised p-5"
+                >
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-action to-brand-purple text-base font-extrabold text-white shadow-[0_10px_24px_-14px_rgba(15,40,80,0.7)]">
+                    {p.initial}
+                  </span>
+                  <div>
+                    <h3 className="text-body font-extrabold text-foreground">
+                      {p.name}
+                    </h3>
+                    <p className="text-meta font-semibold text-brand-action">
+                      {p.role}
+                    </p>
+                    <p className="mt-1.5 text-meta leading-relaxed text-foreground-muted">
+                      {p.blurb}
+                    </p>
+                  </div>
+                </div>
+              ))}
             </div>
           </Reveal>
         </section>
@@ -298,6 +445,11 @@ export default function AboutPage() {
                 GitHub Sponsors
               </Link>
               {" "}are enough to keep the core free and open for the whole research community.
+            </p>
+            <p className="mt-3 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
+              We are two researchers on the same team, and the goal is not to get
+              rich off other labs. Anything ResearchOS earns, we put back into our
+              own research. That is the whole point.
             </p>
             <div className="mt-5 flex flex-wrap items-center gap-3 rounded-2xl border border-border bg-gradient-to-br from-brand-action/[0.05] to-brand-purple/[0.05] px-5 py-4">
               <MadeInMadison variant="badge" tone="punchy" />

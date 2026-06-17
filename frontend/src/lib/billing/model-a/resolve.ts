@@ -15,6 +15,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { getSubscription, type SubscriptionRecord } from "../db";
+import { ensureLabSchema, resolveBillingOwner } from "../lab";
 import { getPlan } from "../plans";
 import type { ModelAPlanId } from "./pricing";
 
@@ -41,4 +42,19 @@ export function modelAPlanForSubscription(
 /** The Model-A plan id for a billing owner, read from their subscription. */
 export async function resolveModelAPlanId(ownerKey: string): Promise<ModelAPlanId> {
   return modelAPlanForSubscription(await getSubscription(ownerKey));
+}
+
+/**
+ * Whether an owner may use the PAID produce side (send, live co-edit, app
+ * pairing). True if they are on a paid plan, OR are a free member resolved to a
+ * paid lab (the PI pays, so the member produces under the lab). Used at the
+ * produce paywalls to gate a free user once billing is live; callers should only
+ * enforce it when isBillingEnabled() (it is meaningless during the free beta).
+ */
+export async function isProduceEntitled(ownerKey: string): Promise<boolean> {
+  await ensureLabSchema();
+  // A free member of an active lab resolves to the PI's key; a solo resolves to
+  // self. Then the resolved owner's plan decides entitlement.
+  const billingOwner = await resolveBillingOwner(ownerKey);
+  return (await resolveModelAPlanId(billingOwner)) !== "free";
 }
