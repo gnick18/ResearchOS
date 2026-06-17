@@ -30,6 +30,11 @@ import {
   splitBySize,
   HEAVY_CONTENT_THRESHOLD_BYTES,
 } from "./lab-index";
+import {
+  pruneExpired,
+  activeGrantKeys,
+  type ApprovalGrantStore,
+} from "./lab-approval-grants";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -71,6 +76,14 @@ export interface LabSyncRunDeps {
    * the current user). Injected fresh in tests so cases do not share state.
    */
   indexHashCache?: Map<string, string>;
+
+  /**
+   * Approval-grant store (Phase C). When provided, heavy records with an active
+   * grant are promoted into the eager push and marked eager in the index, and
+   * expired grants are pruned. When omitted, no heavy record is ever promoted
+   * (pure Phase B behavior).
+   */
+  grantStore?: ApprovalGrantStore;
 
   /**
    * Optional override for Date.now() (not used in this function directly but
@@ -152,22 +165,39 @@ export async function runLabSyncForSession(
 
   // Phase B size-gating: push only LIGHT content eagerly. Heavy records are
   // indexed (so they stay searchable) but held back from the eager push and
-  // fetched on demand. Splitting before the sync means the engine never sees the
-  // heavy records, so it does not push them.
+  // fetched on demand.
   const threshold = deps.heavyThresholdBytes ?? HEAVY_CONTENT_THRESHOLD_BYTES;
   const { light, heavy } = splitBySize(records, threshold);
 
-  // Step 3: sync the LIGHT records only. If this throws, let it propagate.
+  // Phase C: a heavy record with an ACTIVE approval grant (the PI requested it,
+  // the member approved it, within its TTL) is promoted back into the eager
+  // push and marked eager in the index. When its grant expires it falls out of
+  // the push set, and the engine's tombstone-on-removal reverts it to on-demand
+  // automatically. Expired grants are pruned so the store does not grow.
+  const nowMs = (deps.now ?? (() => Date.now()))();
+  const grantStore = deps.grantStore ?? null;
+  const grants = grantStore ? pruneExpired(await grantStore.load(owner), nowMs) : [];
+  const grantKeys = activeGrantKeys(grants, nowMs);
+  const promotedHeavy = heavy.filter((r) =>
+    grantKeys.has(`${r.recordType}/${r.recordId}`),
+  );
+  const toPush = [...light, ...promotedHeavy];
+
+  // Step 3: sync the light records plus any granted heavy records. If this
+  // throws, let it propagate.
   const result = await doSync({
     labId: session.labId,
     owner,
-    records: light,
+    records: toPush,
     labKey: session.labKey,
     signerEd25519Priv: session.signingKeyPair.ed25519Priv,
     signerEd25519Pub: session.signingKeyPair.ed25519Pub,
     manifest,
     tombstoneRemoved: true,
   });
+
+  // Persist the pruned grant set (drops grants that just expired).
+  if (grantStore) await grantStore.save(owner, grants);
 
   // Step 4: persist the updated manifest ONLY on success.
   await deps.manifestStore.save(owner, result.manifest);
@@ -179,7 +209,7 @@ export async function runLabSyncForSession(
   // dedups identical re-pushes within a session and resets harmlessly on reload.
   // Best-effort: an index push hiccup must not fail a content sync that already
   // succeeded.
-  const index = buildLabIndex(owner, records, threshold);
+  const index = buildLabIndex(owner, records, threshold, grantKeys);
   const indexJson = JSON.stringify(index);
   const cache = deps.indexHashCache ?? moduleIndexCache;
   if (cache.get(owner) !== indexJson) {
@@ -207,6 +237,6 @@ export async function runLabSyncForSession(
     pushed: result.pushed,
     skipped: result.skipped,
     tombstoned: result.tombstoned,
-    heavyHeld: heavy.length,
+    heavyHeld: heavy.length - promotedHeavy.length,
   };
 }

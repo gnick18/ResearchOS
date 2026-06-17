@@ -202,6 +202,7 @@ export function buildLabIndex(
   owner: string,
   records: LabWorkRecord[],
   heavyThresholdBytes: number = HEAVY_CONTENT_THRESHOLD_BYTES,
+  activeGrantKeys?: ReadonlySet<string>,
 ): LabIndexFile {
   const decoder = new TextDecoder();
   const entries: LabIndexEntry[] = [];
@@ -222,6 +223,12 @@ export function buildLabIndex(
       obj,
     );
     const sizeBytes = r.plaintext.length;
+    // Light content is always eager. A heavy record is eager only while it has
+    // an active approval grant (Phase C), which is exactly when it is promoted
+    // into the eager push.
+    const eager =
+      sizeBytes <= heavyThresholdBytes ||
+      (activeGrantKeys?.has(`${r.recordType}/${r.recordId}`) ?? false);
     entries.push({
       recordType: r.recordType,
       recordId: r.recordId,
@@ -231,7 +238,7 @@ export function buildLabIndex(
       tags,
       sizeBytes,
       preview,
-      eager: sizeBytes <= heavyThresholdBytes,
+      eager,
     });
   }
   return { version: 1, owner, entries };

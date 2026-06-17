@@ -261,6 +261,94 @@ describe("runLabSyncForSession – live session", () => {
     expect(eagerById["2"]).toBe(false); // big -> on demand
   });
 
+  it("promotes a granted heavy record into the eager push and marks it eager", async () => {
+    const session = makeLiveSession();
+    const big = {
+      id: 2,
+      name: "big",
+      task_type: "task",
+      description: "x".repeat(2000),
+    };
+    const source = { ...makeEmptySource(), listTasks: async () => [big] as never };
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const pushIndexImpl = vi.fn(async () => {});
+    const { store } = makeManifestStore();
+    const grantStore = {
+      load: vi.fn(async () => [
+        { recordType: "task", recordId: "2", approvedUntil: 5000, requestedBy: "pi" },
+      ]),
+      save: vi.fn(async () => {}),
+    };
+
+    const result = await runLabSyncForSession(session, {
+      source,
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+      heavyThresholdBytes: 200,
+      indexHashCache: new Map(),
+      grantStore: grantStore as never,
+      now: () => 1000, // grant approvedUntil 5000 is still active
+    });
+
+    const syncArg = (
+      syncImpl.mock.calls as unknown as [{ records: { recordId: string }[] }][]
+    )[0][0];
+    // The granted heavy record IS pushed; nothing is held back.
+    expect(syncArg.records.map((r) => r.recordId)).toEqual(["2"]);
+    expect(result.heavyHeld).toBe(0);
+
+    const idx = (
+      pushIndexImpl.mock.calls as unknown as [
+        { index: { entries: { recordId: string; eager: boolean }[] } },
+      ][]
+    )[0][0].index;
+    const eagerById = Object.fromEntries(
+      idx.entries.map((e) => [e.recordId, e.eager]),
+    );
+    expect(eagerById["2"]).toBe(true); // promoted -> eager
+  });
+
+  it("does not promote an expired grant and prunes it from the store", async () => {
+    const session = makeLiveSession();
+    const big = {
+      id: 2,
+      name: "big",
+      task_type: "task",
+      description: "x".repeat(2000),
+    };
+    const source = { ...makeEmptySource(), listTasks: async () => [big] as never };
+    const syncImpl = vi.fn(async () => makeSyncResult());
+    const pushIndexImpl = vi.fn(async () => {});
+    const { store } = makeManifestStore();
+    const grantStore = {
+      load: vi.fn(async () => [
+        { recordType: "task", recordId: "2", approvedUntil: 500, requestedBy: "pi" },
+      ]),
+      save: vi.fn(async () => {}),
+    };
+
+    const result = await runLabSyncForSession(session, {
+      source,
+      manifestStore: store,
+      syncImpl,
+      pushIndexImpl: pushIndexImpl as never,
+      heavyThresholdBytes: 200,
+      indexHashCache: new Map(),
+      grantStore: grantStore as never,
+      now: () => 1000, // grant approvedUntil 500 has expired
+    });
+
+    const syncArg = (
+      syncImpl.mock.calls as unknown as [{ records: { recordId: string }[] }][]
+    )[0][0];
+    // The expired grant does NOT promote the heavy record; it is held back.
+    expect(syncArg.records).toEqual([]);
+    expect(result.heavyHeld).toBe(1);
+    // The expired grant is pruned (saved set is empty).
+    expect(grantStore.save).toHaveBeenCalledWith("alice", []);
+  });
+
   it("returns { ran: true, owner, pushed, skipped, tombstoned } from syncImpl result", async () => {
     const session = makeLiveSession();
     const syncImpl = vi.fn(async () => ({
