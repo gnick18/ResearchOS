@@ -58,7 +58,7 @@ the local folder is the single source of truth, and the app is free (no IAP, no 
 - **App name (30 char max):** `ResearchOS`
 - **Short description (80 char max):**
   ```
-  Your lab bench companion: capture results, run timed protocols, track inventory.
+  Your lab bench in your pocket. Capture results, run protocols, track inventory.
   ```
 - **Full description (4000 char max):** see "Full description" below.
 
@@ -72,7 +72,7 @@ Still honest: the deep editors (writing up experiments, chemistry, sequence desi
 statistics) remain desktop-only, and the local folder is the single source of truth.
 
 ```
-ResearchOS is the free, local-first lab notebook, and this is its mobile companion: the bench in your pocket. Capture results, run your protocols step by step, do the quick math, and keep the lab stocked, all from your phone, all synced to the workspace you own.
+ResearchOS is the free, local-first lab notebook. This is its mobile companion, the bench in your pocket. Capture results, run your protocols step by step, do the quick math, and keep the lab stocked, from your phone, synced to the workspace you own.
 
 Your data stays yours. Everything lives in a folder on your own computer, not on a vendor's server. The phone works offline and pairs to your desktop, so nothing is trapped in someone else's cloud.
 
