@@ -1,0 +1,42 @@
+// Model A billing, the per-owner status the UI reads (engine step, UI support).
+//
+// GET /api/billing/model-a/status
+// Returns { planId, accruedCents, capCents, hasCard } for the signed-in owner, so
+// the billing popup / settings can show the running accrued balance, the monthly
+// cap, and whether a card is on file. Dark unless BILLING_ENABLED is on.
+//
+// House style: no em-dashes, no emojis, no mid-sentence colons.
+
+import { auth } from "@/lib/sharing/auth";
+import { json } from "@/lib/sharing/directory/guard";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { ownerKeyForEmail } from "@/lib/billing/owner";
+import { resolveModelAPlanId } from "@/lib/billing/model-a/resolve";
+import {
+  getCloudBalance,
+  getCloudPaymentMethod,
+  getMonthlyCap,
+} from "@/lib/billing/model-a/ledger";
+
+export const runtime = "nodejs";
+
+export async function GET(): Promise<Response> {
+  if (!isBillingEnabled()) return json(404, { error: "not found" });
+
+  const session = await auth();
+  const email = session?.user?.email;
+  if (!email) return json(401, { error: "sign in required" });
+
+  const ownerKey = ownerKeyForEmail(email);
+  try {
+    const [planId, accruedCents, capCents, card] = await Promise.all([
+      resolveModelAPlanId(ownerKey),
+      getCloudBalance(ownerKey),
+      getMonthlyCap(ownerKey),
+      getCloudPaymentMethod(ownerKey),
+    ]);
+    return json(200, { planId, accruedCents, capCents, hasCard: !!card });
+  } catch {
+    return json(500, { error: "status failed" });
+  }
+}
