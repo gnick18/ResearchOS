@@ -10,7 +10,14 @@
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
-import { describe, expect, it, beforeEach, vi } from "vitest";
+import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
+import {
+  setSessionIdentity,
+  clearSessionIdentity,
+} from "@/lib/sharing/identity/session-key";
+import { generateIdentityKeys } from "@/lib/sharing/identity/keys";
+import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
+import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 
 // ── In-memory idb-keyval mock ───────────────────────────────────────────────
 const kv = new Map<string, unknown>();
@@ -147,6 +154,7 @@ import {
   rememberFolder,
   setActiveFolderId,
   forgetRememberedFolder,
+  renameRememberedFolder,
 } from "../indexeddb-store";
 
 async function resetAllStores() {
@@ -171,6 +179,18 @@ function makeHandle(name: string, entryId?: string): FileSystemDirectoryHandle {
 
 beforeEach(async () => {
   await resetAllStores();
+});
+
+// Each call mints a fresh, distinct identity. The registry scope is derived from
+// the signing public key hex, so two of these drive two disjoint scopes.
+function makeIdentity(): StoredIdentity {
+  return { keys: generateIdentityKeys(), deviceSalt: generateDeviceSalt() };
+}
+
+// Clear the session scope after every case so a leaked identity never carries a
+// scope into the next test.
+afterEach(() => {
+  clearSessionIdentity();
 });
 
 describe("OLD -> NEW migration (CRITICAL)", () => {
@@ -326,5 +346,101 @@ describe("recent-ordering", () => {
     } finally {
       spy.mockRestore();
     }
+  });
+});
+
+describe("per-account scoping", () => {
+  it("two identities see disjoint remembered sets and active ids", async () => {
+    const a = makeIdentity();
+    const b = makeIdentity();
+
+    // Account A remembers a folder.
+    setSessionIdentity(a);
+    const idA = await rememberFolder(makeHandle("a-folder", "a"));
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "a-folder",
+    ]);
+    expect(await getActiveFolderId()).toBe(idA);
+
+    // Switch to account B. It starts empty and has no active folder.
+    setSessionIdentity(b);
+    expect(await listRememberedFolders()).toHaveLength(0);
+    expect(await getActiveFolderId()).toBeNull();
+
+    // B remembers its own folder, which A must not see.
+    const idB = await rememberFolder(makeHandle("b-folder", "b"));
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "b-folder",
+    ]);
+    expect(await getActiveFolderId()).toBe(idB);
+
+    // Back to A. Its set and active id are intact and untouched by B.
+    setSessionIdentity(a);
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "a-folder",
+    ]);
+    expect(await getActiveFolderId()).toBe(idA);
+  });
+
+  it("the first signed-in account inherits the pre-account unscoped set, later accounts do not", async () => {
+    // No identity yet: seed the legacy unscoped registry the way a pre-account
+    // build would have left it.
+    const legacyId = await rememberFolder(makeHandle("pre-account", "pre"));
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "pre-account",
+    ]);
+
+    // First account A signs in and inherits the unscoped folder once.
+    const a = makeIdentity();
+    setSessionIdentity(a);
+    const inherited = await listRememberedFolders();
+    expect(inherited.map((f) => f.name)).toEqual(["pre-account"]);
+    expect(await getActiveFolderId()).toBe(legacyId);
+
+    // A second account B does NOT also inherit. The inherit is a one-time seed
+    // for the first account only.
+    const b = makeIdentity();
+    setSessionIdentity(b);
+    expect(await listRememberedFolders()).toHaveLength(0);
+    expect(await getActiveFolderId()).toBeNull();
+  });
+
+  it("renameRememberedFolder changes the name within the active scope only", async () => {
+    const a = makeIdentity();
+    const b = makeIdentity();
+
+    setSessionIdentity(a);
+    const idA = await rememberFolder(makeHandle("a-folder", "a"));
+
+    setSessionIdentity(b);
+    await rememberFolder(makeHandle("b-folder", "b"));
+
+    // Rename under A.
+    setSessionIdentity(a);
+    await renameRememberedFolder(idA, "Renamed In A");
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "Renamed In A",
+    ]);
+
+    // B is unaffected.
+    setSessionIdentity(b);
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "b-folder",
+    ]);
+
+    // A blank rename is a no-op.
+    setSessionIdentity(a);
+    await renameRememberedFolder(idA, "   ");
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual([
+      "Renamed In A",
+    ]);
+  });
+
+  it("with no identity, behavior is the legacy unscoped path", async () => {
+    // Sanity: no session set means scope is null and the bare keys are used,
+    // exactly the pre-account behavior the other suites already exercise.
+    const id = await rememberFolder(makeHandle("solo", "solo"));
+    expect((await listRememberedFolders()).map((f) => f.name)).toEqual(["solo"]);
+    expect(await getActiveFolderId()).toBe(id);
   });
 });
