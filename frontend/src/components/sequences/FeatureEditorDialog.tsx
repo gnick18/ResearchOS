@@ -203,7 +203,7 @@ export default function FeatureEditorDialog({
   return (
     <LivingPopup open onClose={request.onCancel} label="Edit feature" selfSize>
       <div
-        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="feature-editor-dialog"
         data-tour-popup-occluding="feature-editor"
       >

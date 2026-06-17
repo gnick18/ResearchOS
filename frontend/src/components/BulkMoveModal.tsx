@@ -49,7 +49,7 @@ export default function BulkMoveModal() {
       card={false}
     >
       {/* This confirm modal brings its own white card chrome (card=false). */}
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-6">
         <h3 className="text-heading font-semibold text-foreground mb-2">
           Confirm Bulk Move
         </h3>

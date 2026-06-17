@@ -501,7 +501,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
         widthClassName="max-w-md"
         card={false}
       >
-        <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+        <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-6">
           <h3 className="text-heading font-semibold text-foreground mb-4">
             Cannot Create Task
           </h3>
@@ -538,7 +538,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
       >
       <form
         onSubmit={handleSubmit}
-        className="bg-surface-raised rounded-xl shadow-2xl w-full p-6 max-h-[90vh] overflow-y-auto"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-6 max-h-[90vh] overflow-y-auto"
       >
         <h3 className="text-heading font-semibold text-foreground mb-4">
           {taskType === "experiment"
@@ -1019,7 +1019,7 @@ export default function TaskModal({ projects }: TaskModalProps) {
           card={false}
           closeOnScrimClick={false}
         >
-          <div className="bg-surface-raised rounded-xl shadow-2xl w-full p-6">
+          <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-6">
             <h3 className="text-heading font-semibold text-red-600 dark:text-red-300 mb-4">
               Duplicate Task Name Detected
             </h3>

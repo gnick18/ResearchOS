@@ -43,7 +43,7 @@ export default function ErrorReportConfirmDialog({
       {/* This dialog brings its own white card chrome (card=false above).
           `error` can briefly be null during the close animation, so guard. */}
       <div
-        className="relative bg-surface-raised rounded-2xl shadow-2xl w-full overflow-hidden"
+        className="relative bg-surface-raised rounded-2xl ros-popup-card-shadow w-full overflow-hidden"
         data-testid="error-report-confirm-dialog"
       >
         <div className="p-6 border-b border-border">

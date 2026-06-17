@@ -98,7 +98,7 @@ export function DeleteMethodConfirm({
       widthClassName="max-w-lg"
       card={false}
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-lg w-full mx-4 max-h-[85vh] flex flex-col">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-lg w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">
             Delete &ldquo;{snapName}&rdquo;?

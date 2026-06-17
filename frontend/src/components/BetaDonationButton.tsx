@@ -112,7 +112,7 @@ function DonationModal({
         widthClassName="max-w-md"
         card={false}
       >
-        <div className="relative bg-surface-raised rounded-2xl shadow-2xl w-full overflow-hidden">
+        <div className="relative bg-surface-raised rounded-2xl ros-popup-card-shadow w-full overflow-hidden">
           <div className="p-6">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-heading font-bold text-foreground flex items-center gap-2">

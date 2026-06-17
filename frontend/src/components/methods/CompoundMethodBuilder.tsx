@@ -267,7 +267,7 @@ export function CompoundMethodBuilder({
       // the precedence explicit at the call site.
       closeOnEscape={!showPicker}
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">
             Edit kit
@@ -634,7 +634,7 @@ function ComponentPicker({
       // 2026-05-27).
       data-tour-popup-occluding="compound-method-add-component"
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-2xl w-full mx-4 max-h-[85vh] flex flex-col">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">Add component</h3>
           <Tooltip label="Cancel" placement="bottom">

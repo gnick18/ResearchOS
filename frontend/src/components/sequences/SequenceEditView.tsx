@@ -5740,7 +5740,7 @@ export default function SequenceEditView({
             // map visible at the top so it reads as an overlay, not a new screen.
             // Features is a compact fixed-width list; Primers / History are wider
             // panels, so the flyout sizes to the panel it hosts.
-            className={`absolute bottom-0 left-0 z-40 flex max-h-[72%] max-w-[92%] flex-col overflow-hidden rounded-t-lg border border-b-0 border-border bg-surface-raised shadow-2xl ${
+            className={`absolute bottom-0 left-0 z-40 flex max-h-[72%] max-w-[92%] flex-col overflow-hidden rounded-t-lg border border-b-0 border-border bg-surface-raised ros-popup-card-shadow ${
               openFlyout === "features" ? "w-72" : "w-[32rem]"
             }`}
           >

@@ -218,7 +218,7 @@ export default function TaskPicker({
       closeOnEscape={false}
     >
       <div
-        className="pointer-events-auto w-full max-w-2xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="pointer-events-auto w-full max-w-2xl bg-surface-raised rounded-xl ros-popup-card-shadow flex flex-col overflow-hidden"
         style={{ maxHeight: "75vh" }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={handleKeyDown}

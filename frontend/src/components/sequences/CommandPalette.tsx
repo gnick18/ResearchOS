@@ -1126,7 +1126,7 @@ export function CommandPalette({
         aria-label="BeakerSearch"
         aria-modal="true"
         onKeyDown={onKeyDown}
-        className="fixed inset-x-0 top-[12vh] z-[79] mx-auto flex w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised shadow-2xl"
+        className="fixed inset-x-0 top-[12vh] z-[79] mx-auto flex w-full max-w-[600px] flex-col overflow-hidden rounded-2xl border border-border bg-surface-raised ros-popup-card-shadow"
         style={{
           // Grow when in Ask mode to give the conversation room.
           // ~0.4s cubic-bezier(.4,0,.2,1) matches the approved morph spec.

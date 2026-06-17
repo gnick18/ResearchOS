@@ -106,7 +106,7 @@ export default function DayDetailDrawer({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised w-full max-w-md h-full shadow-2xl flex flex-col animate-slide-in"
+        className="bg-surface-raised w-full max-w-md h-full ros-popup-card-shadow flex flex-col animate-slide-in"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-4 border-b border-border bg-surface-sunken flex items-start justify-between">

@@ -80,7 +80,7 @@ export default function FileRenamePopup({
       data-tour-popup-occluding="file-rename"
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full max-w-md mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}

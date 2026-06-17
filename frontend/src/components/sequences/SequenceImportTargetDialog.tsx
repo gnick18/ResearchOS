@@ -92,7 +92,7 @@ export default function SequenceImportTargetDialog({
   return (
     <LivingPopup open onClose={request.onCancel} label="Import into" card={false} widthClassName="max-w-md">
       <div
-        className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="sequence-import-target-dialog"
         data-tour-popup-occluding="sequence-import-target"
       >

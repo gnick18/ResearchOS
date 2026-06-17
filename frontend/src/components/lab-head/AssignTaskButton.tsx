@@ -161,7 +161,7 @@ export default function AssignTaskButton({
         closeOnScrimClick={!busy}
       >
           <div
-            className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full p-5 space-y-4"
+            className="pointer-events-auto bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-5 space-y-4"
             onClick={(e) => e.stopPropagation()}
           >
             <header>

@@ -211,7 +211,7 @@ export default function DetectFeaturesDialog({
 
   return (
     <LivingPopup open onClose={request.onCancel} label="Detect common features" selfSize>
-      <div className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+      <div className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow">
         {/* Header */}
         <div className="flex items-center gap-2 border-b border-border px-5 py-3.5">
           <ScanIcon className="h-4 w-4 shrink-0 text-sky-500" />

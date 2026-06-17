@@ -321,7 +321,7 @@ export default function PrimerDialog({ request }: { request: PrimerDialogRequest
   return (
     <LivingPopup open onClose={request.onCancel} label="Add primer" selfSize>
       <div
-        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="primer-dialog"
         data-tour-popup-occluding="primer"
       >

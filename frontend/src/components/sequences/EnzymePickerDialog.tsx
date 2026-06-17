@@ -355,7 +355,7 @@ export default function EnzymePickerDialog({
   return (
     <LivingPopup open onClose={onClose} label="Choose enzymes" selfSize showClose={false}>
       <div
-        className="pointer-events-auto relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex h-[80vh] max-h-[640px] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="enzyme-picker-dialog"
         data-tour-popup-occluding="enzyme-picker"
       >

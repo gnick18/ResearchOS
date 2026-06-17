@@ -181,7 +181,7 @@ function CalculatorsModal({ onClose }: { onClose: () => void }) {
         card={false}
         fillHeight
       >
-        <div className="relative bg-surface-raised rounded-2xl shadow-2xl w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
+        <div className="relative bg-surface-raised rounded-2xl ros-popup-card-shadow w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="text-heading font-bold text-foreground flex items-center gap-2">
@@ -327,7 +327,7 @@ function CalculatorsModalWithBuilder({ onClose }: { onClose: () => void }) {
         card={false}
         fillHeight
       >
-        <div className="relative bg-surface-raised rounded-2xl shadow-2xl w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
+        <div className="relative bg-surface-raised rounded-2xl ros-popup-card-shadow w-full h-full max-h-[88vh] overflow-hidden flex flex-col">
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-4 border-b border-border">
             <h2 className="text-heading font-bold text-foreground flex items-center gap-2">

@@ -83,7 +83,7 @@ export function PubChemImportDialog({
       widthClassName="max-w-3xl"
       card={false}
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-surface-sunken">
           <h3 className="text-title font-bold text-foreground">Search PubChem</h3>
           <p className="text-meta text-foreground-muted mt-0.5">

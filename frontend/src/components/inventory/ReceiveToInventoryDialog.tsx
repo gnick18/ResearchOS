@@ -85,7 +85,7 @@ export default function ReceiveToInventoryDialog({
       widthClassName="max-w-lg"
       closeOnScrimClick={false}
     >
-      <div className="rounded-2xl bg-surface-overlay border border-border shadow-2xl ring-1 ring-black/5 w-full overflow-hidden">
+      <div className="rounded-2xl bg-surface-overlay border border-border ros-popup-card-shadow ring-1 ring-black/5 w-full overflow-hidden">
         {step === "choice" && (
           <ChoiceStep
             purchaseItem={purchaseItem}

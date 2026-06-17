@@ -141,7 +141,7 @@ export default function ProjectImportDialog({
       onClick={stage === "applying" ? undefined : onClose}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full max-w-lg mx-4 max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">

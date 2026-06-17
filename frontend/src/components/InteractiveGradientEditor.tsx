@@ -84,7 +84,7 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
     >
       <div
         ref={popupRef}
-        className="bg-surface-raised rounded-xl shadow-2xl p-6 w-80"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow p-6 w-80"
       >
         <h3 className="text-body font-semibold text-foreground mb-4">
           {isNew ? "Add New Step" : "Edit Step"}
@@ -203,7 +203,7 @@ export function CycleEditPopup({ repeats, onSave, onClose }: CycleEditPopupProps
     >
       <div
         ref={popupRef}
-        className="bg-surface-raised rounded-xl shadow-2xl p-6 w-64"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow p-6 w-64"
       >
         <h3 className="text-body font-semibold text-foreground mb-4">
           Edit Cycle Repeats
@@ -1711,7 +1711,7 @@ export function InteractiveGradientEditor({
           // 2026-05-27).
           data-tour-popup-occluding="gradient-editor-add-cycle"
         >
-          <div className="bg-surface-raised rounded-xl shadow-2xl p-6 w-72">
+          <div className="bg-surface-raised rounded-xl ros-popup-card-shadow p-6 w-72">
             <h3 className="text-body font-semibold text-foreground mb-3">
               Add Empty Cycle
             </h3>

@@ -213,7 +213,7 @@ export default function ImportExperimentDialog({
       card={false}
       fillHeight
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full flex flex-col overflow-hidden max-h-full">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full flex flex-col overflow-hidden max-h-full">
         <div className="px-6 pt-5 pb-3 border-b border-border bg-surface-sunken flex items-center justify-between gap-4">
           <div>
             <h2 className="text-title font-semibold text-foreground">

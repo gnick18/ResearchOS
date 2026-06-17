@@ -326,7 +326,7 @@ export default function FeedbackModal({ isOpen, onClose, prefilledError }: Feedb
       fillHeight
     >
       <div
-        className="relative bg-surface-overlay rounded-2xl shadow-2xl w-full overflow-hidden flex flex-col max-h-full"
+        className="relative bg-surface-overlay rounded-2xl ros-popup-card-shadow w-full overflow-hidden flex flex-col max-h-full"
         onPaste={confirmStep ? undefined : handlePaste}
         onDragOver={confirmStep ? undefined : handleDragOver}
         onDragLeave={confirmStep ? undefined : handleDragLeave}

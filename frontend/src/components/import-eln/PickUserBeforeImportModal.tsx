@@ -109,7 +109,7 @@ export default function PickUserBeforeImportModal({
         aria-modal="true"
         aria-labelledby="eln-pick-user-title"
         data-testid="eln-pick-user-modal"
-        className="relative w-full max-w-md bg-surface-overlay border border-border rounded-2xl shadow-2xl overflow-hidden"
+        className="relative w-full max-w-md bg-surface-overlay border border-border rounded-2xl ros-popup-card-shadow overflow-hidden"
       >
         <div className="p-6">
           <h2

@@ -395,7 +395,7 @@ export default function WhatsNewModal({
           aria-labelledby="whats-new-title"
           data-testid="whats-new-modal"
           // This popup brings its own white card chrome (card=false above).
-          className="relative w-full rounded-2xl bg-surface-raised border border-border shadow-2xl overflow-hidden"
+          className="relative w-full rounded-2xl bg-surface-raised border border-border ros-popup-card-shadow overflow-hidden"
         >
           {/* Brand rainbow hairline across the top edge (the same signature as
               the footer + welcome ribbon), so the launch popup reads on-brand at

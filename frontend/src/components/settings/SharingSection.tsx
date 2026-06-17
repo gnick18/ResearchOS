@@ -1307,7 +1307,7 @@ function ModalShell({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-border flex items-start justify-between shrink-0">

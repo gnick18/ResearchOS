@@ -88,7 +88,7 @@ export default function CalendarRemindersModal({ open, onClose }: Props) {
       widthClassName="max-w-md"
       card={false}
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-surface-sunken flex items-start justify-between">
           <div>
             <h3 className="text-title font-semibold text-foreground">Event Reminders</h3>

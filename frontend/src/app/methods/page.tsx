@@ -1643,7 +1643,7 @@ function ForkMethodModal({
   const trimmed = name.trim();
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-surface-overlay border border-border rounded-xl shadow-2xl max-w-md w-full mx-4">
+      <div className="bg-surface-overlay border border-border rounded-xl ros-popup-card-shadow max-w-md w-full mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">Fork method</h3>
           <Tooltip label="Close" placement="bottom">
@@ -1717,7 +1717,7 @@ function CreateCategoryModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4">
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <h3 className="text-title font-semibold text-foreground">
             New Category
@@ -1895,7 +1895,7 @@ function ViewMethodModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="flex bg-surface-raised rounded-xl shadow-2xl max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
+      <div className="flex bg-surface-raised rounded-xl ros-popup-card-shadow max-w-[calc(4rem+4rem+72rem)] w-full mx-4 max-h-[85vh]">
         {/* Main content area */}
         <div className="flex-1 flex flex-col overflow-hidden rounded-l-xl">
           {/* Cross-boundary provenance. Self-hides on a native method

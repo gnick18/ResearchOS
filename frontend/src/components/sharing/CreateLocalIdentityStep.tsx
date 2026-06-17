@@ -169,7 +169,7 @@ export default function CreateLocalIdentityStep({
       onClick={required ? undefined : onClose}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
+        className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-3xl w-full mx-4 max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         data-testid="create-local-identity"
       >

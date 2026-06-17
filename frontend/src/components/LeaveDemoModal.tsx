@@ -113,7 +113,7 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="leave-demo-title"
-        className="relative w-full max-w-md rounded-2xl bg-surface-raised border border-border shadow-2xl p-6"
+        className="relative w-full max-w-md rounded-2xl bg-surface-raised border border-border ros-popup-card-shadow p-6"
       >
         <h2
           id="leave-demo-title"

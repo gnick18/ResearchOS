@@ -394,7 +394,7 @@ export default function TaxonomyExplorerPanel({
       aria-label="Explore the tree of life"
     >
       <div className="absolute inset-0 bg-black/40" onClick={handleClose} />
-      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+      <div className="relative flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow">
         {/* Header */}
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">

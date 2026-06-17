@@ -525,7 +525,7 @@ export default function MethodPicker({
       fillHeight
     >
       <div
-        className="w-full max-w-5xl bg-surface-raised rounded-xl shadow-2xl flex flex-col overflow-hidden"
+        className="w-full max-w-5xl bg-surface-raised rounded-xl ros-popup-card-shadow flex flex-col overflow-hidden"
         style={{ maxHeight: "80vh", minHeight: "min(80vh, 480px)" }}
         onKeyDown={handleKeyDown}
       >

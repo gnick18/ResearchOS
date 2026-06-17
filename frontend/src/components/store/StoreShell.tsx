@@ -186,7 +186,7 @@ export function StoreShell<T>({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-      <div className="relative bg-surface-raised rounded-xl shadow-2xl w-[92vw] max-w-6xl h-[88vh] mx-4 flex flex-col overflow-hidden">
+      <div className="relative bg-surface-raised rounded-xl ros-popup-card-shadow w-[92vw] max-w-6xl h-[88vh] mx-4 flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border shrink-0">
           <div className="min-w-0">

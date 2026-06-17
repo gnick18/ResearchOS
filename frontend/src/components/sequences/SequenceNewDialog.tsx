@@ -87,7 +87,7 @@ export default function SequenceNewDialog({
 
   return (
     <LivingPopup open onClose={onCancel} label="New sequence" card={false} widthClassName="max-w-lg">
-      <div className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised shadow-2xl" data-testid="sequence-new-dialog">
+      <div className="pointer-events-auto relative w-full overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow" data-testid="sequence-new-dialog">
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">
           <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-sky-100 dark:bg-sky-500/15">
             <IconPlus className="h-5 w-5 text-sky-600 dark:text-sky-300" />

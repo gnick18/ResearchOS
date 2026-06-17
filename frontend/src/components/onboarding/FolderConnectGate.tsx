@@ -203,7 +203,7 @@ export default function FolderConnectGate({
         <div className="relative z-10 w-full max-w-lg mx-4">
           <BrandHeader subtitle="Reconnect your folder" />
 
-          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl ros-popup-card-shadow border border-border overflow-hidden">
             <div className="p-6">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-500/15">
                 <Icon name="folder" className="h-6 w-6 text-amber-500" />
@@ -283,7 +283,7 @@ export default function FolderConnectGate({
         <div className="relative z-10 w-full max-w-lg mx-4">
           <BrandHeader subtitle={`Connected to: ${directoryName}`} />
 
-          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
+          <div className="bg-surface-raised backdrop-blur-xl rounded-2xl ros-popup-card-shadow border border-border overflow-hidden">
             <div className="p-6">
               <h2 className="text-heading font-bold text-foreground mb-4 text-center">
                 Initialize New Folder
@@ -469,7 +469,7 @@ export default function FolderConnectGate({
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            className={`relative bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl overflow-hidden transition-all ${
+            className={`relative bg-surface-raised backdrop-blur-xl rounded-2xl ros-popup-card-shadow overflow-hidden transition-all ${
               isDragOver
                 ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
                 : "border-2 border-dashed border-border hover:border-foreground-muted"

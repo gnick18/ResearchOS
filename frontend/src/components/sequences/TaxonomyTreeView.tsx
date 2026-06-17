@@ -977,7 +977,7 @@ export default function TaxonomyTreeView({
       className={
         embedded
           ? "relative flex h-full w-full flex-col overflow-hidden rounded-2xl bg-surface-raised"
-          : "relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+          : "relative flex h-[88vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
       }
     >
         {/* Header */}

@@ -197,7 +197,7 @@ export default function ProgressEntertainer({
         aria-label={title}
         data-testid="progress-entertainer"
       >
-        <div className="bg-surface-raised rounded-xl shadow-2xl w-full max-w-md p-6 pointer-events-auto">
+        <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full max-w-md p-6 pointer-events-auto">
           <h2
             className="text-title font-semibold text-foreground"
             data-testid="progress-entertainer-title"

@@ -398,7 +398,7 @@ export function SequencePromptDialog<T>({
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised shadow-2xl">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow">
         <div className="border-b border-border px-5 py-4">
           <h2 className="text-title font-semibold text-foreground">{title}</h2>
         </div>

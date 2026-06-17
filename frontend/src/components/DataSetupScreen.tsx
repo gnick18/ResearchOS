@@ -46,7 +46,7 @@ export default function DataSetupScreen({ isOpen, onClose }: DataSetupScreenProp
 
   return (
     <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h2 className="text-heading font-semibold text-foreground">Settings</h2>
           <Tooltip label="Close" placement="bottom">

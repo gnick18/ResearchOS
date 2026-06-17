@@ -209,7 +209,7 @@ export default function CalendarFeedsModal({ open, onClose }: Props) {
       card={false}
       fillHeight
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden max-h-[88vh] flex flex-col">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full overflow-hidden max-h-[88vh] flex flex-col">
         <div className="px-5 py-4 border-b border-border bg-surface-sunken flex items-center justify-between">
           <div>
             <h3 className="text-title font-semibold text-foreground">Linked Calendars</h3>

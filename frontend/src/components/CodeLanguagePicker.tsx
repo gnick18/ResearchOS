@@ -102,7 +102,7 @@ export default function CodeLanguagePicker({
     <div
       ref={rootRef}
       data-testid="code-language-picker"
-      className="fixed z-50 w-64 max-h-80 overflow-hidden rounded-lg border border-border bg-surface-overlay shadow-2xl"
+      className="fixed z-50 w-64 max-h-80 overflow-hidden rounded-lg border border-border bg-surface-overlay ros-popup-card-shadow"
       style={{ top: position.top, left: position.left }}
     >
       <div className="border-b border-border p-2">

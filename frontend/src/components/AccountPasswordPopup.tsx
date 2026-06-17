@@ -188,7 +188,7 @@ export default function AccountPasswordPopup({
       closeOnEscape={!showForgot}
     >
       <div
-        className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl border border-border w-full overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border w-full overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-border flex items-start justify-between">
@@ -401,7 +401,7 @@ export default function AccountPasswordPopup({
         showClose={false}
       >
           <div
-            className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl border border-border w-full p-6"
+            className="pointer-events-auto bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border w-full p-6"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start justify-between mb-3">

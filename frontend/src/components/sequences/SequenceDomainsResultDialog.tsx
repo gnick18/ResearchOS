@@ -40,7 +40,7 @@ export default function SequenceDomainsResultDialog({
   return (
     <LivingPopup open onClose={onClose} label="Domains" selfSize showClose={false}>
       <div
-        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="domains-result-dialog"
       >
         {/* Header */}

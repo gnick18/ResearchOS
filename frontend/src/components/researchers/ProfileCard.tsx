@@ -98,7 +98,7 @@ export default function ProfileCard({
   };
 
   return (
-    <div className="overflow-hidden rounded-2xl bg-surface-overlay border border-border shadow-2xl ring-1 ring-black/5">
+    <div className="overflow-hidden rounded-2xl bg-surface-overlay border border-border ros-popup-card-shadow ring-1 ring-black/5">
       {/* Cover band */}
       <div className="relative h-24 bg-gradient-to-r from-sky-500 via-indigo-500 to-violet-500 sm:h-28">
         <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_20%_20%,white,transparent_45%),radial-gradient(circle_at_80%_60%,white,transparent_40%)]" />

@@ -165,7 +165,7 @@ export default function TimerAlarm() {
         role="alertdialog"
         aria-label="Timer finished"
       >
-        <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-raised shadow-2xl px-7 pt-7 pb-6 text-center">
+        <div className="relative w-full max-w-md overflow-hidden rounded-3xl bg-surface-raised ros-popup-card-shadow px-7 pt-7 pb-6 text-center">
           <div
             className="absolute inset-x-0 top-0 h-1.5"
             style={{

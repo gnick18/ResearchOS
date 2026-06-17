@@ -182,7 +182,7 @@ export default function ImageMetadataPopup({
       closeOnEscape={!annotating}
       closeOnScrimClick={!annotating}
     >
-      <div className="bg-surface-overlay rounded-xl shadow-2xl w-full overflow-hidden">
+      <div className="bg-surface-overlay rounded-xl ros-popup-card-shadow w-full overflow-hidden">
         <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between">
           <h3 className="text-title font-semibold text-foreground truncate" title={filename}>
             {filename}

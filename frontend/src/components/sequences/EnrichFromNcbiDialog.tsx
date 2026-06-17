@@ -258,7 +258,7 @@ export default function EnrichFromNcbiDialog({
       showClose={false}
     >
       <div
-        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="enrich-from-ncbi-dialog"
       >
         <div className="flex items-center gap-3 border-b border-border px-5 py-4">

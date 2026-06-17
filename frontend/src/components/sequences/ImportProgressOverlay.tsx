@@ -58,7 +58,7 @@ export default function ImportProgressOverlay({
           so clicking outside must not cancel an in-flight import. */}
       <div className="absolute inset-0 bg-black/40" />
 
-      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised px-6 py-7 text-center shadow-2xl">
+      <div className="relative w-full max-w-sm overflow-hidden rounded-2xl bg-surface-raised px-6 py-7 text-center ros-popup-card-shadow">
         {/* BeakerBot, working away. The `thinking` pose loops a gentle
             head-tilt with an ellipsis thought bubble, which reads as
             "processing" without the alarm of a spinner. */}

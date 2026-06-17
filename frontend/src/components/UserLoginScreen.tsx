@@ -1486,7 +1486,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         </div>
 
         {/* Main card */}
-        <div className="bg-surface-raised backdrop-blur-xl rounded-2xl shadow-2xl border border-border overflow-hidden">
+        <div className="bg-surface-raised backdrop-blur-xl rounded-2xl ros-popup-card-shadow border border-border overflow-hidden">
           {loading ? (
             <div className="flex items-center justify-center py-12">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-foreground-muted"></div>
@@ -1998,7 +1998,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {/* Delete User Confirmation Modal */}
       {deleteUserSelected && showDeleteConfirm && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden">
+          <div className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-md w-full mx-4 overflow-hidden">
             <div className="p-6">
               <div className="flex items-start gap-4">
                 <div className="flex-shrink-0 w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center">
@@ -2093,7 +2093,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onClick={cancelUnlockGate}
         >
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             data-testid="unlock-gate"
           >
@@ -2350,7 +2350,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {profileStep && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-border">
@@ -2382,7 +2382,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
       {createdRecovery && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-4 border-b border-border">
@@ -2450,7 +2450,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           onClick={cancelCrossDeviceRestore}
         >
           <div
-            className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-sm w-full mx-4 overflow-hidden"
+            className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-sm w-full mx-4 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
             data-testid="cross-device-restore"
           >

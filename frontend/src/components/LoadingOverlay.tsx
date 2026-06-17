@@ -16,7 +16,7 @@ export default function LoadingOverlay({ message }: LoadingOverlayProps) {
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="bg-surface-raised rounded-xl shadow-2xl px-8 py-6 flex flex-col items-center gap-4">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow px-8 py-6 flex flex-col items-center gap-4">
         {/* Spinner */}
         <div className="relative w-12 h-12">
           <div className="absolute inset-0 border-4 border-blue-200 dark:border-blue-900/40 rounded-full"></div>

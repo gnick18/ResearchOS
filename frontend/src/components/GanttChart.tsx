@@ -1494,7 +1494,7 @@ export default function GanttChart({
       {/* Shift Confirmation Modal */}
       {showShiftConfirm && shiftResult && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+          <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 p-6">
             <h4 className="text-heading font-semibold text-orange-800 mb-2">
               This change will affect {shiftResult.affected_tasks.length} task(s)
             </h4>
@@ -1556,7 +1556,7 @@ export default function GanttChart({
           // SnapshotTilePopup uses for the widget-tile popup hand-off.
           data-tour-popup-occluding="gantt-dependency-dialog"
         >
-          <div className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 p-6">
+          <div className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 p-6">
             <h4 className="text-heading font-semibold text-foreground mb-2">
               Create Dependency?
             </h4>

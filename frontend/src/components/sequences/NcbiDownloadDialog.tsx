@@ -76,7 +76,7 @@ export default function NcbiDownloadDialog({
       showClose={false}
     >
       <div
-        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised shadow-2xl"
+        className="pointer-events-auto relative flex max-h-[88vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-surface-raised ros-popup-card-shadow"
         data-testid="ncbi-download-dialog"
       >
         {/* Header */}

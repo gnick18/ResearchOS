@@ -526,7 +526,7 @@ export default function CalendarPage() {
           onClick={() => setDeleteConfirmEvent(null)}
         >
           <div
-            className="bg-surface-raised rounded-xl p-6 max-w-sm mx-4 shadow-2xl"
+            className="bg-surface-raised rounded-xl p-6 max-w-sm mx-4 ros-popup-card-shadow"
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="text-heading font-semibold text-foreground mb-2">
@@ -646,7 +646,7 @@ function EventModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-details-title"
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
@@ -963,7 +963,7 @@ function CreateEventModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
       {/* P0-1: flex-col + max-h keeps header/footer fixed while body scrolls */}
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4 flex flex-col max-h-[calc(100vh-2rem)]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border flex-shrink-0">
@@ -1157,7 +1157,7 @@ function ExternalEventModal({
       onClick={onClose}
     >
       <div
-        className="bg-surface-raised rounded-xl shadow-2xl max-w-md w-full mx-4"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow max-w-md w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">

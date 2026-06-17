@@ -222,7 +222,7 @@ export default function HighLevelGoalModal({
     >
       <form
         onSubmit={handleSubmit}
-        className="bg-surface-raised rounded-xl shadow-2xl w-full p-6 overflow-y-auto max-h-full"
+        className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full p-6 overflow-y-auto max-h-full"
       >
         <h3 className="text-heading font-semibold text-foreground mb-4">
           {isEditing ? "Edit High-Level Goal" : "New High-Level Goal"}

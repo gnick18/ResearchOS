@@ -126,7 +126,7 @@ export default function DuplicateUploadDialog({
       {/* This dialog brings its own white card chrome (card=false above). */}
       <div
         aria-labelledby="dup-upload-title"
-        className="relative w-full rounded-2xl bg-surface-raised shadow-2xl overflow-hidden"
+        className="relative w-full rounded-2xl bg-surface-raised ros-popup-card-shadow overflow-hidden"
       >
         {/* Header */}
         <div className="px-5 py-4 border-b border-border bg-surface-sunken">

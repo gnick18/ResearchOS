@@ -140,7 +140,7 @@ export default function SendToTaskPicker({
       showClose={false}
     >
       <div
-        className="pointer-events-auto bg-surface-raised rounded-xl shadow-2xl w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-xl ros-popup-card-shadow w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3 border-b border-border flex items-center justify-between">

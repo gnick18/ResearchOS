@@ -711,7 +711,7 @@ export default function ImageAnnotatorModal({
       onClick={(e) => e.stopPropagation()}
     >
       {/* Floating actions, top-right */}
-      <div className="absolute right-4 top-4 z-10 flex items-center gap-3 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
+      <div className="absolute right-4 top-4 z-10 flex items-center gap-3 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 ros-popup-card-shadow ring-1 ring-black/5 backdrop-blur">
         <div className="flex items-center gap-2.5 min-w-0">
           <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-brand-action/10 text-brand-action">
             <IconPencil />
@@ -743,7 +743,7 @@ export default function ImageAnnotatorModal({
       </div>
 
       {/* Floating toolbar, top-left */}
-      <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 shadow-2xl ring-1 ring-black/5 backdrop-blur">
+      <div className="absolute left-4 top-4 z-10 flex max-w-[calc(100vw-2rem)] flex-wrap items-center gap-2 rounded-2xl border border-border bg-surface-raised/95 px-3 py-2 ros-popup-card-shadow ring-1 ring-black/5 backdrop-blur">
         <div className="flex items-center gap-1">
           <ToolButton label="Select / move" active={tool === "select"} onClick={() => setTool("select")}>
             <IconCursor />
@@ -993,7 +993,7 @@ export default function ImageAnnotatorModal({
           panToContent((e.clientX - r.left) / miniScale, (e.clientY - r.top) / miniScale);
         };
         return (
-          <div className="absolute bottom-4 right-4 z-10 rounded-xl border border-border bg-surface-raised/95 p-1 shadow-2xl ring-1 ring-black/5 backdrop-blur">
+          <div className="absolute bottom-4 right-4 z-10 rounded-xl border border-border bg-surface-raised/95 p-1 ros-popup-card-shadow ring-1 ring-black/5 backdrop-blur">
             <div
               className="relative cursor-pointer overflow-hidden rounded-md"
               style={{ width: miniW, height: miniH }}

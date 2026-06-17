@@ -1071,7 +1071,7 @@ function MoleculeRenameModal({
       onMouseDown={onCancel}
     >
       <div
-        className="w-full max-w-sm bg-surface-raised border border-border rounded-xl shadow-2xl p-4"
+        className="w-full max-w-sm bg-surface-raised border border-border rounded-xl ros-popup-card-shadow p-4"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <h3 className="text-body font-semibold text-foreground mb-2">Rename molecule</h3>

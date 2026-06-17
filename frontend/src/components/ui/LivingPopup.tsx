@@ -359,7 +359,7 @@ export default function LivingPopup({
         // are black and invisible on a dark background. Without this a popup is
         // the same near-black as the page and disappears (Grant 2026-06-08).
         card
-          ? "rounded-2xl bg-surface-overlay border border-border shadow-2xl ring-1 ring-black/5"
+          ? "rounded-2xl bg-surface-overlay border border-border ros-popup-card-shadow ring-1 ring-black/5"
           : "",
         padded ? "p-6 sm:p-8" : "",
         fillHeight ? "max-h-[88vh] flex flex-col overflow-hidden" : "",

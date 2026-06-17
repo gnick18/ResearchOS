@@ -221,7 +221,7 @@ export function PdfFigurePicker({
       }}
     >
       <div
-        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-surface-overlay shadow-2xl"
+        className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-surface-overlay ros-popup-card-shadow"
         style={{ fontFamily: "var(--font-geist-sans), system-ui, -apple-system, sans-serif" }}
       >
         {/* Header */}

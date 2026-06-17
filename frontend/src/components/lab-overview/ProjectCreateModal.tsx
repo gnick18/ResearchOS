@@ -167,7 +167,7 @@ export default function ProjectCreateModal({
         // §6.1 FILL beat anchor: spotlights the whole create-form panel.
         data-tour-target="home-project-create-form"
         data-testid="project-create-modal"
-        className="pointer-events-auto bg-surface-raised rounded-2xl shadow-2xl w-full flex flex-col overflow-hidden"
+        className="pointer-events-auto bg-surface-raised rounded-2xl ros-popup-card-shadow w-full flex flex-col overflow-hidden"
         style={{
           boxShadow:
             "0 1px 3px rgba(0,0,0,0.06), 0 20px 50px -10px rgba(0,0,0,0.25)",

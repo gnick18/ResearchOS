@@ -93,7 +93,7 @@ export default function FileViewerModal({
         card={false}
         fillHeight
       >
-        <div className="bg-surface-raised rounded-xl shadow-2xl w-full h-full max-h-[85vh] flex flex-col overflow-hidden">
+        <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full h-full max-h-[85vh] flex flex-col overflow-hidden">
           <div className="px-5 py-3 border-b border-border bg-surface-sunken flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               <FileIcon className="w-4 h-4 text-foreground-muted flex-shrink-0" />
@@ -136,7 +136,7 @@ export default function FileViewerModal({
       widthClassName="max-w-md"
       card={false}
     >
-      <div className="bg-surface-raised rounded-xl shadow-2xl w-full overflow-hidden">
+      <div className="bg-surface-raised rounded-xl ros-popup-card-shadow w-full overflow-hidden">
         <div className="px-5 py-4 border-b border-border bg-surface-sunken">
           <div className="flex items-center gap-3">
             <FileIcon className="w-5 h-5 text-foreground-muted flex-shrink-0" />

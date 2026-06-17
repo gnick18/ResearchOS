@@ -236,7 +236,7 @@ export default function UserColorPickerPopup({
       onClick={onCancel}
     >
       <div
-        className="bg-surface-raised rounded-2xl shadow-2xl border border-border max-w-md w-full mx-4 overflow-hidden"
+        className="bg-surface-raised rounded-2xl ros-popup-card-shadow border border-border max-w-md w-full mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-6 py-4 border-b border-border">

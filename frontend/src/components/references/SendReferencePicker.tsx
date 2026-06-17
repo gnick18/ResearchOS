@@ -313,7 +313,7 @@ export default function SendReferencePicker({
         role="dialog"
         aria-modal="true"
         aria-label="Send reference"
-        className="w-full max-w-md bg-surface-raised border border-border rounded-xl shadow-2xl flex flex-col max-h-[70vh]"
+        className="w-full max-w-md bg-surface-raised border border-border rounded-xl ros-popup-card-shadow flex flex-col max-h-[70vh]"
       >
         <div className="flex items-center gap-2 px-4 pt-4 pb-2 border-b border-border shrink-0">
           <Icon name="export" className="w-4 h-4 text-foreground-muted" />

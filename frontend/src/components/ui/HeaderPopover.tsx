@@ -89,7 +89,7 @@ export default function HeaderPopover({
       className={
         `fixed z-[120] ${widthClassName} w-[calc(100vw-1rem)] ` +
         "flex flex-col max-h-[min(75vh,640px)] rounded-2xl border border-border " +
-        "bg-surface-raised shadow-2xl overflow-hidden origin-top-right " +
+        "bg-surface-raised ros-popup-card-shadow overflow-hidden origin-top-right " +
         "transition-[transform,opacity] duration-150 ease-out " +
         (shown ? "opacity-100 scale-100" : "opacity-0 scale-95")
       }

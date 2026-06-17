@@ -699,7 +699,7 @@ export default function BillingPopup() {
       card={false}
       fillHeight
     >
-      <div className="pointer-events-auto flex max-h-[88vh] flex-col overflow-hidden rounded-2xl bg-surface-overlay border border-border shadow-2xl ring-1 ring-black/5">
+      <div className="pointer-events-auto flex max-h-[88vh] flex-col overflow-hidden rounded-2xl bg-surface-overlay border border-border ros-popup-card-shadow ring-1 ring-black/5">
         <header className="border-b border-border px-6 py-4">
           <h2 className="text-heading font-semibold text-foreground">
             Cloud storage and billing
