@@ -78,6 +78,36 @@ longer shows. So we build the Model-A engine before flipping.
    idempotently. THEN flip BILLING_ENABLED + AI_BILLING_ENABLED (retires the
    free-during-beta copy site-wide, since it is all flag-gated).
 
+## Progress (2026-06-16)
+
+BUILT this session, all dormant behind BILLING_ENABLED, ~39 model-a tests, tsc 0:
+- Step 1 pricing core `model-a/pricing.ts` (5ff99c7f3)
+- Step 3 ledger `model-a/ledger-db.ts` + `ledger.ts` (6aebeb5e1)
+- Step 3b accrual bridge `model-a/accrual.ts` (da852b2ad)
+- Step 2 plan resolution `model-a/resolve.ts` (1f6bd15a5)
+- Step 3 accrual cron `model-a/cron.ts` + `/api/cron/model-a-accrual` + period helpers + listActiveSubscriptions (10e61f0dc)
+- Step 4 card-on-file ledger (cloud_balance.stripe_customer_id, setCloudPaymentMethod/getCloudPaymentMethod/listChargeableOwners) (ab465dd4d)
+- Step 4 charge run `model-a/charge.ts` + Stripe glue `stripe-charger.ts` + `/api/billing/model-a/card-setup` + `/api/cron/model-a-charge` + webhook setup/payment_intent handlers (95c42e651)
+
+End-to-end flow now exists: card-setup checkout -> webhook stores PM + activates
+plan -> monthly accrual cron accrues marked-up usage -> daily charge cron runs the
+card past $5 -> webhook draws the balance down + books LLC revenue.
+
+REMAINING before flipping the flags:
+1. VERIFY PASS (the gate). Needs CRON_SECRET + a sk_test_ key in the env. End to
+   end in test mode: card-setup with a test card -> `stripe listen` forwards the
+   webhook -> billing-sim seeds usage -> accrual cron -> charge cron -> balance 0.
+2. Enforcement $-cap swap. owner-state is a byte-cap + activity throttle today;
+   Model A wants a settable monthly $ cap (bill-shock guard) on the accrued
+   balance. The local app never stops; only cloud sync pauses at the cap.
+3. UI wiring. A "save a card / start plan" button that POSTs card-setup, and the
+   billing popup/settings showing the accrued balance (getCloudBalance). Copy is
+   already Model-A aligned.
+4. Dept/inst org-billing Model-A numbers (base $50/lab + 6x on the org invoice
+   track). Separate workstream, does not block solo/lab go-live.
+5. Cutover: point the checkout entry at solo/lab, flip BILLING_ENABLED +
+   AI_BILLING_ENABLED (retires the free-during-beta copy site-wide).
+
 ## Decisions / notes
 
 - The "5x/7x/6x markup" applies to RELAY/COMPUTE usage only. Storage + hosted are
