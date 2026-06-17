@@ -21,7 +21,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/icons";
-import { PACK_TOKENS, type AiPack } from "@/lib/billing/ai-config";
+import { packTokens, type AiPack } from "@/lib/billing/ai-config";
 import { AI_PACK_DOLLARS, usd } from "@/lib/billing/catalog";
 import { fetchAiStatus, type AiStatus } from "@/lib/billing/ai-client";
 import { TOKEN_BLOCKS_FIXTURE } from "@/lib/usage/usage-fixtures";
@@ -199,7 +199,7 @@ export default function AiUsageSection() {
                   {pack.tasks}
                 </span>
                 <span className="block text-meta text-foreground-muted mt-0.5 tabular-nums">
-                  {formatTokens(PACK_TOKENS[pack.dollars])} tokens
+                  {formatTokens(packTokens(pack.pack))} tokens
                 </span>
               </button>
             );
