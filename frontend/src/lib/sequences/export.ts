@@ -13,6 +13,7 @@ import type { SeqDocument, EditFeature } from "./edit-model";
 import { documentToGenbank } from "./edit-model";
 import { shiftFeaturesOnDelete } from "./coordinate-shift";
 import { resolveCodon, GAP_GLYPH } from "./degenerate-codon";
+import { sanitizeForExport } from "@/lib/validation/input-hardening";
 
 // ---------------------------------------------------------------------------
 // Filenames
@@ -87,17 +88,39 @@ export function toFasta(
 // Whole-document serialization
 // ---------------------------------------------------------------------------
 
-/** Serialize the whole document to GenBank text (delegates to edit-model so the
- *  on-disk Save path and the export path can never diverge). Returns null on a
- *  failed round-trip. */
-export function documentToGenbankText(doc: SeqDocument): string | null {
-  return documentToGenbank(doc);
+/**
+ * Return a shallow copy of `doc` with all user-supplied string fields
+ * (document name, feature names) run through sanitizeForExport. The sequence
+ * residues are NOT sanitized: they are validated at input and consist of
+ * known-safe alphabet characters only.
+ *
+ * This is applied at the export boundary so that hostile content stored raw
+ * (e.g. a 566-char feature name with `<script>alert(1)</script>`) cannot ride
+ * into a GenBank file or FASTA header unescaped.
+ */
+function sanitizeDocForExport(doc: SeqDocument): SeqDocument {
+  return {
+    ...doc,
+    name: sanitizeForExport(doc.name || ""),
+    features: doc.features.map((f) => ({
+      ...f,
+      name: sanitizeForExport(f.name || ""),
+    })),
+  };
 }
 
-/** Serialize the whole document to FASTA text (DNA/RNA/protein residues). */
+/** Serialize the whole document to GenBank text (delegates to edit-model so the
+ *  on-disk Save path and the export path can never diverge). Returns null on a
+ *  failed round-trip. User-supplied strings are sanitized before serialization. */
+export function documentToGenbankText(doc: SeqDocument): string | null {
+  return documentToGenbank(sanitizeDocForExport(doc));
+}
+
+/** Serialize the whole document to FASTA text (DNA/RNA/protein residues).
+ *  The sequence name is sanitized for the FASTA header. */
 export function documentToFasta(doc: SeqDocument, lineWidth = 70): string {
   return toFasta(
-    { name: doc.name, sequence: doc.seq },
+    { name: sanitizeForExport(doc.name || ""), sequence: doc.seq },
     lineWidth,
   );
 }
@@ -153,16 +176,18 @@ export function sliceDocument(doc: SeqDocument, from: number, to: number): SeqDo
   };
 }
 
-/** GenBank text for the current selection (features rebased into the slice). */
+/** GenBank text for the current selection (features rebased into the slice).
+ *  User-supplied strings are sanitized before serialization. */
 export function selectionToGenbankText(
   doc: SeqDocument,
   from: number,
   to: number,
 ): string | null {
-  return documentToGenbank(sliceDocument(doc, from, to));
+  return documentToGenbank(sanitizeDocForExport(sliceDocument(doc, from, to)));
 }
 
-/** FASTA text for the current selection's bases. */
+/** FASTA text for the current selection's bases.
+ *  The sequence name is sanitized for the FASTA header. */
 export function selectionToFasta(
   doc: SeqDocument,
   from: number,
@@ -170,7 +195,7 @@ export function selectionToFasta(
   lineWidth = 70,
 ): string {
   const sliced = sliceDocument(doc, from, to);
-  return toFasta({ name: sliced.name, sequence: sliced.seq }, lineWidth);
+  return toFasta({ name: sanitizeForExport(sliced.name || ""), sequence: sliced.seq }, lineWidth);
 }
 
 // ---------------------------------------------------------------------------

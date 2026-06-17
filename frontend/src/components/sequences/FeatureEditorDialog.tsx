@@ -25,6 +25,13 @@ import {
   colorForType,
 } from "@/lib/sequences/feature-colors";
 import LivingPopup from "@/components/ui/LivingPopup";
+import {
+  MAX_LENGTH_FEATURE_NAME,
+  stripControlChars,
+  countControlChars,
+  capLength,
+  charsOver,
+} from "@/lib/validation/input-hardening";
 import FeatureSegmentDiagram from "./FeatureSegmentDiagram";
 import StrandSelector, {
   type StrandDisplay,
@@ -79,6 +86,9 @@ export default function FeatureEditorDialog({
   request: FeatureEditorRequest | null;
 }) {
   const [name, setName] = useState("");
+  // Count of control characters removed from the name on the last keystroke.
+  // Shown as "N characters removed" affordance (mirrors the sequence base strip).
+  const [nameCtrlRemoved, setNameCtrlRemoved] = useState(0);
   const [type, setType] = useState("misc_feature");
   const [strand, setStrand] = useState<1 | -1>(1);
   // The selector's visual choice (4 SnapGene states). Only +1/-1 round-trips to
@@ -259,11 +269,30 @@ export default function FeatureEditorDialog({
 
           {/* Name */}
           <label className="block">
-            <span className="mb-1 block text-meta font-medium text-foreground-muted">Name</span>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-meta font-medium text-foreground-muted">Name</span>
+              {nameCtrlRemoved > 0 && (
+                <span className="text-meta text-amber-600 dark:text-amber-400">
+                  {nameCtrlRemoved} character{nameCtrlRemoved !== 1 ? "s" : ""} removed
+                </span>
+              )}
+              {charsOver(name, MAX_LENGTH_FEATURE_NAME) > 0 && (
+                <span className="text-meta text-rose-600 dark:text-rose-400">
+                  {charsOver(name, MAX_LENGTH_FEATURE_NAME)} over limit
+                </span>
+              )}
+            </div>
             <input
               ref={nameRef}
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              maxLength={MAX_LENGTH_FEATURE_NAME}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const removed = countControlChars(raw);
+                const cleaned = capLength(stripControlChars(raw), MAX_LENGTH_FEATURE_NAME);
+                setNameCtrlRemoved(removed);
+                setName(cleaned);
+              }}
               placeholder="Feature name"
               className="w-full rounded-md border border-border px-2.5 py-1.5 text-body text-foreground focus:border-sky-400 focus:outline-none"
             />

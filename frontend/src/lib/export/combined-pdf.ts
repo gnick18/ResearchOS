@@ -33,6 +33,7 @@ import { buildExperimentParts, registerExportFonts } from "./pdf";
 import { buildExperimentPayload, type ExtractDeps } from "./extract";
 import type { ExperimentExportPayload } from "./types";
 import type { Note, Task } from "@/lib/types";
+import { sanitizeForExport } from "@/lib/validation/input-hardening";
 
 // ── Public contract ─────────────────────────────────────────────────────────
 //
@@ -578,15 +579,17 @@ export async function buildCombinedPdf(
   // link, then the EXISTING experiment section renderers (reused, namespaced).
   function ExperimentItemPage(exp: ResolvedExperiment) {
     const anchorId = itemAnchorId({ kind: "experiment", id: exp.id });
+    const safeExpTitle = sanitizeForExport(exp.title);
     const parts = buildExperimentParts(ReactPDF, exp.payload, `${anchorId}-`);
     return h(
       Page,
       { key: anchorId, size: "A4", style: styles.page, wrap: true },
       h(
         SectionView,
-        { id: anchorId, bookmark: { title: `Experiment: ${exp.title}`, fit: true } },
+        // bookmark.title goes into the PDF outline (not JSX-escaped) -- sanitize.
+        { id: anchorId, bookmark: { title: `Experiment: ${safeExpTitle}`, fit: true } },
         h(Text, { style: styles.itemKindLabel }, "Experiment"),
-        h(Text, { style: styles.itemHeading }, exp.title),
+        h(Text, { style: styles.itemHeading }, safeExpTitle),
         h(BackToIndexLink, { keyId: `${anchorId}-back` }),
       ),
       ...parts.contentChildren,
@@ -597,6 +600,7 @@ export async function buildCombinedPdf(
   // optional description, then each entry rendered from its markdown body.
   function NoteItemPage(noteItem: ResolvedNote) {
     const anchorId = itemAnchorId({ kind: "note", id: noteItem.id });
+    const safeNoteTitle = sanitizeForExport(noteItem.title);
     const note = noteItem.note;
     const entries = [...(note.entries ?? [])].sort(
       (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime(),
@@ -637,9 +641,9 @@ export async function buildCombinedPdf(
       { key: anchorId, size: "A4", style: styles.page, wrap: true },
       h(
         SectionView,
-        { id: anchorId, bookmark: { title: `Note: ${noteItem.title}`, fit: true } },
+        { id: anchorId, bookmark: { title: `Note: ${safeNoteTitle}`, fit: true } },
         h(Text, { style: styles.itemKindLabel }, "Note"),
-        h(Text, { style: styles.itemHeading }, noteItem.title),
+        h(Text, { style: styles.itemHeading }, safeNoteTitle),
         h(BackToIndexLink, { keyId: `${anchorId}-back` }),
       ),
       ...body,
@@ -661,8 +665,8 @@ export async function buildCombinedPdf(
     h(
       Page,
       { size: "A4", style: styles.page },
-      h(Text, { style: styles.coverTitle }, input.title || "Combined export"),
-      h(MetaRow, { label: "Owner:", value: ownerLabel }),
+      h(Text, { style: styles.coverTitle }, safeTitle),
+      h(MetaRow, { label: "Owner:", value: safeOwner }),
       h(MetaRow, {
         label: "Items:",
         value: `${resolvedItems.length} (${experiments.length} experiment${
@@ -693,7 +697,7 @@ export async function buildCombinedPdf(
               src: `#${itemAnchorId(exp)}`,
               style: styles.indexEntry,
             },
-            exp.title,
+            sanitizeForExport(exp.title),
           ),
         ),
       );
@@ -709,7 +713,7 @@ export async function buildCombinedPdf(
               src: `#${itemAnchorId(noteItem)}`,
               style: styles.indexEntry,
             },
-            noteItem.title,
+            sanitizeForExport(noteItem.title),
           ),
         ),
       );
@@ -741,12 +745,17 @@ export async function buildCombinedPdf(
     r.kind === "experiment" ? ExperimentItemPage(r) : NoteItemPage(r),
   );
 
+  // Sanitize user-supplied strings that go into PDF metadata (not JSX-escaped by
+  // the renderer -- they land in PDF dict entries as raw strings).
+  const safeTitle = sanitizeForExport(input.title || "Combined export");
+  const safeOwner = sanitizeForExport(ownerLabel || "");
+
   const docTree = h(
     Document,
     {
-      title: input.title || "Combined export",
-      author: ownerLabel,
-      subject: input.title || "Combined export",
+      title: safeTitle,
+      author: safeOwner,
+      subject: safeTitle,
       creator: "ResearchOS",
       producer: "ResearchOS",
       creationDate: new Date(exportedAt),

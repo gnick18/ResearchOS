@@ -29,6 +29,7 @@ import {
   expandDateRange,
   syncEventPtoChange,
 } from "@/lib/streak/calendar-pto-sync";
+import { MAX_LENGTH_TITLE, hardenTitle, charsOver } from "@/lib/validation/input-hardening";
 import type { CalendarFeed, Event, ExternalEvent } from "@/lib/types";
 import { useCalendarBeakerSource } from "./useCalendarBeakerSource";
 
@@ -627,7 +628,7 @@ function EventModal({
   const handleSave = () => {
     if (endBeforeStart) return;
     onSave({
-      title,
+      title: hardenTitle(title),
       event_type: eventType,
       start_date: startDate,
       end_date: endDate || null,
@@ -665,10 +666,18 @@ function EventModal({
           {isEditing ? (
             <div className="space-y-4">
               <div>
-                <label className="block text-meta font-medium text-foreground-muted mb-1">Title</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-meta font-medium text-foreground-muted">Title</label>
+                  {charsOver(title, MAX_LENGTH_TITLE) > 0 && (
+                    <span className="text-meta text-rose-600 dark:text-rose-400">
+                      {charsOver(title, MAX_LENGTH_TITLE)} over limit
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={title}
+                  maxLength={MAX_LENGTH_TITLE}
                   onChange={(e) => setTitle(e.target.value)}
                   className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />

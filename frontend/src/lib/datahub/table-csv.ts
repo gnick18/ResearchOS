@@ -13,6 +13,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import type { CellValue, DataHubDocContent } from "@/lib/datahub/model/types";
+import { stripControlChars } from "@/lib/validation/input-hardening";
 
 /** Quote one CSV field per RFC 4180 (only when it needs it). */
 function csvField(value: string): string {
@@ -22,10 +23,15 @@ function csvField(value: string): string {
   return value;
 }
 
-/** A cell's CSV text. null / undefined is an empty field; numbers stay plain. */
+/** A cell's CSV text. null / undefined is an empty field; numbers stay plain.
+ *  String cells have hostile control/directional chars stripped (RTL-override,
+ *  null bytes, zero-width chars) so they cannot appear verbatim in a CSV text
+ *  cell. HTML special chars are NOT escaped here: CSV uses RFC 4180 quoting for
+ *  commas/quotes/newlines -- HTML-escaping would corrupt the data on import. */
 function cellText(value: CellValue | undefined): string {
   if (value === null || value === undefined) return "";
-  return String(value);
+  const s = String(value);
+  return typeof value === "string" ? stripControlChars(s) : s;
 }
 
 /**
@@ -34,7 +40,11 @@ function cellText(value: CellValue | undefined): string {
  * the table's columns in their declared order, headed by their names.
  */
 export function tableContentToCsv(content: DataHubDocContent): string {
-  const header = ["#", ...content.columns.map((c) => c.name)];
+  // Strip hostile control / directional chars from user-supplied column names
+  // before they go into the CSV header row. RFC 4180 quoting handles commas,
+  // quotes, and newlines -- do NOT HTML-escape for CSV (that would corrupt the
+  // data; use sanitizeForExport only for HTML/PDF/GenBank sinks).
+  const header = ["#", ...content.columns.map((c) => stripControlChars(c.name))];
   const lines: string[] = [header.map(csvField).join(",")];
   content.rows.forEach((row, i) => {
     const fields = [

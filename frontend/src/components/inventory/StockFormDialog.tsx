@@ -21,6 +21,12 @@ import { Icon } from "@/components/icons";
 import LocationPicker from "./LocationPicker";
 import { SPATIAL_INVENTORY_ENABLED } from "@/lib/inventory/spatial-config";
 import { containerWord, dateInputToIso, isoToDateInput } from "./inventory-ui";
+import {
+  MAX_LENGTH_LOT,
+  MAX_CONTAINER_COUNT,
+  hardenName,
+  charsOver,
+} from "@/lib/validation/input-hardening";
 
 const INPUT_CLASS =
   "w-full px-3 py-2 border border-border rounded-lg text-body bg-surface-raised text-foreground placeholder:text-foreground-muted/70 focus:outline-none focus:ring-2 focus:ring-brand-action";
@@ -121,6 +127,10 @@ export default function StockFormDialog({
         return;
       }
       container_count = Math.floor(parsed);
+      if (container_count > MAX_CONTAINER_COUNT) {
+        setError(`Container count cannot exceed ${MAX_CONTAINER_COUNT.toLocaleString()}.`);
+        return;
+      }
     }
 
     let amount_per_container: number | null = null;
@@ -136,7 +146,7 @@ export default function StockFormDialog({
     const payload: InventoryStockCreate & InventoryStockUpdate = {
       item_id: item.id,
       container_count,
-      lot_number: toNullable(form.lot_number),
+      lot_number: toNullable(hardenName(form.lot_number, MAX_LENGTH_LOT)),
       received_date: dateInputToIso(form.received_date),
       expiration_date: dateInputToIso(form.expiration_date),
       amount_per_container,
@@ -194,13 +204,21 @@ export default function StockFormDialog({
             />
           </div>
           <div>
-            <label htmlFor="stock-lot" className={LABEL_CLASS}>
-              Lot number
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label htmlFor="stock-lot" className="text-meta font-medium text-foreground-muted">
+                Lot number
+              </label>
+              {charsOver(form.lot_number, MAX_LENGTH_LOT) > 0 && (
+                <span className="text-meta text-rose-600 dark:text-rose-400">
+                  {charsOver(form.lot_number, MAX_LENGTH_LOT)} over limit
+                </span>
+              )}
+            </div>
             <input
               id="stock-lot"
               className={INPUT_CLASS}
               value={form.lot_number}
+              maxLength={MAX_LENGTH_LOT}
               onChange={(e) => set("lot_number", e.target.value)}
               placeholder="Optional"
               autoComplete="off"

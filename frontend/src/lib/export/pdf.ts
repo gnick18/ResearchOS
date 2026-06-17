@@ -21,6 +21,7 @@ import { marked, type Token, type Tokens } from "marked";
 
 import { slugify } from "./slug";
 import { demoteHeadings, extractUserContent, hasUserContent } from "./markdown";
+import { sanitizeForExport } from "@/lib/validation/input-hardening";
 import { parseObjectEmbed } from "@/lib/references";
 import { bakeAllEmbeds, scanEmbedRefs, type BakedEmbed } from "./bake-embeds";
 import {
@@ -2487,12 +2488,14 @@ export async function buildPdf(
   // `void View` keeps the destructured component referenced even though the
   // single-export document only assembles Page/Text/Link directly.
   void View;
+  // PDF document metadata fields are NOT JSX-escaped -- sanitize user-supplied
+  // strings before they go into the PDF dict.
   const docTree = h(
     Document,
     {
-      title: task.name,
-      author: meta.ownerLabel,
-      subject: project.name,
+      title: sanitizeForExport(task.name || ""),
+      author: sanitizeForExport(meta.ownerLabel || ""),
+      subject: sanitizeForExport(project.name || ""),
       keywords: JSON.stringify(manifest),
       creator: "ResearchOS",
       producer: "ResearchOS",
