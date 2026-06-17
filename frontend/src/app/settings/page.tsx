@@ -90,6 +90,7 @@ import SettingsShell, {
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
+import ModelABilling from "@/components/billing/ModelABilling";
 import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
 
@@ -472,12 +473,17 @@ function SettingsBodyInner({
               {
                 id: "storage",
                 group: "Usage & billing",
-                title: "Cloud storage",
+                title: "Plan & storage",
                 icon: "cloud" as const,
                 flag: "new" as const,
                 keywords:
-                  "cloud storage used cap GB plan inbox shares sync billing pricing beta",
-                render: () => <CloudStorageUsageSection />,
+                  "plan solo lab department base usage cap card on file accrued balance cloud storage used GB inbox shares sync billing pricing beta",
+                render: () => (
+                  <>
+                    <ModelABilling />
+                    <CloudStorageUsageSection />
+                  </>
+                ),
               },
             ],
           } satisfies SettingsGroupDef,
