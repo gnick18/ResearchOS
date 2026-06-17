@@ -39,7 +39,7 @@ Built with the product-messaging method, on top of [POSITIONING.md](POSITIONING.
 - Your research should outlive your subscription.
 - The work is yours. The software should treat it that way.
 - Never get locked out of your own science again.
-- Built by a researcher who was tired of renting the notebook.
+- Built by two researchers tired of renting the notebook.
 
 **Problem to Promise**
 - Tired of paying to access your own data? Keep it in a folder you own.

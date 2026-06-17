@@ -81,7 +81,7 @@ export default function PrivacyPolicy() {
             </p>
             <p className="rounded-lg border border-brand-action/30 bg-brand-action/[0.06] px-4 py-3 text-body text-foreground">
               Effective {EFFECTIVE_DATE}. ResearchOS is free and open-source
-              software written by a researcher at the University of
+              software written by researchers at the University of
               Wisconsin-Madison. If anything here is unclear, write to{" "}
               <a
                 href={`mailto:${CONTACT_EMAIL}`}
