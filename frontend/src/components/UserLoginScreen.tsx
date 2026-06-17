@@ -32,6 +32,11 @@ import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
 import { readUserSettings } from "@/lib/settings/user-settings";
+import { isAccountSettingsEnabled } from "@/lib/account/account-settings-config";
+import {
+  fetchAccountSettings,
+  resolveIsLabHead,
+} from "@/lib/account/account-settings";
 import { readArchivedSet } from "@/lib/lab/user-archive";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { evaluateUnlockMatch } from "@/lib/sharing/identity/unlock-match";
@@ -970,6 +975,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           // Settings read failed — fall back to the fast-path value (false). A
           // real PI is already in labHeadUsers once the screen settles, and a
           // shared folder still forces via the user-count branch.
+        }
+      }
+      // Account-scoped PI capability (Phase 1, account-settings foundation). A PI
+      // who opens a NEW empty folder lacks the folder-local lab_head marker, so
+      // the folder scan misses them; consulting the account capability recognizes
+      // them as a lab head regardless of which folder they opened. Flag-gated,
+      // fetchAccountSettings returns null when off, so this is inert by default.
+      if (!isLabHead && isAccountSettingsEnabled()) {
+        try {
+          const account = await fetchAccountSettings();
+          isLabHead = resolveIsLabHead(undefined, account?.labHead);
+        } catch {
+          // Never let an account-capability lookup block the login decision.
         }
       }
       if (folderRequiresLogin(users.length, isLabHead || labHeadUsers.size > 0)) {
