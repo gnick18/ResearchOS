@@ -21,6 +21,9 @@ Wordmark is **Geist** at weight 800 (bold), tight tracking (about -0.03em), in `
 - `beakerbot-avatar-{peach,sky,white,purple}.svg` — square profile images, BeakerBot centered full-bleed so a circular crop frames him with margin.
 - `researchos-banner-{lockup,wordmark}.svg` — 2048x1152 channel banner. Lockup = mark + wordmark, wordmark = text only. Logo sits inside YouTube's 1235x338 safe area.
 - `researchos-rainbow-vivid.svg` — the dark-mode (vivid) rainbow ramp, for reference + reuse.
+- `researchos-rainbow-pastel.svg` — BeakerBot's liquid ramp (always pastel), for reference.
+- `researchos-wordmark-{light,dark}.svg` — transparent wordmark only (Geist 800, vivid OS on light, luminous OS on dark), no background. The merch-pack logos.
+- `designer-brand-pack.html` — self-contained external brand guide for designers doing merch (mascot, palette + hex, Geist, logo dark/light, creative brief). Bundled with the asset SVGs into a send-ready folder (built to ~/Desktop/ResearchOS-Brand-Pack via a one-off copy + Geist PNG render; the folder/zip are derived artifacts, not committed).
 - `png/` — rendered exports.
   - `beakerbot-avatar-*-1600.png` — 1600x1600. **Use these for uploads** (YouTube re-compresses small images, which is why an 800px upload looked soft).
   - `researchos-banner-*.png` — 2048x1152.

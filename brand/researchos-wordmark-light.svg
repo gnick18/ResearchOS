@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 150" width="760" height="150">
+  <!-- ResearchOS wordmark, light surfaces. Transparent bg. Font: Geist Extrabold (800).
+       "Research" in ink #111827, "OS" in the vivid rainbow. -->
+  <defs>
+    <linearGradient id="osViv" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#f97316"/><stop offset="22%" stop-color="#e8920b"/>
+      <stop offset="48%" stop-color="#16a34a"/><stop offset="72%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#9333ea"/>
+    </linearGradient>
+  </defs>
+  <text x="12" y="116" font-family="Geist, Inter, system-ui, -apple-system, sans-serif"
+        font-weight="800" font-size="120" letter-spacing="-3.4" fill="#111827">Research</text>
+  <text x="575" y="116" font-family="Geist, Inter, system-ui, -apple-system, sans-serif"
+        font-weight="800" font-size="120" letter-spacing="-3.4" fill="url(#osViv)">OS</text>
+</svg>
