@@ -48,6 +48,7 @@ import StockFormDialog from "@/components/inventory/StockFormDialog";
 import StockRow from "@/components/inventory/StockRow";
 import StorageMap from "@/components/inventory/StorageMap";
 import RoomMap from "@/components/inventory/RoomMap";
+import { SPATIAL_INVENTORY_ENABLED } from "@/lib/inventory/spatial-config";
 import InventoryHealth from "@/components/inventory/InventoryHealth";
 import SignalRecordRow from "@/components/inventory/SignalRecordRow";
 import {
@@ -483,34 +484,41 @@ function InventoryPageContent() {
                 <Icon name="list" className="h-3.5 w-3.5" />
                 List
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "storage"}
-                onClick={() => setView("storage")}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                  view === "storage"
-                    ? "bg-surface-raised text-foreground ros-seg-active"
-                    : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <Icon name="box" className="h-3.5 w-3.5" />
-                Storage map
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "room"}
-                onClick={() => setView("room")}
-                className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
-                  view === "room"
-                    ? "bg-surface-raised text-foreground ros-seg-active"
-                    : "text-foreground-muted hover:text-foreground"
-                }`}
-              >
-                <Icon name="floorPlan" className="h-3.5 w-3.5" />
-                Room map
-              </button>
+              {/* Structured Storage map (Phase B) + Room map (Phase C) are gated
+                  off by default; only the free-text List view ships. See
+                  spatial-config.ts. */}
+              {SPATIAL_INVENTORY_ENABLED && (
+                <>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view === "storage"}
+                    onClick={() => setView("storage")}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                      view === "storage"
+                        ? "bg-surface-raised text-foreground ros-seg-active"
+                        : "text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon name="box" className="h-3.5 w-3.5" />
+                    Storage map
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={view === "room"}
+                    onClick={() => setView("room")}
+                    className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-medium transition-colors ${
+                      view === "room"
+                        ? "bg-surface-raised text-foreground ros-seg-active"
+                        : "text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon name="floorPlan" className="h-3.5 w-3.5" />
+                    Room map
+                  </button>
+                </>
+              )}
             </div>
             <Tooltip label="Refresh">
               <button
@@ -549,9 +557,9 @@ function InventoryPageContent() {
           </div>
         </div>
 
-        {view === "room" ? (
+        {SPATIAL_INVENTORY_ENABLED && view === "room" ? (
           <RoomMap nodes={nodes} stocks={stocks} />
-        ) : view === "storage" ? (
+        ) : SPATIAL_INVENTORY_ENABLED && view === "storage" ? (
           <StorageMap
             items={items}
             stocks={stocks}

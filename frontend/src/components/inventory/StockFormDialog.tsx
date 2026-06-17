@@ -19,6 +19,7 @@ import type {
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
 import LocationPicker from "./LocationPicker";
+import { SPATIAL_INVENTORY_ENABLED } from "@/lib/inventory/spatial-config";
 import { containerWord, dateInputToIso, isoToDateInput } from "./inventory-ui";
 
 const INPUT_CLASS =
@@ -260,18 +261,20 @@ export default function StockFormDialog({
             is the fallback. */}
         <div className="rounded-lg border border-border bg-surface-sunken px-4 py-3">
           <p className={LABEL_CLASS}>Location</p>
-          <LocationPicker
-            nodes={nodes}
-            nodeId={locationNodeId}
-            position={position}
-            onChange={({ nodeId, position: pos }) => {
-              setLocationNodeId(nodeId);
-              setPosition(pos);
-            }}
-          />
-          <div className="mt-3">
+          {SPATIAL_INVENTORY_ENABLED && (
+            <LocationPicker
+              nodes={nodes}
+              nodeId={locationNodeId}
+              position={position}
+              onChange={({ nodeId, position: pos }) => {
+                setLocationNodeId(nodeId);
+                setPosition(pos);
+              }}
+            />
+          )}
+          <div className={SPATIAL_INVENTORY_ENABLED ? "mt-3" : undefined}>
             <label htmlFor="stock-location" className={LABEL_CLASS}>
-              Or a free-text note
+              {SPATIAL_INVENTORY_ENABLED ? "Or a free-text note" : "Where it lives"}
             </label>
             <input
               id="stock-location"
@@ -282,8 +285,9 @@ export default function StockFormDialog({
               autoComplete="off"
             />
             <p className="text-meta text-foreground-muted mt-1">
-              Use the picker for an exact box cell, or leave a quick note. Both
-              still work.
+              {SPATIAL_INVENTORY_ENABLED
+                ? "Use the picker for an exact box cell, or leave a quick note. Both still work."
+                : "Type wherever you stored it — use your lab's own drawer or box labels."}
             </p>
           </div>
         </div>

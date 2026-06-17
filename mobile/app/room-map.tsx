@@ -22,7 +22,7 @@ import Animated, {
   useSharedValue,
   withTiming,
 } from 'react-native-reanimated';
-import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { Redirect, useFocusEffect, useLocalSearchParams } from 'expo-router';
 
 import { ThemedText } from '@/components/themed-text';
 import { ScreenFrame } from '@/components/ui/ScreenFrame';
@@ -32,9 +32,20 @@ import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
+import { SPATIAL_INVENTORY_ENABLED } from '@/lib/features';
 import type { InventorySnapshot, LabMapPin, StorageNode, TrackedStock } from '@/lib/scan';
 
 export default function RoomMapScreen() {
+  // Spatial inventory (Phase C) is gated off by default. The Inventory tab no
+  // longer links here when the flag is off, but guard the route itself so a deep
+  // link cannot reach a dormant feature.
+  if (!SPATIAL_INVENTORY_ENABLED) {
+    return <Redirect href="/inventory" />;
+  }
+  return <RoomMapScreenInner />;
+}
+
+function RoomMapScreenInner() {
   const { surface, spacing } = useTheme();
   const params = useLocalSearchParams<{ node?: string }>();
   const focusNodeId = params.node ? Number(params.node) : null;

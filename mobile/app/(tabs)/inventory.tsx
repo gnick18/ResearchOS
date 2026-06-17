@@ -29,6 +29,7 @@ import { useTheme, palette, fonts } from '@/lib/design';
 import { usePairing } from '@/lib/pairing';
 import { signWithDevice } from '@/lib/device-identity';
 import { fetchSnapshot } from '@/lib/snapshots';
+import { SPATIAL_INVENTORY_ENABLED } from '@/lib/features';
 import type { InventorySnapshot, TrackedStock, RecentPurchase } from '@/lib/scan';
 
 // A tracked stock is low when its remaining units have hit its reorder point.
@@ -112,7 +113,10 @@ export default function InventoryScreen() {
   const showSearch = trackedStocks.length >= 4;
   // Phase C: the lab has a room map with at least one pin, so "find on map" + the
   // map entry are worth showing.
+  // Room map (Phase C) is gated off by default; only the free-text location
+  // shows. See lib/features.ts.
   const hasRoomMap = (snapshot?.labMap?.pins?.length ?? 0) > 0;
+  const showRoomMap = SPATIAL_INVENTORY_ENABLED && hasRoomMap;
   const shownStocks = trackedStocks.filter(
     (s) => (!lowOnly || stockIsLow(s)) && matchesQuery(s),
   );
@@ -172,8 +176,9 @@ export default function InventoryScreen() {
               onPress={() => router.push('/add-purchase')}
             />
 
-            {/* Room map entry (Phase C), only when the lab has pinned a map. */}
-            {hasRoomMap ? (
+            {/* Room map entry (Phase C), only when the lab has pinned a map AND
+                the spatial flag is on. */}
+            {showRoomMap ? (
               <Pressable
                 testID="inventory-room-map"
                 onPress={() => router.push('/room-map')}
@@ -258,7 +263,7 @@ export default function InventoryScreen() {
                     stock={stock}
                     last={i === shownStocks.length - 1}
                     onFindOnMap={
-                      hasRoomMap
+                      showRoomMap
                         ? (nodeId) => router.push(`/room-map?node=${nodeId}`)
                         : undefined
                     }
@@ -439,7 +444,7 @@ function TrackedStockRow({
           {unitsText}
         </ThemedText>
         {location ? (
-          stock.locationExternal ? (
+          SPATIAL_INVENTORY_ENABLED && stock.locationExternal ? (
             // External (off-map) location: no find-on-map link, just a labelled
             // "stored externally" line.
             <View style={styles.locationRow}>
@@ -451,7 +456,9 @@ function TrackedStockRow({
                 External · {location}
               </ThemedText>
             </View>
-          ) : stock.locationNodeId != null && onFindOnMap ? (
+          ) : SPATIAL_INVENTORY_ENABLED &&
+            stock.locationNodeId != null &&
+            onFindOnMap ? (
             <Pressable
               onPress={() => onFindOnMap(stock.locationNodeId as number)}
               style={styles.locationRow}

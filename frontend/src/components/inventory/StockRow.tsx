@@ -19,6 +19,7 @@ import type {
 } from "@/lib/types";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { SPATIAL_INVENTORY_ENABLED } from "@/lib/inventory/spatial-config";
 import {
   STATUS_LABEL,
   TAPPABLE_STATUSES,
@@ -121,7 +122,9 @@ export default function StockRow({
           </p>
         )}
         {location &&
-          (location.kind === "node" && location.nodeId != null ? (
+          (SPATIAL_INVENTORY_ENABLED &&
+          location.kind === "node" &&
+          location.nodeId != null ? (
             <Tooltip label="Show on the storage map">
               <button
                 type="button"
