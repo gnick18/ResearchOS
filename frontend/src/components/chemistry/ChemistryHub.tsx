@@ -23,6 +23,7 @@ import {
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
 import { moleculesApi, type Molecule } from "@/lib/chemistry/api";
+import { getRdkit } from "@/lib/chemistry/rdkit";
 import { emitMoleculeDeleted } from "@/lib/chemistry/delete-toast-bus";
 import { projectsApi } from "@/lib/local-api";
 import { useContextMenu } from "@/components/context-menu/ContextMenuProvider";
@@ -113,17 +114,23 @@ export function ChemistryHub({
     queryFn: () => projectsApi.list(),
   });
 
-  // Warm the heavy Ketcher editor in the background once the workbench has
-  // settled, so the first New / Edit click is near-instant. Importing the canvas
-  // chunk preloads the editor code AND spawns the shared Indigo worker;
-  // warmKetcher() then compiles the wasm ahead of time. The worker is reused by
-  // the Editor on open (confirmed: ketcher-standalone shares one module-level
-  // worker), so the open skips both the chunk load and the wasm compile.
+  // Warm the heavy engines in the background once the workbench has settled, so
+  // the first interaction is near-instant instead of blocking on a cold load:
+  //   - RDKit (~6.6 MB wasm) backs every thumbnail + the identity readout, so a
+  //     cold load otherwise stalls the first molecule render. getRdkit() is a
+  //     memoized singleton, so the later real call reuses this warmed instance.
+  //   - Ketcher: importing the canvas chunk preloads the editor code AND spawns
+  //     the shared Indigo worker; warmKetcher() then compiles its wasm ahead of
+  //     time. The worker is reused by the Editor on open (ketcher-standalone
+  //     shares one module-level worker), so the open skips chunk load + compile.
   useEffect(() => {
     if (typeof window === "undefined") return;
     let cancelled = false;
     const warm = () => {
       if (cancelled) return;
+      // RDKit's wasm loads via a runtime script tag, so this only kicks off the
+      // download/compile; nothing heavy is pulled into the page bundle.
+      void getRdkit().catch(() => {});
       void import("./KetcherCanvas")
         .then((m) => {
           // The user may have left /chemistry while the chunk loaded; do not warm
