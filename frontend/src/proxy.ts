@@ -38,6 +38,27 @@ export function proxy(req: NextRequest): NextResponse {
     return new NextResponse(null, { status: 404 });
   }
 
+  // Operator console gate. The /admin shell renders client-computed pricing and
+  // cost figures (the price-modeling tool) that do NOT come from the API-gated
+  // data, so a logged-out visitor could otherwise scroll the cost model. The
+  // page itself does the precise operator check (isOperator), but per the /dev
+  // experience a page-level gate is not trusted alone, so this route-level gate
+  // runs first and 404s /admin for anyone with no session at all. Cheap
+  // cookie-presence check, edge-safe; the real operator verification stays in
+  // the page + the /api/admin routes. Runs in dev and every deployed build.
+  if (
+    req.nextUrl.pathname === "/admin" ||
+    req.nextUrl.pathname.startsWith("/admin/")
+  ) {
+    const hasSession =
+      req.cookies.has("authjs.session-token") ||
+      req.cookies.has("__Secure-authjs.session-token") ||
+      req.cookies.has("ros_op");
+    if (!hasSession) {
+      return new NextResponse(null, { status: 404 });
+    }
+  }
+
   // Off unless deliberately enabled, so this is a no-op in normal operation.
   if (process.env.MAINTENANCE_MODE !== "true") {
     return NextResponse.next();
