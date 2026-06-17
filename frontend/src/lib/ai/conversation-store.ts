@@ -66,7 +66,7 @@ function getModelCaller(taskId?: string): ModelCaller {
   if (modelCallerOverride) return modelCallerOverride;
   return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
-import { DEFAULT_TOOLS } from "@/lib/ai/tools/registry";
+import { getActiveTools } from "@/lib/ai/tool-scope";
 import { setAnalysisResultInChat } from "@/lib/ai/tools/analysis-presentation";
 import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import {
@@ -1297,7 +1297,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     try {
       const result = await runAgentLoop({
         messages: loopInput,
-        tools: DEFAULT_TOOLS,
+        tools: getActiveTools(),
         callModel: getModelCaller(taskId),
         onStatus: (s) => {
           // Update the friendly status label for the existing "Thinking" text.
@@ -1639,7 +1639,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
       // raises its own confirm through the same requestApproval bridge.
       const result = await runMacro({
         macro,
-        tools: DEFAULT_TOOLS,
+        tools: getActiveTools(),
         requestApproval,
         signal: controller.signal,
         onStep: (event) => {
@@ -1721,7 +1721,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
   },
 
   captureMacroDraftFromLastRun: () => {
-    const toolMap = new Map(DEFAULT_TOOLS.map((t) => [t.name, t] as const));
+    const toolMap = new Map(getActiveTools().map((t) => [t.name, t] as const));
     const describeLabel = (
       tool: string,
       args: Record<string, unknown>,
@@ -1789,7 +1789,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     try {
       const result = await runAgentLoop({
         messages: loopInput,
-        tools: DEFAULT_TOOLS,
+        tools: getActiveTools(),
         callModel: getModelCaller(taskId),
         getReviewMode: getReviewMode,
         requestApproval,

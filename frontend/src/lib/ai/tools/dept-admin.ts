@@ -12,6 +12,7 @@
 // later. No emojis, no em-dashes, no mid-sentence colons.
 
 import type { AiTool } from "./types";
+import { COORDINATION_TOOLS } from "./registry";
 import { loadDeptRoster } from "@/lib/dept/dept-admin-membership";
 import { deriveDeptRate, centsToUsd } from "@/lib/dept/plan";
 
@@ -230,3 +231,10 @@ export const DEPT_TOOLS: AiTool[] = [
   deptPlanExplainerTool,
   deptReportScaffoldTool,
 ];
+
+/**
+ * The full scope BeakerBot runs with on the department portal: the dept tools
+ * plus the coordination tools (propose-plan, ask-user) so it can clarify and
+ * sequence. NOT the research-shell read/action tools, which do not apply here.
+ */
+export const DEPT_SCOPE_TOOLS: AiTool[] = [...DEPT_TOOLS, ...COORDINATION_TOOLS];
