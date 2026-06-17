@@ -1,5 +1,9 @@
 # Billing facts for customer-facing copy
 
+> SUPERSEDED 2026-06-16 (GB-ladder era). The canonical pricing source is now
+> `docs/branding/PRICING.md` (Model A pay-for-what-you-use, the working hybrid
+> config). Do not write copy from this file; kept for history only.
+
 Canonical reference for anyone writing marketing, pricing, or FAQ copy about
 what ResearchOS charges for. Keep this current as billing changes, it is the
 single source the branding work pulls from.

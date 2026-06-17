@@ -1,5 +1,9 @@
 # Billing copy facts (canonical reference)
 
+> SUPERSEDED 2026-06-16 (GB-ladder era). The canonical pricing source is now
+> `docs/branding/PRICING.md` (Model A pay-for-what-you-use, the working hybrid
+> config). Do not write copy from this file; kept for history only.
+
 Status: LOCKED reference from the billing manager (2026-06-10), for the branding role.
 This is the single source of truth for any customer-facing copy about cost, plans, or
 storage. When a billing fact changes, update it here first, then propagate to pages.
