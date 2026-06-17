@@ -85,6 +85,20 @@ export async function GET(req: Request) {
     // global cost breaker. Free owners fall through to the legacy free-allowance
     // check below (they have no produce/cloud usage to bill anyway).
     const planId = await resolveModelAPlanId(ownerKey);
+
+    // Model A: live co-editing is a PAID produce feature. Once billing is live, a
+    // FREE owner (resolved: not a paid solo/lab, and not a member mapped to a paid
+    // lab) may not durably persist collab edits. over=true soft-blocks at the DO,
+    // so the edits still fan out live and stay local (nothing is lost); the user
+    // converts via the settings billing panel. Entirely inert while billing is off
+    // (the beta is byte-for-byte unchanged), and a paid owner never reaches here.
+    if (isBillingEnabled() && planId === "free") {
+      return NextResponse.json(
+        { over: true, reason: "upgrade" },
+        { headers: { "cache-control": "no-store" } },
+      );
+    }
+
     if (planId === "solo" || planId === "lab") {
       const capState = await modelACapState(ownerKey, period, { planId, labCount: 1 });
       return NextResponse.json(
