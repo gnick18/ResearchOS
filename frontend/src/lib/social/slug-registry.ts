@@ -67,6 +67,7 @@ export const APP_ROUTE_SEGMENTS: readonly string[] = [
   "admin",
   "ai",
   "api",
+  "app",
   "approvals",
   "buisness", // existing (misspelled) route dir, kept verbatim so it stays reserved
   "business",
@@ -76,6 +77,7 @@ export const APP_ROUTE_SEGMENTS: readonly string[] = [
   "datahub",
   "demo",
   "department",
+  "departments",
   "dept",
   "dev",
   "dev-gate",
@@ -93,6 +95,7 @@ export const APP_ROUTE_SEGMENTS: readonly string[] = [
   "lab-notes",
   "lab-overview",
   "lab-work",
+  "labs",
   "library",
   "links",
   "maintenance",
