@@ -16,6 +16,7 @@ import { resolveNavLayout, NavLayout } from "@/lib/nav-layout";
 import { useAppStore } from "@/lib/store";
 import { patchUserSettings } from "@/lib/settings/user-settings";
 import { isRecordingMode } from "@/lib/file-system/wiki-capture-mock";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 
 /**
  * The slim, drag-customizable global nav (design: docs/mockups/
@@ -97,6 +98,10 @@ export default function AppNavBar({
 
   // Right-click context menu position (null = closed).
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number } | null>(null);
+
+  // Close the More dropdown on Escape (topmost layer wins; the shared stack
+  // ensures only one surface closes per press).
+  useEscapeLayer(moreOpen && !editing, () => setMoreOpen(false));
 
   // How many inline tabs actually fit, for responsive presentational overflow.
   const [visibleInlineCount, setVisibleInlineCount] = useState<number>(

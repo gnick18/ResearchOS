@@ -22,6 +22,7 @@
 // mid-sentence colons.
 
 import { useEffect, useMemo, useState } from "react";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 import FileDropzone from "@/components/ui/FileDropzone";
 import type { Project } from "@/lib/types";
 import type { ColumnDef, RowRecord } from "@/lib/datahub/model/types";
@@ -86,15 +87,10 @@ export default function ImportTableDialog({
     }
   }, [open, defaultCollectionId]);
 
-  // Escape closes the dialog.
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onCancel();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  // Escape closes the dialog. Uses the shared overlay stack so a menu or
+  // dropdown open on top of this dialog claims Escape first, and the dialog
+  // only closes on a subsequent press once the menu is gone.
+  useEscapeLayer(open, onCancel);
 
   // The active workbook sheet (null when the source is text / paste). Clamped so
   // a stale index from a previous file never points past the current sheet list.
