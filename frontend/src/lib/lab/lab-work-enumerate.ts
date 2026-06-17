@@ -87,6 +87,13 @@ export interface OwnedRecord {
  *   record MUST have a non-empty id drawn from mirror.meta.id (not a
  *   runtime-derived field).
  *
+ * listResultSheets: return every experiment Results sheet for `owner`, read from
+ *   the persisted results.md markdown mirror. The id is the task id (one Results
+ *   sheet per task), so the markdown content is the only volatile-free payload.
+ *
+ * listNotesSheets: return every Lab Notes sheet for `owner`, read from the
+ *   persisted notes.md markdown mirror. Same id rule as listResultSheets.
+ *
  * OWNERSHIP: each method is called once per sync run for a single owner string.
  *   The adapter is responsible for mapping `owner` to the correct data scope.
  */
@@ -101,6 +108,8 @@ export interface LabWorkSource {
   listPhylo(owner: string): Promise<OwnedRecord[]>;
   listMolecules(owner: string): Promise<OwnedRecord[]>;
   listDatahub(owner: string): Promise<OwnedRecord[]>;
+  listResultSheets(owner: string): Promise<OwnedRecord[]>;
+  listNotesSheets(owner: string): Promise<OwnedRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -125,7 +134,9 @@ export type LabWorkType =
   | "sequence"
   | "phylo"
   | "molecule"
-  | "datahub";
+  | "datahub"
+  | "result_sheet"
+  | "notes_sheet";
 
 /**
  * Ordered array of all eleven lab-work types. Iteration order determines the
@@ -144,6 +155,8 @@ export const LAB_WORK_TYPES: LabWorkType[] = [
   "phylo",
   "molecule",
   "datahub",
+  "result_sheet",
+  "notes_sheet",
 ];
 
 // ---------------------------------------------------------------------------
@@ -232,6 +245,8 @@ export async function enumerateLabWork(params: {
     phylo,
     molecules,
     datahub,
+    resultSheets,
+    notesSheets,
   ] = await Promise.all([
     source.listTasks(owner),
     source.listNotes(owner),
@@ -243,6 +258,8 @@ export async function enumerateLabWork(params: {
     source.listPhylo(owner),
     source.listMolecules(owner),
     source.listDatahub(owner),
+    source.listResultSheets(owner),
+    source.listNotesSheets(owner),
   ]);
 
   // Separate tasks from experiments by task_type.
@@ -269,6 +286,8 @@ export async function enumerateLabWork(params: {
     { type: "phylo", records: phylo },
     { type: "molecule", records: molecules },
     { type: "datahub", records: datahub },
+    { type: "result_sheet", records: resultSheets },
+    { type: "notes_sheet", records: notesSheets },
   ];
 
   const result: LabWorkRecord[] = [];

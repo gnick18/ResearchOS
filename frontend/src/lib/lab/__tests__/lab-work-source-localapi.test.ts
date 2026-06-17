@@ -94,12 +94,29 @@ vi.mock("@/lib/loro/datahub-sidecar-store", () => ({
   }),
 }));
 
-// Mock fileService.listFiles to return a .json entry per datahub fixture.
+// Mock fileService: listFiles feeds datahub; listDirectories + readText feed the
+// task result/notes sheet readers. listDirectories returns two task dirs (one of
+// which has no results.md) plus a non-task dir that must be ignored.
 vi.mock("@/lib/file-system/file-service", () => ({
   fileService: {
     listFiles: vi.fn((_dir: string) =>
       Promise.resolve(DATAHUB_FIXTURES.map((f) => `${f.id}.json`)),
     ),
+    listDirectories: vi.fn((_dir: string) =>
+      Promise.resolve(["task-7", "task-9", "Files"]),
+    ),
+    readText: vi.fn((path: string) => {
+      // task-7 has both sheets; task-9 has only notes.md (empty results.md).
+      if (path === "users/alex/results/task-7/results.md")
+        return Promise.resolve("# Results\nbands at 500bp");
+      if (path === "users/alex/results/task-7/notes.md")
+        return Promise.resolve("# Notes\nran the gel");
+      if (path === "users/alex/results/task-9/results.md")
+        return Promise.resolve("");
+      if (path === "users/alex/results/task-9/notes.md")
+        return Promise.resolve("# Notes\nprepped reagents");
+      return Promise.resolve(null);
+    }),
   },
 }));
 
@@ -221,6 +238,32 @@ describe("createLocalApiLabWorkSource — unit", () => {
     ).toHaveBeenCalledWith("users/alex/datahub");
   });
 
+  it("listResultSheets returns one record per task dir with a non-empty results.md", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listResultSheets("alex");
+    // task-7 has results.md; task-9's is empty; "Files" is not a task dir.
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("7");
+    expect(result[0].sheet).toBe("results");
+    expect(result[0].markdown).toContain("bands at 500bp");
+  });
+
+  it("listNotesSheets returns a record per task dir with a non-empty notes.md", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listNotesSheets("alex");
+    // both task-7 and task-9 have notes.md.
+    expect(result.map((r) => r.id).sort()).toEqual(["7", "9"]);
+    expect(result.every((r) => r.sheet === "notes")).toBe(true);
+  });
+
+  it("the sheet readers list the owner's results directory and ignore non-task dirs", async () => {
+    const source = createLocalApiLabWorkSource();
+    await source.listResultSheets("alex");
+    expect(
+      (fileService.listDirectories as ReturnType<typeof vi.fn>),
+    ).toHaveBeenCalledWith("users/alex/results");
+  });
+
   it("each store's listAllForUser is called with the correct owner string", async () => {
     const source = createLocalApiLabWorkSource();
     await source.listTasks("morgan");
@@ -293,10 +336,15 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
     // datahub: id "dh-001"
     expect(pairs).toContainEqual({ type: "datahub", id: "dh-001" });
 
-    // Total count: 1 task + 1 experiment + 1 note + 1 method + 1 purchase
-    //              + 1 inventory + 1 inventory_stock + 1 sequence
-    //              + 1 phylo + 1 molecule + 1 datahub = 11.
-    expect(records).toHaveLength(11);
+    // result_sheet: task-7 has a non-empty results.md (task-9's is empty).
+    expect(pairs).toContainEqual({ type: "result_sheet", id: "7" });
+
+    // notes_sheet: both task-7 and task-9 have a non-empty notes.md.
+    expect(pairs).toContainEqual({ type: "notes_sheet", id: "7" });
+    expect(pairs).toContainEqual({ type: "notes_sheet", id: "9" });
+
+    // Total count: 11 from the record stores + 1 result_sheet + 2 notes_sheet = 14.
+    expect(records).toHaveLength(14);
   });
 
   it("records have a non-empty plaintext Uint8Array (canonical bytes)", async () => {
@@ -308,10 +356,12 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
     }
   });
 
-  it("output is grouped by type in LAB_WORK_TYPES order (original five then six new types)", async () => {
+  it("output is grouped by type in LAB_WORK_TYPES order (record stores then sheets)", async () => {
     const source = createLocalApiLabWorkSource();
     const records = await enumerateLabWork({ owner: "alex", source });
     const types = records.map((r) => r.recordType);
+    // The two notes_sheet records (task-7, task-9) appear consecutively, after
+    // the single result_sheet, in LAB_WORK_TYPES order.
     expect(types).toEqual([
       "task",
       "experiment",
@@ -324,6 +374,9 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
       "phylo",
       "molecule",
       "datahub",
+      "result_sheet",
+      "notes_sheet",
+      "notes_sheet",
     ]);
   });
 });

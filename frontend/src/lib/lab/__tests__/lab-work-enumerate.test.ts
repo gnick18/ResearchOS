@@ -47,6 +47,8 @@ function fakeSource(overrides: Partial<LabWorkSource> = {}): LabWorkSource {
     listPhylo: overrides.listPhylo ?? (async () => []),
     listMolecules: overrides.listMolecules ?? (async () => []),
     listDatahub: overrides.listDatahub ?? (async () => []),
+    listResultSheets: overrides.listResultSheets ?? (async () => []),
+    listNotesSheets: overrides.listNotesSheets ?? (async () => []),
   };
 }
 
@@ -360,7 +362,7 @@ describe("enumerateLabWork", () => {
     expect(records).toEqual([]);
   });
 
-  it("LAB_WORK_TYPES array contains all eleven expected types in order", () => {
+  it("LAB_WORK_TYPES array contains all thirteen expected types in order", () => {
     expect(LAB_WORK_TYPES).toEqual([
       "task",
       "experiment",
@@ -373,6 +375,8 @@ describe("enumerateLabWork", () => {
       "phylo",
       "molecule",
       "datahub",
+      "result_sheet",
+      "notes_sheet",
     ]);
   });
 

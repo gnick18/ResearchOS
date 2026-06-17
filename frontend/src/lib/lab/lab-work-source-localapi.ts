@@ -132,5 +132,42 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
       }
       return out;
     },
+    listResultSheets(owner: string): Promise<OwnedRecord[]> {
+      return readTaskSheets(owner, "results");
+    },
+    listNotesSheets(owner: string): Promise<OwnedRecord[]> {
+      return readTaskSheets(owner, "notes");
+    },
   };
+}
+
+/**
+ * Reads every task's persisted sheet markdown (results.md or notes.md) for
+ * `owner`. The sheets live under `users/<owner>/results/task-<id>/<which>.md`
+ * (the readable mirror the editor keeps alongside the Loro sidecar, see
+ * lib/loro/task-sidecar-store.ts). We read the markdown directly rather than
+ * opening a Loro doc, so the payload is the already-persisted, volatile-free
+ * text. One sheet per task, so the task id is a stable record id.
+ *
+ * A task dir with no `<which>.md` (or an empty one) is skipped. The owner's
+ * results directory may not exist at all (no experiments yet), which
+ * listDirectories reports as an empty list.
+ */
+async function readTaskSheets(
+  owner: string,
+  which: "results" | "notes",
+): Promise<OwnedRecord[]> {
+  const baseDir = `users/${owner}/results`;
+  const dirs = await fileService.listDirectories(baseDir);
+  const out: OwnedRecord[] = [];
+  for (const dir of dirs) {
+    const match = /^task-(.+)$/.exec(dir);
+    if (!match) continue;
+    const taskId = match[1];
+    const markdown = await fileService.readText(`${baseDir}/${dir}/${which}.md`);
+    if (markdown && markdown.length > 0) {
+      out.push({ id: taskId, owner, sheet: which, markdown });
+    }
+  }
+  return out;
 }
