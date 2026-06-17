@@ -30,7 +30,7 @@ Wordmark is **Geist** at weight 800 (bold), tight tracking (about -0.03em), in `
   - `researchos-mobile-play-512.png` — 512x512 Google Play store icon, same treatment.
 - Option D social banner set (2026-06-17), wordmark-only on a deep-ink or white field with the rainbow OS and a rainbow hairline rule under the lockup, plus the tagline "Local-first. Open source. Free for every researcher." The hairline auto-matches the wordmark width. "OS" uses the luminous ramp on dark, the vivid ramp on light. Rendered with Geist 800 via `src/social-banner-d.html`.
   - `researchos-banner-linkedin-{dark,light}.svg` — 1128x191 vector source (LinkedIn company cover ratio).
-  - `png/researchos-banner-linkedin-{dark,light}.png` — 2256x382 (2x). Upload the dark one as the LinkedIn cover; it pops on LinkedIn's white page. Left-aligned so the page logo bug and edit controls do not collide with the type.
+  - `png/researchos-banner-linkedin-{dark,light}.png` — 2256x382 (2x). Upload the dark one as the LinkedIn cover; it pops on LinkedIn's white page. Centered: the page logo bug overlaps the bottom-left of the cover, so a left-aligned lockup collides with it. Centering clears the avatar.
   - `png/researchos-banner-bluesky-dark.png` — 1500x500 (3:1) Bluesky header, centered.
   - `png/researchos-banner-youtube-dark.png` — 2560x1440 YouTube channel art, lockup centered inside the 1546x423 all-device safe area.
 - `src/` — the editable generators (`profile.html`, `banner.html`, `og.html`, `bluesky-banner.html`, `mobile-icon.html`). Open over `http://localhost` to re-render or tweak.
