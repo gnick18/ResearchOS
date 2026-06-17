@@ -152,7 +152,9 @@ function R2Demo({ name, label }: { name: string; label: string }) {
  *  Vercel ALONGSIDE the server BILLING_ENABLED / AI_BILLING_ENABLED and redeploy
  *  (see docs/proposals/2026-06-13-billing-go-live-checklist.md). Kept a separate
  *  flag because the server switch is not readable from this client component. */
-const BILLING_LIVE = process.env.NEXT_PUBLIC_BILLING_LIVE === "1";
+const BILLING_LIVE =
+  process.env.NEXT_PUBLIC_BILLING_LIVE === "1" ||
+  process.env.NEXT_PUBLIC_BILLING_LIVE === "true";
 
 
 /** A check glyph for the trust-block lists, sky-blue. The single inline check
