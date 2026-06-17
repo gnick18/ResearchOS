@@ -79,13 +79,13 @@ type ChooserStep =
 // ---- Feature comparison table data (verbatim from beakerbot-tier-icons.html FEAT array) ----
 type CellValue = boolean | string;
 const FEAT: [string, CellValue, CellValue, CellValue][] = [
-  ["The account itself", "Free (no account)", "Free", "Free to create"],
+  ["The account itself", "Free (no account)", "Free", "Paid plan"],
   ["Sign-in required", false, "Yes (Google etc.)", "Yes (Google etc.)"],
   ["Local-first: your data lives on your disk", true, true, true],
   [
     "Cloud is only an intermediary (relays sync/sharing)",
     "Never used",
-    "For external sends",
+    "Receives shares for you",
     "Keeps the team in sync",
   ],
   [
@@ -94,34 +94,40 @@ const FEAT: [string, CellValue, CellValue, CellValue][] = [
     true,
     true,
   ],
-  ["Works fully offline", true, true, "Local-first; collab needs internet"],
+  ["Works fully offline", true, true, "Local-first; live sync needs internet"],
   ["Findable in the researcher directory", false, true, true],
   [
-    "Send and receive notes, methods, and files with outside researchers",
+    "Receive notes, methods, and files shared by other researchers",
     false,
     true,
     true,
   ],
-  ["Real-time co-editing inside a lab", false, false, true],
+  [
+    "Send and share your own work with outside researchers (paid)",
+    false,
+    false,
+    true,
+  ],
+  ["Real-time co-editing inside a lab (paid)", false, false, true],
   ["Shared lab workspace and PI oversight", false, false, true],
   ["Sign in and restore on a new device", false, true, true],
   [
-    "Free cloud (sharing and collab)",
-    "—",
-    "1 GB",
-    "1 GB per member (pooled)",
+    "One-time AI gift on sign-up (about 1.6M tokens)",
+    false,
+    true,
+    true,
   ],
   [
-    "At the free cap",
-    "Never reached",
-    "Usage pauses, you are never billed",
-    "Usage pauses unless the cap is raised",
+    "Cloud sync and sharing",
+    "Never used",
+    "Receive only",
+    "Pay for what you use, with a cap you set",
   ],
   [
-    "Want more (opt-in)",
-    "—",
-    "Raise your cap; pay only for what you use, up to a ceiling you set ($0.30/GB-mo)",
-    "PI raises one lab cap; one consolidated bill",
+    "No surprise bills",
+    true,
+    true,
+    "A monthly cap you control; the local app never stops",
   ],
   [
     "Upgrade later",
@@ -139,11 +145,11 @@ const GUIDE = [
   },
   {
     h: "Free account",
-    p: "You mostly work solo but want to share notes, methods or files with collaborators at other labs, or be findable by other researchers. The account is free and your data still lives on your disk. You get 1 GB of cloud free; if you hit it, sharing just pauses (old sends auto-expire after 30 days, freeing space) and you are never charged. Want more headroom? Raise your cap and pay only for what you use, never more than the ceiling you set.",
+    p: "You mostly work solo but want to receive notes, methods or files shared by researchers at other labs, and be findable in the directory. The account is free and your data still lives on your disk, and signing up comes with a one-time gift of about 1.6 million AI tokens. When you want to send and co-edit your own work, a paid plan unlocks the produce side, pay-for-what-you-use with a monthly cap you set.",
   },
   {
     h: "Lab",
-    p: "You run or belong to a lab and want the whole team together: a shared workspace, real-time co-editing, and PI oversight. It is still local-first, every member's data lives on their own disk; the cloud is only the intermediary that keeps the team in sync, and that is what the PI funds. Creating a lab is free, with a 1 GB pooled allowance per member. If the lab needs more, the PI raises one cap and pays only for actual use ($0.30/GB-mo), capped at a ceiling they set. A small or light lab stays at $0.",
+    p: "You run or belong to a lab and want the whole team together, with a shared workspace, real-time co-editing, and PI oversight. It is still local-first, every member's data lives on their own disk, and the cloud is only the intermediary that keeps the team in sync. The Lab plan is a flat per-lab fee plus the cloud your lab actually uses, billed only to the PI on one invoice, with a cap the PI sets so there are no surprises.",
   },
 ];
 
@@ -259,9 +265,9 @@ function CompareTiers({
         <div className="mt-4 bg-[#E6F4FE] dark:bg-surface-sunken border border-border rounded-xl px-4 py-3 text-sm text-foreground">
           <span className="font-bold text-brand-sky">Every tier is local-first</span>,
           your files always live on your own disk. The cloud is only an
-          intermediary for sharing and team sync. We charge only to cover what
-          that intermediary actually costs us (cost-recovery, never more), and
-          the free allowance is on us.{" "}
+          intermediary for sending and team sync. Paid plans are
+          pay-for-what-you-use, a small base fee plus the cloud you actually
+          use, with a monthly cap you set so there are no surprises.{" "}
           <span className="font-bold text-brand-sky">Not sure?</span> Start
           with Just me, local, you can upgrade any time without moving or
           losing anything.
@@ -724,13 +730,14 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
               </span>
               <h3 className="font-extrabold text-lg text-foreground mb-1">Free account</h3>
               <p className="text-xs text-foreground-muted mt-1">
-                Local like above, plus a sign-in so you can share notes, methods
-                and files with researchers outside your folder.
+                Local like above, plus a sign-in so you can receive work shared
+                by researchers outside your folder and be findable in the
+                directory.
               </p>
               <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
                 <li>Data still on your disk</li>
                 <li>Findable in the directory</li>
-                <li>Send and receive externally</li>
+                <li>Receive shares, plus 1.6M AI tokens to start</li>
               </ul>
               <div className="mt-auto pt-4">
                 <button
@@ -858,7 +865,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
     return (
       <ProviderSubStep
         heading="Create your free account"
-        subheading="Pick a sign-in provider. Your data stays on your disk; the account is free and only used for sharing and the researcher directory."
+        subheading="Pick a sign-in provider. Your data stays on your disk, the account is free and used for receiving shares and the researcher directory, and you get a one-time gift of about 1.6 million AI tokens."
         onProvider={handleFreeProvider}
         onBack={() => setStep({ view: "tiles" })}
       />

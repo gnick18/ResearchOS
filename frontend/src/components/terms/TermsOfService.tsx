@@ -124,9 +124,10 @@ export default function TermsOfService({
             <li>
               {storageBillingOn || aiBillingOn ? (
                 <>
-                  The only paid parts are optional cloud storage and the metered
-                  AI assistant. Both are optional services billed at cost, with
-                  no lock-in, and you can stop at any time.
+                  The paid parts are the cloud-service plans, which are a base
+                  fee plus your actual cloud usage, and the metered AI
+                  assistant. Storage is billed at roughly cost. There is no
+                  lock-in and you can stop at any time.
                 </>
               ) : (
                 <>
@@ -280,8 +281,9 @@ export default function TermsOfService({
           }
         >
           <p>
-            The local-first app is free forever. Two optional services can cost
-            money.
+            The local app is free forever. The paid plans cover cloud services
+            on a pay-for-what-you-use basis, and the AI assistant is metered
+            separately.
             {!storageBillingOn && !aiBillingOn && (
               <> Both are free right now during the beta.</>
             )}
@@ -298,12 +300,11 @@ export default function TermsOfService({
           </p>
           <ul className="ml-5 list-disc space-y-2">
             <li>
-              <strong>Cloud storage.</strong> If you choose to sync or share a
-              copy of your work in the cloud, that storage is the paid part.
-              Individuals and labs pay what the storage actually costs us, and
-              larger departments and institutions pay a modest sustaining rate
-              above cost that keeps the free tiers free. There is a real free
-              tier, not a trial.
+              <strong>Cloud services.</strong> Paid plans are a small base fee
+              plus your actual cloud usage at a fair markup, with storage billed
+              at roughly cost. Larger tiers carry a higher markup for the
+              enterprise value they get. There is a real free network tier, not
+              a trial.
               {!storageBillingOn && (
                 <> Cloud storage is free during the beta.</>
               )}

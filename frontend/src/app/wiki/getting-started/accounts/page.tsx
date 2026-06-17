@@ -288,9 +288,9 @@ export default function AccountsPage() {
 
       <h2>Cost and the free tier</h2>
       <p>
-        The local-first core of ResearchOS is free. Cloud storage for real-time
-        lab collaboration is where cost recovery applies, and the model is
-        designed so the vast majority of labs never see a bill.
+        The local app is free. The Lab plan is pay-for-what-you-use, a flat
+        per-lab base fee plus your lab&apos;s actual cloud usage, billed to the
+        PI.
       </p>
       <ul>
         <li>
@@ -298,20 +298,18 @@ export default function AccountsPage() {
           no cloud storage used, no billing ever.
         </li>
         <li>
-          <strong>Lab accounts:</strong> a free plan with a 5 GB cloud pool
-          shared across the whole lab covers most active labs. If a lab needs
-          more, it can move to a larger flat-price plan, so the cost is a known
-          monthly number rather than a surprise. The free plan is the default
-          and never charges.
+          <strong>Lab accounts:</strong> a flat per-lab base fee plus your
+          lab&apos;s metered cloud usage, billed only to the PI. A settable
+          monthly cap keeps it predictable, and the local app keeps working if
+          you hit the cap.
         </li>
       </ul>
 
-      <Callout variant="warning" title="Priced to sustain, not to profit">
-        ResearchOS is not trying to extract money from researchers. The paid
-        plans exist to cover the actual cost of running the sync infrastructure
-        for labs that use it heavily. The free plan is generous enough that most
-        labs will stay within it, and you are never charged without choosing a
-        paid plan. If a lab ever runs past what its plan covers, cloud sync
+      <Callout variant="warning" title="Pay only for what you use">
+        Paid plans are pay-for-what-you-use, a small base fee plus your actual
+        cloud usage at a fair markup, with storage at roughly cost. A settable
+        monthly cap means no surprise bills, and the local app always keeps
+        working. If a lab ever runs past its cap, cloud sync
         pauses and the local-first app keeps working until there is room again.
         See <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link>{" "}
         for the broader funding story.

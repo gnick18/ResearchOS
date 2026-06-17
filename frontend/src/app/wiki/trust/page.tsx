@@ -55,11 +55,11 @@ export default function TrustPage() {
 
       <h3>4. The incentives are clean</h3>
       <p>
-        ResearchOS is open source and local-first, not venture-backed. Every
-        feature is free with no per-seat fees, a
-        deliberate choice to keep the tool reachable for low-resource labs. The
-        only optional paid part is cloud storage for labs that use a lot of it,
-        priced at cost.{" "}
+        ResearchOS is open source and local-first, not venture-backed. The
+        local app is free with every feature included. Cloud services are
+        pay-for-what-you-use, a small base fee plus your usage at a fair markup,
+        with storage at roughly cost, so the tool stays reachable for
+        low-resource labs.{" "}
         <a href="/wiki/trust/how-we-fund-it">How it stays free</a> explains
         the model honestly.
       </p>

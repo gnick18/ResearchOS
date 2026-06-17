@@ -61,8 +61,8 @@ export default async function CloudAndPlansPage() {
       </p>
       <ul>
         <li>
-          <strong>One 5 GB free pool per lab.</strong> The whole lab shares it.
-          Adding members does not add more free space, because the pool belongs
+          <strong>One free network tier per lab.</strong> The whole lab shares it.
+          Adding members does not add more free space, because the tier belongs
           to the lab, not to each seat.
         </li>
         <li>
@@ -71,17 +71,17 @@ export default async function CloudAndPlansPage() {
           the PI&apos;s decision, not a member&apos;s problem.
         </li>
         <li>
-          <strong>Solo users get their own 5 GB.</strong> A solo researcher has
-          the same free tier as a lab, independent of any lab.
+          <strong>Solo is its own plan.</strong> A solo researcher pays a small
+          base fee plus their own cloud usage, independent of any lab.
         </li>
       </ul>
       <Callout variant="tip" title="Text barely counts">
         Notes and methods are tiny, so a lab would need roughly half a million
-        text notes to fill the free pool. The pool only fills with the heavy
+        text notes to add up to anything. Storage only fills with the heavy
         things, mostly images and large file attachments in shared work. A gel
         or bench photo is about the size of a photo from a modern phone, a few
-        megabytes, so the shared 5 GB still holds on the order of a thousand of
-        them.
+        megabytes, so text is effectively free and only heavy attachments use
+        meaningful storage.
       </Callout>
 
       <h2>Plans and how it is paid for</h2>
@@ -89,23 +89,21 @@ export default async function CloudAndPlansPage() {
         The local-first core is free and open source under the AGPLv3, with
         every feature included. Because your data lives on your own disk there is
         very little to run, and voluntary contributions help sustain it. Cloud
-        storage above the free pool comes
-        as flat-price plans. Individuals and labs pay only what it costs us to
-        run, and larger institutions pay a modest sustaining rate above that,
-        which keeps ResearchOS free for individual researchers and funds the
-        open-source development.
+        services are pay-for-what-you-use, a small base fee per plan plus your
+        actual cloud usage at a fair markup. Storage is billed at roughly cost.
+        Larger tiers carry a higher markup for the enterprise value they get.
       </p>
       <p>
-        The plans are flat, not metered per gigabyte, so the bill is a known
-        monthly number with no surprises. If a lab leans on the cloud heavily,
-        the lab head can move the lab to a larger plan. Specific plan prices are
-        still being set from real usage, so they are not published yet.
+        Plans are pay-for-what-you-use, a small base fee plus your metered cloud
+        usage, with a settable monthly cap so there are no surprises. If a lab
+        leans on the cloud heavily, the lab head can raise the cap. Specific plan
+        prices are still being set from real usage, so they are not published yet.
       </p>
       <Callout variant="info" title="Why it can stay this cheap">
         Because the app is local-first, your everyday work never touches our
         servers, so our costs are small and the price can be too. Bulk storage
-        costs us about a penny and a half per gigabyte-month, so a 5 GB free
-        pool costs us pennies and the paid plans only need to recover real cost.
+        costs us about a penny and a half per gigabyte-month, so storage stays at
+        roughly cost while the plan fee and usage markup fund the rest.
       </Callout>
       <p>
         If you want to support the project beyond your own use, the best way is
@@ -153,8 +151,8 @@ export default async function CloudAndPlansPage() {
       {aiBillingOn ? (
         <Callout variant="info" title="BeakerBot is billed at cost">
           AI metering is active. Each BeakerBot turn draws from your token
-          balance at the rate shown on the pricing page. The cost is what the
-          AI actually costs us, nothing more. Sales tax is handled automatically
+          balance at the rate shown on the pricing page, priced at a small
+          markup over our measured cost. Sales tax is handled automatically
           by our payment processor.
         </Callout>
       ) : (
@@ -167,34 +165,35 @@ export default async function CloudAndPlansPage() {
 
       <h2>Account tiers</h2>
       <p>
-        There are four audiences, and each picks from a fixed set of plans.
-        Individuals and labs choose from Free, Plus, and Pro bundles (with
-        Lab variants for labs). Departments and institutions use an automated
-        self-serve plan builder instead of a fixed bundle. The structure is
-        locked and final. The only item not yet published is the Plus and Pro
-        sticker prices, which will be set from real usage before launch.
+        There are four audiences, and each picks from a fixed set of plans,
+        Free, Solo, Lab, and Department. Departments and institutions use an
+        automated self-serve plan builder instead of a fixed bundle. The
+        structure is locked and final. The only item not yet published is the
+        exact prices, which will be set from real usage before launch.
       </p>
       <ul>
         <li>
-          <strong>Free</strong> (individuals and labs). 5 GB shared pool,
-          full feature access, no card, no expiry. A real working tier, not
-          a trial.
+          <strong>Free</strong> (the network tier). Receive shared work,
+          directory presence, the full local app, no card, no expiry. A real
+          working tier, not a trial.
         </li>
         <li>
-          <strong>Plus and Pro</strong>. Larger storage pools. Prices are
-          provisional and not yet published.
+          <strong>Solo, Lab, and Department</strong>. Pay-for-what-you-use
+          plans, a base fee plus metered cloud usage. Exact numbers are
+          provisional.
         </li>
         <li>
-          <strong>Lab Free / Lab Plus / Lab Pro</strong>. The same tiers as
-          above, with a shared pool covering the whole lab. Only the PI pays.
+          <strong>Lab</strong>. A flat per-lab base fee plus the lab&apos;s
+          metered usage, billed only to the PI, so adding members never raises
+          the bill on its own.
         </li>
         <li>
           <strong>Department and Institution</strong>. Self-serve automated
           plan builder at <code>/pricing</code>. You enter labs, average
-          members, and estimated adoption, and it derives a monthly rate. A
-          modest sustaining rate above bare cost on these larger tiers keeps
-          ResearchOS free for individual researchers and funds open-source
-          development.
+          members, and estimated adoption, and it derives a monthly rate.
+          Department is a premium governance tier, a per-lab base fee plus
+          usage, with the Department Commons, admin controls, and one
+          consolidated invoice.
         </li>
       </ul>
 

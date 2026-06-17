@@ -5,7 +5,7 @@ import WikiPage from "@/components/wiki/WikiPage";
 export default function HowWeFundItPage() {
   return (
     <WikiPage
-      intro="Who pays for a tool shapes who it serves. ResearchOS is open source and local-first, not venture-backed, and that is why it can stay free and open for labs that could never afford a per-seat subscription."
+      intro="Who pays for a tool shapes who it serves. The local app is open source, local-first, and free forever. The cloud services are a pay-for-what-you-use business, a small base fee plus your actual usage, so the tool stays reachable without a per-seat subscription."
     >
       <h2>Why it costs so little to run</h2>
       <p>
@@ -32,15 +32,14 @@ export default function HowWeFundItPage() {
       </p>
       <ul>
         <li>
-          <strong>No paywalled features.</strong> Every feature is free. The
-          only thing that can cost money is optional cloud storage for a lab
-          that uses a lot of it, priced to cover what it costs us to run, and
-          only if the lab chooses a larger plan.
+          <strong>No paywalled local features.</strong> The whole local app is
+          free. The cloud services are pay-for-what-you-use, a small base fee
+          plus your actual usage at a fair markup, with storage at roughly cost.
         </li>
         <li>
-          <strong>No per-seat fees.</strong> Adding a student or a
-          collaborator does not raise a bill, so the cost of the tool does not
-          grow with the size of your lab.
+          <strong>No fixed per-seat license.</strong> You pay a flat lab base
+          fee plus the usage your lab actually generates, instead of a fixed
+          price per head whether or not they use the cloud.
         </li>
         <li>
           <strong>Open by license.</strong> ResearchOS is AGPLv3, so even if
@@ -63,10 +62,9 @@ export default function HowWeFundItPage() {
       </p>
 
       <Callout variant="info" title="Honest framing">
-        ResearchOS is free and open because it is open source and local-first,
-        with voluntary donations welcome to help sustain it over time. Voluntary
-        support extends the runway without ever turning the tool into a product
-        that charges low-resource labs to use it.
+        The local app is free and open source. The cloud services are a real
+        pay-for-what-you-use business that funds development, and there is always
+        a free network tier and a free self-host path so no lab is locked out.
       </Callout>
 
       {/* Wisconsin LLC badge: soft tone on this formal trust page, no California
@@ -80,10 +78,9 @@ export default function HowWeFundItPage() {
         It would be easy, and dishonest, to promise the project will never cost
         anything under any circumstances. No one can guarantee the funding
         landscape years out. What ResearchOS can say plainly is the commitment
-        behind the design. The project is built to stay free and open for the
-        labs that depend on that, the license guarantees the code can never be
-        taken back, and the goal of every decision is to keep the tool
-        reachable rather than to extract from the people using it.
+        behind the design. The local app and a free network tier stay free and
+        open, the license guarantees the code can never be taken back, and the
+        paid cloud services fund the work rather than locking anyone in.
       </p>
     </WikiPage>
   );

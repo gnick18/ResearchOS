@@ -352,7 +352,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/cloud-and-plans",
         label: "Cloud storage & plans",
-        blurb: "Local-first by default, an optional 5 GB shared lab pool, flat-price plans for heavy use, and only the PI ever pays.",
+        blurb: "Local-first by default, with pay-for-what-you-use cloud services, a free network tier, and only the PI ever pays for a lab.",
       },
       {
         href: "/wiki/features/inventory",

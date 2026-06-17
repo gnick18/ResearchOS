@@ -146,7 +146,7 @@ function PlanSummary({
   let tone = "text-foreground-muted";
   let ring = "ring-border";
   let heading = "Free plan";
-  let detail = `You have ${humanBytes(status.freeBytes)} of shared-document storage included, always free.`;
+  let detail = "Your local app and files are always free. Cloud storage is a-la-carte, billed near our cost only for what you push.";
 
   if (coveredByLab) {
     tone = "text-emerald-700 dark:text-emerald-300";
@@ -158,7 +158,7 @@ function PlanSummary({
     tone = "text-sky-700 dark:text-sky-300";
     ring = "ring-sky-200 dark:ring-sky-500/30";
     heading = "Individual plan";
-    detail = `You pay only for your monthly average use above the ${humanBytes(status.freeBytes)} free tier.`;
+    detail = "You are on a paid plan. A small base fee plus the cloud usage you actually run, billed on one invoice.";
   }
 
   return (
@@ -204,7 +204,7 @@ function PlanPicker({
   return (
     <Section
       title="Your plan"
-      description="One plan covers your storage and your editing activity. Upgrading raises both at once, on one monthly invoice. Most people stay on Free."
+      description="Your plan is a base fee plus the cloud usage you run, on one monthly invoice. Free covers receiving shared work; producing needs a paid plan."
     >
       <div className="mb-2 flex items-center gap-2">
         <span className="text-meta text-foreground-muted">Pay by</span>
@@ -270,11 +270,9 @@ function PlanPicker({
       </div>
       {/* A-la-carte comparison anchor (not separately purchasable). */}
       <div className="mt-3 rounded-lg px-4 py-2.5 text-meta ring-1 ring-inset ring-emerald-200 dark:ring-emerald-500/30">
-        <p className="text-foreground-muted line-through">
-          Buying storage and activity separately would cost more.
-        </p>
         <p className="font-semibold text-emerald-700 dark:text-emerald-300">
-          A plan bundles both for about 10% more value. You save by bundling.
+          Your plan is a base fee, then cloud usage at a small markup. No bundle
+          math, you pay for what you run.
         </p>
       </div>
       {!status.active ? (
@@ -302,14 +300,14 @@ function ActivityCard({ status }: { status: BillingStatus }) {
       ? { bar: "bg-amber-500", text: "text-amber-700 dark:text-amber-300" }
       : { bar: "bg-sky-500", text: "text-sky-700 dark:text-sky-300" };
   const message = over
-    ? "You have passed your plan's activity allowance, so cloud sync is slowed to keep costs fair. Editing still works. Upgrade your plan to restore instant sync."
+    ? "You have hit this month's usage cap, so cloud sync is paused to keep your bill predictable. Editing still works. Raise your cap to resume instant sync."
     : near
       ? "You are a heavy user this month. Still real-time, but upgrading your plan raises this if you pass it."
-      : "Plenty of headroom. Editing is included in your plan, never charged per edit.";
+      : "Plenty of headroom this month. Your plan's base covers normal activity, heavier cloud use is billed at our usage rate.";
   return (
     <Section
       title="Activity this month"
-      description="How much you edit through the cloud, separate from storage. Past your plan's allowance we slow sync rather than bill you, so there are no surprise charges."
+      description="How much you sync through the cloud this month. It is part of your metered usage, with a settable cap so it never runs away."
     >
       <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
         <p className="text-heading font-bold tracking-tight text-foreground">

@@ -283,10 +283,10 @@ export default function LabArchivesComparisonPage() {
         <li>
           <strong>No per-seat fees.</strong> A ten-person lab on LabArchives
           Professional is several thousand dollars a year, every year.
-          ResearchOS has no per-seat fees and no paywalled features. Every
-          feature is free, and the only optional paid part is cloud storage for
-          a lab that uses a lot of it, priced at cost. Self-hosting is always
-          free.
+          ResearchOS has no fixed per-seat license and no paywalled local
+          features. Every local feature is free, and the cloud services are
+          pay-for-what-you-use, a base fee plus usage at a fair markup, with
+          storage at roughly cost. Self-hosting is always free.
         </li>
         <li>
           <strong>Unpublished research never leaves your control.</strong> No

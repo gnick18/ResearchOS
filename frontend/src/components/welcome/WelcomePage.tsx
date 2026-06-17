@@ -575,12 +575,12 @@ function ComparisonCards() {
  * -------------------------------------------------------------------------- */
 function TierSummary() {
   const tiers: { name: string; detail: string }[] = [
-    { name: "Free", detail: "5 GB cloud, $0. A real working tier." },
-    { name: "Plus / Pro", detail: "More storage, priced at what it costs us." },
-    { name: "Labs", detail: "One shared pool. Only the PI pays." },
+    { name: "Free", detail: "Receive shared work and stay in the network, $0. A real working tier." },
+    { name: "Solo", detail: "Send and co-edit. A small base fee plus the cloud you actually use." },
+    { name: "Lab", detail: "One invoice for the whole lab. A flat lab fee plus the cloud the lab uses." },
     {
       name: "Departments & institutions",
-      detail: "A sustaining rate that keeps it free for individuals.",
+      detail: "The governance tier. Admin, compliance, and one consolidated invoice across your labs.",
     },
   ];
   return (
@@ -601,10 +601,10 @@ function TierSummary() {
         ))}
       </div>
       <p className="mt-3 text-meta leading-snug text-[#64748b]">
-        Plus a metered BeakerBot AI, priced near cost, with about 1.6 million free
+        Plus a metered BeakerBot AI, with about 1.6 million free
         tokens to start.{" "}
         {BILLING_LIVE
-          ? "Cloud storage and AI are billed now, at what they cost us."
+          ? "Your cloud usage is billed at a small markup, and storage is a-la-carte near our cost."
           : "Cloud storage and AI are free during the beta while we test the billing."}
       </p>
     </div>
@@ -859,9 +859,9 @@ export default function WelcomePage({
             </Reveal>
             <Reveal>
               <p className="mt-5 max-w-[68ch] border-t border-dashed border-[#dbe6f3] pt-4 text-body leading-relaxed text-[#64748b]">
-                The notebook and every feature are free, forever. The only thing
-                that ever costs money is optional cloud storage and the AI, and we
-                charge what they cost us.{" "}
+                The local notebook and every feature on your own machine are
+                free, forever. The cloud services that send, co-edit, and sync
+                are paid, on a small base fee plus what you actually use.{" "}
                 <a
                   href="/pricing"
                   className="font-bold text-brand-action transition-colors hover:text-brand-ink"
@@ -1204,7 +1204,7 @@ export default function WelcomePage({
                 <StepCard
                   num="03"
                   title="Sync if you choose"
-                  body="Turn on optional cloud to sync, share, or co-edit. Nothing uploads until you do."
+                  body="Turn on the paid cloud to send, co-edit, or sync. Nothing uploads until you do."
                 />
               </Reveal>
             </div>
@@ -1438,8 +1438,9 @@ export default function WelcomePage({
             {/* Pricing handoff, the mockup's CTA footnote. */}
             <div className="mt-6 flex flex-col items-center gap-3">
               <p className="text-meta text-[#94a3b8]">
-                Free and open source. It grew out of a UW-Madison Distinguished
-                Research Fellowship. Curious how the optional cloud is priced?{" "}
+                The local app is free and open source. It grew out of a
+                UW-Madison Distinguished Research Fellowship. Curious how the
+                cloud services are priced?{" "}
                 <a
                   href="/pricing"
                   className="font-semibold text-brand-action hover:text-brand-ink"
