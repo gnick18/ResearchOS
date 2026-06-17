@@ -31,6 +31,7 @@ import {
   type OwnedRecord,
 } from "../lab-work-enumerate";
 import { syncLabWorkToMirror, pullMemberLabRecords } from "../lab-sync";
+import { listLabRecords } from "../lab-data-client";
 import {
   splitBySize,
   buildLabIndex,
@@ -39,6 +40,14 @@ import {
 } from "../lab-index";
 import { readLabMembersWork, type LabScopedReadDeps } from "../lab-scoped-read";
 import { searchLabIndex, type LabIndexSearchDeps } from "../lab-index-search";
+import { runLabSyncForSession } from "../lab-sync-runner";
+import {
+  postContentRequest,
+  listContentRequests,
+  approveContentRequest,
+} from "../lab-requests";
+import type { ApprovalGrant, ApprovalGrantStore } from "../lab-approval-grants";
+import type { LabSessionState } from "../lab-session";
 
 // ---------------------------------------------------------------------------
 // Crypto + relay doubles (mirrors lab-read.test.ts).
@@ -300,5 +309,186 @@ describe("lab mirror end to end (member push -> PI read + search)", () => {
     const search = await searchLabIndex("x", {}, { ...searchDeps, getViewer: notHead as never });
     expect(read.ok).toBe(false);
     expect(search.ok).toBe(false);
+  });
+});
+
+describe("lab mirror Phase C (request -> approve -> promote -> read)", () => {
+  const labId = "lab-e2e";
+  const THRESHOLD = 300;
+  const NOW = 1_000_000;
+
+  const source: LabWorkSource = {
+    ...emptySource(),
+    listNotes: async () => [
+      { id: 1, title: "Gel", description: "qPCR gel" },
+    ],
+    listDatahub: async () => [
+      { id: "dh-1", meta: { name: "Big qPCR table" }, rows: "x".repeat(400) },
+    ],
+  };
+
+  function makeManifest() {
+    let m: Record<string, string> = {};
+    return {
+      load: async () => m,
+      save: async (_o: string, next: Record<string, string>) => {
+        m = next;
+      },
+    };
+  }
+  function makeGrantStore(): ApprovalGrantStore {
+    let g: ApprovalGrant[] = [];
+    return {
+      load: async () => g,
+      save: async (_o, next) => {
+        g = next;
+      },
+    };
+  }
+  function relayClients(relay: ReturnType<typeof makeInMemoryRelay>) {
+    return {
+      put: (p: Parameters<typeof putLabRecord>[0]) =>
+        putLabRecord({ ...p, fetchImpl: relay.fetchImpl }),
+      list: (p: Parameters<typeof listLabRecords>[0]) =>
+        listLabRecords({ ...p, fetchImpl: relay.fetchImpl }),
+      get: (p: Parameters<typeof getLabRecord>[0]) =>
+        getLabRecord({ ...p, fetchImpl: relay.fetchImpl }),
+    };
+  }
+
+  async function runMemberSync(opts: {
+    relay: ReturnType<typeof makeInMemoryRelay>;
+    labKey: Uint8Array;
+    emile: { priv: Uint8Array; pub: Uint8Array };
+    grantStore: ApprovalGrantStore;
+    manifestStore: ReturnType<typeof makeManifest>;
+  }) {
+    const session: LabSessionState = {
+      kind: "live",
+      labId,
+      labKey: opts.labKey,
+      signingKeyPair: { ed25519Priv: opts.emile.priv, ed25519Pub: opts.emile.pub },
+      member: { username: "emile", labId },
+      graceUntil: null,
+    };
+    const rc = relayClients(opts.relay);
+    return runLabSyncForSession(session, {
+      source,
+      manifestStore: opts.manifestStore,
+      syncImpl: (p) => syncLabWorkToMirror({ ...p, fetchImpl: opts.relay.fetchImpl }),
+      pushIndexImpl: (p) => pushLabIndex({ ...p, putImpl: rc.put }),
+      heavyThresholdBytes: THRESHOLD,
+      indexHashCache: new Map(),
+      grantStore: opts.grantStore,
+      now: () => NOW,
+    });
+  }
+
+  function piSearchDeps(
+    relay: ReturnType<typeof makeInMemoryRelay>,
+    labKey: Uint8Array,
+    pi: { priv: Uint8Array; pub: Uint8Array },
+  ): Partial<LabIndexSearchDeps> {
+    const rc = relayClients(relay);
+    return {
+      getViewer: async () => ({ username: "pi", account_type: "lab_head" }),
+      getLabId: async () => labId,
+      getIdentity: () =>
+        ({
+          keys: {
+            signing: { privateKey: pi.priv, publicKey: pi.pub },
+            encryption: { privateKey: new Uint8Array(32), publicKey: new Uint8Array(32) },
+          },
+        }) as never,
+      fetchLab: async () =>
+        ({
+          record: { members: [{ username: "pi", role: "head" }, { username: "emile", role: "member" }] },
+          envelopes: [{ generation: 1 }],
+        }) as never,
+      openKey: () => labKey,
+      readIndex: (p) =>
+        readLabIndexAcrossMembers({
+          labId: p.labId,
+          members: p.members,
+          labKey: p.labKey,
+          getImpl: rc.get,
+        }),
+    };
+  }
+
+  it("requests a heavy table, member approves, it is promoted and the PI sees it eager", async () => {
+    const relay = makeInMemoryRelay();
+    const labKey = randomLabKey();
+    const emile = randomKeyPair();
+    const pi = randomKeyPair();
+    const grantStore = makeGrantStore();
+    const manifestStore = makeManifest();
+    const rc = relayClients(relay);
+
+    // 1. Initial sync: the heavy table is held back from the eager mirror.
+    await runMemberSync({ relay, labKey, emile, grantStore, manifestStore });
+    expect([...relay.store.keys()]).not.toContain("lab-e2e/emile/datahub/dh-1");
+
+    // 2. The PI requests the heavy table (written into Emile's prefix).
+    await postContentRequest({
+      labId,
+      member: "emile",
+      request: {
+        id: "req1",
+        requester: "pi",
+        recordType: "datahub",
+        recordId: "dh-1",
+        requestedAt: NOW,
+      },
+      labKey,
+      signerEd25519Priv: pi.priv,
+      signerEd25519Pub: pi.pub,
+      putImpl: rc.put,
+    });
+
+    // 3. Emile lists the request, decrypts it, and approves.
+    const pending = await listContentRequests({
+      labId,
+      owner: "emile",
+      labKey,
+      signerEd25519Priv: emile.priv,
+      signerEd25519Pub: emile.pub,
+      listImpl: rc.list,
+      getImpl: rc.get,
+    });
+    expect(pending.map((r) => r.recordId)).toEqual(["dh-1"]);
+    await approveContentRequest({
+      labId,
+      member: "emile",
+      request: pending[0],
+      labKey,
+      signerEd25519Priv: emile.priv,
+      signerEd25519Pub: emile.pub,
+      grantStore,
+      nowMs: NOW,
+      ttlMs: 1_000_000,
+      putImpl: rc.put,
+    });
+
+    // 4. Emile re-syncs: the granted heavy table is now promoted into the mirror.
+    await runMemberSync({ relay, labKey, emile, grantStore, manifestStore });
+    expect([...relay.store.keys()]).toContain("lab-e2e/emile/datahub/dh-1");
+
+    // 5. The PI's search now shows the table as eager (in cloud), and the
+    //    request has been dismissed from Emile's pending list.
+    const search = await searchLabIndex("", {}, piSearchDeps(relay, labKey, pi));
+    const dh = search.hits.find((h) => h.recordType === "datahub");
+    expect(dh?.eager).toBe(true);
+
+    const stillPending = await listContentRequests({
+      labId,
+      owner: "emile",
+      labKey,
+      signerEd25519Priv: emile.priv,
+      signerEd25519Pub: emile.pub,
+      listImpl: rc.list,
+      getImpl: rc.get,
+    });
+    expect(stillPending).toHaveLength(0);
   });
 });

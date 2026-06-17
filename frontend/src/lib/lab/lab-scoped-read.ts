@@ -174,9 +174,10 @@ export async function readLabMembersWork(
         signerEd25519Priv: identity.keys.signing.privateKey,
         signerEd25519Pub: identity.keys.signing.publicKey,
       });
-      // The reserved "_index" record is the member's search index, not work.
-      // It is read through the index readers, never returned as a work record.
-      const work = pulled.filter((r) => r.recordType !== "_index");
+      // Reserved record types use a leading underscore (the search index
+      // "_index" and the PI content requests "_request"). They are not member
+      // work and are read through their own paths, so they never come back here.
+      const work = pulled.filter((r) => !r.recordType.startsWith("_"));
       const records = opts.recordTypes
         ? work.filter((r) => opts.recordTypes!.includes(r.recordType))
         : work;
