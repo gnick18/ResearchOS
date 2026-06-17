@@ -71,6 +71,14 @@ export interface OnboardingTutorProps {
    *  marker so the reel picks back up at the live-demo beat instead of replaying
    *  welcome/picker. Omit for a normal first run (starts at welcome). */
   initialState?: TutorState;
+  /** The account name (from the setup wizard) so the welcome greets the user by
+   *  name. The whole point of the intertwined flow. Omit for the generic greeting. */
+  displayName?: string | null;
+  /** The role inferred from the account the user just set up (lab-head -> "pi"),
+   *  used to PRE-SELECT the interest picker so a lab head sees the lab-head tour
+   *  without re-answering, while still being free to change it. Omit to leave the
+   *  picker unseeded (the user picks from scratch). */
+  seedRole?: Role;
 }
 
 export default function OnboardingTutor({
@@ -82,9 +90,17 @@ export default function OnboardingTutor({
   onBeginShow,
   onProgress,
   initialState,
+  displayName,
+  seedRole,
 }: OnboardingTutorProps) {
   const tokenMeter = meter ?? newMeter();
-  const [state, dispatch] = useReducer(tutorReducer, initialState ?? initialTutorState);
+  // Seed the role from the account when there is no resume state to restore, so a
+  // lab head lands on the picker with "PI" pre-selected (still changeable). A
+  // resume (initialState) always wins so a mid-tour reload restores exactly.
+  const [state, dispatch] = useReducer(
+    tutorReducer,
+    initialState ?? (seedRole ? { ...initialTutorState, role: seedRole } : initialTutorState),
+  );
   // Whether the user accepted the memory proposal (drives the recap framing). In
   // a later phase this also triggers the actual per-user memory write.
   const [remembered, setRemembered] = useState(false);
@@ -110,6 +126,7 @@ export default function OnboardingTutor({
         onSkip={() => dispatch({ type: "skip" })}
         tokensUsed={tokenMeter.used}
         tokenCap={tokenMeter.cap}
+        displayName={displayName}
       />
     );
   }

@@ -25,6 +25,7 @@ import {
   isForceLiveTourArmed,
 } from "@/lib/onboarding/tour-gate";
 import { isFreshUserForWizard } from "@/lib/onboarding/is-fresh-user";
+import { useIsLabHead } from "@/hooks/useIsLabHead";
 import {
   clearTourResume,
   saveTourResume,
@@ -69,6 +70,14 @@ export interface TourHostProps {
 }
 
 export default function TourHost({ username }: TourHostProps) {
+  // The intertwined flow: the account the user just set up in the wizard feeds the
+  // tour. The name greets them ("Nice to meet you, {name}") and lab-head status
+  // pre-selects the interest picker so a PI sees the lab-head tour without
+  // re-answering (still changeable). useIsLabHead returns undefined while loading,
+  // so a not-yet-resolved account just leaves the picker unseeded.
+  const isLabHead = useIsLabHead(username);
+  const seedRole: Role | undefined = isLabHead === true ? "pi" : undefined;
+
   // Resolve the brand-new-account signal (async, reads the user's footprint).
   const [fresh, setFresh] = useState<boolean | null>(null);
   useEffect(() => {
@@ -233,6 +242,8 @@ export default function TourHost({ username }: TourHostProps) {
       onComplete={handleComplete}
       onRememberFact={handleRememberFact}
       initialState={initialState}
+      displayName={username}
+      seedRole={seedRole}
     />
   );
 }

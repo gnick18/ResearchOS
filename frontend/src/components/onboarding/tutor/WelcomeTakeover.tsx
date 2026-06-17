@@ -22,6 +22,18 @@ export interface WelcomeTakeoverProps {
   /** Tokens used so far this run and the cap, for the visible meter. */
   tokensUsed?: number;
   tokenCap?: number;
+  /** The account name the user gave the setup wizard, so Beaker greets them by
+   *  name ("Nice to meet you, {name}") instead of a cold "Hi, I'm Beaker". Omit
+   *  (dev preview, or no name yet) to fall back to the generic greeting. */
+  displayName?: string | null;
+}
+
+/** First name, capitalized, from a display name or handle. Null when there is no
+ *  usable name (so the welcome falls back to the generic greeting). Pure. */
+export function greetingName(displayName: string | null | undefined): string | null {
+  const first = displayName?.trim().split(/\s+/)[0];
+  if (!first) return null;
+  return first.charAt(0).toUpperCase() + first.slice(1);
 }
 
 // Beaker greets, then shows off the signature poses on a gentle loop, so the
@@ -35,8 +47,10 @@ export default function WelcomeTakeover({
   onSkip,
   tokensUsed = 0,
   tokenCap = 150_000,
+  displayName,
 }: WelcomeTakeoverProps) {
   const pct = tokenCap > 0 ? Math.min(100, (tokensUsed / tokenCap) * 100) : 0;
+  const name = greetingName(displayName);
   const [poseIdx, setPoseIdx] = useState(0);
   useEffect(() => {
     const id = setInterval(
@@ -89,15 +103,33 @@ export default function WelcomeTakeover({
           className="mt-1 text-4xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-5xl"
           style={{ fontFamily: "var(--font-ai)" }}
         >
-          Hi, I'm Beaker{" "}
-          <span className="text-[var(--brand,#1d9e75)]">(AI)</span>
+          {name ? (
+            <>
+              Nice to meet you, {name}
+            </>
+          ) : (
+            <>
+              Hi, I'm Beaker{" "}
+              <span className="text-[var(--brand,#1d9e75)]">(AI)</span>
+            </>
+          )}
         </h1>
         <p
           className="mt-3 max-w-md text-lg leading-relaxed text-[var(--muted,#6b716a)]"
           style={{ fontFamily: "var(--font-ai)" }}
         >
-          Give me five minutes and I'll show you what this place can do for your
-          research. No setup, just watch.
+          {name ? (
+            <>
+              I'm Beaker <span className="text-[var(--brand,#1d9e75)]">(AI)</span>, your lab
+              partner here. Give me five minutes and I'll show you what this place can do for
+              your research. No setup, just watch.
+            </>
+          ) : (
+            <>
+              Give me five minutes and I'll show you what this place can do for your research.
+              No setup, just watch.
+            </>
+          )}
         </p>
 
         <button
