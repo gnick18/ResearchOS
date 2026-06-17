@@ -11,8 +11,10 @@
 
 import type { AiTool } from "./tools/types";
 import { DEFAULT_TOOLS } from "./tools/registry";
+import { BEAKERBOT_SYSTEM_PROMPT } from "./system-prompt";
 
 let activeToolScope: AiTool[] | null = null;
+let activePromptScope: string | null = null;
 
 /** Set the active tool scope (null restores the default research-shell set). */
 export function setToolScope(tools: AiTool[] | null): void {
@@ -22,4 +24,15 @@ export function setToolScope(tools: AiTool[] | null): void {
 /** The tools the next turn should run with. Defaults to DEFAULT_TOOLS. */
 export function getActiveTools(): AiTool[] {
   return activeToolScope ?? DEFAULT_TOOLS;
+}
+
+/** Set the active system-prompt persona (null restores the research-shell one). */
+export function setPromptScope(prompt: string | null): void {
+  activePromptScope = prompt;
+}
+
+/** The system prompt a fresh conversation seeds with. Defaults to the research
+ *  persona, so the dept portal can swap in its admin persona while mounted. */
+export function getActiveSystemPrompt(): string {
+  return activePromptScope ?? BEAKERBOT_SYSTEM_PROMPT;
 }

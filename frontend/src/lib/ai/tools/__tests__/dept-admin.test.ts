@@ -1,20 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock the roster loader; the rate math (deriveDeptRate) stays real.
+// Mock the roster loader + invite mint; the rate math (deriveDeptRate) stays real.
 vi.mock("@/lib/dept/dept-admin-membership", () => ({
   loadDeptRoster: vi.fn(),
+  mintInviteForDeptAdmin: vi.fn(),
 }));
 
-import { loadDeptRoster } from "@/lib/dept/dept-admin-membership";
+import {
+  loadDeptRoster,
+  mintInviteForDeptAdmin,
+} from "@/lib/dept/dept-admin-membership";
 import {
   deptRosterGlanceTool,
   deptUsageGlanceTool,
   deptPlanExplainerTool,
   deptReportScaffoldTool,
+  deptInviteTool,
   DEPT_TOOLS,
 } from "../dept-admin";
 
 const mockRoster = loadDeptRoster as unknown as ReturnType<typeof vi.fn>;
+const mockMint = mintInviteForDeptAdmin as unknown as ReturnType<typeof vi.fn>;
 
 function rosterResult(over: Record<string, unknown> = {}) {
   return {
@@ -134,16 +140,52 @@ describe("dept_report_scaffold", () => {
   });
 });
 
+describe("dept_invite", () => {
+  beforeEach(() => {
+    mockRoster.mockReset();
+    mockMint.mockReset();
+  });
+
+  it("is a consented action with a clear confirm summary", () => {
+    expect(deptInviteTool.action).toBe(true);
+    expect(deptInviteTool.isDestructive?.({})).toBe(false);
+    const desc = deptInviteTool.describeAction?.({ forWhom: "Okafor Lab" });
+    expect(desc?.summary).toContain("invite link");
+    expect(desc?.summary).toContain("Okafor Lab");
+  });
+
+  it("mints an invite link for the current department", async () => {
+    mockRoster.mockResolvedValue(rosterResult());
+    mockMint.mockResolvedValue({ link: "https://app/dept/join#tok" });
+    const res = (await deptInviteTool.execute({})) as Record<string, unknown>;
+    expect(res.ok).toBe(true);
+    expect(res.link).toContain("join");
+    expect(mockMint).toHaveBeenCalledWith(
+      expect.objectContaining({ deptId: "d1" }),
+    );
+  });
+
+  it("refuses cleanly when there is no department", async () => {
+    mockRoster.mockResolvedValue({ department: null, labHeads: [] });
+    const res = (await deptInviteTool.execute({})) as Record<string, unknown>;
+    expect(res.ok).toBe(false);
+    expect(mockMint).not.toHaveBeenCalled();
+  });
+});
+
 describe("DEPT_TOOLS", () => {
-  it("exports the four read-only tools with unique names", () => {
+  it("exports the four read tools plus the one consented action", () => {
     const names = DEPT_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "dept_roster_glance",
       "dept_usage_glance",
       "dept_plan_explainer",
       "dept_report_scaffold",
+      "dept_invite",
     ]);
-    // All read-only (no action flag).
-    expect(DEPT_TOOLS.every((t) => !t.action)).toBe(true);
+    // The glances are read-only; dept_invite is the one action.
+    expect(DEPT_TOOLS.filter((t) => t.action).map((t) => t.name)).toEqual([
+      "dept_invite",
+    ]);
   });
 });

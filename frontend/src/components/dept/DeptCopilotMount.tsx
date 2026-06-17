@@ -15,13 +15,17 @@
 
 import { useEffect } from "react";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
-import { setToolScope } from "@/lib/ai/tool-scope";
-import { DEPT_SCOPE_TOOLS } from "@/lib/ai/tools/dept-admin";
+import { setToolScope, setPromptScope } from "@/lib/ai/tool-scope";
+import { DEPT_SCOPE_TOOLS, DEPT_SYSTEM_PROMPT } from "@/lib/ai/tools/dept-admin";
 
 export default function DeptCopilotMount() {
   useEffect(() => {
     setToolScope(DEPT_SCOPE_TOOLS);
-    return () => setToolScope(null);
+    setPromptScope(DEPT_SYSTEM_PROMPT);
+    return () => {
+      setToolScope(null);
+      setPromptScope(null);
+    };
   }, []);
 
   return <BeakerSearchBottomBar />;

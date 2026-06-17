@@ -66,9 +66,8 @@ function getModelCaller(taskId?: string): ModelCaller {
   if (modelCallerOverride) return modelCallerOverride;
   return taskId ? proxyCallerForTask(taskId) : callModelViaProxy;
 }
-import { getActiveTools } from "@/lib/ai/tool-scope";
+import { getActiveTools, getActiveSystemPrompt } from "@/lib/ai/tool-scope";
 import { setAnalysisResultInChat } from "@/lib/ai/tools/analysis-presentation";
-import { BEAKERBOT_SYSTEM_PROMPT } from "@/lib/ai/system-prompt";
 import {
   runMacro,
   summarizeMacroRun,
@@ -1155,7 +1154,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // Build the loop input. Seed the system prompt once; carry the running
     // history forward so multi-turn context and prior tool results persist.
     if (historyStore.length === 0) {
-      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+      historyStore = [{ role: "system", content: getActiveSystemPrompt() }];
     }
 
     // Inject a fresh per-turn context message so the model can resolve "this"
@@ -1589,7 +1588,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     // Seed the system prompt once so a thread opened from a macro run is a valid
     // conversation the user can keep typing into afterwards.
     if (historyStore.length === 0) {
-      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+      historyStore = [{ role: "system", content: getActiveSystemPrompt() }];
     }
 
     if (wasFresh) {
@@ -1772,7 +1771,7 @@ export const useConversationStore = create<ConversationStore>((set, get) => ({
     }));
 
     if (historyStore.length === 0) {
-      historyStore = [{ role: "system", content: BEAKERBOT_SYSTEM_PROMPT }];
+      historyStore = [{ role: "system", content: getActiveSystemPrompt() }];
     }
 
     // The directive for the step we resume on. The loop drives the rest from the

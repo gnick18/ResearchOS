@@ -13,7 +13,10 @@
 
 import type { AiTool } from "./types";
 import { COORDINATION_TOOLS } from "./registry";
-import { loadDeptRoster } from "@/lib/dept/dept-admin-membership";
+import {
+  loadDeptRoster,
+  mintInviteForDeptAdmin,
+} from "@/lib/dept/dept-admin-membership";
 import { deriveDeptRate, centsToUsd } from "@/lib/dept/plan";
 
 const BYTES_PER_GB = 1024 * 1024 * 1024;
@@ -221,15 +224,65 @@ export const deptReportScaffoldTool: AiTool = {
   },
 };
 
+// ---------------------------------------------------------------------------
+// dept_invite (action, consented)
+// ---------------------------------------------------------------------------
+
+export const deptInviteTool: AiTool = {
+  name: "dept_invite",
+  description:
+    "Create a one-time invite link to add a new lab head to the department. The department head shares the link out of band (email, chat) and the lab head opens it to join. This is an ACTION: it runs only after the department head confirms, and the link is never sent anywhere automatically. Use this when asked to add or invite a lab.",
+  parameters: {
+    type: "object",
+    properties: {
+      forWhom: {
+        type: "string",
+        description:
+          "Optional note for whose lab the invite is, shown in the confirm. Does not bind the link to a person; the link is a shareable one-time invite.",
+      },
+    },
+    additionalProperties: false,
+  },
+  action: true,
+  isDestructive: () => false,
+  describeAction: (args) => {
+    const who =
+      typeof args.forWhom === "string" && args.forWhom.trim()
+        ? ` for ${args.forWhom.trim()}`
+        : "";
+    return {
+      summary: `Create a one-time invite link to add a lab head${who} to the department.`,
+    };
+  },
+  execute: async () => {
+    const roster = await loadDeptRoster();
+    if (!roster.department) {
+      return {
+        ok: false,
+        error: "This account does not administer a department.",
+      };
+    }
+    const origin =
+      typeof window !== "undefined" ? window.location.origin : "";
+    const { link } = await mintInviteForDeptAdmin({
+      deptId: roster.department.deptId,
+      origin,
+    });
+    return { ok: true, link };
+  },
+};
+
 /**
  * The dept-scoped tool set. Surfaced on the department portal's BeakerBot mount,
- * not in the global research-shell tool set.
+ * not in the global research-shell tool set. The four glances are read-only;
+ * dept_invite is the one consented action.
  */
 export const DEPT_TOOLS: AiTool[] = [
   deptRosterGlanceTool,
   deptUsageGlanceTool,
   deptPlanExplainerTool,
   deptReportScaffoldTool,
+  deptInviteTool,
 ];
 
 /**
@@ -238,3 +291,28 @@ export const DEPT_TOOLS: AiTool[] = [
  * sequence. NOT the research-shell read/action tools, which do not apply here.
  */
 export const DEPT_SCOPE_TOOLS: AiTool[] = [...DEPT_TOOLS, ...COORDINATION_TOOLS];
+
+/**
+ * The department-head persona. BeakerBot swaps to this system prompt while the
+ * dept portal is mounted (see DeptCopilotMount), so it is framed as an admin
+ * copilot, not a research assistant. It never sees research data, the tool owns
+ * every number, and it never interprets.
+ */
+export const DEPT_SYSTEM_PROMPT = `You are BeakerBot, the assistant built into the ResearchOS department portal.
+
+You help a DEPARTMENT HEAD administer their department. A department is a container of labs on one invoice. Your job is the org admin work: the plan, the roster of lab heads, the billing, and the usage aggregates. You do NOT see, read, or discuss any lab's research data. The department portal aggregates billing and usage only, never the science. If asked about a lab's actual research (experiments, results, notes, data), say plainly that the department view is admin-only by design and never includes research content, and point them to the lab head for that.
+
+How you answer:
+- Calm, concrete, concise. Explain the concept before the action, and state the why behind a recommendation rather than just asserting it. Do not pad.
+- Do not use em-dashes. Do not use emojis. Do not drop a colon mid-sentence to introduce a clause or a list. Recast with a comma or a period. A label at the start of a line is fine.
+
+You orchestrate, you do not invent the truth:
+- NEVER fabricate the department's data: the roster, the lab count, the usage numbers, the storage, the dollar figures. You do not know any of it from memory.
+- To know anything about the department, CALL A TOOL (dept_roster_glance, dept_usage_glance, dept_plan_explainer, dept_report_scaffold) and answer only from what it returned. The tool owns every number; you relay it.
+- General questions about how the department tier works you may answer directly. Anything specific to THIS department requires a tool call.
+
+You surface facts, you do not interpret:
+- Report the counts, the storage, the dollars, what is over a cap, what changed. The department head judges. Never say a lab is underperforming or rank the labs by worth. State the figures and let the head draw the conclusion.
+
+Actions are consented:
+- You can create an invite link to add a lab head (dept_invite), but only after the head confirms, and the link is never sent anywhere automatically. You never change the plan or remove a lab silently.`;
