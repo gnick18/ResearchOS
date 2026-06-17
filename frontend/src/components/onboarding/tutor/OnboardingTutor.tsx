@@ -23,10 +23,22 @@ import {
   type TutorState,
 } from "@/lib/onboarding/tutor-machine";
 import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
+
+// The lab-head role value, and the individual-researcher role we fall back to
+// when the user picks lab head then chooses "I work solo" in the disclosure.
+export const LAB_HEAD_ROLE: Role = "pi";
+export const SOLO_ROLE: Role = "grad";
+
+/** Whether picking this role should open the lab-head disclosure popup. Only the
+ *  lab-head role triggers it, so a direct solo pick never shows the popup. */
+export function shouldDiscloseLabHead(role: Role): boolean {
+  return role === LAB_HEAD_ROLE;
+}
 import { summarize } from "@/lib/onboarding/tutor-summary";
 import { newMeter, type OnboardingMeter } from "@/lib/onboarding/onboarding-meter";
 import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
+import LabHeadDisclosure from "./LabHeadDisclosure";
 import ShowcaseStage from "./ShowcaseStage";
 import LiveCursorLayer from "./LiveCursorLayer";
 import AiDemoBeat from "./AiDemoBeat";
@@ -104,6 +116,17 @@ export default function OnboardingTutor({
   // Whether the user accepted the memory proposal (drives the recap framing). In
   // a later phase this also triggers the actual per-user memory write.
   const [remembered, setRemembered] = useState(false);
+  // Whether the lab-head disclosure popup is open. It opens when the user picks
+  // the lab-head role in the picker, so they see what a lab account is before
+  // committing. Confirm keeps the role and closes, "I work solo" flips to solo.
+  const [showLabHeadDisclosure, setShowLabHeadDisclosure] = useState(false);
+
+  const handleSetRole = (role: Role) => {
+    dispatch({ type: "setRole", role });
+    // Only the lab-head pick discloses. A direct solo pick just selects and
+    // never opens the popup.
+    setShowLabHeadDisclosure(shouldDiscloseLabHead(role));
+  };
 
   useEffect(() => {
     if (isFinished(state)) onComplete();
@@ -133,25 +156,36 @@ export default function OnboardingTutor({
 
   if (state.phase === "picking") {
     return (
-      <InterestPicker
-        role={state.role}
-        goals={state.goals}
-        onSetRole={(role) => dispatch({ type: "setRole", role })}
-        onToggleGoal={(goal) => dispatch({ type: "toggleGoal", goal })}
-        onStart={() => {
-          // LIVE: hand off to the host to enter demo mode + reload, so the deep
-          // demos play over the real page. The host persists the resume marker
-          // first, so the post-reload mount resumes at the first deep demo.
-          // PREVIEW: build the reel inline and play on the stand-in stage.
-          if (live && onBeginShow && state.role) {
-            onBeginShow(tourResumeMarkerFor({ role: state.role, goals: state.goals }));
-          } else {
-            dispatch({ type: "beginReel" });
-          }
-        }}
-        onSkip={() => dispatch({ type: "skip" })}
-        onBack={() => dispatch({ type: "back" })}
-      />
+      <>
+        <InterestPicker
+          role={state.role}
+          goals={state.goals}
+          onSetRole={handleSetRole}
+          onToggleGoal={(goal) => dispatch({ type: "toggleGoal", goal })}
+          onStart={() => {
+            // LIVE: hand off to the host to enter demo mode + reload, so the deep
+            // demos play over the real page. The host persists the resume marker
+            // first, so the post-reload mount resumes at the first deep demo.
+            // PREVIEW: build the reel inline and play on the stand-in stage.
+            if (live && onBeginShow && state.role) {
+              onBeginShow(tourResumeMarkerFor({ role: state.role, goals: state.goals }));
+            } else {
+              dispatch({ type: "beginReel" });
+            }
+          }}
+          onSkip={() => dispatch({ type: "skip" })}
+          onBack={() => dispatch({ type: "back" })}
+        />
+        {showLabHeadDisclosure ? (
+          <LabHeadDisclosure
+            onConfirm={() => setShowLabHeadDisclosure(false)}
+            onSolo={() => {
+              dispatch({ type: "setRole", role: SOLO_ROLE });
+              setShowLabHeadDisclosure(false);
+            }}
+          />
+        ) : null}
+      </>
     );
   }
 
