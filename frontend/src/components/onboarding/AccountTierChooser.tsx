@@ -132,7 +132,7 @@ const FEAT: [string, CellValue, CellValue, CellValue][] = [
   [
     "Upgrade later",
     "Add an account or lab anytime",
-    "Create or join a lab anytime",
+    "Start a lab, or join one free, anytime",
     "—",
   ],
 ];
