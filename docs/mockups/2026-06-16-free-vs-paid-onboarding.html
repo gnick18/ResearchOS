@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Free vs Paid onboarding (Model A funnel)</title>
+<style>
+  :root {
+    --ink: #0f172a; --muted: #64748b; --line: #e2e8f0; --bg: #f8fafc;
+    --card: #ffffff; --blue: #1283c9; --blue-d: #0f6fa8; --green-bg: #dcfce7;
+    --green: #15803d; --purple-bg: #ede9fe; --purple: #5b47d6; --amber-bg:#fef3c7; --amber:#92400e;
+    --raise: 0 1px 2px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.08);
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+         color: var(--ink); background: var(--bg); line-height: 1.5; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 40px 24px 80px; }
+  h1 { font-size: 26px; font-weight: 800; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 28px; }
+  .sec-label { font-size: 11px; font-weight: 800; letter-spacing: .12em; text-transform: uppercase;
+               color: var(--muted); margin: 40px 0 12px; }
+  .pill { display:inline-block; font-size: 11px; font-weight: 800; padding: 2px 10px; border-radius: 999px; }
+  .pill.free { background: var(--green-bg); color: var(--green); }
+  .pill.paid { background: var(--purple-bg); color: var(--purple); }
+  .note { background:#fff; border:1px dashed var(--line); border-radius:12px; padding:12px 16px; color:var(--muted); font-size:14px; }
+  .bad { border-color:#fecaca; background:#fff1f2; color:#9f1239; }
+
+  /* BEFORE strip */
+  .before { display:grid; grid-template-columns: 1fr 1fr; gap:16px; max-width: 620px; }
+  .mini { background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:var(--raise); }
+  .mini h4 { margin:0 0 4px; font-size:15px; }
+  .mini p { margin:0; color:var(--muted); font-size:13px; }
+
+  /* AFTER: Free vs Paid */
+  .cols { display:grid; grid-template-columns: 1fr 1.25fr; gap:20px; align-items:start; }
+  .col { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:22px; box-shadow:var(--raise); }
+  .col.paid { border-color:#c7b8f5; }
+  .col h2 { margin:0; font-size:20px; font-weight:800; display:flex; align-items:center; gap:10px; }
+  .price { font-size:13px; color:var(--muted); margin:2px 0 14px; }
+  ul.feat { list-style:none; padding:0; margin:0 0 4px; }
+  ul.feat li { padding:7px 0 7px 26px; position:relative; font-size:14px; border-top:1px solid var(--line); }
+  ul.feat li:first-child { border-top:0; }
+  ul.feat li::before { content:"✓"; position:absolute; left:0; top:7px; color:var(--green); font-weight:800; }
+  ul.feat li.no::before { content:"–"; color:#cbd5e1; }
+  .btn { display:block; width:100%; text-align:center; border:0; border-radius:12px; padding:11px;
+         font-weight:700; font-size:14px; cursor:pointer; margin-top:14px; }
+  .btn.primary { background:var(--blue); color:#fff; } .btn.primary:hover{ background:var(--blue-d); }
+  .btn.ghost { background:#fff; color:var(--ink); border:1px solid var(--line); }
+
+  .tiers { display:grid; gap:10px; margin-top:6px; }
+  .tier { border:1px solid var(--line); border-radius:14px; padding:14px; }
+  .tier.rec { border-color:var(--blue); box-shadow:0 0 0 3px rgba(18,131,201,.12); }
+  .tier .row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .tier .name { font-weight:800; font-size:15px; }
+  .tier .amt { font-weight:800; color:var(--ink); }
+  .tier .amt small { font-weight:600; color:var(--muted); }
+  .tier .who { color:var(--muted); font-size:13px; margin:2px 0 0; }
+  .learn { font-size:12px; color:var(--blue); text-decoration:none; }
+
+  /* nudge demo */
+  .demo { background:var(--card); border:1px solid var(--line); border-radius:18px; padding:20px; box-shadow:var(--raise); position:relative; max-width:680px; }
+  .fakebar { height:34px; border-radius:9px; background:#f1f5f9; display:flex; align-items:center; padding:0 12px; gap:8px; color:var(--muted); font-size:13px; }
+  .nudge { margin-top:16px; border:1px solid #c7b8f5; background:linear-gradient(#faf8ff,#fff); border-radius:14px; padding:14px 16px; display:flex; gap:14px; align-items:flex-start; }
+  .nudge .ic { width:34px; height:34px; border-radius:9px; background:var(--purple-bg); color:var(--purple); display:flex; align-items:center; justify-content:center; font-weight:800; flex:none; }
+  .nudge .body { flex:1; }
+  .nudge h5 { margin:0 0 2px; font-size:14px; }
+  .nudge p { margin:0; color:var(--muted); font-size:13px; }
+  .nudge .acts { display:flex; gap:8px; margin-top:10px; }
+  .nudge .acts button { font-size:13px; font-weight:700; border-radius:9px; padding:7px 12px; cursor:pointer; }
+  .nudge .acts .go { background:var(--blue); color:#fff; border:0; }
+  .nudge .acts .later { background:#fff; color:var(--muted); border:1px solid var(--line); }
+  .rules { margin-top:12px; font-size:13px; color:var(--muted); }
+  .rules b { color:var(--ink); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Onboarding funnel, Free vs Paid (Model A)</h1>
+  <p class="sub">The fix for the no-solo-paid-path problem. A solo researcher now sees a real paid option that is not "become a lab."</p>
+
+  <div class="sec-label">The problem (current chooser)</div>
+  <div class="before">
+    <div class="mini"><h4>Free account</h4><p>Receive shares, directory.</p></div>
+    <div class="mini"><h4>Lab <span class="pill paid">Paid</span></h4><p>Create or join a lab.</p></div>
+  </div>
+  <p class="note bad" style="margin-top:12px; max-width:620px;">A solo researcher's only paid door is "create a lab," which they will never click. The paid Solo tier is invisible, so a solo user lands on Free and never converts.</p>
+
+  <div class="sec-label">The new front door</div>
+  <div class="cols">
+    <!-- FREE -->
+    <div class="col">
+      <h2><span class="pill free">Free</span> Stay in the network</h2>
+      <div class="price">$0, no card. Make an account or keep working locally.</div>
+      <ul class="feat">
+        <li>Unlimited local notebook, your data on your disk</li>
+        <li>Receive notes, methods, and files others share with you</li>
+        <li>Be findable in the researcher directory</li>
+        <li>Accept folder and lab invites</li>
+        <li>One-time gift of about 1.6M AI tokens on sign-up</li>
+        <li class="no">Send or co-edit your own work (paid)</li>
+        <li class="no">Phone capture sync (paid)</li>
+      </ul>
+      <button class="btn ghost">Start free</button>
+    </div>
+
+    <!-- PAID -->
+    <div class="col paid">
+      <h2><span class="pill paid">Paid</span> Produce and collaborate</h2>
+      <div class="price">Pay for what you use, a small base plus your actual cloud usage. A cap you set means no surprises.</div>
+      <div class="tiers">
+        <div class="tier rec">
+          <div class="row"><span class="name">Solo</span><span class="amt">$3<small>/mo + usage</small></span></div>
+          <p class="who">Just you. Send and co-edit your work, phone capture, push. <a class="learn" href="#">Learn more</a></p>
+        </div>
+        <div class="tier">
+          <div class="row"><span class="name">Lab</span><span class="amt">$25<small>/mo per lab + usage</small></span></div>
+          <p class="who">Your team together. Shared workspace, real-time co-editing, PI billing. <a class="learn" href="/labs">Learn more</a></p>
+        </div>
+        <div class="tier">
+          <div class="row"><span class="name">Department</span><span class="amt">$50<small>/mo per lab + usage</small></span></div>
+          <p class="who">Many labs. Governance, compliance, one consolidated invoice. <a class="learn" href="/departments">Learn more</a></p>
+        </div>
+      </div>
+      <button class="btn primary">Choose a paid plan</button>
+    </div>
+  </div>
+  <p class="note" style="margin-top:14px;">Sequencing keeps your locked "free wizard first" intent: a brand-new visitor can still hit "Start free" and explore with no login. This Free-vs-Paid screen is the choice moment, and "Start free" still leads to the account pitch (1.6M token gift + AI-tailored onboarding) or staying local.</p>
+
+  <div class="sec-label">The gentle nudge (for users who chose Free)</div>
+  <div class="demo">
+    <div class="fakebar">My experiment, lab notes</div>
+    <div class="nudge">
+      <div class="ic">↗</div>
+      <div class="body">
+        <h5>Sending shares this beyond your folder</h5>
+        <p>That is a Solo feature, $3/mo plus the small bit of cloud you use, with a cap you set. Your local copy never changes.</p>
+        <div class="acts"><button class="go">See Solo</button><button class="later">Not now</button></div>
+      </div>
+    </div>
+    <div class="rules">
+      <b>Restraint rules:</b> only on a real produce action the user themselves initiated (clicking Send or Co-edit), never a banner or interrupt. <b>At most once every few weeks</b>, dismissible, and "Not now" is remembered. It explains the feature they reached for, so it reads as helpful, not a sales pitch.
+    </div>
+  </div>
+
+  <p class="note" style="margin-top:28px;">Every dollar figure here comes from the canonical catalog (lib/billing/catalog) in the real build, so a price change updates this screen too. Numbers are the Model A working config.</p>
+</div>
+</body>
+</html>
