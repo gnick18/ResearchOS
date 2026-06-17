@@ -48,10 +48,15 @@ export function PubChemImportDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<PubChemCompound[] | null>(null);
+  // Synchronous guard so rapid double-clicks / repeated Enter keypresses fire only
+  // one request set. React state (loading) is async and can be stale on the second
+  // call before the first re-render; a ref mutation is synchronous.
+  const inFlightRef = useRef(false);
 
   const runSearch = useCallback(async () => {
     const q = query.trim();
-    if (!q || loading) return;
+    if (!q || inFlightRef.current) return;
+    inFlightRef.current = true;
     setLoading(true);
     setError(null);
     setCandidates(null);
@@ -62,9 +67,10 @@ export function PubChemImportDialog({
         e instanceof Error ? e.message : "PubChem search failed. Try another name.",
       );
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
-  }, [query, loading]);
+  }, [query]);
 
   const handleImported = useCallback(
     async (id: string) => {

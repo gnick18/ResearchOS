@@ -255,7 +255,14 @@ export function LiteratureExplorer({
 }: LiteratureExplorerProps) {
   // No molecule (hub free-search) means nothing to star into: open read-only.
   const starsEnabled = !!molecule;
-  const heading = molecule?.name ?? title ?? "your search";
+  // Sanitize the displayed term: strip tags, collapse whitespace, and cap length so
+  // raw strings like "<script>alert(1)</script>" never appear literally in the heading.
+  const rawHeading = molecule?.name ?? title ?? "your search";
+  const heading = rawHeading
+    .replace(/<[^>]*>/g, "")   // strip any angle-bracket tag-like sequences
+    .replace(/\s+/g, " ")      // collapse whitespace
+    .trim()
+    .slice(0, 120) || "your search";
   const oldestYear = useMemo(() => {
     const years = items
       .filter((it) => it.type !== "patent")
