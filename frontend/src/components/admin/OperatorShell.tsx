@@ -41,11 +41,7 @@ import BroadcastPanel from "@/components/admin/BroadcastPanel";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
-import {
-  FinalizeTab,
-  PerSubscriberTab,
-  SustainabilityTab,
-} from "@/components/admin/PriceModelingModal";
+import { MarginExplorerTab } from "@/components/admin/PriceModelingModal";
 import {
   CapacitySection,
   FeatureUsageSection,
@@ -284,8 +280,8 @@ const GROUPS: RailGroup[] = [
         group: "Modeling",
         title: "Price modeling",
         icon: "calculator",
-        desc: "Operator-only what-if tool for the storage pricing flip. Per-subscriber economics and sustainability at scale, recomputed live.",
-        keywords: "pricing economics sustainability margin tiers simulation actuals",
+        desc: "Model A margin explorer. Pick a tier and usage, see revenue vs cost vs net margin, live.",
+        keywords: "pricing economics margin tiers model a relay usage solo lab dept",
       },
     ],
   },
@@ -945,30 +941,9 @@ export default function OperatorShell() {
             {/* FINANCES */}
             <FinanceSections business={business} actions={actions} />
 
-            {/* MODELING: the price-modeling tool, promoted from a modal to a
-                full section. Both tabs render stacked and active so their
-                canvases draw immediately. */}
+            {/* MODELING: Model A margin explorer. */}
             <Section section={byId("price-modeling")}>
-              <div className="space-y-10">
-                <div>
-                  <h3 className="mb-3 text-title font-semibold text-foreground">
-                    Finalize the storage flip
-                  </h3>
-                  <FinalizeTab />
-                </div>
-                <div>
-                  <h3 className="mb-3 text-title font-semibold text-foreground">
-                    Per-subscriber economics
-                  </h3>
-                  <PerSubscriberTab active />
-                </div>
-                <div>
-                  <h3 className="mb-3 text-title font-semibold text-foreground">
-                    Sustainability at scale
-                  </h3>
-                  <SustainabilityTab active />
-                </div>
-              </div>
+              <MarginExplorerTab />
             </Section>
 
             {/* COMMS */}
