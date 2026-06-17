@@ -168,9 +168,11 @@ function SaveStatusIndicator({
   }
   if (status === "error") {
     return (
-      <span className="text-meta text-red-600 dark:text-red-300 flex items-center gap-1" title="Will retry on the next edit">
-        Save failed
-      </span>
+      <Tooltip label="Will retry on the next edit">
+  <span className="text-meta text-red-600 dark:text-red-300 flex items-center gap-1">
+    Save failed
+  </span>
+</Tooltip>
     );
   }
   if (hasUnsavedChanges) {

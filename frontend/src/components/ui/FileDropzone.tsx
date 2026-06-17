@@ -107,7 +107,6 @@ export default function FileDropzone({
     <div
       role="button"
       tabIndex={disabled ? -1 : 0}
-      aria-label={ariaLabel}
       aria-disabled={disabled || undefined}
       // This surface handles the file itself, so opt out of the window-level
       // GlobalDropGuard: data-attach-target suppresses its "not supported" toast,
@@ -179,6 +178,7 @@ export default function FileDropzone({
         accept={accept}
         multiple={multiple}
         disabled={disabled}
+        aria-label={ariaLabel}
         className="hidden"
         onChange={(e) => {
           emit(e.target.files);

@@ -69,7 +69,10 @@ export function subscribeUpgradeNudge(listener: Listener): () => void {
 /** Whether the nudge is active at all (billing live on the client). Dormant in
  *  beta, so callers at produce-feature paywalls can fire freely without guarding. */
 export function isUpgradeNudgeActive(): boolean {
-  return process.env.NEXT_PUBLIC_BILLING_LIVE === "true";
+  // Accept both "1" and "true" so the flag value never has to match exactly one
+  // form, the WelcomePage check reads it the same way.
+  const v = process.env.NEXT_PUBLIC_BILLING_LIVE;
+  return v === "1" || v === "true";
 }
 
 /**

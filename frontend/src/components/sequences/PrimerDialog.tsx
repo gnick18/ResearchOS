@@ -35,7 +35,7 @@ import LivingPopup from "@/components/ui/LivingPopup";
 /** What the dialog hands back when the user adds the primer to the template. */
 export interface PrimerAddPayload {
   name: string;
-  /** The primer sequence as entered (5'->3'), sanitized to ACGTU. */
+  /** The primer sequence as entered (5'->3'), sanitized to IUPAC nucleotides (ACGTU + ambiguity codes). */
   primerSeq: string;
   /** The binding site chosen (forward-strand coords + strand). */
   site: BindingSite;

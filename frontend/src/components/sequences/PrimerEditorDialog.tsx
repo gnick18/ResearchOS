@@ -43,7 +43,7 @@ import LivingPopup from "@/components/ui/LivingPopup";
 export interface PrimerEditorSavePayload {
   name: string;
   description: string;
-  /** The primer's own 5'->3' oligo, sanitized to ACGTU. */
+  /** The primer's own 5'->3' oligo, sanitized to IUPAC nucleotides (ACGTU + ambiguity codes). */
   oligo: string;
   phosphorylated: boolean;
   /** The chosen binding site (forward coords + strand), or null if it does not

@@ -839,6 +839,15 @@ export default function WorkbenchExperimentsPanel({
         key={taskKey(t)}
         data-beaker-target={`experiment:${taskKey(t)}`}
         data-testid="experiment-row"
+        data-tour-target={
+          t.is_shared_with_me && t.owner === BEAKERBOT_LAB_USERNAME
+            ? t.shared_permission === "edit"
+              ? "workbench-shared-edit-experiment"
+              : t.shared_permission === "view"
+                ? "workbench-shared-view-experiment"
+                : undefined
+            : undefined
+        }
         onClick={() => setSelectedTask(t)}
         onContextMenu={(e) => {
           e.preventDefault();

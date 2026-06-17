@@ -147,7 +147,7 @@ describe("tasksApi.move — _shifted-alerts.json sidecar", () => {
           old_end: "2026-05-10",
           new_start: "2026-05-11",
           new_end: "2026-05-11",
-          shifted_at: "2026-05-13T00:00:00Z",
+          shifted_at: "2026-06-15T00:00:00Z",
           shifted_by_user: "alex",
         },
       ],

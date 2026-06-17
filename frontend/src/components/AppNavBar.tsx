@@ -483,6 +483,9 @@ export default function AppNavBar({
                     onPointerDown={(e) =>
                       onTabPointerDown(e, item.href, "inline")
                     }
+                    {...(item.newTab
+                      ? { target: "_blank", rel: "noopener noreferrer" }
+                      : {})}
                     className={tabClass(item, active)}
                   >
                     {item.label}
@@ -597,6 +600,9 @@ export default function AppNavBar({
                       href={item.href}
                       onClick={() => setMoreOpen(false)}
                       role="menuitem"
+                      {...(item.newTab
+                        ? { target: "_blank", rel: "noopener noreferrer" }
+                        : {})}
                       className={`flex items-center gap-2 px-2.5 py-2 text-[13px] font-semibold rounded-lg ${
                         active
                           ? "text-accent bg-accent-soft"

@@ -302,15 +302,26 @@ export function folderHasLiftableSettings(
   existingAccount: AccountScopedSettings | null,
   folderFeeds: CalendarFeed[],
   folderAccountType: string | undefined,
-  folderPrefs: FolderAccountScopablePrefs = {},
+  // Cosmetic preferences (theme, date format, etc.) are intentionally NOT part of
+  // the trigger. Every folder's settings.json carries default prefs, so gating on
+  // them made a fresh/near-empty folder prompt (the Owen misfire). Prefs still
+  // ride along when the popup fires for a substantive reason, they just never
+  // trigger it. Kept in the signature for caller symmetry.
+  _folderPrefs: FolderAccountScopablePrefs = {},
 ): boolean {
-  const lifted = liftFolderIntoAccount(
-    existingAccount,
-    folderFeeds,
-    folderAccountType,
-    folderPrefs,
-  );
-  return !accountBlobsEqual(existingAccount, lifted);
+  const account = existingAccount ?? {};
+
+  // A real ICS calendar feed the account does not yet carry. The lift only seeds
+  // calendarFeeds when the account has none, so a "new" feed means the account
+  // has no feed list yet AND the folder brings at least one real ics feed.
+  const folderHasRealFeeds = folderFeeds.some((f) => f.kind === "ics" && f.icsUrl);
+  const bringsNewFeeds = folderHasRealFeeds && account.calendarFeeds === undefined;
+
+  // A real lab-head capability the account has not recorded yet (never a downgrade).
+  const bringsLabHead =
+    folderAccountType === "lab_head" && account.labHead !== true;
+
+  return bringsNewFeeds || bringsLabHead;
 }
 
 /** Are two account blobs equal for the purpose of skipping a redundant write?

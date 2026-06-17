@@ -36,6 +36,9 @@ vi.mock("@/lib/file-system/file-system-context", () => ({
     needsInitialization: fsState.needsInitialization,
     lastConnectedFolder: fsState.lastConnectedFolder,
     directoryName: "test-folder",
+    rememberedFolders: [],
+    folderMissing: null,
+    disconnect: vi.fn(),
   }),
 }));
 

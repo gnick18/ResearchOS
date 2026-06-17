@@ -15,10 +15,11 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { useEscapeLayer } from "@/hooks/useEscapeLayer";
 import { reorderPanels } from "@/lib/phylo/panels";
 import {
   columnFilterFor,
@@ -1644,6 +1645,24 @@ function AddPanelMenu({
   // adding immediately (a Data Hub plot needs a table + join, unlike other kinds).
   const [pickingDatahub, setPickingDatahub] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  // Ref for the menu panel itself so we can detect outside-click reliably. The
+  // fixed-inset backdrop approach fails when an ancestor creates a stacking context
+  // (e.g. overflow-auto + z-index on the inspector container). A capture-phase
+  // pointerdown listener on the document is stacking-context-proof.
+  const menuRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown, true);
+    return () => {
+      document.removeEventListener("pointerdown", onPointerDown, true);
+    };
+  }, [onClose]);
+  // Escape closes the menu via the shared overlay stack (one Escape per surface).
+  useEscapeLayer(true, onClose);
   const caps: LayerCapabilities = capabilities ?? {
     hasNumericColumn: true,
     hasAnyColumn: true,
@@ -1694,9 +1713,10 @@ function AddPanelMenu({
   };
 
   return (
-    <>
-      <div className="fixed inset-0 z-10" onClick={onClose} aria-hidden />
-      <div className="absolute z-20 top-11 left-0 w-[300px] max-w-full bg-surface-raised border border-border rounded-xl shadow-xl p-2">
+    <div
+      ref={menuRef}
+      className="absolute z-20 top-11 left-0 w-[300px] max-w-full bg-surface-raised border border-border rounded-xl shadow-xl p-2"
+    >
         {pickingDatahub ? (
           <div>
             <button
@@ -1801,8 +1821,7 @@ function AddPanelMenu({
             </div>
           </>
         )}
-      </div>
-    </>
+    </div>
   );
 }
 

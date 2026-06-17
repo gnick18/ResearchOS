@@ -91,7 +91,7 @@ export default function FolderConnectGate({
     folderMissing,
     initializeFolder,
     directoryName,
-    rememberedFolders,
+    rememberedFolders = [],
   } = useFileSystem();
 
   const { showBugReport, currentError, openBugReport, closeBugReport } =

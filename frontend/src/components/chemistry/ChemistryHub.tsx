@@ -772,7 +772,13 @@ export function ChemistryHub({
 
         {/* select all (only when there are rows to select) */}
         {!isLoading && !isError && activeList.length > 0 ? (
-          <div className="flex items-center gap-2 border-b border-border px-3 py-1.5">
+          <div
+            className="flex items-center gap-2 border-b border-border px-3 py-1.5"
+            // Stop clicks on this row from bubbling to any ancestor that might
+            // interpret them as a molecule-row activation, preventing the
+            // select-all checkbox from inadvertently opening the editor.
+            onClick={(e) => e.stopPropagation()}
+          >
             <input
               type="checkbox"
               checked={allVisibleChecked}
@@ -780,6 +786,9 @@ export function ChemistryHub({
                 if (el) el.indeterminate = someVisibleChecked;
               }}
               onChange={toggleAllVisible}
+              // Also stop the native click event on the input itself so it
+              // never reaches a parent molecule-row handler.
+              onClick={(e) => e.stopPropagation()}
               aria-label="Select all shown molecules"
               className="h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border text-accent focus:ring-sky-400"
             />
@@ -898,6 +907,7 @@ export function ChemistryHub({
                   selected={selectedId === m.id}
                   checked={checkedIds.has(m.id)}
                   onToggleCheck={() => toggleChecked(m.id)}
+                  onContextMenu={(e) => openMenu(e, buildMoleculeMenu(m))}
                   onClick={() => {
                     setSelectedId(m.id);
                     setMainView("auto");
@@ -1191,6 +1201,9 @@ function MoleculeRow({
         type="checkbox"
         checked={checked}
         onChange={onToggleCheck}
+        // Stop the click from bubbling to the row <button> so ticking the
+        // checkbox never also fires the molecule-open handler.
+        onClick={(e) => e.stopPropagation()}
         aria-label={`Select ${molecule.name}`}
         className="ml-3 mr-0.5 h-3.5 w-3.5 shrink-0 cursor-pointer rounded border-border text-accent focus:ring-sky-400"
       />

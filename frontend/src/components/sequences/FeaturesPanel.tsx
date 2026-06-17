@@ -293,7 +293,7 @@ export default function FeaturesPanel({
       />
 
       {featuresOpen ? (
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto max-h-80">
           {/* sort header */}
           <div className="flex items-center gap-1 border-y border-border px-3 py-1 text-meta uppercase tracking-wide text-foreground-muted">
             <span className="mr-auto">Sort</span>

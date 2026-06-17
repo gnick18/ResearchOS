@@ -525,8 +525,11 @@ export default function Toolbar({
         </button>
       </div>
 
-      {/* Spacer */}
-      <div className="flex-1" />
+      {/* Right-side controls grouped so they wrap together as a unit (not
+          raggedly, control by control) and stay right-aligned at wide widths.
+          ml-auto replaces the old flex-1 spacer, which took its own line when
+          the root flex-wrapped on a narrow-desktop window. */}
+      <div className="ml-auto flex items-center gap-4 flex-wrap justify-end">
 
       {/* View mode buttons */}
       <div className="flex items-center bg-surface-sunken rounded-lg p-0.5 ros-seg-track border border-border">
@@ -623,6 +626,7 @@ export default function Toolbar({
         <span className="text-meta text-foreground-muted ml-1">
           {formatMonthLabel(displayDateRange.start)} – {formatMonthLabel(displayDateRange.end)}
         </span>
+      </div>
       </div>
 
     </div>

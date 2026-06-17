@@ -127,7 +127,7 @@ function IconChevron({ open, className }: { open: boolean; className?: string })
 function primerSeqOf(f: EditFeature): string {
   const note = f.notes?.note;
   const text = Array.isArray(note) ? note.join(" ") : typeof note === "string" ? note : "";
-  const m = text.match(/primer\s+([ACGTUacgtu]+)/);
+  const m = text.match(/primer\s+([ACGTUSRYWKMBDHVNacgtusrywkmbdhvn]+)/);
   return m ? m[1].toUpperCase() : "";
 }
 

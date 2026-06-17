@@ -11,7 +11,7 @@ const blockEmbed = (caption: string, href: string) => `[${caption}](${href})`;
 
 // Embed hrefs for different types (all include a #ros= fragment for isEmbed).
 const NOTE_HREF = "/notes/5#ros=card";
-const METHOD_HREF = "/methods/3#ros=card";
+const METHOD_HREF = "/methods?openMethod=3#ros=card";
 const SEQ_HREF = "/sequences?seq=10#ros=map";
 const MOL_HREF = "/chemistry?molecule=mol-2#ros=card";
 

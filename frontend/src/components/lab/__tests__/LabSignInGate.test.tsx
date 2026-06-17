@@ -22,7 +22,9 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { LabSessionController, LabSessionState } from "@/lib/lab/lab-session";
+import React from "react";
 import { LabSignInGate } from "../LabSignInGate";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 
 // ── Mocks ────────────────────────────────────────────────────────────────
 
@@ -73,6 +75,15 @@ function makeFakeController(
   return controller;
 }
 
+function renderWithQuery(ui: React.ReactElement) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={queryClient}>{ui}</QueryClientProvider>,
+  );
+}
+
 // ── Tests ─────────────────────────────────────────────────────────────────
 
 describe("LabSignInGate", () => {
@@ -82,7 +93,7 @@ describe("LabSignInGate", () => {
 
   it("renders the sign-in gate when state is locked", () => {
     const ctrl = makeFakeController({ kind: "locked" });
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     expect(screen.getByText("Sign in to your lab")).toBeDefined();
     // The dev-mock button should render inside SharingProviderButtons
@@ -91,7 +102,7 @@ describe("LabSignInGate", () => {
 
   it("clicking a provider button calls controller.signIn with the provider id", async () => {
     const ctrl = makeFakeController({ kind: "locked" });
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     const btn = screen.getByText(/Dev mock sign-in/i);
     await userEvent.click(btn);
@@ -113,7 +124,7 @@ describe("LabSignInGate", () => {
       graceUntil: null,
     });
 
-    render(<LabSignInGate controller={ctrl}><div>APP</div></LabSignInGate>);
+    renderWithQuery(<LabSignInGate controller={ctrl}><div>APP</div></LabSignInGate>);
 
     expect(screen.getByText("APP")).toBeDefined();
     expect(screen.queryByText("Sign in to your lab")).toBeNull();
@@ -121,7 +132,7 @@ describe("LabSignInGate", () => {
 
   it("renders a signing-in indicator for authenticating state", () => {
     const ctrl = makeFakeController({ kind: "authenticating" });
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     expect(screen.getByText("Signing in...")).toBeDefined();
     expect(screen.queryByText(/Dev mock sign-in/i)).toBeNull();
@@ -129,7 +140,7 @@ describe("LabSignInGate", () => {
 
   it("renders an unlocking indicator for unlocking state", () => {
     const ctrl = makeFakeController({ kind: "unlocking" });
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     expect(screen.getByText("Unlocking your lab...")).toBeDefined();
     expect(screen.queryByText(/Dev mock sign-in/i)).toBeNull();
@@ -137,7 +148,7 @@ describe("LabSignInGate", () => {
 
   it("shows the error message when getError() is non-null", () => {
     const ctrl = makeFakeController({ kind: "locked" }, new Error("OAuth denied"));
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     expect(screen.getByRole("alert")).toBeDefined();
     expect(screen.getByText("OAuth denied")).toBeDefined();
@@ -145,7 +156,7 @@ describe("LabSignInGate", () => {
 
   it("calls controller.start with 'lab' on mount", () => {
     const ctrl = makeFakeController({ kind: "locked" });
-    render(<LabSignInGate controller={ctrl} />);
+    renderWithQuery(<LabSignInGate controller={ctrl} />);
 
     expect(ctrl.start).toHaveBeenCalledTimes(1);
     expect(ctrl.start).toHaveBeenCalledWith("lab");

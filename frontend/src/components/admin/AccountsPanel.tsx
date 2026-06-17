@@ -136,6 +136,8 @@ export default function AccountsPanel() {
         <StatCard label="Total accounts" value={total} />
       </div>
 
+      <ClearSettingsControl />
+
       <RosterTable
         title="Solo users"
         icon="users"
@@ -476,5 +478,146 @@ function WipeConfirm({
         </div>
       )}
     </LivingPopup>
+  );
+}
+
+// ── Clear cloud settings (un-stick a polluted account-settings blob) ──────────
+
+type ClearPhase =
+  | { state: "idle" }
+  | { state: "clearing" }
+  | { state: "done"; cleared: number }
+  | { state: "error"; message: string };
+
+/**
+ * A targeted operator tool, separate from the full wipe, that deletes ONLY a
+ * user's E2E account-settings blob by email. After this they fall back to
+ * folder-local settings, which recovers an account whose cloud settings got
+ * polluted (the lift misfire) without touching their account, billing, or data.
+ */
+function ClearSettingsControl() {
+  const [email, setEmail] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [phase, setPhase] = useState<ClearPhase>({ state: "idle" });
+
+  const trimmed = email.trim();
+
+  const submit = useCallback(async () => {
+    if (!trimmed) return;
+    setPhase({ state: "clearing" });
+    try {
+      const res = await fetch("/api/admin/accounts/clear-settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: trimmed, confirm: true }),
+      });
+      if (!res.ok) {
+        setPhase({ state: "error", message: "Clear failed. Check the email and try again." });
+        return;
+      }
+      const data = (await res.json()) as { cleared: number };
+      setPhase({ state: "done", cleared: data.cleared });
+    } catch {
+      setPhase({ state: "error", message: "Clear failed. Check the email and try again." });
+    }
+  }, [trimmed]);
+
+  return (
+    <section className="rounded-2xl border border-border bg-surface-raised p-5">
+      <div className="mb-2 flex items-center gap-2">
+        <Icon name="cloud" className="h-4 w-4 text-foreground-muted" />
+        <h3 className="text-title font-semibold text-foreground">
+          Clear cloud settings
+        </h3>
+      </div>
+      <p className="mb-3 text-meta text-foreground-muted leading-relaxed">
+        Deletes only a user&apos;s cloud account-settings blob by email, so they
+        fall back to their folder-local settings. Their account, billing, and data
+        are untouched. Use this to un-stick an account whose cloud settings got
+        into a bad state.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => {
+            setEmail(e.target.value);
+            if (phase.state !== "idle") setPhase({ state: "idle" });
+          }}
+          placeholder="user@example.edu"
+          className="min-w-0 flex-1 rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground placeholder:text-foreground-muted"
+        />
+        <button
+          type="button"
+          disabled={!trimmed || phase.state === "clearing"}
+          onClick={() => setConfirming(true)}
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-meta font-semibold text-amber-800 transition-colors hover:bg-amber-100 disabled:opacity-50"
+        >
+          <Icon name="cloud" className="h-3.5 w-3.5" />
+          Clear cloud settings
+        </button>
+      </div>
+
+      {phase.state === "done" && (
+        <p className="mt-3 text-meta text-emerald-700">
+          Cleared {phase.cleared} settings row{phase.cleared === 1 ? "" : "s"} for{" "}
+          {trimmed}. They now use folder-local settings. Have them reconnect their
+          real folder.
+        </p>
+      )}
+      {phase.state === "error" && (
+        <p className="mt-3 text-meta text-rose-700">{phase.message}</p>
+      )}
+
+      <LivingPopup
+        open={confirming}
+        onClose={() => setConfirming(false)}
+        label="Clear cloud settings"
+        widthClassName="max-w-md"
+        card
+        padded
+        blur
+      >
+        <div>
+          <h2 className="text-title font-semibold text-foreground">
+            Clear cloud settings for this user?
+          </h2>
+          <p className="mt-1 truncate text-meta text-foreground-muted">{trimmed}</p>
+          <p className="mt-4 text-meta text-foreground-muted leading-relaxed">
+            This removes only their cloud account-settings blob. They fall back to
+            the settings in their local folder. Account, billing, and data are not
+            touched. This is safe and reversible (they can re-lift later).
+          </p>
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setConfirming(false)}
+              disabled={phase.state === "clearing"}
+              className="rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={phase.state === "clearing"}
+              onClick={async () => {
+                await submit();
+                setConfirming(false);
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-amber-600 px-3.5 py-2 text-body font-semibold text-white transition-colors hover:bg-amber-700 disabled:opacity-60"
+            >
+              {phase.state === "clearing" ? (
+                <>
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Clearing...
+                </>
+              ) : (
+                "Clear settings"
+              )}
+            </button>
+          </div>
+        </div>
+      </LivingPopup>
+    </section>
   );
 }

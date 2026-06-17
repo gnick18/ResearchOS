@@ -3,6 +3,12 @@ import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 export interface NavItem {
   href: string;
   label: string;
+  /**
+   * When true the nav item opens in a new browser tab rather than navigating
+   * the app shell. Use for public marketing pages that live at the same origin
+   * but outside the authenticated app chrome (e.g. /library).
+   */
+  newTab?: boolean;
 }
 
 // Canonical list of in-app navigation tabs. The user can hide any of these
@@ -24,7 +30,11 @@ export const NAV_ITEMS: NavItem[] = [
   // composer). A shared resource, not a per-user workspace, so it is NOT in the
   // default inline set (DEFAULT_INLINE_HREFS) — it lands in the More overflow by
   // default. Gated visible in AppShell on ASSET_LIBRARY_ENABLED, like Figures.
-  { href: "/library", label: "Icon Library" },
+  // newTab: true — /library is the public marketing landing (MarketingNav +
+  // MarketingBackdrop); navigating to it in the same tab replaces the app
+  // shell with the marketing chrome and leaves no way back. Open it in a new
+  // tab so the user's app context is preserved.
+  { href: "/library", label: "Icon Library", newTab: true },
   // /network (the public researcher-network discovery hub). Like /library it is
   // a public, shared discovery surface, not a per-user workspace, so it lands in
   // the More overflow. Unlike /library the route 404s when the social layer is

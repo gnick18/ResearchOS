@@ -92,6 +92,13 @@ vi.mock("@/hooks/useAccountType", () => ({
   useAccountType: () => "member",
 }));
 
+// The awaiting-approval chip renders only in lab mode (showApprovalFilter =
+// useIsLabMode() === true). This suite tests the chip in a lab-mode context
+// where a member is waiting on the lab head for approval.
+vi.mock("@/hooks/useIsLabMode", () => ({
+  useIsLabMode: () => true,
+}));
+
 // Purchases UX fix Bug 3 (2026-05-24): the new banner CTA uses
 // `useRouter().push("/lab-overview")`. The misc-filter suite never
 // triggers it (account_type is "member"), but the hook still has to

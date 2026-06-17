@@ -267,6 +267,119 @@ describe("SuppliesPage — Orders & approvals lens (lab-head gating)", () => {
     );
   });
 
+  it("double-clicking Approve fires setPurchaseApproval exactly once (in-flight guard)", async () => {
+    // Simulate the stress-test regression: a rapid double-click on Approve must
+    // not call setPurchaseApproval twice. The inFlightRef guard blocks the second
+    // invocation synchronously before React re-renders with busy=true.
+    let resolveApproval!: () => void;
+    setPurchaseApproval.mockImplementationOnce(
+      () =>
+        new Promise<{ ok: true; value: object }>((res) => {
+          resolveApproval = () => res({ ok: true, value: {} });
+        }),
+    );
+
+    labApi.getAllPurchaseItems.mockResolvedValue([
+      makeItem({ id: 21, task_id: 9, username: "mira", item_name: "Enzyme mix" }),
+    ]);
+    labApi.getTasks.mockResolvedValue([
+      { id: 9, name: "Buffer prep", username: "mira" },
+    ] as never);
+
+    renderPage();
+
+    const chip = await screen.findByRole("tab", { name: /Awaiting approval/i });
+    fireEvent.click(chip);
+    await screen.findByText("Enzyme mix");
+
+    const [approveBtn] = screen.getAllByTestId("lab-head-purchase-approval-toggle");
+
+    // Rapid double-click: both events fire before React can re-render.
+    fireEvent.click(approveBtn);
+    fireEvent.click(approveBtn);
+
+    // Only one call should have been made.
+    expect(setPurchaseApproval).toHaveBeenCalledTimes(1);
+
+    // Let the in-flight promise resolve so the component settles cleanly.
+    resolveApproval();
+    await waitFor(() => expect(setPurchaseApproval).toHaveBeenCalledTimes(1));
+  });
+
+  it("double-clicking Decline fires declinePurchase exactly once (in-flight guard)", async () => {
+    let resolveDecline!: () => void;
+    declinePurchase.mockImplementationOnce(
+      () =>
+        new Promise<{ ok: true; value: object }>((res) => {
+          resolveDecline = () => res({ ok: true, value: {} });
+        }),
+    );
+
+    labApi.getAllPurchaseItems.mockResolvedValue([
+      makeItem({ id: 22, task_id: 9, username: "mira", item_name: "Loading dye" }),
+    ]);
+    labApi.getTasks.mockResolvedValue([
+      { id: 9, name: "Buffer prep", username: "mira" },
+    ] as never);
+
+    renderPage();
+
+    const chip = await screen.findByRole("tab", { name: /Awaiting approval/i });
+    fireEvent.click(chip);
+    await screen.findByText("Loading dye");
+
+    const [declineBtn] = screen.getAllByTestId("lab-head-purchase-decline-button");
+
+    fireEvent.click(declineBtn);
+    fireEvent.click(declineBtn);
+
+    expect(declinePurchase).toHaveBeenCalledTimes(1);
+
+    resolveDecline();
+    await waitFor(() => expect(declinePurchase).toHaveBeenCalledTimes(1));
+  });
+
+  it("approving item A does not disable item B's Approve button (per-item guard)", async () => {
+    // The guard is scoped per-component instance; approving one item must not
+    // block a concurrent approval of a different item in the same order group.
+    let resolveA!: () => void;
+    setPurchaseApproval
+      .mockImplementationOnce(
+        () =>
+          new Promise<{ ok: true; value: object }>((res) => {
+            resolveA = () => res({ ok: true, value: {} });
+          }),
+      )
+      .mockResolvedValueOnce({ ok: true, value: {} });
+
+    labApi.getAllPurchaseItems.mockResolvedValue([
+      makeItem({ id: 31, task_id: 10, username: "mira", item_name: "Item A" }),
+      makeItem({ id: 32, task_id: 10, username: "mira", item_name: "Item B" }),
+    ]);
+    labApi.getTasks.mockResolvedValue([
+      { id: 10, name: "Parallel order", username: "mira" },
+    ] as never);
+
+    renderPage();
+
+    const chip = await screen.findByRole("tab", { name: /Awaiting approval/i });
+    fireEvent.click(chip);
+    await screen.findByText("Item A");
+
+    const [btnA, btnB] = screen.getAllByTestId("lab-head-purchase-approval-toggle");
+
+    // Click A (in-flight, not resolved yet).
+    fireEvent.click(btnA);
+    expect(setPurchaseApproval).toHaveBeenCalledTimes(1);
+
+    // Click B independently — should also fire immediately.
+    fireEvent.click(btnB);
+    expect(setPurchaseApproval).toHaveBeenCalledTimes(2);
+
+    resolveA();
+    await waitFor(() => expect(setPurchaseApproval).toHaveBeenCalledTimes(2));
+  });
+
   it("mounts SpendingDashboard in the drawer when View spending is clicked", async () => {
     renderPage();
 

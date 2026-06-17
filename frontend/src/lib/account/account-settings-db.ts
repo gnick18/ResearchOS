@@ -117,3 +117,19 @@ export async function putAccountSettings(
       updated_at = now()
   `;
 }
+
+/**
+ * Deletes one identity's account-settings row (operator un-stick tool). A plain
+ * server-side row delete keyed by owner_key, so NO E2E key is needed, the row is
+ * just ciphertext we cannot read anyway. After this the user falls back to
+ * folder-local settings, exactly as if they had never lifted. Idempotent, returns
+ * the number of rows removed (0 when the user had no row). Powers the operator
+ * "clear cloud settings" lever to recover an account whose blob got polluted.
+ */
+export async function deleteAccountSettings(ownerKey: string): Promise<number> {
+  const sql = getSql();
+  const rows = (await sql`
+    DELETE FROM account_settings WHERE owner_key = ${ownerKey} RETURNING owner_key
+  `) as Array<{ owner_key: string }>;
+  return rows.length;
+}

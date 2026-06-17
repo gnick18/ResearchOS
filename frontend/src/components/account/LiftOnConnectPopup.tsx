@@ -75,16 +75,24 @@ function markAsked(key: string): void {
  *  the folder settings.json. Best-effort, returns {} on any read failure. */
 async function readFolderPrefs(
   username: string,
-): Promise<{ feeds: CalendarFeed[]; prefs: FolderAccountScopablePrefs }> {
+): Promise<{
+  feeds: CalendarFeed[];
+  prefs: FolderAccountScopablePrefs;
+  accountType: string | undefined;
+}> {
   let feeds: CalendarFeed[] = [];
   try {
     feeds = await listFeeds(username);
   } catch {
     feeds = [];
   }
+  let accountType: string | undefined;
   const prefs: FolderAccountScopablePrefs = {};
   try {
     const s = await readUserSettings(username);
+    // The folder-local lab-head marker, so the lift can carry PI status up to the
+    // account (a PI is then recognized regardless of which folder they open).
+    accountType = s.account_type;
     prefs.animationType = s.animationType;
     prefs.beakerBotAnimations = s.beakerBotAnimations;
     prefs.coloredHeader = s.coloredHeader;
@@ -113,7 +121,7 @@ async function readFolderPrefs(
   } catch {
     // localStorage unavailable; theme simply not lifted.
   }
-  return { feeds, prefs };
+  return { feeds, prefs, accountType };
 }
 
 /**
@@ -131,6 +139,7 @@ export default function LiftOnConnectPopup() {
     username: string;
     feeds: CalendarFeed[];
     prefs: FolderAccountScopablePrefs;
+    accountType: string | undefined;
     askedKey: string;
   } | null>(null);
   // Guard so the async evaluation runs once per (folder, user) pair and a
@@ -154,26 +163,33 @@ export default function LiftOnConnectPopup() {
         const key = askedKey(directoryName, ownerKey, currentUser);
         if (wasAsked(key)) return;
 
-        const { feeds, prefs } = await readFolderPrefs(currentUser);
+        const { feeds, prefs, accountType } = await readFolderPrefs(currentUser);
         const account = await fetchAccountSettings();
+        // Substantive trigger only: real calendar feeds or a lab-head capability
+        // the account lacks. account_type is passed so PI status can actually be
+        // lifted (the old code passed undefined, so labHead never followed the
+        // account, the second half of the Owen misfire).
         const liftable = folderHasLiftableSettings(
           account,
           feeds,
-          // The lab-head capability is folder-local (account_type), passed via
-          // prefs is not appropriate; the lift reads it separately. Here we only
-          // gate on the SETTINGS the popup offers, so account_type is not part of
-          // the trigger (it is lifted silently by the viewer path). Pass undefined.
-          undefined,
+          accountType,
           prefs,
         );
         if (!liftable) {
-          // Account already has everything this folder offers: never ask, and
+          // Account already has everything this folder offers (or the folder has
+          // nothing substantive, e.g. a fresh empty workspace): never ask, and
           // mark so a later reload does not re-evaluate.
           markAsked(key);
           return;
         }
         if (cancelled) return;
-        pending.current = { username: currentUser, feeds, prefs, askedKey: key };
+        pending.current = {
+          username: currentUser,
+          feeds,
+          prefs,
+          accountType,
+          askedKey: key,
+        };
         setOpen(true);
       } catch {
         // Any evaluation failure stays silent (never blocks the app).
@@ -193,7 +209,7 @@ export default function LiftOnConnectPopup() {
     }
     setBusy(true);
     try {
-      await liftFolderSettingsOnLogin(p.feeds, undefined, p.prefs);
+      await liftFolderSettingsOnLogin(p.feeds, p.accountType, p.prefs);
     } catch {
       // A failed lift still closes the popup; the user is not blocked, and the
       // marker below stops a re-nag. They can re-add from Settings later.

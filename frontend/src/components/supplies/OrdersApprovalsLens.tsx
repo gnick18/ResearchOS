@@ -17,7 +17,7 @@
 // House style: <Icon> only, brand + semantic dark-mode tokens, Tooltip on
 // icon-only buttons, no emojis / em-dashes / mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { Icon } from "@/components/icons";
@@ -237,8 +237,13 @@ function DeclinePurchaseButton({
 }) {
   const queryClient = useQueryClient();
   const [busy, setBusy] = useState(false);
+  // inFlightRef guards against rapid double-clicks that fire before React
+  // re-renders with busy=true (ref mutation is synchronous, state is not).
+  const inFlightRef = useRef(false);
 
   const handleDecline = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setBusy(true);
     try {
       const result = await declinePurchase({
@@ -268,6 +273,7 @@ function DeclinePurchaseButton({
         );
       }
     } finally {
+      inFlightRef.current = false;
       setBusy(false);
     }
   };
