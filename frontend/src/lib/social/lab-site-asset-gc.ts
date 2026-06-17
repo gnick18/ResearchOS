@@ -9,6 +9,15 @@
 //   - UNLESS the lab pre-paid to permanently archive that specific dataset (the
 //     Billing row is then flagged archived and the GC skips it).
 //
+// BYO SITES. A lab may ALSO upload its OWN static website (the BYO slice; a
+// separate store, lab_byo_sites, metered as ONE billing asset per lab via
+// byoAssetId). The SAME lapse policy applies: published BYO files stay served until
+// the grace window elapses, then the whole BYO site is reclaimed (all R2 bytes under
+// the lab's byo prefix deleted, the single billing asset de-registered, and the
+// lab_byo_sites row cleared so the serve route 404s). This reclaim is folded into
+// the SAME daily run as the native-dataset reclaim and reported in the same
+// GcRunReport (the byo* counts).
+//
 // This module is split into a PURE core (the grace-period decision, IO-free and
 // unit-testable) and a server RUNNER (the enumeration + per-asset reclaim, which
 // touches the social DB, the social R2 client, and Billing read-only primitives).
@@ -31,7 +40,9 @@ import {
   removeHostedAsset,
 } from "@/lib/collab/server/db";
 
-import { deleteAsset } from "./lab-site-asset-store";
+import { byoAssetId, byoLabFragment } from "./lab-byo";
+import { deleteByoSiteRow, listAllByoSites } from "./lab-byo-db";
+import { deleteAsset, deleteByoSite } from "./lab-site-asset-store";
 import { listAllSiteHostedManifests } from "./lab-site-db";
 import { parseHostedManifest } from "./lab-site-hosted";
 
@@ -116,6 +127,14 @@ export interface GcRunReport {
   assetsArchived: number;
   /** Assets that errored during reclaim (the run did not abort). */
   assetsFailed: number;
+  /** Labs with a BYO site enumerated (mirrors labsScanned for the BYO store). */
+  byoScanned: number;
+  /** BYO sites reclaimed (all R2 bytes deleted + billing asset removed + row cleared). */
+  byoReclaimed: number;
+  /** BYO sites skipped because the single BYO billing asset is prepaid-archived. */
+  byoArchived: number;
+  /** BYO sites that errored during reclaim (the run did not abort). */
+  byoFailed: number;
 }
 
 /**
@@ -145,6 +164,39 @@ export async function reclaimAsset(assetId: string): Promise<AssetReclaimOutcome
 }
 
 /**
+ * Reclaim ONE lab's whole BYO static site for a lapsed-past-grace lab. Idempotent
+ * and resilient, mirroring reclaimAsset but for the BYO store (one billing asset +
+ * a per-lab R2 prefix + the lab_byo_sites row):
+ *   - if the single BYO billing asset is prepaid-archived -> SKIP ("archived").
+ *   - else delete ALL R2 bytes under the lab's byo prefix (deleteByoSite), then
+ *     de-register the billing asset (removeHostedAsset), then clear the
+ *     lab_byo_sites row (deleteByoSiteRow) so the serve route 404s.
+ *   - any thrown error is caught and reported "failed" so one bad BYO site never
+ *     aborts the surrounding run.
+ *
+ * Order matters: bytes first, then billing, then the row. If the R2 delete throws it
+ * is caught and reported failed; the billing row + DB row are left for the next
+ * idempotent run to retry, so we never de-register a site whose bytes we failed to
+ * delete. Deleting already-gone R2 keys is a no-op, removing an already-removed
+ * billing row is a harmless no-op DELETE, and clearing an already-absent DB row is a
+ * no-op DELETE, so re-running is safe.
+ */
+export async function reclaimByoSite(
+  labOwnerKey: string,
+): Promise<AssetReclaimOutcome> {
+  const assetId = byoAssetId(labOwnerKey);
+  try {
+    if (await isHostedAssetArchived(assetId)) return "archived";
+    await deleteByoSite(byoLabFragment(labOwnerKey));
+    await removeHostedAsset(assetId);
+    await deleteByoSiteRow(labOwnerKey);
+    return "reclaimed";
+  } catch {
+    return "failed";
+  }
+}
+
+/**
  * The Phase 4b GC RUNNER. Enumerates every lab site, and for each lab past its
  * 30-day post-lapse grace window, reclaims every hosted asset its page manifests
  * reference (skipping prepaid-archived ones).
@@ -166,6 +218,10 @@ export async function runHostedAssetGc(
     assetsReclaimed: 0,
     assetsArchived: 0,
     assetsFailed: 0,
+    byoScanned: 0,
+    byoReclaimed: 0,
+    byoArchived: 0,
+    byoFailed: 0,
   };
 
   const sites = await listAllSiteHostedManifests();
@@ -205,5 +261,48 @@ export async function runHostedAssetGc(
     }
   }
 
+  // Fold the BYO static-site reclaim into the SAME run, mutating the same report.
+  await runByoAssetGc(nowMs, report);
+
   return report;
+}
+
+/**
+ * The BYO half of the Phase 4b GC, folded into the same daily run. Enumerates every
+ * lab that has a BYO static site (listAllByoSites), and for each lab past its 30-day
+ * post-lapse grace window reclaims the WHOLE BYO site (R2 bytes + the single billing
+ * asset + the lab_byo_sites row), skipping a prepaid-archived BYO asset.
+ *
+ * Resilience mirrors the native pass: each lab's lapse lookup is wrapped so one
+ * lab's billing-read error cannot abort the run, and reclaimByoSite never throws.
+ * Counts accumulate into the SHARED GcRunReport (the byo* fields). The runner calls
+ * this; the cron route is unchanged because runHostedAssetGc still returns one
+ * report. `nowMs` is passed through from the runner for testability.
+ */
+export async function runByoAssetGc(
+  nowMs: number,
+  report: GcRunReport,
+): Promise<void> {
+  const byoSites = await listAllByoSites();
+  for (const site of byoSites) {
+    report.byoScanned += 1;
+
+    let lapse: { lapsedAt: string } | null = null;
+    try {
+      lapse = await getLabLapse(site.labOwnerKey);
+    } catch {
+      // A billing-read error for one lab must not abort the run. Treat as "cannot
+      // determine lapse" => skip this lab this pass. The next run retries.
+      continue;
+    }
+
+    // Active / never subscribed, or still inside the grace window -> keep the site.
+    if (!lapse) continue;
+    if (!isReclaimDue(nowMs, lapse.lapsedAt)) continue;
+
+    const outcome = await reclaimByoSite(site.labOwnerKey);
+    if (outcome === "reclaimed") report.byoReclaimed += 1;
+    else if (outcome === "archived") report.byoArchived += 1;
+    else report.byoFailed += 1;
+  }
 }

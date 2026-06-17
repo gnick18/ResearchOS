@@ -167,8 +167,10 @@ const CSP = [
   // Thumbnails load via <img>, so the custom domain must be in img-src (the R2
   // wildcard below only covers the s3 endpoint, not the custom domain).
   "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com https://assets.research-os.com",
-  // Vercel Blob CDN for the welcome-page demo loop videos and their posters.
-  "media-src 'self' https://*.public.blob.vercel-storage.com",
+  // Welcome-page demo loop videos + posters. They moved from Vercel Blob to the
+  // R2 custom domain (assets.research-os.com/welcome/*.mp4), so the R2 origin must
+  // be in media-src too — img-src already has it (posters loaded, videos did not).
+  "media-src 'self' https://*.public.blob.vercel-storage.com https://assets.research-os.com",
   "font-src 'self' data:",
   // assets.research-os.com: loadAssetManifest + fetchAssetSvg fetch the icon
   // library manifest + SVGs from the R2 custom domain (not the *.r2 wildcard).
