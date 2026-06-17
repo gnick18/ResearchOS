@@ -890,6 +890,41 @@ export default function BeakerBotConversation({
   const closeMacroEditor = useMacroUiStore((s) => s.closeEditor);
   const notifyMacrosChanged = useMacroUiStore((s) => s.notifyMacrosChanged);
   const macroRevision = useMacroUiStore((s) => s.revision);
+  // Idle-prewarm the PDF engine when the chat panel mounts, so attaching a PDF
+  // mid-conversation does not stall on a cold ~1.2 MB pdfjs + worker load. Mirrors
+  // the chemistry workbench's RDKit/Ketcher background warm: best-effort, runs
+  // once on mount, and dynamic-imported so pdf-extract (and pdfjs) stay out of
+  // the initial chat bundle until the idle callback fires.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    let cancelled = false;
+    const warm = () => {
+      if (cancelled) return;
+      void import("@/lib/ai/pdf-extract")
+        .then((m) => {
+          if (!cancelled) return m.warmPdfEngine();
+        })
+        .catch(() => {});
+    };
+    const ric = (
+      window as unknown as {
+        requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number;
+      }
+    ).requestIdleCallback;
+    let idleId: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    if (ric) idleId = ric(warm, { timeout: 4000 });
+    else timer = setTimeout(warm, 1500);
+    return () => {
+      cancelled = true;
+      const cic = (
+        window as unknown as { cancelIdleCallback?: (id: number) => void }
+      ).cancelIdleCallback;
+      if (idleId != null && cic) cic(idleId);
+      if (timer) clearTimeout(timer);
+    };
+  }, []);
+
   const slashActive = slashQuery !== null;
   useEffect(() => {
     if (!slashActive) return;

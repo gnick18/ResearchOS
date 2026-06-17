@@ -23,6 +23,47 @@
 
 export const TEXT_BUDGET_CHARS = 60_000;
 
+const PDF_WORKER_SRC = "/pdf.worker.min.mjs";
+
+// Memoized pdfjs-dist load. Both the warm path and extractPdfText go through this
+// so the engine (and its worker config) is set up at most once; a later real
+// extraction reuses the already-loaded module.
+let pdfjsPromise: Promise<typeof import("pdfjs-dist")> | null = null;
+
+function loadPdfjs(): Promise<typeof import("pdfjs-dist")> {
+  if (!pdfjsPromise) {
+    pdfjsPromise = import("pdfjs-dist").then((pdfjsLib) => {
+      // Set the worker to the copied static file. Safe to repeat; pdf.js guards
+      // re-initialization for the same workerSrc. Root-relative so it works
+      // regardless of base-path configuration.
+      if (pdfjsLib.GlobalWorkerOptions.workerSrc !== PDF_WORKER_SRC) {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+      }
+      return pdfjsLib;
+    });
+  }
+  return pdfjsPromise;
+}
+
+/**
+ * Warm the PDF engine ahead of first use, e.g. an idle-prewarm when the BeakerBot
+ * chat panel opens, so attaching a PDF mid-conversation does not stall on a cold
+ * load of the ~1.2 MB pdfjs chunk + worker. Loads + configures pdfjs and prefetches
+ * the worker file into the browser cache so the first getDocument() spawns it from
+ * cache. Best-effort and idempotent; if it fails, extractPdfText still loads the
+ * engine on demand.
+ */
+export async function warmPdfEngine(): Promise<void> {
+  try {
+    await loadPdfjs();
+    if (typeof fetch === "function") {
+      void fetch(PDF_WORKER_SRC, { cache: "force-cache" }).catch(() => {});
+    }
+  } catch {
+    // No-op: extractPdfText will load the engine on demand if warming failed.
+  }
+}
+
 export type PdfExtractResult = {
   /** Concatenated text from all pages, up to TEXT_BUDGET_CHARS. */
   text: string;
@@ -44,16 +85,10 @@ export type PdfExtractResult = {
 export async function extractPdfText(
   source: File | ArrayBuffer,
 ): Promise<PdfExtractResult> {
-  // Dynamic import: pdfjs-dist is only loaded when this function is called,
-  // not at module-evaluation time. This keeps it out of the initial bundle.
-  const pdfjsLib = await import("pdfjs-dist");
-
-  // Set the worker source to the copied static file. The assignment is safe to
-  // repeat; pdf.js guards against re-initialization for the same workerSrc.
-  // Use a root-relative path so it works regardless of base-path configuration.
-  if (pdfjsLib.GlobalWorkerOptions.workerSrc !== "/pdf.worker.min.mjs") {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = "/pdf.worker.min.mjs";
-  }
+  // Load (or reuse) pdfjs via the memoized loader, which also configures the
+  // worker. Still bundle-split: pdfjs-dist only loads on the first call here or
+  // a prior warmPdfEngine(), never at module-evaluation time.
+  const pdfjsLib = await loadPdfjs();
 
   // Normalize the source to a typed array so pdfjs accepts it.
   let data: ArrayBuffer;
