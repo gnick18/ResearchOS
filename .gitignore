@@ -80,3 +80,10 @@ scripts/activity-report/_milestones_block.txt
 # the pre-commit privacy-guard catches (bank/brokerage names, address, etc.).
 # Kept local so the denylist itself never lands in the public repo.
 .privacy-denylist
+
+# Wrangler local state/cache (Cloudflare). Never committed.
+.wrangler/
+
+# Business/financial reconciliation scripts (repo is public): one-off ledger
+# and reimbursement helpers operate on private LLC accounting. Keep them out.
+frontend/scripts/reimburse-*.mjs
