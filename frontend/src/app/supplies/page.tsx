@@ -662,6 +662,11 @@ function SuppliesPageInner() {
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              // A name / vendor / catalog / CAS lookup never needs more than a
+              // short phrase, so cap the field. The cap keeps a pathological
+              // paste (or a key held down) from making the per-keystroke filter
+              // refilter the whole supply list against a runaway string.
+              maxLength={120}
               placeholder="Search supplies by name, vendor, catalog, CAS"
               className="w-full bg-transparent text-body text-foreground outline-none placeholder:text-foreground-muted"
             />
