@@ -215,14 +215,116 @@ export default function LabsPage() {
                 The companion app lets a member snap a gel or jot a result at the
                 bench and have it land in the lab workspace right away.
               </FeatureCard>
-              <FeatureCard icon="eye" title="Oversight for the PI">
-                See what the lab is doing, govern who can reach what, and keep the
-                lab record in order without standing over anyone.
+              <FeatureCard icon="eye" title="You lead as the lab head">
+                As the PI you get the lab-head controls. See what the lab is
+                doing, govern who can reach what, and keep the record in order.
+                The lab is yours to run while your members do the work.
               </FeatureCard>
               <FeatureCard icon="folder" title="One shared workspace">
                 Every member's work lives in one place the whole lab can reach, so
                 nothing is stranded on one laptop.
               </FeatureCard>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* FEATURED: lab website + paper companion pages */}
+        <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 sm:px-12">
+          <Reveal className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+              <Kicker>// a home for your science on the web</Kicker>
+              <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
+                Your lab gets a site, not just storage
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
+                Every paid lab gets a clean web home at researchos.app/your-lab
+                and a builder to publish the supplemental data behind your papers.
+                Readers and reviewers open citable companion pages with the same
+                interactive dataset viewers you use in the app, so your figures
+                stay live instead of flattening into a static PDF.
+              </p>
+              <ul className="mt-6 flex flex-col gap-3">
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="reference" className="h-4 w-4" />
+                  </span>
+                  <span>
+                    A clean lab address you can put on a paper, a poster, or a CV
+                  </span>
+                </li>
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="figure" className="h-4 w-4" />
+                  </span>
+                  <span>
+                    Citable companion pages, one per paper, that you control
+                  </span>
+                </li>
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="chart" className="h-4 w-4" />
+                  </span>
+                  <span>
+                    Interactive dataset viewers, the same visualizations from the
+                    app, live for your readers
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-[#cfdcec] bg-white shadow-[0_4px_24px_rgba(15,40,80,0.08)]">
+              <div className="flex items-center gap-2 border-b border-[#e6eef7] bg-[#f4f8fc] px-4 py-2.5">
+                <span aria-hidden className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#f0b5b0]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#f3d9a4]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#aedcb0]" />
+                </span>
+                <span className="ml-2 flex-1 truncate rounded-md border border-[#dce6f1] bg-white px-3 py-1 text-meta text-[#64748b]">
+                  researchos.app/ramirez-lab
+                </span>
+              </div>
+              <div className="p-5">
+                <div className="text-title font-extrabold tracking-tight text-brand-ink">
+                  Ramirez Lab
+                </div>
+                <p className="mt-1 text-meta text-[#64748b]">
+                  Supplemental data and paper companion pages
+                </p>
+                <div className="mt-4 flex flex-col gap-2.5">
+                  <div className="flex items-center gap-3 rounded-xl border border-[#e6eef7] bg-[#fafcfe] px-3.5 py-2.5">
+                    <span
+                      aria-hidden
+                      className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-sky/10 text-brand-action"
+                    >
+                      <Icon name="figure" className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-body font-semibold text-brand-ink">
+                        Cohort 2 sequencing
+                      </div>
+                      <div className="truncate text-meta text-[#94a3b8]">
+                        Companion page, Nature Methods 2025
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 rounded-xl border border-[#e6eef7] bg-[#fafcfe] px-3.5 py-2.5">
+                    <span
+                      aria-hidden
+                      className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-sky/10 text-brand-action"
+                    >
+                      <Icon name="chart" className="h-4 w-4" />
+                    </span>
+                    <div className="min-w-0">
+                      <div className="truncate text-body font-semibold text-brand-ink">
+                        Buffer optimization dataset
+                      </div>
+                      <div className="truncate text-meta text-[#94a3b8]">
+                        Interactive viewer, live figures
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </Reveal>
         </section>

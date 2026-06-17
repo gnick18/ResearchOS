@@ -214,19 +214,116 @@ export default function DepartmentsPage() {
                 Put the whole department on a single plan and a single invoice
                 rather than billing each lab on its own.
               </FeatureCard>
-              <FeatureCard icon="shield" title="Set the rules once">
-                Govern access and policy at the org level so every lab in the
-                department follows the same rules without per-lab setup.
+              <FeatureCard icon="shield" title="Compliance and governance">
+                Govern access and policy at the org level, and keep the records
+                and controls your institution needs, applied across every lab at
+                once instead of lab by lab.
               </FeatureCard>
-              <FeatureCard icon="eye" title="See across the department">
-                A read across all of your labs in one view, so the people running
-                the org can keep the whole department in order.
+              <FeatureCard icon="gauge" title="Your department portal">
+                A standalone portal for the plan, roster, billing, and policy. It
+                is org admin only, with no research data and no reach into any
+                lab's files.
               </FeatureCard>
-              <FeatureCard icon="gauge" title="Admin without the data">
-                The department surface is org admin only. It manages the plan,
-                roster, and billing, and never reaches into any lab's research
-                files.
+              <FeatureCard icon="database" title="Shared methods and databases">
+                Optionally publish department-wide method protocols or reference
+                databases that every lab can pull from, so the whole org works
+                from one playbook.
               </FeatureCard>
+            </div>
+          </Reveal>
+        </section>
+
+        {/* FEATURED: a web home for every lab */}
+        <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 sm:px-12">
+          <Reveal className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-2 lg:items-center">
+            <div>
+              <Kicker>// a web presence for the whole department</Kicker>
+              <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
+                A site for every lab, maintained for you
+              </h2>
+              <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
+                A department keeps a web home for each of its labs at
+                researchos.app and gives every lab the same builder to publish the
+                supplemental data behind their papers. Readers open citable
+                companion pages with live interactive dataset viewers, and the
+                department keeps the addresses in order so no lab has to wrangle
+                hosting on its own.
+              </p>
+              <ul className="mt-6 flex flex-col gap-3">
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="reference" className="h-4 w-4" />
+                  </span>
+                  <span>A clean address for every lab in the department</span>
+                </li>
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="figure" className="h-4 w-4" />
+                  </span>
+                  <span>
+                    Citable paper companion pages with interactive dataset viewers
+                  </span>
+                </li>
+                <li className="flex items-start gap-3 text-body text-[#475569]">
+                  <span aria-hidden className="mt-0.5 text-brand-action">
+                    <Icon name="layer" className="h-4 w-4" />
+                  </span>
+                  <span>
+                    One builder and one set of addresses the department maintains
+                  </span>
+                </li>
+              </ul>
+            </div>
+
+            <div className="overflow-hidden rounded-2xl border border-[#cfdcec] bg-white shadow-[0_4px_24px_rgba(15,40,80,0.08)]">
+              <div className="flex items-center gap-2 border-b border-[#e6eef7] bg-[#f4f8fc] px-4 py-2.5">
+                <span aria-hidden className="flex gap-1.5">
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#f0b5b0]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#f3d9a4]" />
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#aedcb0]" />
+                </span>
+                <span className="ml-2 flex-1 truncate rounded-md border border-[#dce6f1] bg-white px-3 py-1 text-meta text-[#64748b]">
+                  researchos.app/biochem-dept
+                </span>
+              </div>
+              <div className="p-5">
+                <div className="text-title font-extrabold tracking-tight text-brand-ink">
+                  Department of Biochemistry
+                </div>
+                <p className="mt-1 text-meta text-[#64748b]">
+                  Lab sites in this department
+                </p>
+                <div className="mt-4 flex flex-col gap-2.5">
+                  {[
+                    { lab: "Ramirez Lab", slug: "ramirez-lab" },
+                    { lab: "Chen Lab", slug: "chen-lab" },
+                    { lab: "Okafor Lab", slug: "okafor-lab" },
+                  ].map((row) => (
+                    <div
+                      key={row.slug}
+                      className="flex items-center gap-3 rounded-xl border border-[#e6eef7] bg-[#fafcfe] px-3.5 py-2.5"
+                    >
+                      <span
+                        aria-hidden
+                        className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-brand-sky/10 text-brand-action"
+                      >
+                        <Icon name="folder" className="h-4 w-4" />
+                      </span>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-body font-semibold text-brand-ink">
+                          {row.lab}
+                        </div>
+                        <div className="truncate text-meta text-[#94a3b8]">
+                          researchos.app/{row.slug}
+                        </div>
+                      </div>
+                      <span aria-hidden className="text-brand-action">
+                        <Icon name="check" className="h-4 w-4" />
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Reveal>
         </section>
