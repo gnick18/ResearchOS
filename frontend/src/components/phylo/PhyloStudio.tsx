@@ -37,6 +37,7 @@ import {
   SplitDivider,
   RailReopenButton,
 } from "@/components/SplitShell";
+import { LIST_MIN_WIDTH } from "@/lib/sequences/split-layout";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import type { PhyloMeta } from "@/lib/phylo/types";
 import {
@@ -406,6 +407,12 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // The shared split shell (resizable + collapse-to-focus + persisted width).
   const shell = useSplitShell(LIST_WIDTH_KEY);
 
+  // Bumped each time applyAdvisorDelta fires so the collision-detection useMemo
+  // re-runs even if spec identity has not changed (e.g. the same object reference
+  // survived React's bailout). Without this the advisor banner shows a stale count
+  // after a per-fix "Apply" click.
+  const [collisionVersion, setCollisionVersion] = useState(0);
+
   // Load saved trees for the "From a saved tree" picker. In a demo session, open
   // the showcase tree straight away so the Studio lands on a populated, real
   // figure instead of the empty import panel (the screenshots + public demo).
@@ -549,12 +556,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // the advisor card inside the Shape tab AND an amber dot on the Shape tab itself --
   // so a crowding warning is discoverable from any tab, not only when the Shape
   // inspector happens to be open.
+  // collisionVersion is a counter bumped by applyAdvisorDelta so this useMemo
+  // always re-runs after a fix is applied, even when spec identity is stable.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   const { collisions: layoutCollisions, fixes: layoutFixes } = useMemo(
     () =>
       tree && spec
         ? phyloLayoutIssues(tree, spec)
         : { collisions: [], fixes: [] },
-    [tree, spec],
+    // collisionVersion is intentionally included as a re-run signal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [tree, spec, collisionVersion],
   );
   const [advisorSilenced, setAdvisorSilenced] = useState(false);
   useEffect(() => {
@@ -1142,6 +1154,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         return next;
       });
     }
+    // Force the collision-detection useMemo to re-run after every apply so the
+    // banner count reflects the post-fix state rather than showing the stale value.
+    setCollisionVersion((v) => v + 1);
   };
 
   const onSave = async () => {
@@ -1857,7 +1872,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
         className={`flex shrink-0 flex-col overflow-hidden rounded-lg border border-border bg-surface-raised transition-[width] duration-200 ${
           shell.collapsed ? "pointer-events-none border-0" : ""
         }`}
-        style={{ width: shell.collapsed ? 0 : shell.width }}
+        style={{
+          width: shell.collapsed ? 0 : shell.width,
+          // Clamp ensures the CSS transition can never animate through a ~0 sliver
+          // on rapid collapse/expand clicks. The collapse path needs minWidth 0 so
+          // the aside can fully hide; the expanded path enforces the rail minimum.
+          minWidth: shell.collapsed ? 0 : LIST_MIN_WIDTH,
+        }}
         aria-hidden={shell.collapsed}
       >
         <PhyloCollectionRail
