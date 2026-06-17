@@ -27,6 +27,7 @@ import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
+import { isRequireAccountEnabled, isLocalPathVisible } from "@/lib/account/require-account";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
@@ -178,9 +179,11 @@ function CompareCell({ value }: { value: CellValue }) {
 
 // ---- Compare + guide expandable section ----
 function CompareTiers({
+  showLocal,
   showFree,
   showLab,
 }: {
+  showLocal: boolean;
   showFree: boolean;
   showLab: boolean;
 }) {
@@ -192,13 +195,15 @@ function CompareTiers({
           <thead>
             <tr className="bg-[#E6F4FE] dark:bg-surface-sunken">
               <th className="py-3 px-3 text-left w-[40%]" />
-              <th className="py-3 px-3 text-center">
-                <span className="inline-block w-10 h-10 mb-1">
-                  <BeakerBotScene name="solo" />
-                </span>
-                <div className="font-bold text-sm text-foreground">Just me, local</div>
-                <div className="text-[11px] font-semibold text-foreground-muted">Free</div>
-              </th>
+              {showLocal && (
+                <th className="py-3 px-3 text-center">
+                  <span className="inline-block w-10 h-10 mb-1">
+                    <BeakerBotScene name="solo" />
+                  </span>
+                  <div className="font-bold text-sm text-foreground">Just me, local</div>
+                  <div className="text-[11px] font-semibold text-foreground-muted">Free</div>
+                </th>
+              )}
               {showFree && (
                 <th className="py-3 px-3 text-center">
                   <span className="inline-block w-10 h-10 mb-1">
@@ -228,7 +233,7 @@ function CompareTiers({
                 <td className="py-2.5 px-3 font-semibold text-foreground text-xs">
                   {label}
                 </td>
-                <CompareCell value={localVal} />
+                {showLocal && <CompareCell value={localVal} />}
                 {showFree && <CompareCell value={freeVal} />}
                 {showLab && <CompareCell value={labVal} />}
               </tr>
@@ -244,7 +249,8 @@ function CompareTiers({
         </h3>
         <div className="grid gap-4 sm:grid-cols-3">
           {GUIDE.map((g, i) => {
-            // Only render free/lab guide cards if those tiers are visible
+            // Only render guide cards for tiers that are visible
+            if (i === 0 && !showLocal) return null;
             if (i === 1 && !showFree) return null;
             if (i === 2 && !showLab) return null;
             return (
@@ -267,10 +273,15 @@ function CompareTiers({
           your files always live on your own disk. The cloud is only an
           intermediary for sending and team sync. Paid plans are
           pay-for-what-you-use, a small base fee plus the cloud you actually
-          use, with a monthly cap you set so there are no surprises.{" "}
-          <span className="font-bold text-brand-sky">Not sure?</span> Start
-          with Just me, local, you can upgrade any time without moving or
-          losing anything.
+          use, with a monthly cap you set so there are no surprises.
+          {showLocal && (
+            <>
+              {" "}
+              <span className="font-bold text-brand-sky">Not sure?</span> Start
+              with Just me, local, you can upgrade any time without moving or
+              losing anything.
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -624,6 +635,21 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   // Flag gating: evaluate once at render time (these are env-var reads, stable)
   const showFree = isOAuthPublishAvailable();
   const showLab = LAB_TIER_ENABLED;
+  // Require-account pivot: when the flag is on, the no-account local-only entry is
+  // retired so every new entry goes through sign-in. The local path is kept ONLY
+  // as a defensive fallback when no account tier is actually available (so the
+  // flag can never strand a visitor with no way forward). See no-soft-locks.
+  const showLocal = isLocalPathVisible({
+    requireAccount: isRequireAccountEnabled(),
+    hasAccountTier: showFree || showLab,
+  });
+  const tileCount = (showLocal ? 1 : 0) + (showFree ? 1 : 0) + (showLab ? 1 : 0);
+  const gridCols =
+    tileCount >= 3
+      ? "sm:grid-cols-3"
+      : tileCount === 2
+        ? "sm:grid-cols-2 max-w-xl"
+        : "sm:grid-cols-1 max-w-xs";
   // The bottom-zone org-admin entry is purely additive: it appears only when the
   // onboarding wizard flag is on (so the chooser's flag-off behavior is byte for
   // byte unchanged), the host wired onOrgAdmin, and at least one org tier flag is
@@ -689,12 +715,11 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
 
         {/* tiles */}
         <div
-          className={[
-            "grid gap-4 w-full max-w-3xl mt-8",
-            showFree || showLab ? "sm:grid-cols-3" : "sm:grid-cols-1 max-w-xs",
-          ].join(" ")}
+          className={["grid gap-4 w-full max-w-3xl mt-8", gridCols].join(" ")}
         >
-          {/* Local-only tile — ALWAYS shown */}
+          {/* Local-only tile, hidden when the require-account flag retires the
+              no-account path (kept as a defensive fallback, see showLocal). */}
+          {showLocal && (
           <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
             <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
             <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
@@ -720,6 +745,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
               </button>
             </div>
           </div>
+          )}
 
           {/* Free account tile — shown when SHARING_ENABLED */}
           {showFree && (
@@ -781,18 +807,21 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           )}
         </div>
 
-        {/* solo escape hatch */}
-        <p className="mt-5 text-sm text-foreground-muted text-center">
-          Not sure?{" "}
-          <button
-            type="button"
-            className="text-brand-action font-semibold underline hover:no-underline"
-            onClick={handleLocal}
-          >
-            Start local for now
-          </button>
-          , you can upgrade to an account or a lab any time.
-        </p>
+        {/* solo escape hatch, hidden when the require-account flag retires the
+            no-account path (showLocal). */}
+        {showLocal && (
+          <p className="mt-5 text-sm text-foreground-muted text-center">
+            Not sure?{" "}
+            <button
+              type="button"
+              className="text-brand-action font-semibold underline hover:no-underline"
+              onClick={handleLocal}
+            >
+              Start local for now
+            </button>
+            , you can upgrade to an account or a lab any time.
+          </p>
+        )}
 
         {/* BOTTOM ZONE: org-admin entry, visually separated below a thin divider
             (Q1 default: a distinct entry, not a full equal-weight card). Purely
@@ -853,7 +882,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           </button>
 
           {compareOpen && (
-            <CompareTiers showFree={showFree} showLab={showLab} />
+            <CompareTiers showLocal={showLocal} showFree={showFree} showLab={showLab} />
           )}
         </div>
       </div>

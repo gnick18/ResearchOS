@@ -34,6 +34,7 @@ import {
   isMicrosoftAuthEnabled,
 } from "@/lib/sharing/oauth-availability";
 import { readLastProvider } from "@/lib/sharing/oauth-first-login";
+import { isRequireAccountEnabled, isLocalPathVisible } from "@/lib/account/require-account";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
 import { IntroBubbleBot } from "./IntroBubbleBot";
 import LandingBackdrop from "./LandingBackdrop";
@@ -100,6 +101,14 @@ export function WelcomeBackSignIn({
 
   const oauthAvailable = isOAuthPublishAvailable();
   const devMock = isDevMockAuth();
+  // Require-account pivot: when the flag is on, retire the no-account "Open a
+  // folder" escape so sign-in is the only way in. The shared helper keeps the
+  // escape whenever OAuth is NOT available in this build, since hiding it then
+  // would leave no path forward (no soft-locks).
+  const hideSoloEscape = !isLocalPathVisible({
+    requireAccount: isRequireAccountEnabled(),
+    hasAccountTier: oauthAvailable,
+  });
 
   function btnClass(def: ProviderDef): string {
     const base =
@@ -132,8 +141,9 @@ export function WelcomeBackSignIn({
             Welcome back
           </h1>
           <p className="mt-1 max-w-[36ch] text-[12.5px] text-foreground-muted">
-            Sign in to unlock sharing, or just open your folder if you work solo
-            with no account.
+            {hideSoloEscape
+              ? "Sign in to continue. Your work still lives on your own disk."
+              : "Sign in to unlock sharing, or just open your folder if you work solo with no account."}
           </p>
 
           {oauthAvailable && devMock ? (
@@ -187,24 +197,29 @@ export function WelcomeBackSignIn({
             </p>
           )}
 
-          {/* Divider + the solo escape hatch. */}
-          <div className="mt-3.5 mb-2.5 flex w-full items-center gap-2 text-[11px] text-foreground-muted">
-            <span className="h-px flex-1 bg-border" />
-            or
-            <span className="h-px flex-1 bg-border" />
-          </div>
-          <button
-            type="button"
-            onClick={onOpenFolder}
-            className="w-full rounded-[10px] border border-border bg-surface-sunken px-3 py-2.5 text-[13px] font-bold text-foreground hover:border-foreground-muted transition-colors"
-          >
-            Open a folder, no account
-          </button>
+          {/* Divider + the solo escape hatch. Hidden when the require-account
+              flag retires the no-account path (hideSoloEscape). */}
+          {!hideSoloEscape && (
+            <>
+              <div className="mt-3.5 mb-2.5 flex w-full items-center gap-2 text-[11px] text-foreground-muted">
+                <span className="h-px flex-1 bg-border" />
+                or
+                <span className="h-px flex-1 bg-border" />
+              </div>
+              <button
+                type="button"
+                onClick={onOpenFolder}
+                className="w-full rounded-[10px] border border-border bg-surface-sunken px-3 py-2.5 text-[13px] font-bold text-foreground hover:border-foreground-muted transition-colors"
+              >
+                Open a folder, no account
+              </button>
+            </>
+          )}
 
           <p className="mt-3 max-w-[34ch] text-[11px] leading-relaxed text-foreground-muted">
-            The provider you used last floats to the top with the badge. Solo
-            users who do not want an account skip login entirely with Open a
-            folder.
+            {hideSoloEscape
+              ? "The provider you used last floats to the top with the badge."
+              : "The provider you used last floats to the top with the badge. Solo users who do not want an account skip login entirely with Open a folder."}
           </p>
         </div>
       </div>
