@@ -21,6 +21,7 @@ export default function ManualSwitchControl({
   reversible,
   busy,
   onConfirm,
+  onArm,
 }: {
   rowCount: number;
   /** True when the table is under the threshold (it could switch back later). */
@@ -28,6 +29,9 @@ export default function ManualSwitchControl({
   /** True while the conversion runs (the engine is loading). */
   busy: boolean;
   onConfirm: () => void;
+  /** Fired once when the user arms the switch, so the heavy engine can start
+   *  warming in the background while they read the warning and decide. */
+  onArm?: () => void;
 }) {
   const [armed, setArmed] = useState(false);
 
@@ -49,7 +53,10 @@ export default function ManualSwitchControl({
         {!armed ? (
           <button
             type="button"
-            onClick={() => setArmed(true)}
+            onClick={() => {
+              setArmed(true);
+              onArm?.();
+            }}
             className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-meta font-semibold"
             data-testid="bigtable-manual-switch-open"
           >

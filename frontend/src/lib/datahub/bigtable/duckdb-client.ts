@@ -46,6 +46,28 @@ interface EngineHandles {
 
 let enginePromise: Promise<EngineHandles> | null = null;
 
+// Honest-progress plumbing. The engine load is the ~34-39 MB cold cost; a
+// caller (the page-boot loader on the convert path) registers a listener and we
+// emit coarse milestones as createEngine advances. A Set so whoever started the
+// load and whoever is watching can differ (warm-on-arm starts it with no
+// listener, the convert click then attaches one and still sees the rest).
+const progressListeners = new Set<(frac: number) => void>();
+function emitProgress(frac: number): void {
+  for (const listener of progressListeners) {
+    try {
+      listener(frac);
+    } catch {
+      // a listener throwing must not derail the engine load
+    }
+  }
+}
+
+// Hard ceiling on the cold load so a silently-failed worker (a wasm that never
+// instantiates) surfaces as an error the loader can retry, instead of a spinner
+// that hangs forever. Generous: the wasm is ~34-39 MB and a slow disk/connection
+// is normal on a first load.
+const ENGINE_LOAD_TIMEOUT_MS = 90_000;
+
 /** Guard: this module is client-only and must never run on the server. */
 function assertBrowser(): void {
   if (typeof window === "undefined") {
@@ -63,6 +85,7 @@ function assertBrowser(): void {
  */
 async function createEngine(): Promise<EngineHandles> {
   assertBrowser();
+  emitProgress(0.03);
 
   // RUNTIME import of a SELF-HOSTED ESM bundle, NOT the npm package. Importing
   // "@duckdb/duckdb-wasm" directly (even dynamically) pulls it into Turbopack's
@@ -76,6 +99,7 @@ async function createEngine(): Promise<EngineHandles> {
   const duckdb: DuckDbModule = await import(
     /* webpackIgnore: true */ /* @vite-ignore */ duckdbModuleUrl
   );
+  emitProgress(0.18);
 
   // MANUAL bundles, self-hosted from /public/duckdb. No getJsDelivrBundles (a
   // CDN, blocked by our CSP + violates local-first).
@@ -94,7 +118,10 @@ async function createEngine(): Promise<EngineHandles> {
   const worker = new Worker(bundle.mainWorker!);
   const logger = new duckdb.ConsoleLogger(duckdb.LogLevel.WARNING);
   const db = new duckdb.AsyncDuckDB(logger, worker);
+  emitProgress(0.3);
+  // The heavy step: the ~34-39 MB wasm streams + instantiates inside the worker.
   await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+  emitProgress(0.75);
 
   await db.open({
     query: {
@@ -104,6 +131,7 @@ async function createEngine(): Promise<EngineHandles> {
     },
   });
   const conn = await db.connect();
+  emitProgress(0.85);
 
   // duckdb-wasm 1.29.0 (DuckDB 1.1.1) ships Parquet as a LOADABLE extension,
   // fetched by default from https://extensions.duckdb.org (a CDN, blocked by our
@@ -114,28 +142,67 @@ async function createEngine(): Promise<EngineHandles> {
   await conn.query(`SET custom_extension_repository='${origin}/duckdb';`);
   await conn.query(`INSTALL parquet;`);
   await conn.query(`LOAD parquet;`);
+  emitProgress(1);
 
   return { duckdb, db, conn, worker };
 }
 
 /**
- * Lazily initialize the engine (idempotent, memoized). The first call loads the
- * worker + wasm + Parquet extension; later calls reuse the same handles. Returns
- * after the engine is ready to accept queries.
+ * Get the live engine, initializing on demand. Idempotent + memoized: the first
+ * call loads the worker + wasm + Parquet extension, later calls reuse the same
+ * handles. Two robustness rules learned the hard way:
+ *   1. A cold load is wrapped in a timeout, so a silently-failed worker rejects
+ *      (the caller can show a retry) instead of leaving a promise pending forever.
+ *   2. On ANY failure we null out enginePromise, so the NEXT call retries from
+ *      scratch. Memoizing a rejected/hung promise is what wedged the lane until a
+ *      full page reload.
  */
-export async function init(): Promise<void> {
+function ensureEngine(): Promise<EngineHandles> {
   if (!enginePromise) {
-    enginePromise = createEngine();
+    enginePromise = (async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () =>
+            reject(
+              new Error(
+                "The large-dataset engine took too long to load. Check your connection and try again.",
+              ),
+            ),
+          ENGINE_LOAD_TIMEOUT_MS,
+        );
+      });
+      try {
+        return await Promise.race([createEngine(), timeout]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    })().catch((err) => {
+      // Let the next call retry from scratch rather than re-awaiting a dead promise.
+      enginePromise = null;
+      throw err;
+    });
   }
-  await enginePromise;
+  return enginePromise;
+}
+
+/**
+ * Lazily initialize the engine (idempotent, memoized). Resolves once the engine
+ * is ready to accept queries. Pass `onProgress` to receive coarse load milestones
+ * (0..1) for an honest loading bar; the listener is detached when init settles.
+ */
+export async function init(onProgress?: (frac: number) => void): Promise<void> {
+  if (onProgress) progressListeners.add(onProgress);
+  try {
+    await ensureEngine();
+  } finally {
+    if (onProgress) progressListeners.delete(onProgress);
+  }
 }
 
 /** Internal: get the live engine, initializing on demand. */
 async function engine(): Promise<EngineHandles> {
-  if (!enginePromise) {
-    enginePromise = createEngine();
-  }
-  return enginePromise;
+  return ensureEngine();
 }
 
 /**

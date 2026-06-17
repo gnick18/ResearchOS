@@ -29,9 +29,12 @@ import {
   type DatasetSidecar,
 } from "@/lib/datahub/bigtable";
 import { ingestToDatasetLane } from "@/lib/datahub/bigtable/ingest";
+import { init as initBigTableEngine } from "@/lib/datahub/bigtable/duckdb-client";
 import DatasetView from "@/components/datahub/bigtable/DatasetView";
 import TransformBuilder from "@/components/datahub/bigtable/TransformBuilder";
 import ManualSwitchControl from "@/components/datahub/bigtable/ManualSwitchControl";
+import { BeakerBotLoader } from "@/components/page-boot/BeakerBotLoader";
+import { runBoot, PAGE_BOOT_WHY_HREF, type BootState } from "@/lib/page-boot/page-boot";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import { dataHubApi } from "@/lib/datahub/api";
 import { recipesApi } from "@/lib/datahub/recipes-store";
@@ -274,6 +277,10 @@ export default function DataHubPage() {
   // True while the manual "Switch to large-dataset mode" conversion runs (the
   // engine is loading + the table is being re-materialized to a dataset).
   const [manualSwitchBusy, setManualSwitchBusy] = useState(false);
+  // Honest-progress state for that conversion. When set, the editable view is
+  // replaced by the BeakerBot page-boot loader (real progress for the one-time
+  // ~34-39 MB engine load, then a retry on failure instead of a frozen spinner).
+  const [convertBoot, setConvertBoot] = useState<BootState | null>(null);
   const [newTableOpen, setNewTableOpen] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   // The selected analysis in the Results section (null means the data grid is
@@ -1384,26 +1391,59 @@ export default function DataHubPage() {
   // is additive and non-destructive. Warned first by ManualSwitchControl.
   const handleManualSwitch = useCallback(async () => {
     if (!bigTableOn || !currentUser || !openContent || !selectedMeta) return;
+    const owner = currentUser;
+    const content = openContent;
+    const meta = selectedMeta;
     setManualSwitchBusy(true);
+    let newId: string | null = null;
     try {
-      const owner = currentUser;
-      const id = await nextDatasetId(owner);
-      await ingestToDatasetLane(owner, id, {
-        name: selectedMeta.name,
-        columns: openContent.columns.map((c) => ({
-          id: c.id,
-          name: c.name,
-          dataType: c.dataType,
-        })),
-        rows: openContent.rows.map((r) => ({ id: r.id, cells: r.cells })),
-        source: { kind: "paste" },
-        project_ids: selectedMeta.project_ids ?? [],
-      });
-      await queryClient.invalidateQueries({
-        queryKey: ["datahub", "datasets", owner],
-      });
+      // Two honest steps behind the BeakerBot loader: load the engine (the
+      // ~34-39 MB one-time cost, with real milestone progress), then materialize
+      // this table into a dataset (fast, the engine is warm by then). runBoot
+      // emits an error phase on failure so the loader can offer a retry instead
+      // of hanging. The cell store is left intact, so a sub-threshold table can
+      // switch back.
+      await runBoot(
+        [
+          {
+            id: "engine",
+            label: "Loading the large-dataset engine",
+            weight: 8,
+            run: (onProgress) => initBigTableEngine(onProgress),
+          },
+          {
+            id: "materialize",
+            label: "Preparing this table",
+            weight: 2,
+            run: async () => {
+              const id = await nextDatasetId(owner);
+              await ingestToDatasetLane(owner, id, {
+                name: meta.name,
+                columns: content.columns.map((c) => ({
+                  id: c.id,
+                  name: c.name,
+                  dataType: c.dataType,
+                })),
+                rows: content.rows.map((r) => ({ id: r.id, cells: r.cells })),
+                source: { kind: "paste" },
+                project_ids: meta.project_ids ?? [],
+              });
+              await queryClient.invalidateQueries({
+                queryKey: ["datahub", "datasets", owner],
+              });
+              newId = id;
+            },
+          },
+        ],
+        { pageId: "datahub-bigtable", onUpdate: setConvertBoot },
+      );
+      // Success: flip to the dataset view and clear the loader.
+      setConvertBoot(null);
       setSelectedTableId(null);
-      setSelectedDatasetId(id);
+      if (newId) setSelectedDatasetId(newId);
+    } catch {
+      // The error phase was already emitted to convertBoot; the loader shows a
+      // retry. Leave convertBoot set so the user sees it (cleared on retry/cancel).
     } finally {
       setManualSwitchBusy(false);
     }
@@ -2384,7 +2424,22 @@ export default function DataHubPage() {
               resolveContent={resolveTableContent}
             />
           ) : selectedMeta && openContent ? (
-            <div className="flex min-h-0 flex-1 flex-col">
+            <div className="relative flex min-h-0 flex-1 flex-col">
+              {/* During a manual switch to the large-dataset lane, the BeakerBot
+                  page-boot loader covers the editable view with honest progress
+                  for the one-time engine load (and a retry on failure), instead
+                  of a frozen-looking table behind a static "loading" line. */}
+              {convertBoot && (
+                <div className="absolute inset-0 z-20 flex items-center justify-center bg-surface-raised">
+                  <BeakerBotLoader
+                    state={convertBoot}
+                    blurb="Loading the large-dataset engine in your browser. It runs locally so nothing uploads, and it caches after the first time, so switching is instant from then on."
+                    whyHref={PAGE_BOOT_WHY_HREF}
+                    onRetry={() => void handleManualSwitch()}
+                    onCancel={() => setConvertBoot(null)}
+                  />
+                </div>
+              )}
               {/* Title row, then the workspace toolbar full-bleed, then the
                   scrollable grid body. The toolbar is the headline surface where
                   Analyze leads (the single most-used Prism move), New graph sits
@@ -2472,6 +2527,12 @@ export default function DataHubPage() {
                         )
                       }
                       busy={manualSwitchBusy}
+                      onArm={() => {
+                        // Start warming the engine while the user reads the
+                        // warning, so "Convert now" is fast. Errors here are
+                        // ignored; the convert path reports + retries them.
+                        void initBigTableEngine().catch(() => {});
+                      }}
                       onConfirm={() => void handleManualSwitch()}
                     />
                   </div>

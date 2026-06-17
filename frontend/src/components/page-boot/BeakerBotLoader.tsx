@@ -27,9 +27,11 @@ export interface BeakerBotLoaderProps {
   /** Where "Why the wait?" links (the local-first wiki page). */
   whyHref?: string;
   onRetry?: () => void;
+  /** Optional escape from a failed load (no soft-lock), e.g. back to the prior view. */
+  onCancel?: () => void;
 }
 
-export function BeakerBotLoader({ state, blurb, whyHref, onRetry }: BeakerBotLoaderProps) {
+export function BeakerBotLoader({ state, blurb, whyHref, onRetry, onCancel }: BeakerBotLoaderProps) {
   const pct = Math.round(state.pct);
   const isError = state.phase === "error";
 
@@ -59,15 +61,26 @@ export function BeakerBotLoader({ state, blurb, whyHref, onRetry }: BeakerBotLoa
           {state.label && (
             <p className="mt-1 text-meta text-foreground-muted">Step: {state.label}</p>
           )}
-          {onRetry && (
-            <button
-              type="button"
-              onClick={onRetry}
-              className="mt-4 rounded-lg border border-border-strong px-4 py-2 text-meta font-medium text-foreground hover:border-brand-action"
-            >
-              Try again
-            </button>
-          )}
+          <div className="mt-4 flex items-center gap-2">
+            {onRetry && (
+              <button
+                type="button"
+                onClick={onRetry}
+                className="rounded-lg border border-border-strong px-4 py-2 text-meta font-medium text-foreground hover:border-brand-action"
+              >
+                Try again
+              </button>
+            )}
+            {onCancel && (
+              <button
+                type="button"
+                onClick={onCancel}
+                className="rounded-lg px-4 py-2 text-meta font-medium text-foreground-muted hover:text-foreground"
+              >
+                Go back
+              </button>
+            )}
+          </div>
         </>
       ) : (
         <>

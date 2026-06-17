@@ -215,6 +215,22 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // The self-hosted DuckDB-WASM engine for the Data Hub large-dataset lane
+        // is ~34-39 MB across version-pinned binaries (the .wasm files, the
+        // worker, the bundled ESM, and the versioned parquet extension under
+        // v<ver>/). They only change on a deliberate DuckDB upgrade (which is a
+        // code change), so cache them aggressively: without this the browser
+        // re-downloads tens of MB on every reload, which is the bulk of the
+        // "switch to large-dataset mode stalls" complaint.
+        source: "/duckdb/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
     ];
   },
 };
