@@ -13,7 +13,11 @@ import {
   accrualIdemKey,
   getCloudBalance,
   recordCharge,
+  setCloudPaymentMethod,
+  getCloudPaymentMethod,
+  listChargeableOwners,
 } from "../ledger";
+import { ACCRUAL_CHARGE_THRESHOLD_CENTS } from "../pricing";
 import { MODEL_A_PLANS, periodCharge } from "../pricing";
 
 interface LedgerRow {
@@ -25,8 +29,14 @@ interface LedgerRow {
   idem_key: string | null;
 }
 
+interface BalanceRow {
+  accrued_cents: number;
+  stripe_customer_id?: string;
+  stripe_payment_method_id?: string;
+}
+
 function makeMockSql() {
-  const balances = new Map<string, { accrued_cents: number }>();
+  const balances = new Map<string, BalanceRow>();
   const ledger: LedgerRow[] = [];
   let nextId = 1;
 
@@ -35,6 +45,44 @@ function makeMockSql() {
 
     if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) {
       return Promise.resolve([]);
+    }
+
+    // setCloudPaymentMethod: balance upsert carrying the card on file.
+    if (/INSERT INTO cloud_balance/i.test(text) && /stripe_payment_method_id/i.test(text)) {
+      const owner = values[0] as string;
+      const existing = balances.get(owner) ?? { accrued_cents: 0 };
+      existing.stripe_customer_id = values[1] as string;
+      existing.stripe_payment_method_id = values[2] as string;
+      balances.set(owner, existing);
+      return Promise.resolve([]);
+    }
+
+    // getCloudPaymentMethod read.
+    if (/SELECT stripe_customer_id, stripe_payment_method_id\s+FROM cloud_balance/i.test(text)) {
+      const owner = values[0] as string;
+      const row = balances.get(owner);
+      return Promise.resolve(
+        row
+          ? [{
+              stripe_customer_id: row.stripe_customer_id ?? null,
+              stripe_payment_method_id: row.stripe_payment_method_id ?? null,
+            }]
+          : [],
+      );
+    }
+
+    // listChargeableOwners.
+    if (/FROM cloud_balance\s+WHERE accrued_cents >=/i.test(text)) {
+      const threshold = values[0] as number;
+      const out = [...balances.entries()]
+        .filter(([, r]) => r.accrued_cents >= threshold && r.stripe_customer_id && r.stripe_payment_method_id)
+        .map(([owner_key, r]) => ({
+          owner_key,
+          accrued_cents: r.accrued_cents,
+          stripe_customer_id: r.stripe_customer_id,
+          stripe_payment_method_id: r.stripe_payment_method_id,
+        }));
+      return Promise.resolve(out);
     }
 
     // accrual ledger insert, idempotent on idem_key.
@@ -168,5 +216,45 @@ describe("cloud ledger helpers", () => {
     expect(accrualIdemKey("o1", "2026-06")).toBe("accrue:o1:2026-06");
     expect(accrualIdemKey("o1", "2026-06")).toBe(accrualIdemKey("o1", "2026-06"));
     expect(accrualIdemKey("o1", "2026-07")).not.toBe(accrualIdemKey("o1", "2026-06"));
+  });
+});
+
+describe("cloud ledger card on file", () => {
+  beforeEach(() => __resetCloudSchemaCacheForTests());
+
+  it("saves and reads the card on file", async () => {
+    const { sql } = makeMockSql();
+    expect(await getCloudPaymentMethod("payer-a", sql)).toBeNull();
+    await setCloudPaymentMethod("payer-a", "cus_1", "pm_1", sql);
+    expect(await getCloudPaymentMethod("payer-a", sql)).toEqual({
+      customerId: "cus_1",
+      paymentMethodId: "pm_1",
+    });
+  });
+
+  it("setting the card preserves an existing accrued balance", async () => {
+    const { sql } = makeMockSql();
+    const c = periodCharge(MODEL_A_PLANS.solo, usage);
+    await accruePeriodCharge("payer-a", "2026-06", c, sql);
+    await setCloudPaymentMethod("payer-a", "cus_1", "pm_1", sql);
+    expect(await getCloudBalance("payer-a", sql)).toBe(c.totalCents);
+  });
+
+  it("listChargeableOwners returns only owners over the threshold with a card", async () => {
+    const { sql } = makeMockSql();
+    const big = periodCharge(MODEL_A_PLANS.lab, { writes: 1_000_000, storageBytes: 50e9, hostedBytes: 0, labCount: 1 });
+    expect(big.totalCents).toBeGreaterThanOrEqual(ACCRUAL_CHARGE_THRESHOLD_CENTS);
+
+    // Over threshold + card on file -> chargeable.
+    await accruePeriodCharge("rich", "2026-06", big, sql);
+    await setCloudPaymentMethod("rich", "cus_r", "pm_r", sql);
+    // Over threshold but NO card -> excluded.
+    await accruePeriodCharge("nocard", "2026-06", big, sql);
+    // Card but under threshold -> excluded.
+    await setCloudPaymentMethod("small", "cus_s", "pm_s", sql);
+
+    const chargeable = await listChargeableOwners(ACCRUAL_CHARGE_THRESHOLD_CENTS, sql);
+    expect(chargeable.map((c) => c.ownerKey)).toEqual(["rich"]);
+    expect(chargeable[0]).toMatchObject({ customerId: "cus_r", paymentMethodId: "pm_r" });
   });
 });

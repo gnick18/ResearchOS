@@ -120,6 +120,79 @@ export async function getCloudBalance(
   return Number(rows[0]?.accrued_cents ?? 0);
 }
 
+/** Save the card on file for a payer (from the SetupIntent at checkout). The
+ *  off-session charge job attaches this payment method to the PaymentIntent. */
+export async function setCloudPaymentMethod(
+  ownerKey: string,
+  stripeCustomerId: string,
+  paymentMethodId: string,
+  sql: Sql = getSql(),
+): Promise<void> {
+  await ensureCloudLedgerSchema(sql);
+  await sql`
+    INSERT INTO cloud_balance (owner_key, stripe_customer_id, stripe_payment_method_id)
+    VALUES (${ownerKey}, ${stripeCustomerId}, ${paymentMethodId})
+    ON CONFLICT (owner_key) DO UPDATE
+      SET stripe_customer_id = ${stripeCustomerId},
+          stripe_payment_method_id = ${paymentMethodId},
+          updated_at = now()
+  `;
+}
+
+export interface CloudCardOnFile {
+  customerId: string;
+  paymentMethodId: string;
+}
+
+/** The card on file for a payer, or null if none saved yet. */
+export async function getCloudPaymentMethod(
+  ownerKey: string,
+  sql: Sql = getSql(),
+): Promise<CloudCardOnFile | null> {
+  await ensureCloudLedgerSchema(sql);
+  const rows = (await sql`
+    SELECT stripe_customer_id, stripe_payment_method_id
+    FROM cloud_balance WHERE owner_key = ${ownerKey}
+  `) as Array<{ stripe_customer_id: string | null; stripe_payment_method_id: string | null }>;
+  const row = rows[0];
+  if (!row || !row.stripe_customer_id || !row.stripe_payment_method_id) return null;
+  return { customerId: row.stripe_customer_id, paymentMethodId: row.stripe_payment_method_id };
+}
+
+export interface ChargeableOwner {
+  ownerKey: string;
+  accruedCents: number;
+  customerId: string;
+  paymentMethodId: string;
+}
+
+/** Payers whose accrued balance is at or above the threshold AND who have a card
+ *  on file, so the charge job can run them off-session. */
+export async function listChargeableOwners(
+  thresholdCents: number,
+  sql: Sql = getSql(),
+): Promise<ChargeableOwner[]> {
+  await ensureCloudLedgerSchema(sql);
+  const rows = (await sql`
+    SELECT owner_key, accrued_cents, stripe_customer_id, stripe_payment_method_id
+    FROM cloud_balance
+    WHERE accrued_cents >= ${thresholdCents}
+      AND stripe_customer_id IS NOT NULL
+      AND stripe_payment_method_id IS NOT NULL
+  `) as Array<{
+    owner_key: string;
+    accrued_cents: number;
+    stripe_customer_id: string;
+    stripe_payment_method_id: string;
+  }>;
+  return rows.map((r) => ({
+    ownerKey: r.owner_key,
+    accruedCents: Number(r.accrued_cents),
+    customerId: r.stripe_customer_id,
+    paymentMethodId: r.stripe_payment_method_id,
+  }));
+}
+
 export interface CloudLedgerRow {
   kind: string;
   centsDelta: number;
