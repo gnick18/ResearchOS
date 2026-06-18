@@ -923,7 +923,18 @@ function SettingsBodyInner({
               <Tooltip label="Sign out of your account" placement="bottom">
                 <button
                   type="button"
-                  onClick={() => void signOut({ callbackUrl: "/" })}
+                  onClick={() =>
+                    void (async () => {
+                      // Forget the folder before signing out so "/" lands on
+                      // home, never the folder picker. Sign out regardless.
+                      try {
+                        await disconnect();
+                      } catch {
+                        // ignore
+                      }
+                      await signOut({ callbackUrl: "/" });
+                    })()
+                  }
                   className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-meta text-foreground-muted transition hover:border-border-strong hover:text-foreground"
                 >
                   <Icon name="logout" className="h-3.5 w-3.5 shrink-0" />

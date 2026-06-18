@@ -20,6 +20,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
@@ -228,6 +229,9 @@ export default function UserAvatarMenu({
   // change because the sticky demo flag is read from sessionStorage.
   const [inDemo, setInDemo] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
+  // Used on sign-out to forget the connected folder + its persisted handle, so
+  // the post-signout redirect to "/" lands on home, never the folder picker.
+  const { disconnect } = useFileSystem();
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state with the external sessionStorage demo flag on every route change
     setInDemo(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
@@ -401,7 +405,17 @@ export default function UserAvatarMenu({
                 <DropdownItem
                   onClick={(e) => {
                     e.preventDefault();
-                    void signOut({ callbackUrl: "/" });
+                    // Forget the folder BEFORE signing out so "/" cannot
+                    // re-trigger the connect/picker flow from the remembered
+                    // handle. Never block sign-out on a disconnect failure.
+                    void (async () => {
+                      try {
+                        await disconnect();
+                      } catch {
+                        // ignore, sign out regardless
+                      }
+                      await signOut({ callbackUrl: "/" });
+                    })();
                   }}
                 >
                   <Icon
