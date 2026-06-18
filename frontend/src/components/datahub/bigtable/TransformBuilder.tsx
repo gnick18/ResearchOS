@@ -33,6 +33,7 @@ import type { DatasetSidecar } from "@/lib/datahub/bigtable";
 import type { TransformOp } from "@/lib/datahub/transform/pipeline";
 import { transformOpToPandas } from "@/lib/datahub/transform/codegen";
 import { transformOpToSql, recipeToSql } from "@/lib/datahub/transform/sql-codegen";
+import { recipeIssues, humanizeEngineError } from "@/lib/datahub/transform/validate";
 import {
   openDataset,
   closeDataset,
@@ -1660,6 +1661,15 @@ export default function TransformBuilder({
   const [showSave, setShowSave] = useState(false);
   const [opQuery, setOpQuery] = useState("");
 
+  // Predictable "rule not finished yet" problems (for example a numeric filter
+  // with an empty operand), surfaced as friendly inline hints BEFORE we compile
+  // the recipe to SQL. Keyed by step index. An empty map means safe to run.
+  const stepIssues = useMemo(() => recipeIssues(pipe), [pipe]);
+  const firstIssue = useMemo(() => {
+    for (const msg of stepIssues.values()) return msg;
+    return null;
+  }, [stepIssues]);
+
   const runSeqRef = useRef(0);
 
   // Open the source dataset into DuckDB once.
@@ -1694,6 +1704,13 @@ export default function TransformBuilder({
     async (currentPipe: TransformOp[]) => {
       if (!handle) return;
       const seq = ++runSeqRef.current;
+      // Do not run a recipe we already know is incomplete. The inline hint on the
+      // offending step explains what to fix, so a raw engine error never appears.
+      if (recipeIssues(currentPipe).size > 0) {
+        setPreviewError(null);
+        setBusy(false);
+        return;
+      }
       setBusy(true);
       setPreviewError(null);
       try {
@@ -1726,7 +1743,9 @@ export default function TransformBuilder({
       } catch (e) {
         if (seq !== runSeqRef.current) return;
         setPreviewError(
-          e instanceof Error ? e.message : "Could not run this recipe on the engine.",
+          e instanceof Error
+            ? humanizeEngineError(e.message)
+            : "Could not run this recipe on the engine.",
         );
       } finally {
         if (seq === runSeqRef.current) setBusy(false);
@@ -1783,7 +1802,9 @@ export default function TransformBuilder({
       });
       onSaved(saved);
     } catch (e) {
-      setPreviewError(e instanceof Error ? e.message : "Could not save the derived dataset.");
+      setPreviewError(
+        e instanceof Error ? humanizeEngineError(e.message) : "Could not save the derived dataset.",
+      );
     } finally {
       setSaving(false);
     }
@@ -1944,19 +1965,26 @@ export default function TransformBuilder({
                     <div className="mt-2 flex flex-wrap items-center gap-1.5">
                       <OpParams op={op} cols={allCols} onChange={(next) => updateOp(i, next)} />
                     </div>
-                    <div className="mt-1.5 text-meta text-foreground-muted">
-                      {stepCounts[i] != null ? (
-                        <>
-                          result after this step{" "}
-                          <b className="text-brand-action">
-                            {stepCounts[i]!.toLocaleString()}
-                          </b>{" "}
-                          rows
-                        </>
-                      ) : (
-                        <span className="opacity-60">estimating...</span>
-                      )}
-                    </div>
+                    {stepIssues.get(i) ? (
+                      <div className="mt-1.5 flex items-center gap-1 text-meta text-brand-action">
+                        <Icon name="alert" className="h-3.5 w-3.5 shrink-0" />
+                        {stepIssues.get(i)}
+                      </div>
+                    ) : (
+                      <div className="mt-1.5 text-meta text-foreground-muted">
+                        {stepCounts[i] != null ? (
+                          <>
+                            result after this step{" "}
+                            <b className="text-brand-action">
+                              {stepCounts[i]!.toLocaleString()}
+                            </b>{" "}
+                            rows
+                          </>
+                        ) : (
+                          <span className="opacity-60">estimating...</span>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))
               )}
@@ -1979,7 +2007,12 @@ export default function TransformBuilder({
                 </span>
               )}
             </div>
-            {previewError ? (
+            {firstIssue ? (
+              <div className="flex items-center gap-1.5 p-3 text-meta text-foreground">
+                <Icon name="alert" className="h-3.5 w-3.5 shrink-0 text-brand-action" />
+                {firstIssue}
+              </div>
+            ) : previewError ? (
               <div className="p-3 text-meta text-foreground">
                 This recipe could not run. {previewError}
               </div>
