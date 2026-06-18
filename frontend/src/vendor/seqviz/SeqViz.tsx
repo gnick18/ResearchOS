@@ -42,7 +42,7 @@ export interface SeqVizProps {
   editable?: boolean;
 
   /** sequence Phase 2a bot — called with each edit intent when `editable`. */
-  onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
+  onEdit?: (edit: import("./EventHandler").SeqEdit) => number | void;
 
   /** seq restructure bot — called when an annotation arrow is double-clicked on
    *  the viewer (linear or circular). The host matches it to a feature and opens

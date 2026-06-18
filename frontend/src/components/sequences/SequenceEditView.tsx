@@ -46,6 +46,7 @@ import {
   pasteClip,
   sanitizeRawSequence,
 } from "@/lib/sequences/clipboard";
+import { sanitizeResidues } from "@/lib/sequences/residue-alphabet";
 import {
   addFeature,
   updateFeature,
@@ -3351,15 +3352,27 @@ export default function SequenceEditView({
   // features it touches; single-char Backspace/Delete and all inserts/replaces
   // apply immediately so typing stays fluid.
   const requestEdit = useCallback(
-    (edit: SeqEdit) => {
-      if (readOnly) return; // read-only surface: ignore any edit intent
+    (edit: SeqEdit): number | void => {
+      if (readOnly) return 0; // read-only surface: ignore any edit intent
       if (edit.type === "delete" && edit.count > 1) {
         requestRangeDelete(edit.from, edit.from + edit.count);
         return;
       }
+      // Filter any incoming base text (a typed key or a type-over-selection
+      // replace) to the valid alphabet for this molecule type, so stray
+      // characters like X/Q/8/Z never enter the sequence. If nothing valid
+      // remains the whole keystroke is a no-op: we neither insert "" nor delete
+      // the user's selection on an invalid key. The returned count tells the
+      // viewer how far to advance the caret (0 == key dropped, caret unmoved).
+      if (edit.type === "insert" || edit.type === "replace") {
+        const text = sanitizeResidues(edit.text, doc.seqType);
+        if (!text) return 0;
+        applyEdit({ ...edit, text });
+        return text.length;
+      }
       applyEdit(edit);
     },
-    [applyEdit, requestRangeDelete, readOnly],
+    [applyEdit, requestRangeDelete, readOnly, doc.seqType],
   );
 
   // Keyboard: Cmd/Ctrl+Z undo, Cmd/Ctrl+Shift+Z or Cmd/Ctrl+Y redo, Cmd/Ctrl+S save.

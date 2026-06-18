@@ -190,9 +190,15 @@ describe("sanitizeRawSequence (raw OS-clipboard paste)", () => {
     expect(sanitizeRawSequence("ACGUN", "rna").bases).toBe("ACGUN");
   });
 
-  it("keeps amino-acid letters for protein", () => {
+  it("keeps amino-acid letters incl. B/Z/X/U/O and the stop for protein", () => {
     const { bases } = sanitizeRawSequence("MKV*Zz", "protein");
-    expect(bases).toBe("MKV*"); // Z is not in the standard set, z->Z dropped
+    expect(bases).toBe("MKV*ZZ"); // Z (Glx) is a valid IUPAC ambiguity code; z->Z
+  });
+
+  it("keeps the gap and IUPAC ambiguity codes for DNA, drops X", () => {
+    const { bases, dropped } = sanitizeRawSequence("AC-GTNxq", "dna");
+    expect(bases).toBe("AC-GTN");
+    expect(dropped).toBe(2); // "X","Q"
   });
 
   it("reports zero dropped for a clean nucleotide string", () => {

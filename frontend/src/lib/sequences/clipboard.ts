@@ -15,6 +15,7 @@
 
 import type { EditFeature, SeqDocument } from "./edit-model";
 import { insertBases } from "./edit-model";
+import { isValidResidue } from "./residue-alphabet";
 
 /** A self-contained, app-scoped molecular clipboard payload. */
 export interface MolecularClip {
@@ -131,16 +132,14 @@ export function sanitizeRawSequence(
   seqType: SeqDocument["seqType"],
 ): { bases: string; dropped: number } {
   const upper = text.toUpperCase();
-  // IUPAC nucleotide ambiguity codes (incl. U for RNA) vs. amino-acid letters.
-  const allowed =
-    seqType === "protein"
-      ? /[ACDEFGHIKLMNPQRSTVWY*X]/
-      : /[ACGTURYSWKMBDHVN]/;
+  // The valid alphabet (IUPAC nucleotide codes incl. ambiguity + gap, or the
+  // amino-acid letters incl. B/Z/X/U/O and the stop) lives in residue-alphabet
+  // so the paste path and the keystroke path stay in lockstep.
   let bases = "";
   let dropped = 0;
   for (const ch of upper) {
     if (/\s/.test(ch)) continue; // whitespace is silently ignored, not "dropped"
-    if (allowed.test(ch)) bases += ch;
+    if (isValidResidue(ch, seqType)) bases += ch;
     else dropped += 1;
   }
   return { bases, dropped };

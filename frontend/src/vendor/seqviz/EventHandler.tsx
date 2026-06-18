@@ -25,8 +25,12 @@ export interface EventsHandlerProps {
   /** sequence Phase 2a bot — when true, printable keys / Backspace / Delete
    *  produce edits via `onEdit` instead of falling through. */
   editable?: boolean;
-  /** sequence Phase 2a bot — host callback fired with an edit intent. */
-  onEdit?: (edit: SeqEdit) => void;
+  /** sequence Phase 2a bot. Host callback fired with an edit intent. The host
+   *  may filter the edit (e.g. drop invalid bases) and returns the number of
+   *  characters it actually applied, so the caret advances by the accepted
+   *  count rather than the raw keystroke length. Returning void/undefined means
+   *  "applied as-is" (legacy behavior). */
+  onEdit?: (edit: SeqEdit) => number | void;
 }
 
 /**
@@ -115,11 +119,16 @@ export class EventHandler extends React.PureComponent<EventsHandlerProps> {
     if (e.key.length === 1 && !/\s/.test(e.key)) {
       e.preventDefault();
       if (hasRange) {
-        onEdit({ type: "replace", from: lo, to: hi, text: e.key });
-        placeCaret(lo + e.key.length);
+        const accepted = onEdit({ type: "replace", from: lo, to: hi, text: e.key });
+        const n = typeof accepted === "number" ? accepted : e.key.length;
+        // Only collapse the selection when the host actually replaced it; an
+        // invalid key (n === 0) is a no-op and must leave the selection intact.
+        if (n > 0) placeCaret(lo + n);
       } else {
-        onEdit({ type: "insert", at: lo, text: e.key });
-        placeCaret(lo + e.key.length);
+        const accepted = onEdit({ type: "insert", at: lo, text: e.key });
+        const n = typeof accepted === "number" ? accepted : e.key.length;
+        // n === 0 means the key was dropped; caret stays put (placeCaret(lo)).
+        placeCaret(lo + n);
       }
       return true;
     }

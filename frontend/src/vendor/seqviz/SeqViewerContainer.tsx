@@ -63,7 +63,7 @@ interface SeqViewerContainerProps {
   zoom: { circular: number; linear: number };
   /** sequence Phase 2a bot — editable mode + edit callback (threaded to EventHandler). */
   editable?: boolean;
-  onEdit?: (edit: import("./EventHandler").SeqEdit) => void;
+  onEdit?: (edit: import("./EventHandler").SeqEdit) => number | void;
   /** seq restructure bot — double-click an annotation arrow opens its editor. Provided via context to the deep render trees. */
   onAnnotationDoubleClick?: import("./annotationDoubleClickContext").AnnotationDoubleClickHandler;
   /** circular qol bot — CIRCULAR map selection QoL (single/shift-click select + hover card/preview). Provided via context to the deep circular Annotations tree. */
