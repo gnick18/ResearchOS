@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { runPendingMigrations } from "@/lib/migrations/runner";
+import { normalizeWorkspaceUsername } from "@/lib/migrations/normalize-username";
 import { emitMigrationsApplied } from "@/lib/migrations/migration-toast-bus";
 
 /**
@@ -25,7 +26,18 @@ export default function DataMigrationRunner() {
     let cancelled = false;
     const run = async () => {
       try {
-        const summary = await runPendingMigrations(currentUser);
+        // Normalize the stored workspace username to its handle slug BEFORE the
+        // registry pass, so the per-user marker is written to the renamed
+        // users/<slug>/ folder rather than recreating the old spaced path. The
+        // step is flag-gated and a no-op once the name is already slug-form; it
+        // returns the name the rest of the pass should run under.
+        const { username: passUser } =
+          await normalizeWorkspaceUsername(currentUser);
+        if (cancelled) return;
+        // Keep the per-session guard honest if the rename changed the name, so a
+        // context re-render under the slug does not trigger a redundant pass.
+        ranForRef.current = passUser;
+        const summary = await runPendingMigrations(passUser);
         if (!cancelled && summary.totalChanged > 0) {
           emitMigrationsApplied({ changed: summary.totalChanged });
         }
