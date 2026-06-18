@@ -31,6 +31,7 @@ import {
   bracketStackDepth,
   layoutPlot,
   estimateLabelWidth,
+  fitAxisTitle,
   renderPlotSvg,
   renderPlot,
   figureFileStem,
@@ -231,6 +232,31 @@ describe("plot-spec: axis", () => {
     const empty: DataHubDocContent = { ...twoGroupContent(), rows: [] };
     const groups = resolvePlotGroups(empty, defaultPlotStyle());
     expect(pickAxis(groups, "sem")).toEqual({ yMax: 1, step: 0.5 });
+  });
+});
+
+describe("plot-spec: fitAxisTitle", () => {
+  it("returns a short title unchanged (no clip, no ellipsis)", () => {
+    expect(fitAxisTitle("Value", 13, 248)).toBe("Value");
+  });
+
+  it("ellipsizes a title that would overflow its track", () => {
+    const long = "Biofuel yield vs sugar feed + aeration";
+    // A short top panel track (the estimation raw-data panel is cramped).
+    const out = fitAxisTitle(long, 13, 116);
+    expect(out.endsWith("…")).toBe(true);
+    expect(out.length).toBeLessThan(long.length);
+    // The clamped title fits the track it was given.
+    expect(estimateLabelWidth(out, 13)).toBeLessThanOrEqual(116);
+  });
+
+  it("never overflows: the clamped width is within the track", () => {
+    const out = fitAxisTitle("Mean difference of the response", 13, 80);
+    expect(estimateLabelWidth(out, 13)).toBeLessThanOrEqual(80);
+  });
+
+  it("returns empty for a non-positive track", () => {
+    expect(fitAxisTitle("Value", 13, 0)).toBe("");
   });
 });
 
