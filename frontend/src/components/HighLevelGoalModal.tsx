@@ -6,6 +6,7 @@ import { goalsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import type { SmartGoal, HighLevelGoal, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import Tooltip from "./Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { useUnsavedChangesGuard } from "@/hooks/useUnsavedChangesGuard";
@@ -496,7 +497,7 @@ export default function HighLevelGoalModal({
           and get clipped by its overflow. Rendering here (a sibling of the
           popup) keeps the full-screen layer, and the z-[450] wrapper lifts it
           above the popup root (z-400) so the burst pops over the modal. */}
-      {celebrationPosition && (
+      {POPUP_ANIMATIONS_ENABLED && celebrationPosition && (
         <div className="fixed inset-0 z-[450] pointer-events-none">
           <DynamicAnimation
             type={animationType}

@@ -16,6 +16,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import BeakerBotEurekaScene from "@/components/BeakerBotEurekaScene";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import {
@@ -137,7 +138,8 @@ export default function TimerAlarm() {
 
   if (!alarming) {
     // Keep the eureka scene mounted so its onComplete can fire even after the
-    // card closes.
+    // card closes. Gated: decorative only; alarm sound + dialog still work.
+    if (!POPUP_ANIMATIONS_ENABLED) return null;
     return (
       <BeakerBotEurekaScene
         active={eurekaActive}
@@ -156,10 +158,13 @@ export default function TimerAlarm() {
 
   return (
     <>
-      <BeakerBotEurekaScene
-        active={eurekaActive}
-        onComplete={() => setEurekaActive(false)}
-      />
+      {/* Decorative BeakerBot scene gated. Alarm dialog + sound remain active. */}
+      {POPUP_ANIMATIONS_ENABLED && (
+        <BeakerBotEurekaScene
+          active={eurekaActive}
+          onComplete={() => setEurekaActive(false)}
+        />
+      )}
       <div
         className="fixed inset-0 z-[200] flex items-center justify-center p-5 bg-black/45 backdrop-blur-sm"
         role="alertdialog"

@@ -56,6 +56,7 @@ import { clearOrgWizardReturn } from "@/lib/onboarding/org-wizard-signin";
 import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
@@ -1184,8 +1185,9 @@ function AppContent({ children }: { children: ReactNode }) {
             per-user in localStorage. */}
         <MilestoneTwirlMount username={currentUser} />
         {/* IdleAnimationManager: fires a random BeakerBot scene after the user
-            has been idle for IDLE_THRESHOLD_MS. One per session. */}
-        <IdleAnimationManager />
+            has been idle for IDLE_THRESHOLD_MS. One per session.
+            Gated: set POPUP_ANIMATIONS_ENABLED in lib/animations/popup-gate.ts to restore. */}
+        {POPUP_ANIMATIONS_ENABLED && <IdleAnimationManager />}
         {/* WhatsNewManager: developer-announcement popup. Fires only on a
             genuine APP_VERSION upgrade; new accounts silently record the
             version. */}

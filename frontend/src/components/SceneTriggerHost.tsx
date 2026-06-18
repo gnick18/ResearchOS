@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import {
   useSceneTriggerStore,
@@ -56,6 +57,12 @@ function renderScene(
 ): React.ReactElement | null {
   switch (sceneId) {
     case "bugstomp":
+      // Decorative easter-egg scene gated. Flip POPUP_ANIMATIONS_ENABLED
+      // in lib/animations/popup-gate.ts to restore.
+      if (!POPUP_ANIMATIONS_ENABLED) {
+        onComplete();
+        return null;
+      }
       return <BeakerBotBugStompScene active onComplete={onComplete} />;
     case "twirlMilestone":
       // The celebratory twirl, fired once per rare checkpoint milestone
