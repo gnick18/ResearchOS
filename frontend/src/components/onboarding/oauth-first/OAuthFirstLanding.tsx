@@ -22,13 +22,15 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import LightOnly from "@/components/LightOnly";
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { Icon } from "@/components/icons";
+import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
+import { buildEntryGreetingLines } from "@/lib/beakerbot/entry-lines";
 import { IntroBubbleBot } from "./IntroBubbleBot";
 import LandingBackdrop from "./LandingBackdrop";
 import styles from "./OAuthFirstLanding.module.css";
@@ -49,6 +51,14 @@ export function OAuthFirstLanding({
   // Scroll-reactive sticky top bar, hidden over the entry hero, fades in once
   // the user scrolls into the marketing content.
   const [scrolled, setScrolled] = useState(false);
+
+  // Current hour, computed after mount (client-only, avoids hydration mismatch).
+  const [hour, setHour] = useState(0);
+  useEffect(() => {
+    setHour(new Date().getHours());
+  }, []);
+
+  const entryLines = buildEntryGreetingLines({ hour, returning: false });
 
   const scrollTo = (ref: React.RefObject<HTMLElement | null>) =>
     ref.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -123,7 +133,16 @@ export function OAuthFirstLanding({
           <div
             className={`relative z-[1] flex flex-col items-center ${styles.enter}`}
           >
-            <IntroBubbleBot size="xl" className="mb-5" />
+            <IntroBubbleBot size="xl" className="mb-3" />
+
+            {/* BeakerBot Tier-A greeting bubble. Sits directly below the beaker
+                so the notch reads as him speaking. Capped at max-w-xs so it
+                stays compact and does not fight the hero wordmark below. */}
+            <BeakerSpeech
+              lines={entryLines}
+              tinted
+              className="mb-4 w-full max-w-xs"
+            />
 
             <Wordmark
               textOnly

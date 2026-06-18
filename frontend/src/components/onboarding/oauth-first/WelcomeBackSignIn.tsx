@@ -17,9 +17,11 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import LightOnly from "@/components/LightOnly";
+import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
+import { buildEntryGreetingLines } from "@/lib/beakerbot/entry-lines";
 import {
   GitHubIcon,
   GoogleIcon,
@@ -59,6 +61,14 @@ export function WelcomeBackSignIn({
   onOpenFolder,
 }: WelcomeBackSignInProps) {
   const [showAll, setShowAll] = useState(false);
+
+  // Current hour, computed after mount (client-only, avoids hydration mismatch).
+  const [hour, setHour] = useState(0);
+  useEffect(() => {
+    setHour(new Date().getHours());
+  }, []);
+
+  const entryLines = buildEntryGreetingLines({ hour, returning: true });
 
   // The full ordered provider set, honoring the same availability gates as
   // SharingProviderButtons. ORCID + Google always show when OAuth is available;
@@ -138,7 +148,18 @@ export function WelcomeBackSignIn({
         <div className="relative z-[1] flex w-full max-w-xs flex-col items-center">
           {/* Same beaker size + center placement as the landing hero, so he
               never shrinks or jumps between the welcome and the sign-in screen. */}
-          <IntroBubbleBot size="xl" className="mb-4" />
+          <IntroBubbleBot size="xl" className="mb-2" />
+
+          {/* Tier-A greeting bubble, compact for the narrow card. The notch
+              points up toward the beaker above. rotateMs slightly slower so it
+              does not distract while the user is reading provider buttons. */}
+          <BeakerSpeech
+            lines={entryLines}
+            tinted
+            rotateMs={5500}
+            className="mb-4 w-full"
+          />
+
           <h1 className="text-[23px] font-extrabold tracking-tight text-brand-ink">
             Welcome back
           </h1>

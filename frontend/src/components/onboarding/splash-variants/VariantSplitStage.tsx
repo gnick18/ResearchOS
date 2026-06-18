@@ -28,6 +28,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SplashBeaker } from "@/components/animations/SplashBeaker";
+import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
+import { buildReturningLines } from "@/lib/beakerbot/entry-lines";
+import { readUserStats } from "@/lib/beakerbot/user-stats-cache";
 import {
   INK,
   MUTED,
@@ -56,6 +59,21 @@ export function VariantSplitStage({
   // Read once per mount (the variant is keyed by replayKey at the call site, so
   // a replay remounts fresh). The OS preference does not change mid-splash.
   const [reduced] = useState(prefersReducedMotion);
+
+  // Tier-B returning lines. Seeded empty on server/first render (SSR-safe),
+  // populated after mount when localStorage and the current hour are available.
+  const [returningLines, setReturningLines] = useState<string[]>([]);
+  useEffect(() => {
+    const hour = new Date().getHours();
+    const stats = userName ? readUserStats(userName) : null;
+    const lines = buildReturningLines({
+      name: firstName(userName),
+      hour,
+      stats,
+      now: Date.now(),
+    });
+    setReturningLines(lines);
+  }, [userName]);
   const [meter, setMeter] = useState(() => (prefersReducedMotion() ? 1 : 0));
   const [leaving, setLeaving] = useState(false);
 
@@ -230,6 +248,18 @@ export function VariantSplitStage({
                 OS
               </span>
             </div>
+          )}
+
+          {/* Tier-B speech bubble. Only shown after mount (returningLines is
+              seeded empty on first render), so it never causes a hydration
+              mismatch. Capped width so it does not overflow the hero column. */}
+          {returningLines.length > 0 && (
+            <BeakerSpeech
+              lines={returningLines}
+              tinted
+              rotateMs={4200}
+              className="mt-6 w-full max-w-sm"
+            />
           )}
         </div>
 
