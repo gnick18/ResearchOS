@@ -25,6 +25,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useState, useRef, useCallback } from "react";
+import { signOut } from "next-auth/react";
 import {
   useFileSystem,
   isFileSystemAccessSupported,
@@ -687,7 +688,9 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
 
 /** Lean footer for the gate surfaces. The full footer-link set (setup guide,
  *  sharing, support) lives on the start screen; here we keep just the setup
- *  guide and a bug-report affordance, since this is a fallback surface. */
+ *  guide and a bug-report affordance, since this is a fallback surface.
+ *
+ *  Sign out is always shown so a signed-in user is never soft-locked here. */
 function GateFooter({ onBugReport }: { onBugReport: () => void }) {
   return (
     <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
@@ -704,6 +707,14 @@ function GateFooter({ onBugReport }: { onBugReport: () => void }) {
         Report Bug
       </button>
       <BetaDonationButton variant="link" />
+      <button
+        type="button"
+        onClick={() => void signOut({ callbackUrl: "/" })}
+        className="text-foreground-muted hover:text-foreground text-meta transition-colors underline underline-offset-2"
+        data-testid="gate-sign-out"
+      >
+        Sign out
+      </button>
     </div>
   );
 }

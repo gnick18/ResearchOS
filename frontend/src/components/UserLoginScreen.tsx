@@ -2589,6 +2589,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             Use a different folder
           </button>
         )}
+        {/* Always-visible sign-out for signed-in sessions. The sharing-section
+            sign-out (line ~1953) is gated behind isRealSharingEnabled; this
+            one is unconditional so a signed-in user is never soft-locked. */}
+        {sessionStatus === "authenticated" && !isDemoOrWikiCapture() && (
+          <button
+            type="button"
+            onClick={() => void signOut({ callbackUrl: "/" })}
+            className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
+            data-testid="login-sign-out"
+          >
+            Sign out
+          </button>
+        )}
         <div className="flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
         <a
           href="/wiki/getting-started/creating-a-user"
