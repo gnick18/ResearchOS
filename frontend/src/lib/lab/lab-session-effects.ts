@@ -54,6 +54,7 @@ import { getLabRemote, resyncLabRemote } from "./lab-do-client";
 import type { GetLabResult } from "./lab-do-client";
 import { readPendingGenesis } from "./lab-genesis-pending";
 import {
+  clearLabEnvelopeCache,
   readLabEnvelopeCache,
   saveLabEnvelopeCache,
 } from "./lab-envelope-cache";
@@ -372,6 +373,19 @@ export function createLabSessionEffects(params: {
       };
 
       return { labId, labKey, signingKeyPair, member };
+    },
+
+    // -----------------------------------------------------------------
+    // clearEnvelopeCache()
+    //
+    // Called by the controller on logout. Drops this user's offline-resume
+    // envelope cache so a signed-out session leaves no artifact behind. A no-op
+    // unless NEXT_PUBLIC_LAB_RELOAD_RECONNECT is on (nothing is ever written
+    // otherwise). Best-effort: the controller already swallows failures.
+    // -----------------------------------------------------------------
+    async clearEnvelopeCache(): Promise<void> {
+      if (!LAB_RELOAD_RECONNECT_ENABLED) return;
+      await clearLabEnvelopeCache(username);
     },
   };
 }
