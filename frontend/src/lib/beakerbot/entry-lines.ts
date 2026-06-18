@@ -152,7 +152,7 @@ export function buildReturningLines(ctx: {
     stats.experimentsLast6Months > 0
   ) {
     factLines.push(
-      `You ran ${fmt(stats.experimentsLast6Months)} experiments over the last 6 months.`,
+      `You started ${fmt(stats.experimentsLast6Months)} experiments in the last 6 months.`,
     );
   }
 

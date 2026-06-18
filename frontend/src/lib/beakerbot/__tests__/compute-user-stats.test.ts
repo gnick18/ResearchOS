@@ -36,6 +36,8 @@ const DATE_2D_AGO = new Date(NOW - 2 * 86_400_000).toISOString();
 const DATE_200D_AGO = new Date(NOW - 200 * 86_400_000).toISOString().slice(0, 10);
 /** ISO date string 30 days before NOW (within 6-month window). */
 const DATE_30D_AGO = new Date(NOW - 30 * 86_400_000).toISOString().slice(0, 10);
+/** ISO datetime 30 days before NOW (for future-date exclusion test). */
+const DATE_30D_FUTURE = new Date(NOW + 30 * 86_400_000).toISOString().slice(0, 10);
 
 /** Helper to make a minimal task record. */
 function makeTask(overrides: {
@@ -47,9 +49,10 @@ function makeTask(overrides: {
 
 /** Helper to make a minimal note record. */
 function makeNote(overrides: {
-  entries?: Array<{ content: string; updated_at: string }>;
+  entries?: Array<{ content: string; updated_at: string; created_at?: string }>;
   note_kind?: "meeting" | "note";
   created_at?: string | null;
+  one_on_one_id?: string;
 }) {
   return {
     id: Math.random(),
@@ -59,11 +62,14 @@ function makeNote(overrides: {
       title: "",
       date: "",
       content: e.content,
-      created_at: e.updated_at,
+      // When an explicit created_at is provided for the entry, use it;
+      // otherwise mirror updated_at (the common case in production).
+      created_at: e.created_at ?? e.updated_at,
       updated_at: e.updated_at,
     })),
     note_kind: overrides.note_kind ?? undefined,
     created_at: overrides.created_at ?? undefined,
+    one_on_one_id: overrides.one_on_one_id ?? undefined,
   };
 }
 
@@ -142,6 +148,25 @@ describe("experimentsLast6Months field", () => {
     ]);
     const result = await computeUserStats("alice", NOW);
     expect(result.experimentsLast6Months).toBeUndefined();
+  });
+
+  it("excludes a future-dated experiment (past-only window)", async () => {
+    // start_date 30 days in the future must not be counted even though it is
+    // within 180 days of now. withinWindow enforces ms <= now.
+    mockListAllForUser.mockResolvedValue([
+      makeTask({ task_type: "experiment", start_date: DATE_30D_FUTURE }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.experimentsLast6Months).toBeUndefined();
+  });
+
+  it("counts a past experiment but not a future-dated one in the same list", async () => {
+    mockListAllForUser.mockResolvedValue([
+      makeTask({ task_type: "experiment", start_date: DATE_30D_AGO }),
+      makeTask({ task_type: "experiment", start_date: DATE_30D_FUTURE }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.experimentsLast6Months).toBe(1);
   });
 });
 
@@ -273,6 +298,81 @@ describe("checkinsThisMonth field", () => {
     ]);
     const result = await computeUserStats("alice", NOW);
     expect(result.checkinsThisMonth).toBeUndefined();
+  });
+
+  // ── created_at fallback via entry timestamps ──────────────────────────────
+
+  it("counts a meeting note with no created_at when its entry.created_at is in the current month", async () => {
+    // Simulates an older meeting note (pre-2026-05-24) that never had
+    // created_at written. The entry's created_at provides the fallback date.
+    mockNotesList.mockResolvedValue([
+      makeNote({
+        note_kind: "meeting",
+        created_at: null, // absent on older notes
+        entries: [{ content: "discussed aims", updated_at: DATE_2D_AGO, created_at: DATE_2D_AGO }],
+      }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.checkinsThisMonth).toBe(1);
+  });
+
+  it("counts a meeting note with no created_at when its entry.updated_at is in the current month", async () => {
+    // Falls back to updated_at when created_at is also absent from the entry.
+    mockNotesList.mockResolvedValue([
+      makeNote({
+        note_kind: "meeting",
+        created_at: undefined,
+        entries: [{ content: "q3 planning", updated_at: DATE_2D_AGO }],
+      }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.checkinsThisMonth).toBe(1);
+  });
+
+  it("uses the earliest entry timestamp when multiple entries are present", async () => {
+    // The earliest entry is in a prior month; the note must not be counted.
+    // NOW = 2024-06-10. DATE_10D_AGO = 2024-05-31 (prior month).
+    const priorMonthEntryDate = new Date(NOW - 15 * 86_400_000).toISOString(); // 2024-05-26
+    mockNotesList.mockResolvedValue([
+      makeNote({
+        note_kind: "meeting",
+        created_at: null,
+        entries: [
+          { content: "older entry", updated_at: priorMonthEntryDate },
+          { content: "newer entry", updated_at: DATE_2D_AGO },
+        ],
+      }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    // Earliest entry is prior month so the note is excluded.
+    expect(result.checkinsThisMonth).toBeUndefined();
+  });
+
+  it("skips a meeting note when no created_at and no entries provide a date", async () => {
+    mockNotesList.mockResolvedValue([
+      makeNote({
+        note_kind: "meeting",
+        created_at: null,
+        entries: [], // no entries to fall back to
+      }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.checkinsThisMonth).toBeUndefined();
+  });
+
+  it("prefers note.created_at over entry timestamps when both are present", async () => {
+    // note.created_at is in the current month; entry timestamp is prior month.
+    // The note's own created_at should win and the note should be counted.
+    const priorMonthEntryDate = new Date(NOW - 15 * 86_400_000).toISOString();
+    mockNotesList.mockResolvedValue([
+      makeNote({
+        note_kind: "meeting",
+        created_at: DATE_2D_AGO,
+        entries: [{ content: "note", updated_at: priorMonthEntryDate }],
+      }),
+    ]);
+    const result = await computeUserStats("alice", NOW);
+    expect(result.checkinsThisMonth).toBe(1);
   });
 });
 

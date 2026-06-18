@@ -56,13 +56,20 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
  *
  * Fields populated (when data is available):
  *   experiments           -- tasks with task_type === "experiment"
- *   experimentsLast6Months -- those started within 180 days of `now`
+ *   experimentsLast6Months -- those whose start_date falls within 180 days of `now`
+ *                            (Task has no creation timestamp; start_date is the
+ *                            user-entered Gantt date, used as the best available
+ *                            proxy. The window is always past-only.)
  *   projects              -- total project count
  *   notes                 -- total note count
  *   wordsLastWeek         -- sum of whitespace-split word counts of note entries
  *                            whose updated_at falls within 7 days of `now`
- *   checkinsThisMonth     -- notes with note_kind === "meeting" whose created_at
- *                            falls within the current calendar month
+ *   checkinsThisMonth     -- notes with note_kind === "meeting" that fall in the
+ *                            current calendar month. The date is derived from
+ *                            note.created_at when present; otherwise falls back
+ *                            to the earliest created_at (or updated_at) among
+ *                            the note's entries. Notes with no derivable date
+ *                            at all are skipped rather than guessed.
  *
  * Each source is independently try/catch'd: one failing store omits its field
  * but does not prevent the others from computing.
@@ -84,6 +91,9 @@ export async function computeUserStats(
       result.experiments = totalExperiments;
     }
 
+    // Task has no creation timestamp. start_date is the user-entered Gantt
+    // start date, used as the best available proxy. withinWindow enforces a
+    // past-only window (ms <= now), so future-dated experiments are excluded.
     const recentExperiments = experiments.filter((t) =>
       withinWindow(t.start_date, now, SIX_MONTHS_MS),
     ).length;
@@ -126,15 +136,37 @@ export async function computeUserStats(
       result.wordsLastWeek = words;
     }
 
-    // checkinsThisMonth: meeting notes (note_kind === "meeting") created this
-    // calendar month, identified by the YYYY-MM prefix of their created_at.
+    // checkinsThisMonth: meeting notes (note_kind === "meeting") that fall in
+    // the current calendar month. Primary date source is note.created_at (added
+    // 2026-05-24; optional/null on older records). When absent, fall back to
+    // the earliest created_at or updated_at among the note's entries -- those
+    // are always present on any entry written after the note existed. Skip the
+    // note only when no real date is derivable at all; never fabricate a date.
     let checkins = 0;
     for (const note of notes) {
-      if (
-        note.note_kind === "meeting" &&
-        typeof note.created_at === "string" &&
-        note.created_at.startsWith(yearMonth)
-      ) {
+      if (note.note_kind !== "meeting") continue;
+
+      // Resolve the best available ISO date string for this note.
+      let isoDate: string | null = null;
+
+      if (typeof note.created_at === "string" && note.created_at.length >= 7) {
+        isoDate = note.created_at;
+      } else {
+        // Fall back to the earliest entry timestamp (created_at preferred,
+        // updated_at as secondary). NoteEntry.created_at and .updated_at are
+        // both required strings on the type, so this is reliable for any note
+        // that has at least one entry.
+        for (const entry of note.entries ?? []) {
+          const candidate = entry.created_at || entry.updated_at;
+          if (typeof candidate === "string" && candidate.length >= 7) {
+            if (isoDate === null || candidate < isoDate) {
+              isoDate = candidate;
+            }
+          }
+        }
+      }
+
+      if (isoDate !== null && isoDate.startsWith(yearMonth)) {
         checkins++;
       }
     }

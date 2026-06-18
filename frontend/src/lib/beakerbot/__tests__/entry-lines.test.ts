@@ -203,7 +203,7 @@ describe("buildReturningLines", () => {
   it("includes the experimentsLast6Months line when present and > 0", () => {
     const lines = buildReturningLines({ hour: 10, stats: fullStats, now: NOW });
     expect(lines).toContain(
-      "You ran 18 experiments over the last 6 months.",
+      "You started 18 experiments in the last 6 months.",
     );
   });
 
