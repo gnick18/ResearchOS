@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState, useRef, useEffect } from "react";
 import type { PCRGradient, PCRStep } from "@/lib/types";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
+import { Icon } from "@/components/icons";
 import {
   ADDED_BLOCK_CLASSES,
   MODIFIED_BLOCK_CLASSES,
@@ -19,6 +20,21 @@ export function getTemperatureColor(temp: number): string {
   if (temp <= 70) return "#f59e0b";
   if (temp <= 85) return "#f97316";
   return "#ef4444";
+}
+
+// ── Temperature Sanity Range ────────────────────────────────────────────────────
+// Soft guardrail for the Edit Step popup. Real thermal-cycler protocols live
+// well inside this window (ice-bath holds near 0, denaturation near 95 to 98),
+// so a value outside it is almost always a typo like 99999. We only WARN, never
+// block or clamp, because a researcher may legitimately enter an edge value and
+// the field stays theirs to save.
+const MIN_SANE_TEMP_C = 0;
+const MAX_SANE_TEMP_C = 110;
+
+export function isTemperatureOutOfSaneRange(temp: number): boolean {
+  return (
+    Number.isFinite(temp) && (temp < MIN_SANE_TEMP_C || temp > MAX_SANE_TEMP_C)
+  );
 }
 
 // ── Types for Block Management ─────────────────────────────────────────────────
@@ -107,8 +123,24 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
           </div>
 
           <div>
-            <label className="block text-meta font-medium text-foreground-muted mb-1">
+            <label className="flex items-center gap-1.5 text-meta font-medium text-foreground-muted mb-1">
               Temperature (°C)
+              {isTemperatureOutOfSaneRange(temperature) && (
+                <Tooltip
+                  label="Most protocols run between 0 and 110 C. Double-check this value, then save it if it is correct."
+                  placement="top"
+                >
+                  {/* Soft, non-blocking hint. Save and clamping are intentionally
+                      untouched so a researcher can keep an out-of-range value. */}
+                  <span className="inline-flex text-amber-500 dark:text-amber-400">
+                    <Icon
+                      name="alert"
+                      className="w-3.5 h-3.5"
+                      title="Temperature outside the usual lab range"
+                    />
+                  </span>
+                </Tooltip>
+              )}
             </label>
             <input
               type="number"
@@ -119,6 +151,11 @@ export function StepEditPopup({ step, onSave, onClose, isNew = false }: StepEdit
               min="0"
               max="100"
             />
+            {isTemperatureOutOfSaneRange(temperature) && (
+              <p className="mt-1 text-meta text-amber-600 dark:text-amber-400">
+                Most protocols run between 0 and 110 C. Double-check this value.
+              </p>
+            )}
           </div>
 
           <div>
