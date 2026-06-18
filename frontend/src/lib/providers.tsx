@@ -46,6 +46,7 @@ import OnboardingWizard, {
   type WizardSelection,
 } from "@/components/onboarding/wizard/OnboardingWizard";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import { stripEntryIntentParams } from "@/lib/onboarding/entry-intent-params";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import {
   readOnboardingWizardReturn,
@@ -1050,22 +1051,24 @@ function AppContent({ children }: { children: ReactNode }) {
           onBack={() => {
             entryActionThisLoad = null;
             setEntryAction(null);
-            // If we got here via an OAuth-first claim return, abandon it on Back
-            // by stripping ?sharingClaim, otherwise sharingClaimReturn stays true
-            // and this same gate re-renders (a Back loop). Stripping it lets the
-            // landing show again.
-            if (
-              typeof window !== "undefined" &&
-              new URLSearchParams(window.location.search).has("sharingClaim")
-            ) {
-              const url = new URL(window.location.href);
-              url.searchParams.delete("sharingClaim");
-              window.history.replaceState(
-                null,
-                "",
-                url.pathname + url.search + url.hash,
-              );
-              window.dispatchEvent(new Event("researchos:locationchange"));
+            // Returning to the front door needs an entry-flow branch above to
+            // match, but those are skipped while a provider intent lingers in the
+            // URL: ?sharingClaim (sharingClaimReturn) or ?signIn (signInInFlight).
+            // Strip BOTH so neither keeps this same gate pinned, which read as
+            // "Back does nothing". The old fix stripped only ?sharingClaim, so an
+            // arrival carrying ?signIn stayed stuck on this gate.
+            if (typeof window !== "undefined") {
+              const nextSearch = stripEntryIntentParams(window.location.search);
+              if (nextSearch !== null) {
+                const url = new URL(window.location.href);
+                url.search = nextSearch;
+                window.history.replaceState(
+                  null,
+                  "",
+                  url.pathname + url.search + url.hash,
+                );
+                window.dispatchEvent(new Event("researchos:locationchange"));
+              }
             }
           }}
         />
