@@ -78,6 +78,12 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
   const dragRef = useRef<{ pinId: string; moved: boolean } | null>(null);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // Drag-and-drop for the floor-plan canvas. The drop target is the outer
+  // canvas wrapper; a dropped .svg file feeds the same onUploadFile handler
+  // as the click-to-pick button, so both paths produce the same result.
+  const [isFloorPlanDragOver, setIsFloorPlanDragOver] = useState(false);
+  const floorPlanDragCounter = useRef(0);
+
   // Seed local pins + plan once the map loads.
   useEffect(() => {
     if (loadedMap) {
@@ -174,6 +180,33 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
     },
     [setFloorplan],
   );
+
+  const handleCanvasDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    floorPlanDragCounter.current += 1;
+    setIsFloorPlanDragOver(true);
+  };
+
+  const handleCanvasDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleCanvasDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    floorPlanDragCounter.current = Math.max(0, floorPlanDragCounter.current - 1);
+    if (floorPlanDragCounter.current === 0) setIsFloorPlanDragOver(false);
+  };
+
+  const handleCanvasDrop = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    floorPlanDragCounter.current = 0;
+    setIsFloorPlanDragOver(false);
+    const file = e.dataTransfer?.files?.[0];
+    if (file) onUploadFile(file);
+  };
 
   // Nodes not yet pinned, offered in the "Place a location" rail. Containers
   // (anything that is not a `box`) read most naturally on a room map, but any
@@ -349,7 +382,20 @@ export default function RoomMap({ nodes, stocks }: RoomMapProps) {
             ))}
           </div>
         ) : null}
-        <div className="relative w-full" style={{ aspectRatio: String(aspect) }}>
+        <div
+          className="relative w-full"
+          style={{ aspectRatio: String(aspect) }}
+          onDragEnter={handleCanvasDragEnter}
+          onDragOver={handleCanvasDragOver}
+          onDragLeave={handleCanvasDragLeave}
+          onDrop={handleCanvasDrop}
+          data-attach-target
+        >
+          {isFloorPlanDragOver ? (
+            <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center rounded-xl border-2 border-dashed border-brand-action bg-brand-action/5">
+              <p className="text-body font-semibold text-brand-action">Drop SVG floor plan to upload</p>
+            </div>
+          ) : null}
           <ZoomPanCanvas
             contentWidth={CONTENT_W}
             contentHeight={CONTENT_H}

@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import FileDropzone from "@/components/ui/FileDropzone";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
@@ -59,7 +60,6 @@ function pathLabel(path: string): string {
 function ByoUploadSection({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const upload = useCallback(async (file: File) => {
     setBusy(true);
@@ -86,7 +86,6 @@ function ByoUploadSection({ slug }: { slug: string }) {
       setMsg("Could not upload the site right now.");
     } finally {
       setBusy(false);
-      if (fileRef.current) fileRef.current.value = "";
     }
   }, []);
 
@@ -99,20 +98,15 @@ function ByoUploadSection({ slug }: { slug: string }) {
         sandboxed domain ({slug}.research-os.com) so your site&apos;s code stays
         isolated from your account.
       </p>
-      <div className="mt-4 flex items-center gap-2">
-        <input
-          ref={fileRef}
-          type="file"
+      <div className="mt-4">
+        <FileDropzone
           accept=".zip,application/zip"
           disabled={busy}
-          onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) void upload(f);
-          }}
-          className="text-sm text-foreground"
-          aria-label="Static site zip"
+          label={busy ? "Uploading…" : "Drag and drop a zip file"}
+          hint=".zip"
+          icon="import"
+          onFiles={(files) => void upload(files[0])}
         />
-        {busy && <span className="text-xs text-muted-foreground">Uploading.</span>}
       </div>
       {msg && <p className="mt-3 text-sm text-foreground">{msg}</p>}
     </section>

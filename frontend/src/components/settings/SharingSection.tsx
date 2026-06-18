@@ -34,6 +34,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
+import FileDropzone from "@/components/ui/FileDropzone";
 import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { usePopupLayer } from "@/lib/ui/popup-stack";
@@ -1710,20 +1711,15 @@ export function RestoreIdentityPopup({
           </p>
 
           <div className="space-y-2">
-            <label className="block">
-              <span className="sr-only">Choose your Recovery Kit file</span>
-              <input
-                type="file"
-                accept=".html,text/html,application/json,.json"
-                disabled={busy}
-                onChange={(e) => {
-                  void onKitFile(e.target.files?.[0]);
-                  // Reset so re-choosing the same file fires onChange again.
-                  e.target.value = "";
-                }}
-                className="block w-full text-meta text-foreground-muted file:mr-3 file:rounded-lg file:border-0 file:bg-blue-600 file:px-3 file:py-2 file:text-body file:font-medium file:text-white hover:file:bg-blue-700 disabled:opacity-50"
-              />
-            </label>
+            <FileDropzone
+              accept=".html,text/html,application/json,.json"
+              disabled={busy}
+              label="Drag and drop your Recovery Kit file"
+              hint=".html or .json"
+              icon="import"
+              compact
+              onFiles={(files) => void onKitFile(files[0])}
+            />
             <textarea
               onChange={(e) => loadKitText(e.target.value)}
               disabled={busy}

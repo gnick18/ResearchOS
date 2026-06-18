@@ -9,10 +9,14 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import {
+  extractDirectoryHandleFromDrop,
+  describeDropExtractionError,
+} from "@/lib/file-system/drop-folder";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
 import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
@@ -61,12 +65,20 @@ export default function AccountHome() {
   const {
     isConnected,
     connect,
+    connectWithHandle,
     lastConnectedFolder,
     reconnectWithStoredHandle,
     initializeFolder,
   } = useFileSystem();
   const router = useRouter();
   const [connecting, setConnecting] = useState(false);
+
+  // Drag-and-drop state for the folder connect card. Ref-counted so nested
+  // children don't flicker the highlight off when the pointer crosses an
+  // internal boundary (same pattern as FolderConnectGate).
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
   // Set when a folder-requiring surface bounced the user here (account-first).
   const [fromRoute, setFromRoute] = useState<string | null>(null);
   // The signed-in name (from the profile or the session), for the welcome-back.
@@ -314,6 +326,62 @@ export default function AccountHome() {
     }
   };
 
+  // Drag handlers for the folder connect card. Mirror the FolderConnectGate
+  // pattern: ref-counted enter/leave avoids flickering on child-boundary
+  // crossings, and the drop feeds extractDirectoryHandleFromDrop -> connectWithHandle,
+  // which is the same pipeline as the OS picker button.
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+    setDropError(null);
+  };
+
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+    const result = await extractDirectoryHandleFromDrop(items);
+    if (result.kind === "ok") {
+      setDropError(null);
+      setConnecting(true);
+      try {
+        const ok = await connectWithHandle(result.handle);
+        if (ok) {
+          router.push("/");
+          return;
+        }
+        const initialized = await initializeFolder();
+        if (initialized) {
+          router.push("/");
+          return;
+        }
+      } finally {
+        setConnecting(false);
+      }
+      return;
+    }
+    setDropError(describeDropExtractionError(result.kind, "message" in result ? result.message : undefined));
+  };
+
   // Returning = they have used ResearchOS before (a cloud profile or a remembered
   // folder on this device), so the folderless state is "reconnect", not "set up".
   const isReturning = Boolean(profile) || Boolean(lastConnectedFolder);
@@ -460,7 +528,17 @@ export default function AccountHome() {
       {/* Your data: connect a folder (folderless) or open the app (connected).
           The account is the cloud part; the data folder is the optional local
           part, and this card is the bridge to it in both states. */}
-      <div className="rounded-2xl border border-brand-action/30 bg-brand-action/5 p-5">
+      <div
+        onDragEnter={!isConnected ? handleDragEnter : undefined}
+        onDragOver={!isConnected ? handleDragOver : undefined}
+        onDragLeave={!isConnected ? handleDragLeave : undefined}
+        onDrop={!isConnected ? (e) => void handleDrop(e) : undefined}
+        className={`rounded-2xl border p-5 transition-all ${
+          !isConnected && isDragOver
+            ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+            : "border-brand-action/30 bg-brand-action/5"
+        }`}
+      >
         {isConnected ? (
           <>
             <h2 className="text-body font-bold text-foreground">Your data is connected</h2>
@@ -484,21 +562,31 @@ export default function AccountHome() {
                 computer. Point us to it below to continue.
               </p>
             )}
-            <h2 className="text-body font-bold text-foreground">
-              {isReturning
-                ? `Welcome back${welcomeName ? `, ${welcomeName}` : ""}`
-                : "Connect your data folder"}
-            </h2>
-            <p className="mt-1 text-meta text-foreground-muted">
+            {/* Drag-over heading replaces the normal heading while a folder hovers.
+                Always in layout (invisible when not dragging) so the card height
+                stays stable and the drop target never shrinks under the cursor. */}
+            {isDragOver ? (
+              <h2 className="text-body font-bold text-blue-700 dark:text-blue-100">
+                Release to connect this folder
+              </h2>
+            ) : (
+              <h2 className="text-body font-bold text-foreground">
+                {isReturning
+                  ? `Welcome back${welcomeName ? `, ${welcomeName}` : ""}`
+                  : "Connect your data folder"}
+              </h2>
+            )}
+            <p className={`mt-1 text-meta text-foreground-muted ${isDragOver ? "invisible" : ""}`} aria-hidden={isDragOver || undefined}>
               {isReturning
                 ? "You are signed in. Your research data lives in a folder on your computer, not on our servers. Point us to it to pick up where you left off."
-                : "Your notes, experiments, and files live in a folder on this computer, never on our servers. Connect one to start working. You can do this any time, from any device that has your data."}
+                : "Your notes, experiments, and files live in a folder on this computer, never on our servers. Connect one to start working. Drag your data folder here or click to browse."}
             </p>
+            <div className={`flex items-center gap-3 mt-3 ${isDragOver ? "invisible" : ""}`} aria-hidden={isDragOver || undefined}>
             <button
               type="button"
               onClick={() => void onConnect()}
               disabled={connecting}
-              className="ros-btn-raise mt-3 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+              className="ros-btn-raise rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
             >
               {connecting
                 ? "Opening…"
@@ -508,6 +596,13 @@ export default function AccountHome() {
                     ? "Point us to your folder"
                     : "Connect a data folder"}
             </button>
+            <span className="text-meta text-foreground-subtle">or drag a folder here</span>
+            </div>
+            {dropError && (
+              <p role="alert" className="mt-2 text-meta text-red-600 dark:text-red-300">
+                {dropError}
+              </p>
+            )}
             {/*
               Go-live (gated by NEXT_PUBLIC_ONBOARDING_WIZARD): a permanent escape
               to the read-only /demo workspace so a signed-in user without a
