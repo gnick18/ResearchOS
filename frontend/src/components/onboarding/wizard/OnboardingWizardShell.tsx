@@ -17,6 +17,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useCallback, useMemo, useReducer, useEffect } from "react";
+import { signOut } from "next-auth/react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
@@ -153,18 +154,28 @@ export default function OnboardingWizardShell({
           </span>
         )}
 
-        {/* Visible close, reachable from every state. */}
-        <Tooltip label="Close setup">
+        {/* Visible close + sign-out, reachable from every state. */}
+        <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={close}
-            aria-label="Close setup"
-            data-testid="wizard-close"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1283c9]"
+            onClick={() => void signOut({ callbackUrl: "/" })}
+            data-testid="wizard-sign-out"
+            className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
           >
-            <Icon name="close" className="h-5 w-5" />
+            Sign out
           </button>
-        </Tooltip>
+          <Tooltip label="Close setup">
+            <button
+              type="button"
+              onClick={close}
+              aria-label="Close setup"
+              data-testid="wizard-close"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-full text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1283c9]"
+            >
+              <Icon name="close" className="h-5 w-5" />
+            </button>
+          </Tooltip>
+        </div>
       </div>
 
       {/* Step body. */}
