@@ -121,9 +121,11 @@ export default function StagedLoadingScreen({
 
         {/* Indeterminate progress bar that runs on the compositor thread so it
             keeps animating even when the main thread is blocked by the OS
-            folder picker. */}
+            folder picker or heavy boot work. It MUST animate `transform` (GPU
+            compositor) — never `left`/`width` (main-thread layout), or the
+            sweep stutters and freezes the moment the main thread is busy. */}
         <div className="relative h-1.5 w-full max-w-sm mx-auto bg-black/5 dark:bg-white/10 rounded-full overflow-hidden mb-6">
-          <div className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-brand-action to-brand-purple rounded-full animate-staged-loading-sweep" />
+          <div className="absolute inset-y-0 left-0 w-1/3 bg-gradient-to-r from-brand-action to-brand-purple rounded-full animate-staged-loading-sweep" />
         </div>
 
         <h2 className="text-heading font-semibold text-foreground mb-3">{title}</h2>
@@ -209,12 +211,20 @@ export default function StagedLoadingScreen({
       </div>
 
       <style>{`
+        /* translateX runs on the GPU compositor, so the sweep keeps gliding
+           even while the main thread is pinned by boot work. The bar is 1/3 of
+           the track (w-1/3) anchored at left:0, so -100%→300% of its own width
+           sweeps it from fully off-left to fully off-right. */
         @keyframes staged-loading-sweep {
-          0% { left: -33%; }
-          100% { left: 100%; }
+          0% { transform: translateX(-100%); }
+          100% { transform: translateX(300%); }
         }
         .animate-staged-loading-sweep {
           animation: staged-loading-sweep 1.4s ease-in-out infinite;
+          will-change: transform;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .animate-staged-loading-sweep { animation-duration: 2.8s; }
         }
       `}</style>
     </div>
