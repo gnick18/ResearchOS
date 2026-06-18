@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import BeakerBot, { type BeakerBotPose } from "@/components/BeakerBot";
+import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import CloudProviderBeat from "@/components/picker-walkthrough/CloudProviderBeat";
 import DataFlowBeat from "@/components/picker-walkthrough/DataFlowBeat";
 import FolderChoiceBeat, {
@@ -132,21 +133,27 @@ export default function PickerWalkthroughModal({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 px-4 py-6 backdrop-blur-sm"
+      className="fixed inset-0 z-[110] overflow-y-auto bg-white"
       data-picker-walkthrough="active"
       data-picker-walkthrough-step={step}
       role="dialog"
       aria-modal="true"
       aria-label="ResearchOS walkthrough"
     >
+      {/* Unified welcome-page stage: the same soft pastel-rainbow aurora wash
+          the welcome and pricing pages sit on, over an opaque light base. This
+          replaces the old dark slate overlay carried over from the retired
+          pre-onboarding flow. */}
+      <MarketingBackdrop tone="vivid" />
       {/* Skip link anchors to the full-screen dialog (true top-right corner
           of the viewport) rather than the centered card. */}
       <SkipLink onSkip={finish} disabled={dismissing} />
-      <div
-        className={`relative flex w-full flex-col items-center ${
-          wide ? "max-w-3xl" : "max-w-2xl"
-        }`}
-      >
+      <div className="relative z-10 flex min-h-full items-center justify-center px-4 py-6">
+        <div
+          className={`relative flex w-full flex-col items-center ${
+            wide ? "max-w-3xl" : "max-w-2xl"
+          }`}
+        >
         {/* BeakerBot mascot. ~144px reads larger than the v4 tour's 120px
             (the user's first impression of the character) without crowding
             the speech bubble on smaller viewports. */}
@@ -182,6 +189,7 @@ export default function PickerWalkthroughModal({
             <CloudProviderBeat onContinue={finish} />
           )}
         </SpeechBubble>
+        </div>
       </div>
     </div>
   );
