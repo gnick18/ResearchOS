@@ -8,6 +8,7 @@ import {
   useMemo,
   useRef,
   useState,
+  type ReactNode,
 } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "./Tooltip";
@@ -52,6 +53,7 @@ export default function AppNavBar({
   currentUser,
   isSuppliesActive,
   layoutOverride,
+  trailing,
 }: {
   navItems: NavItem[];
   pathname: string | null;
@@ -63,6 +65,12 @@ export default function AppNavBar({
    *  in order, not buried in More by the researcher layout. While set, drag edits
    *  do not persist (they must not clobber the user's researcher layout). */
   layoutOverride?: NavLayout | null;
+  /** Optional control rendered inside the nav, immediately after the More menu
+   *  so it sits directly beside it (the permanent folder switcher). When set,
+   *  the overflow measurement reserves a fixed width for it (TRAILING_ALLOWANCE)
+   *  alongside the More allowance, so inline tabs spill into More before they
+   *  would collide with it. Pass undefined to reserve nothing. */
+  trailing?: ReactNode;
 }) {
   const savedLayout = useAppStore((s) => s.navLayout);
   const setNavLayout = useAppStore((s) => s.setNavLayout);
@@ -137,6 +145,11 @@ export default function AppNavBar({
     [resolved],
   );
 
+  // Whether a trailing control (the permanent folder pill) is present. A stable
+  // boolean (not the element itself) so the measurement effect re-runs only when
+  // the slot appears or disappears, never on every render.
+  const hasTrailing = Boolean(trailing);
+
   // ---- responsive overflow measurement -----------------------------------
   // When NOT editing, measure how many inline tabs fit and spill the rest into
   // More for display. While editing we show every inline tab (no auto-overflow)
@@ -161,9 +174,14 @@ export default function AppNavBar({
       if (navEl.clientWidth === 0) return inline.length;
       // Available width for the tab strip = the nav element width minus the
       // More button (reserve a fixed allowance so its presence never causes a
-      // flip-flop). We sum measured tab widths until we run out of room.
+      // flip-flop) and minus the trailing control when one is present (the
+      // permanent folder pill, max-w-[180px] plus its gap). Reserving it here
+      // keeps inline tabs spilling into More before they would collide with the
+      // pill, rather than the tab strip clipping under it. We sum measured tab
+      // widths until we run out of room.
       const moreAllowance = 84;
-      const avail = navEl.clientWidth - moreAllowance;
+      const trailingAllowance = hasTrailing ? 196 : 0;
+      const avail = navEl.clientWidth - moreAllowance - trailingAllowance;
       let used = 0;
       let fit = 0;
       for (const item of inline) {
@@ -203,7 +221,7 @@ export default function AppNavBar({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [editing, recording, resolved.inline]);
+  }, [editing, recording, resolved.inline, hasTrailing]);
 
   // The displayed split: while editing, the full saved split. Otherwise, the
   // overflow-aware split (rightmost inline tabs that do not fit move to More).
@@ -652,6 +670,13 @@ export default function AppNavBar({
             </div>
           ) : null}
         </div>
+
+        {/* Permanent trailing control (the folder switcher pill), rendered as a
+            direct nav child immediately after the More menu so it sits beside
+            it. flex-none so it keeps its width; the overflow measurement above
+            reserves room for it (hasTrailing), so inline tabs spill into More
+            before they would collide. */}
+        {trailing ? <div className="flex-none">{trailing}</div> : null}
 
         {/* Done pill, present only while editing (not a persistent button) */}
         {editing ? (

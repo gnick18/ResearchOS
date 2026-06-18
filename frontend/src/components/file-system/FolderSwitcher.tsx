@@ -48,9 +48,16 @@ export default function FolderSwitcher({
    *  AppShell because this component returns null when there is nothing to
    *  switch, which would leave an empty floating pill. */
   tinted = false,
+  /** When true, the header variant does not hide itself for single-folder or
+   *  zero-folder users. The pill still renders (showing the current folder name
+   *  and the "Open another folder" row) so the control is permanently reachable
+   *  from the header regardless of how many folders the user has remembered.
+   *  Has no effect on the panel variant. */
+  always = false,
 }: {
   variant?: "header" | "panel";
   tinted?: boolean;
+  always?: boolean;
 }) {
   const {
     rememberedFolders,
@@ -103,7 +110,10 @@ export default function FolderSwitcher({
   // between (zero or one folder and it is the active one). The "Open another
   // folder" action still lives in the connect screen and Settings, so the
   // header stays calm for solo single-folder users.
-  if (variant === "header" && folders.length <= 1) return null;
+  // Exception: when `always` is true the pill stays visible regardless of how
+  // many folders are remembered, so callers that want a permanent top-bar
+  // control can opt in without changing the default behavior.
+  if (variant === "header" && !always && folders.length <= 1) return null;
 
   async function onSwitch(id: string) {
     if (busy) return;

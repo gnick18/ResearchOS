@@ -136,7 +136,9 @@ export function WelcomeBackSignIn({
         </button>
 
         <div className="relative z-[1] flex w-full max-w-xs flex-col items-center">
-          <IntroBubbleBot size="sm" className="mb-1" />
+          {/* Same beaker size + center placement as the landing hero, so he
+              never shrinks or jumps between the welcome and the sign-in screen. */}
+          <IntroBubbleBot size="xl" className="mb-4" />
           <h1 className="text-[23px] font-extrabold tracking-tight text-brand-ink">
             Welcome back
           </h1>

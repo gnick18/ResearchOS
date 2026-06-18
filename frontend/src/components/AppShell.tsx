@@ -28,6 +28,7 @@ import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import LabHeaderLogo from "@/components/lab/LabHeaderLogo";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
+import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
@@ -421,11 +422,6 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </span>
         </PillWrap>
 
-        {/* Folder switcher (Phase A, multi-folder). Renders nothing unless the
-            NEXT_PUBLIC_MULTI_FOLDER flag is on AND more than one folder is
-            remembered, so the header is unchanged for flag-off / solo users. */}
-        <FolderSwitcher variant="header" tinted={tinted} />
-
         {/* The persistent "My work" toggle (NAV-2). Lab head only: it flips the
             nav between the lab lens and the personal researcher view. */}
         {isLabHead === true && (
@@ -454,6 +450,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               pathname === "/purchases")
           }
           layoutOverride={labNavLayout}
+          // Permanent folder control, rendered inside the nav directly beside
+          // the More menu (always=true keeps the pill visible even for a single
+          // folder so add-folder and switching are one click away). Gated here
+          // by NEXT_PUBLIC_MULTI_FOLDER so the nav reserves space for it only
+          // when it will actually render; when the flag is off the nav is
+          // unchanged.
+          trailing={
+            MULTI_FOLDER_ENABLED ? (
+              <FolderSwitcher variant="header" always tinted={tinted} />
+            ) : undefined
+          }
         />
 
         <div className="flex items-center gap-2">

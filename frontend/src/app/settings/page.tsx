@@ -96,6 +96,8 @@ import CloudStorageUsageSection from "@/components/settings/sections/CloudStorag
 import ModelABilling from "@/components/billing/ModelABilling";
 import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
+import FolderSwitcher from "@/components/file-system/FolderSwitcher";
+import { signOut } from "next-auth/react";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
   { value: "1week", label: "1 week" },
@@ -202,7 +204,7 @@ function SettingsBodyInner({
 }: {
   initialSectionId?: string;
 }) {
-  const { currentUser, isConnected, directoryName } = useFileSystem();
+  const { currentUser, isConnected, directoryName, disconnect } = useFileSystem();
   const hydrateFromSettings = useAppStore((s) => s.hydrateFromSettings);
   const queryClient = useQueryClient();
 
@@ -885,9 +887,10 @@ function SettingsBodyInner({
           isLabHead ? "Lab head" : isLabMode ? "Lab member" : undefined
         }
         headerExtra={
-          // Slim top bar: a compact title and the saved indicator, nothing more.
-          // Keeps the `settings-folder-section` spotlight anchor for the dormant
-          // v4 tour. The search moved into the rail (railSearch below).
+          // Slim top bar: title on the left, quick-exit controls + saved
+          // indicator on the right. "Disconnect folder" and "Log out" live here
+          // so they are visible the moment Settings opens, not buried two levels
+          // deep. Keeps the `settings-folder-section` spotlight anchor.
           <div
             data-tour-target="settings-folder-section"
             className="flex items-center justify-between gap-3"
@@ -896,7 +899,39 @@ function SettingsBodyInner({
               <h1 className="text-title font-bold text-foreground">Settings</h1>
               <VersionBadge />
             </div>
-            <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
+            <div className="flex items-center gap-2">
+              {/* Disconnect folder: removes the active folder from the app and
+                  returns to the connect screen. Files on disk are untouched. */}
+              <Tooltip label="Return to the connect screen. Your files on disk are not changed." placement="bottom">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const ok = window.confirm(
+                      "Disconnect this folder? Your files on disk are not changed and you will return to the connect screen.",
+                    );
+                    if (ok) void disconnect();
+                  }}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-meta text-foreground-muted transition hover:border-border-strong hover:text-foreground"
+                >
+                  <Icon name="folder" className="h-3.5 w-3.5 shrink-0" />
+                  <span>Disconnect folder</span>
+                </button>
+              </Tooltip>
+              {/* Log out: ends the NextAuth cloud session and returns to /.
+                  Text-only on purpose. There is no dedicated sign-out glyph in
+                  the icon registry, and reusing another meaning's glyph (lock =
+                  identity locked) would break the one-glyph-per-meaning rule. */}
+              <Tooltip label="Sign out of your account" placement="bottom">
+                <button
+                  type="button"
+                  onClick={() => void signOut({ callbackUrl: "/" })}
+                  className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-meta text-foreground-muted transition hover:border-border-strong hover:text-foreground"
+                >
+                  <span>Log out</span>
+                </button>
+              </Tooltip>
+              <SavedIndicator saving={saving} recentlySaved={recentlySaved} />
+            </div>
           </div>
         }
         railSearch={<SettingsSearchBar />}
@@ -1144,6 +1179,13 @@ function DataFolderSection({
           Connect or switch folder
         </button>
       </div>
+      {/* Folders you have opened before (panel variant of the folder switcher).
+          Lists remembered folders with switch / rename / forget controls and
+          an "Open another folder" row at the bottom. Gated by the same
+          NEXT_PUBLIC_MULTI_FOLDER flag as the component itself; renders
+          nothing when the flag is off. */}
+      <p className="text-meta text-foreground-muted">Folders you have opened before:</p>
+      <FolderSwitcher variant="panel" />
     </SectionShell>
   );
 }

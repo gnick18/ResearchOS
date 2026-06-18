@@ -417,6 +417,16 @@ const HEART_FILL = "#ff5b8a";
 const HEART_PATH =
   "M 20 12 C 18.5 10.5, 16.5 10.5, 16.5 12.8 C 16.5 14.8, 18.5 16, 20 17 C 21.5 16, 23.5 14.8, 23.5 12.8 C 23.5 10.5, 21.5 10.5, 20 12 Z";
 
+// Mouse-follow pupil constants. How far the pupils may slide from center,
+// in viewBox user units. BeakerBot's eyes sit at cx 17/23, cy 18, inside
+// a beaker body that spans x 12-28, so 1.3 horizontal / 0.9 vertical
+// keeps them well clear of the glass rim. These are the same values used
+// by IntroBeaker because both components share identical eye geometry.
+// GAZE_FULL_DISTANCE_PX is screen-space and does not depend on viewBox.
+const PUPIL_REACH_X = 1.3;
+const PUPIL_REACH_Y = 0.9;
+const GAZE_FULL_DISTANCE_PX = 420;
+
 interface HeartInstance {
   /** Monotonic id used as the React key + setTimeout target. */
   id: number;
@@ -464,6 +474,16 @@ export default function BeakerBot({
   const heartWobbleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+
+  // Ref to the root svg node so the pointer-follow effect can call
+  // getBoundingClientRect() without a DOM query.
+  const svgRef = useRef<SVGSVGElement | null>(null);
+
+  // Mouse-follow pupil offset, in viewBox user units. Starts at (0,0) so
+  // the SSR render and the first client paint are identical (no hydration
+  // mismatch). The effect below writes non-zero values only after mount and
+  // only when aliveFaceActive, so non-alive poses always see centered pupils.
+  const [pupil, setPupil] = useState({ x: 0, y: 0 });
 
   // Alive-idle de-sync. Two BeakerBots painted at once must not blink or
   // sway in lockstep, so each instance gets randomized animation delays
@@ -570,6 +590,52 @@ export default function BeakerBot({
     animated &&
     (ALIVE_POSES.has(effectivePose) || effectivePose === "waving");
 
+  // Pupils track the cursor when aliveFaceActive is true and the user has
+  // not requested reduced motion. The state update runs only after mount
+  // (the initial value is {x:0,y:0} to match the SSR render), and the
+  // listener is torn down and reset to center when aliveFaceActive turns
+  // off, so every non-alive pose keeps perfectly centered pupils.
+  useEffect(() => {
+    if (
+      !aliveFaceActive ||
+      typeof window === "undefined" ||
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
+    ) {
+      setPupil({ x: 0, y: 0 });
+      return;
+    }
+    let frame = 0;
+    let mx = 0;
+    let my = 0;
+    const apply = () => {
+      frame = 0;
+      const el = svgRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      // Eyes sit at cy 18 in a 40-unit-tall viewBox = 45% from the top.
+      const cy = rect.top + rect.height * 0.45;
+      const dx = mx - cx;
+      const dy = my - cy;
+      const dist = Math.hypot(dx, dy) || 1;
+      const reach = Math.min(1, dist / GAZE_FULL_DISTANCE_PX);
+      setPupil({
+        x: (dx / dist) * PUPIL_REACH_X * reach,
+        y: (dy / dist) * PUPIL_REACH_Y * reach,
+      });
+    };
+    const onMove = (e: PointerEvent) => {
+      mx = e.clientX;
+      my = e.clientY;
+      if (!frame) frame = requestAnimationFrame(apply);
+    };
+    window.addEventListener("pointermove", onMove, { passive: true });
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, [aliveFaceActive]);
+
   // Mirror via CSS transform so the path data stays canonical
   // (cheaper than maintaining two mirrored sets).
   const flip = DIRECTIONAL_POSES.has(effectivePose) && direction === "left";
@@ -613,6 +679,7 @@ export default function BeakerBot({
 
   return (
     <svg
+      ref={svgRef}
       viewBox="0 0 40 40"
       fill="none"
       stroke="currentColor"
@@ -690,150 +757,159 @@ export default function BeakerBot({
       <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
       {/* Beaker lip */}
       <path d="M11 12 L29 12" />
-      {/* Left eye: wrapped in a <g> so the sleeping pose can close it
-          to a flat line and the reading pose can horizontally scan it
-          across the book. Scene-tone poses (panicked, amazed,
-          embarrassed) override the inner geometry to convey emotion
-          (wide circles, wide ovals, half-closed slits respectively).
-          Idle / pointing / etc. leave the wrapper as a no-op pass-
-          through with the default dot pupil. */}
-      <g
-        className={
-          animated && effectivePose === "sleeping"
-            ? `${styles.sleepEye} ${styles.animated}`
-            : animated && effectivePose === "reading"
-              ? `${styles.readEye} ${styles.animated}`
-              : aliveFaceActive
-                ? `${styles.aliveBlink} ${styles.animated}`
-                : undefined
-        }
-      >
-        {effectivePose === "panicked" ? (
-          <>
-            {/* Wide circle eye + small dark pupil = startled. */}
-            <circle
-              cx="17"
-              cy="18"
-              r="1.9"
-              fill="white"
-              stroke="currentColor"
-              strokeWidth="0.7"
-            />
-            <circle cx="17" cy="18" r="0.7" fill="currentColor" stroke="none" />
-          </>
-        ) : effectivePose === "amazed" ? (
-          <>
-            {/* Wide vertical oval + small pupil = wondrous "wow." */}
-            <ellipse
-              cx="17"
-              cy="18"
-              rx="1.4"
-              ry="1.9"
-              fill="white"
-              stroke="currentColor"
-              strokeWidth="0.7"
-            />
-            <circle cx="17" cy="18" r="0.6" fill="currentColor" stroke="none" />
-            {/* Raised brow: small arc above the eye. */}
-            <path
-              d="M 15.4 14.6 Q 17 13.8, 18.6 14.6"
-              stroke="currentColor"
-              strokeWidth="0.7"
-              fill="none"
-            />
-          </>
-        ) : effectivePose === "embarrassed" ? (
-          /* Half-closed eye: thin horizontal ellipse glancing aside.
-             Slight offset on cx shifts the gaze to the right (away
-             from whatever just went wrong). */
-          <ellipse
-            cx="17.3"
-            cy="18.2"
-            rx="1.2"
-            ry="0.4"
-            fill="currentColor"
-            stroke="none"
-          />
-        ) : (
-          <circle
-            cx="17"
-            cy="18"
-            r="1.2"
-            fill="currentColor"
-            stroke="none"
-            className={aliveFaceActive ? styles.aliveGaze : undefined}
-          />
-        )}
-      </g>
-      {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
-          it to a closed line independently of the body's bow tilt.
-          Also closes for the sleeping pose and scans for reading.
-          Scene-tone poses override the inner geometry the same way the
-          left eye does (panicked = wide circle, amazed = wide oval
-          + brow, embarrassed = half-closed slit). */}
-      <g
-        className={
-          animated && effectivePose === "bow-wink"
-            ? `${styles.winkEye} ${styles.animated}`
-            : animated && effectivePose === "sleeping"
+      {/* Outer mouse-follow wrapper: slides BOTH eyes toward the cursor
+          when aliveFaceActive is true. The offset is zero when not alive,
+          so all non-alive poses keep perfectly centered pupils. The inner
+          per-eye <g> handles blink/wink/scan animations (unchanged); the
+          default dot pupils keep their aliveGaze CSS drift keyframe on
+          the inner <circle> (unchanged). Two nested elements = two
+          composing transforms, no conflict. */}
+      <g transform={`translate(${pupil.x} ${pupil.y})`}>
+        {/* Left eye: wrapped in a <g> so the sleeping pose can close it
+            to a flat line and the reading pose can horizontally scan it
+            across the book. Scene-tone poses (panicked, amazed,
+            embarrassed) override the inner geometry to convey emotion
+            (wide circles, wide ovals, half-closed slits respectively).
+            Idle / pointing / etc. leave the wrapper as a no-op pass-
+            through with the default dot pupil. */}
+        <g
+          className={
+            animated && effectivePose === "sleeping"
               ? `${styles.sleepEye} ${styles.animated}`
               : animated && effectivePose === "reading"
                 ? `${styles.readEye} ${styles.animated}`
                 : aliveFaceActive
                   ? `${styles.aliveBlink} ${styles.animated}`
                   : undefined
-        }
-      >
-        {effectivePose === "panicked" ? (
-          <>
+          }
+        >
+          {effectivePose === "panicked" ? (
+            <>
+              {/* Wide circle eye + small dark pupil = startled. */}
+              <circle
+                cx="17"
+                cy="18"
+                r="1.9"
+                fill="white"
+                stroke="currentColor"
+                strokeWidth="0.7"
+              />
+              <circle cx="17" cy="18" r="0.7" fill="currentColor" stroke="none" />
+            </>
+          ) : effectivePose === "amazed" ? (
+            <>
+              {/* Wide vertical oval + small pupil = wondrous "wow." */}
+              <ellipse
+                cx="17"
+                cy="18"
+                rx="1.4"
+                ry="1.9"
+                fill="white"
+                stroke="currentColor"
+                strokeWidth="0.7"
+              />
+              <circle cx="17" cy="18" r="0.6" fill="currentColor" stroke="none" />
+              {/* Raised brow: small arc above the eye. */}
+              <path
+                d="M 15.4 14.6 Q 17 13.8, 18.6 14.6"
+                stroke="currentColor"
+                strokeWidth="0.7"
+                fill="none"
+              />
+            </>
+          ) : effectivePose === "embarrassed" ? (
+            /* Half-closed eye: thin horizontal ellipse glancing aside.
+               Slight offset on cx shifts the gaze to the right (away
+               from whatever just went wrong). */
+            <ellipse
+              cx="17.3"
+              cy="18.2"
+              rx="1.2"
+              ry="0.4"
+              fill="currentColor"
+              stroke="none"
+            />
+          ) : (
+            <circle
+              cx="17"
+              cy="18"
+              r="1.2"
+              fill="currentColor"
+              stroke="none"
+              className={aliveFaceActive ? styles.aliveGaze : undefined}
+            />
+          )}
+        </g>
+        {/* Right eye: wrapped in a <g> so the bow-wink pose can scale
+            it to a closed line independently of the body's bow tilt.
+            Also closes for the sleeping pose and scans for reading.
+            Scene-tone poses override the inner geometry the same way the
+            left eye does (panicked = wide circle, amazed = wide oval
+            + brow, embarrassed = half-closed slit). */}
+        <g
+          className={
+            animated && effectivePose === "bow-wink"
+              ? `${styles.winkEye} ${styles.animated}`
+              : animated && effectivePose === "sleeping"
+                ? `${styles.sleepEye} ${styles.animated}`
+                : animated && effectivePose === "reading"
+                  ? `${styles.readEye} ${styles.animated}`
+                  : aliveFaceActive
+                    ? `${styles.aliveBlink} ${styles.animated}`
+                    : undefined
+          }
+        >
+          {effectivePose === "panicked" ? (
+            <>
+              <circle
+                cx="23"
+                cy="18"
+                r="1.9"
+                fill="white"
+                stroke="currentColor"
+                strokeWidth="0.7"
+              />
+              <circle cx="23" cy="18" r="0.7" fill="currentColor" stroke="none" />
+            </>
+          ) : effectivePose === "amazed" ? (
+            <>
+              <ellipse
+                cx="23"
+                cy="18"
+                rx="1.4"
+                ry="1.9"
+                fill="white"
+                stroke="currentColor"
+                strokeWidth="0.7"
+              />
+              <circle cx="23" cy="18" r="0.6" fill="currentColor" stroke="none" />
+              <path
+                d="M 21.4 14.6 Q 23 13.8, 24.6 14.6"
+                stroke="currentColor"
+                strokeWidth="0.7"
+                fill="none"
+              />
+            </>
+          ) : effectivePose === "embarrassed" ? (
+            <ellipse
+              cx="22.7"
+              cy="18.2"
+              rx="1.2"
+              ry="0.4"
+              fill="currentColor"
+              stroke="none"
+            />
+          ) : (
             <circle
               cx="23"
               cy="18"
-              r="1.9"
-              fill="white"
-              stroke="currentColor"
-              strokeWidth="0.7"
+              r="1.2"
+              fill="currentColor"
+              stroke="none"
+              className={aliveFaceActive ? styles.aliveGaze : undefined}
             />
-            <circle cx="23" cy="18" r="0.7" fill="currentColor" stroke="none" />
-          </>
-        ) : effectivePose === "amazed" ? (
-          <>
-            <ellipse
-              cx="23"
-              cy="18"
-              rx="1.4"
-              ry="1.9"
-              fill="white"
-              stroke="currentColor"
-              strokeWidth="0.7"
-            />
-            <circle cx="23" cy="18" r="0.6" fill="currentColor" stroke="none" />
-            <path
-              d="M 21.4 14.6 Q 23 13.8, 24.6 14.6"
-              stroke="currentColor"
-              strokeWidth="0.7"
-              fill="none"
-            />
-          </>
-        ) : effectivePose === "embarrassed" ? (
-          <ellipse
-            cx="22.7"
-            cy="18.2"
-            rx="1.2"
-            ry="0.4"
-            fill="currentColor"
-            stroke="none"
-          />
-        ) : (
-          <circle
-            cx="23"
-            cy="18"
-            r="1.2"
-            fill="currentColor"
-            stroke="none"
-            className={aliveFaceActive ? styles.aliveGaze : undefined}
-          />
-        )}
+          )}
+        </g>
       </g>
       {/* Mouth: smile by default, open-laugh for giggle/rolling, yawn-
        *  oval for yawn (wrapped in a scaling <g> to animate open/close),

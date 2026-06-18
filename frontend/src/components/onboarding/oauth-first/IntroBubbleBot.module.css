@@ -12,7 +12,15 @@
   position: relative;
   margin: 0 auto;
   cursor: pointer;
-  animation: bob 3.4s ease-in-out infinite;
+  /* Three independent motions on the separate individual-transform properties
+     (translate, rotate, scale) so they compose instead of overwriting each
+     other. Their periods are deliberately mismatched, so the combined wander
+     almost never repeats and reads as a living idle rather than a mechanical
+     loop. He stays inside a small region (a few px and under two degrees). */
+  animation:
+    aliveDrift 6.1s ease-in-out infinite,
+    aliveTilt 8.3s ease-in-out infinite,
+    aliveBreathe 4.7s ease-in-out infinite;
 }
 
 .introbot svg {
@@ -111,13 +119,46 @@
   height: 3px;
 }
 
-@keyframes bob {
-  0%,
-  100% {
-    transform: translateY(0);
+@keyframes aliveDrift {
+  0% {
+    translate: 0 0;
+  }
+  25% {
+    translate: -3px -6px;
   }
   50% {
-    transform: translateY(-8px);
+    translate: 2px -9px;
+  }
+  75% {
+    translate: -2px -4px;
+  }
+  100% {
+    translate: 0 0;
+  }
+}
+
+@keyframes aliveTilt {
+  0% {
+    rotate: 0deg;
+  }
+  33% {
+    rotate: -1.6deg;
+  }
+  66% {
+    rotate: 1.4deg;
+  }
+  100% {
+    rotate: 0deg;
+  }
+}
+
+@keyframes aliveBreathe {
+  0%,
+  100% {
+    scale: 1;
+  }
+  50% {
+    scale: 1.03;
   }
 }
 
