@@ -14,6 +14,7 @@ import {
 } from "@/lib/markdown/cm-inline-reveal/code-languages";
 import { detectUnfence } from "@/lib/markdown/cm-inline-reveal/markdown-keymap";
 import { isBlockEmbedMarkdown } from "@/lib/references";
+import { isBlockLevelInsertSyntax } from "@/lib/markdown/block-insert-syntax";
 // P7-2 transclusion normalize (normalizeRef wiring).
 import { normalizeTransclusions } from "@/lib/embeds/normalize-transclusions";
 import { notesApi } from "@/lib/local-api";
@@ -961,7 +962,34 @@ export default function InlineMarkdownEditor({
         view.focus();
         return;
       }
-      view.dispatch(view.state.replaceSelection(syntax));
+      // A block-level snippet (heading, blockquote, list item, thematic rule,
+      // table row) only parses as that block when it starts its own line. An
+      // insert mid-line otherwise glues onto the previous text (e.g.
+      // `task## Heading 2`), which CommonMark and the Edit decorator both read
+      // as paragraph text, so the Preview shows the literal `## ` and joins the
+      // heading onto the next line. Give it a leading newline so it begins a
+      // fresh line, and a trailing newline so the following text stays its own
+      // block. A single newline is enough: a heading / list / quote interrupts
+      // a paragraph in CommonMark.
+      if (isBlockLevelInsertSyntax(syntax)) {
+        const sel = view.state.selection.main;
+        const before = view.state.doc.sliceString(0, sel.from);
+        const after = view.state.doc.sliceString(sel.to);
+        const lead =
+          before.length === 0 || before.endsWith("\n") ? "" : "\n";
+        const trail = after.length === 0 || after.startsWith("\n") ? "" : "\n";
+        view.dispatch(view.state.replaceSelection(lead + syntax + trail));
+        view.focus();
+        return;
+      }
+      // Inline snippet (bold, italic, link, reference chip, ...). If it would
+      // glue straight onto the end of a word, add a separating space so a chip
+      // inserted right after text reads `task [chip]`, not `task[chip]` (and so
+      // intra-word `**`/`*` runs still flank correctly and render).
+      const sel = view.state.selection.main;
+      const before = view.state.doc.sliceString(0, sel.from);
+      const gap = /\w$/.test(before) ? " " : "";
+      view.dispatch(view.state.replaceSelection(gap + syntax));
       view.focus();
     };
     return () => {

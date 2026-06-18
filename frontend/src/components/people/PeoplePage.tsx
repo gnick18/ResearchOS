@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useLabSession } from "@/hooks/useLabSession";
 import { useLabData } from "@/hooks/useLabData";
@@ -150,9 +151,25 @@ export default function PeoplePage() {
           </p>
         </div>
         {!isLoading && (
-          <span className="shrink-0 rounded-full bg-surface-sunken px-3 py-1 text-meta font-medium text-foreground-muted">
-            {activeCount} active
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="rounded-full bg-surface-sunken px-3 py-1 text-meta font-medium text-foreground-muted">
+              {activeCount} active
+            </span>
+            {isLabHead && (
+              <Tooltip
+                label="Invite a member"
+                body="Opens Settings, where you can search the directory, invite by email, or create an invite link."
+              >
+                <Link
+                  href="/settings?section=members"
+                  className="ros-btn-raise flex items-center gap-1.5 rounded-lg bg-brand-action px-3 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90"
+                >
+                  <Icon name="userPlus" className="h-4 w-4" />
+                  Invite member
+                </Link>
+              </Tooltip>
+            )}
+          </div>
         )}
       </div>
 
@@ -209,7 +226,7 @@ export default function PeoplePage() {
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-foreground-muted">
-                      <span className="truncate">@{row.username}</span>
+                      <span className="truncate">{formatUsernameHandle(row.username)}</span>
                       {/* Workload (PE-2). */}
                       {w && (w.open > 0 || w.overdue > 0) ? (
                         <span>
@@ -306,7 +323,7 @@ function MemberPanel({
             <h2 className="truncate text-title font-semibold text-foreground">
               {label}
             </h2>
-            <p className="text-meta text-foreground-muted">@{row.username}</p>
+            <p className="text-meta text-foreground-muted">{formatUsernameHandle(row.username)}</p>
           </div>
         </div>
 

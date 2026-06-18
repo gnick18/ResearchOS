@@ -420,6 +420,10 @@ function AppContent({ children }: { children: ReactNode }) {
   const isPublicMarketingRoute =
     pathname === "/pricing" ||
     pathname === "/ai" ||
+    // /welcome is the retired marketing route. It renders its own small page
+    // (log-out prompt for signed-in users, redirect to the landing for signed-
+    // out ones), so it must bypass the folder-connect gate like the others.
+    pathname === "/welcome" ||
     pathname === "/app" ||
     pathname === "/labs" ||
     pathname === "/departments" ||

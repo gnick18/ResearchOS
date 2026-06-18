@@ -68,29 +68,20 @@ export function buildEntryGreetingLines(ctx: {
   hour: number;
   returning?: boolean;
 }): string[] {
+  // A deliberately TIGHT, non-redundant set. The bubble shows lines
+  // sparingly (long silences between them), so a handful of distinct lines
+  // reads better than a long carousel of near-duplicates. One greeting, one
+  // warm opener, one value line, one ready line, one playful line.
   const lines: string[] = [];
 
-  // Greeting line first (time-of-day anchors the opener).
+  // Greeting (time-of-day) plus one warm opener.
   lines.push(timeGreeting(ctx.hour));
+  lines.push(ctx.returning ? "Welcome back." : "Hi there.");
 
-  // Warm secondary opener.
-  if (ctx.returning) {
-    lines.push("Welcome back.");
-    lines.push("Good to see you.");
-  } else {
-    lines.push("Hi there.");
-    lines.push("Good to see you.");
-  }
-
-  // Value proposition lines (no numbers, pure copy).
+  // One value line (the punchiest), one invitation, one playful line.
   lines.push("Your lab, your data, your machine.");
-  lines.push("Everything stays on your own disk.");
-  lines.push("Pick a folder and we will dive right in.");
   lines.push("Ready when you are.");
-
-  // Playful warmth lines.
   lines.push("I kept the beakers warm for you.");
-  lines.push("I have been bubbling away while you were gone.");
 
   return lines;
 }

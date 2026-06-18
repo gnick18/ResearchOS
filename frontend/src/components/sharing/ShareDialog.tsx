@@ -30,6 +30,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { usersApi } from "@/lib/local-api";
+import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "@/components/Tooltip";
 import type { SharedUser } from "@/lib/types";
@@ -273,7 +274,7 @@ export default function ShareDialog({
                           <p className="truncate text-body font-medium text-foreground">
                             {s.username === WHOLE_LAB_SENTINEL
                               ? "Whole lab"
-                              : `@${s.username}`}
+                              : formatUsernameHandle(s.username)}
                             {archivedSet.has(s.username) && (
                               <span className="ml-1 text-meta text-foreground-muted">
                                 (archived)
@@ -289,7 +290,7 @@ export default function ShareDialog({
                             aria-label={`Access level for ${
                               s.username === WHOLE_LAB_SENTINEL
                                 ? "the whole lab"
-                                : `@${s.username}`
+                                : formatUsernameHandle(s.username)
                             }`}
                             className="mt-1 inline-flex rounded-md border border-border bg-surface-raised p-0.5"
                           >
@@ -350,7 +351,7 @@ export default function ShareDialog({
                             </span>
                             <span className="text-foreground">
                               {wholeLabRoster
-                                .map((u) => `@${u}`)
+                                .map((u) => formatUsernameHandle(u))
                                 .join(", ")}
                             </span>
                           </>

@@ -276,6 +276,16 @@ export interface LabSessionEffects {
   }>;
 
   /**
+   * Drop any locally-cached lab key envelope for this user (reload-reconnect).
+   * Called on logout so a signed-out session leaves no offline-resume artifact
+   * behind. Optional so existing fakes/tests stay valid; logout() no-ops when it
+   * is absent, and the production impl is itself a no-op unless
+   * NEXT_PUBLIC_LAB_RELOAD_RECONNECT is on. Best-effort: a failure must never
+   * block sign-out.
+   */
+  clearEnvelopeCache?: () => void | Promise<void>;
+
+  /**
    * Current epoch-ms timestamp. Use `() => Date.now()` in production.
    * Inject a controllable clock in tests.
    */
@@ -530,6 +540,13 @@ export function createLabSessionController(
     logout() {
       if (state.kind !== "live") return;
       dispatch({ type: "LOGOUT" });
+      // Best-effort: drop the offline-resume envelope cache for this user so a
+      // signed-out session leaves nothing behind. Never block sign-out on it.
+      try {
+        void Promise.resolve(effects.clearEnvelopeCache?.()).catch(() => {});
+      } catch {
+        // a throwing (non-async) impl must not break logout
+      }
     },
   };
 }

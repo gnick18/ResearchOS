@@ -91,10 +91,12 @@ export function VariantSplitStage({
     return () => window.removeEventListener("keydown", onKey);
   }, [finish]);
 
-  // reduced-motion short path
+  // reduced-motion short path. Still lingers a couple of seconds so the
+  // BeakerSpeech line (shown at once under reduced motion, after its ~1.2s
+  // initial delay) is on screen long enough to read before the exit.
   useEffect(() => {
     if (!reduced) return;
-    const t = window.setTimeout(finish, 950);
+    const t = window.setTimeout(finish, 2600);
     return () => window.clearTimeout(t);
   }, [reduced, finish]);
 
@@ -116,10 +118,12 @@ export function VariantSplitStage({
 
   const handleFill = () => {
     if (reduced) return;
-    // Hold for two full pour cycles (CYCLE=600ms in SplashBeaker) before the
-    // lift-and-fade, so the viewer watches a couple of complete pours and the
-    // exit always fires when the beaker is back upright, never mid-tip.
-    const HOLD = 1200;
+    // Linger long enough for the BeakerSpeech greeting/fact to type in and be
+    // read before the lift-and-fade. The bubble waits ~1.2s, types in, then
+    // holds ~3s, so its first line finishes around 4.9s after mount; the beaker
+    // fill completes near 1.7s, so this hold carries the stage to roughly 5.3s.
+    // The exit still lands when the beaker is upright (never mid-tip).
+    const HOLD = 3000;
     window.setTimeout(() => setLeaving(true), HOLD);
     window.setTimeout(finish, HOLD + 620);
   };
@@ -252,13 +256,16 @@ export function VariantSplitStage({
 
           {/* Tier-B speech bubble. Only shown after mount (returningLines is
               seeded empty on first render), so it never causes a hydration
-              mismatch. Capped width so it does not overflow the hero column. */}
+              mismatch. The beaker is in the RIGHT column so the bubble sits in
+              the left hero column with side="left" -- the notch points RIGHT
+              toward the beaker across the grid gap. Width is fit-content so
+              short lines make a short bubble. */}
           {returningLines.length > 0 && (
             <BeakerSpeech
               lines={returningLines}
               tinted
-              rotateMs={4200}
-              className="mt-6 w-full max-w-sm"
+              side="left"
+              className="mt-6"
             />
           )}
         </div>

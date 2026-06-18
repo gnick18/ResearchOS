@@ -133,16 +133,20 @@ export function OAuthFirstLanding({
           <div
             className={`relative z-[1] flex flex-col items-center ${styles.enter}`}
           >
-            <IntroBubbleBot size="xl" className="mb-3" />
-
-            {/* BeakerBot Tier-A greeting bubble. Sits directly below the beaker
-                so the notch reads as him speaking. Capped at max-w-xs so it
-                stays compact and does not fight the hero wordmark below. */}
-            <BeakerSpeech
-              lines={entryLines}
-              tinted
-              className="mb-4 w-full max-w-xs"
-            />
+            {/* BeakerBot hero with the speech bubble floating to his right.
+                The bubble is absolutely positioned so it does not push the
+                centered column layout. It floats into the generous open space
+                on either side of the hero column. The notch points left, back
+                toward the beaker. */}
+            <div className="relative mb-3">
+              <IntroBubbleBot size="xl" />
+              <BeakerSpeech
+                lines={entryLines}
+                tinted
+                side="right"
+                className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-10"
+              />
+            </div>
 
             <Wordmark
               textOnly

@@ -17,6 +17,11 @@
 import { parseObjectEmbed } from "@/lib/references";
 import type { EmbedDescriptor } from "@/lib/references";
 import {
+  planRibbonLabels,
+  charsThatFit,
+  type RibbonLabelInput,
+} from "@/lib/sequences/ribbon-label-layout";
+import {
   buildFigureNumberPlan,
   type FigureNumberPlan,
 } from "@/lib/embeds/figure-numbering";
@@ -491,40 +496,94 @@ async function bakeSequence(
     ];
     if (d.organism) facts.push(d.organism);
 
-    // Try to build the ribbon SVG (same geometry as SequenceEmbed.tsx).
+    // Build the ribbon SVG (same SnapGene-style geometry as SequenceEmbed.tsx):
+    // names that fit their bar are inline, the rest stack into collision-free
+    // tiers below the track with a leader line, via the shared planRibbonLabels.
     const VIEW_W = 720;
     const PAD = 16;
-    const BASE_Y = 46;
+    const TOP_Y = 9;
+    const BAR_MID = 26;
+    const BAR_H = 18;
+    const BAR_TOP = BAR_MID - BAR_H / 2;
+    const BAR_BOTTOM = BAR_MID + BAR_H / 2;
+    const LABEL_FONT = 10;
+    const TIER0_BASE = BAR_BOTTOM + 13;
+    const TIER_STEP = 14;
+    const MAX_LABEL_PX = 200;
     const PALETTE = ["#bfdbfe", "#bbf7d0", "#fde68a", "#fbcfe8", "#ddd6fe", "#bae6fd"];
     const span = VIEW_W - 2 * PAD;
     const xOf = (pos: number) =>
       PAD + (Math.max(0, Math.min(length, pos)) / length) * span;
 
-    const features = (d.annotations ?? []).map((a, i) => {
-      const x = xOf(a.start);
-      const w = Math.max(3, xOf(a.end) - x);
-      const fill = a.color || PALETTE[i % PALETTE.length];
-      const showLabel = w > 44;
-      return (
-        `<rect x="${x.toFixed(1)}" y="${BASE_Y - 9}" width="${w.toFixed(1)}" height="18" rx="3"` +
-        ` fill="${fill}" opacity="0.95"/>` +
-        (showLabel
-          ? `<text x="${(x + w / 2).toFixed(1)}" y="${BASE_Y + 4}" font-size="10"` +
-            ` text-anchor="middle" fill="#1f2937">${escSvgText(a.name)}</text>`
-          : "")
-      );
+    const bars = (d.annotations ?? []).map((a, i) => {
+      const x0 = xOf(a.start);
+      const x1 = Math.max(x0 + 3, xOf(a.end));
+      return {
+        id: String(i),
+        name: a.name || "feature",
+        x0,
+        x1,
+        midX: (x0 + x1) / 2,
+        fill: a.color || PALETTE[i % PALETTE.length],
+      };
     });
+    const labelInputs: RibbonLabelInput[] = bars.map((b) => ({ id: b.id, name: b.name, x0: b.x0, x1: b.x1 }));
+    const plan = planRibbonLabels(labelInputs, {
+      fontPx: LABEL_FONT,
+      minX: PAD,
+      maxX: VIEW_W - PAD,
+      maxLabelPx: MAX_LABEL_PX,
+    });
+    const inlineSet = new Set(plan.inlineIds);
+    const placedById = new Map(plan.external.map((p) => [p.id, p]));
+    const mapH =
+      plan.tiers > 0 ? TIER0_BASE + (plan.tiers - 1) * TIER_STEP + 6 : BAR_BOTTOM + 10;
+
+    const barSvg = bars
+      .map((b) => {
+        const w = b.x1 - b.x0;
+        const rect =
+          `<rect x="${b.x0.toFixed(1)}" y="${BAR_TOP}" width="${w.toFixed(1)}" height="${BAR_H}" rx="3"` +
+          ` fill="${b.fill}" opacity="0.95"/>`;
+        const inline = inlineSet.has(b.id)
+          ? `<text x="${b.midX.toFixed(1)}" y="${BAR_MID + 4}" font-size="${LABEL_FONT}"` +
+            ` text-anchor="middle" fill="#1f2937">${escSvgText(b.name)}</text>`
+          : "";
+        return rect + inline;
+      })
+      .join("");
+
+    const labelSvg = bars
+      .map((b) => {
+        const placed = placedById.get(b.id);
+        if (!placed) return "";
+        const baseY = TIER0_BASE + placed.tier * TIER_STEP;
+        const elbowY = baseY - LABEL_FONT - 2;
+        const overCap = placed.width >= MAX_LABEL_PX;
+        const shown = overCap
+          ? `${b.name.slice(0, charsThatFit(b.name, LABEL_FONT, MAX_LABEL_PX))}…`
+          : b.name;
+        const leader =
+          `<polyline points="${b.midX.toFixed(1)},${BAR_BOTTOM} ${b.midX.toFixed(1)},${elbowY} ${placed.labelX.toFixed(1)},${elbowY}"` +
+          ` fill="none" stroke="#9ca3af" stroke-width="1" stroke-linejoin="round"/>`;
+        const text =
+          `<text x="${placed.labelX.toFixed(1)}" y="${baseY}" font-size="${LABEL_FONT}"` +
+          ` text-anchor="middle" fill="#374151">${escSvgText(shown)}</text>`;
+        return leader + text;
+      })
+      .join("");
 
     const ribbonSvg =
-      `<svg width="${VIEW_W}" height="72" viewBox="0 0 ${VIEW_W} 72"` +
+      `<svg width="${VIEW_W}" height="${mapH}" viewBox="0 0 ${VIEW_W} ${mapH}"` +
       ` xmlns="http://www.w3.org/2000/svg">` +
-      `<rect width="${VIEW_W}" height="72" fill="#ffffff"/>` +
-      `<line x1="${PAD}" y1="${BASE_Y}" x2="${VIEW_W - PAD}" y2="${BASE_Y}"` +
+      `<rect width="${VIEW_W}" height="${mapH}" fill="#ffffff"/>` +
+      `<line x1="${PAD}" y1="${BAR_MID}" x2="${VIEW_W - PAD}" y2="${BAR_MID}"` +
       ` stroke="#d1d5db" stroke-width="2"/>` +
-      features.join("") +
-      `<text x="${PAD}" y="${BASE_Y + 22}" font-size="9" fill="#6b7280">1</text>` +
-      `<text x="${VIEW_W - PAD}" y="${BASE_Y + 22}" font-size="9"` +
+      `<text x="${PAD}" y="${TOP_Y}" font-size="9" fill="#6b7280">1</text>` +
+      `<text x="${VIEW_W - PAD}" y="${TOP_Y}" font-size="9"` +
       ` text-anchor="end" fill="#6b7280">${length.toLocaleString()}</text>` +
+      barSvg +
+      labelSvg +
       `</svg>`;
 
     try {
@@ -533,7 +592,7 @@ async function bakeSequence(
         kind: "image",
         dataUrl,
         width: 720,
-        height: 72,
+        height: mapH,
         caption,
         label,
       };

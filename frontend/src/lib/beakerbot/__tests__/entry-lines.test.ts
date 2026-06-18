@@ -58,20 +58,26 @@ describe("buildEntryGreetingLines", () => {
     expect(lines).toContain("Hi there.");
   });
 
-  it("includes the core value proposition lines regardless of time", () => {
+  it("includes the value and invitation lines regardless of time", () => {
     const lines = buildEntryGreetingLines({ hour: 10 });
     expect(lines).toContain("Your lab, your data, your machine.");
-    expect(lines).toContain("Everything stays on your own disk.");
-    expect(lines).toContain("Pick a folder and we will dive right in.");
     expect(lines).toContain("Ready when you are.");
   });
 
-  it("includes the playful warmth lines", () => {
+  it("includes one playful warmth line", () => {
     const lines = buildEntryGreetingLines({ hour: 10 });
     expect(lines).toContain("I kept the beakers warm for you.");
-    expect(lines).toContain(
-      "I have been bubbling away while you were gone.",
-    );
+  });
+
+  it("stays a tight, non-redundant set (no carousel of near-duplicates)", () => {
+    const lines = buildEntryGreetingLines({ hour: 10, returning: true });
+    // Curated down on purpose. Guard against the old redundant lines and a
+    // ballooning count so the bubble stays sparse and special.
+    expect(lines.length).toBeLessThanOrEqual(5);
+    expect(lines).not.toContain("Everything stays on your own disk.");
+    expect(lines).not.toContain("Pick a folder and we will dive right in.");
+    expect(lines).not.toContain("Good to see you.");
+    expect(lines).not.toContain("I have been bubbling away while you were gone.");
   });
 
   it("greeting line is always first", () => {

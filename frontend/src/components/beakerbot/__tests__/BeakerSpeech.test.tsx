@@ -1,8 +1,14 @@
 // frontend/src/components/beakerbot/__tests__/BeakerSpeech.test.tsx
 //
-// RTL unit tests for BeakerSpeech. Runs in jsdom (*.test.tsx project).
-// Covers: renders first line, click advances, no crash with 0 or 1 line,
-// interval cleanup on unmount.
+// RTL unit tests for the new BeakerSpeech with intermittent typewriter rhythm.
+//
+// Timing model recap:
+//   mount -> INITIAL_DELAY_MS (1200ms) -> type-in (CHAR_MS 38ms/char) ->
+//   HOLD (max(3000, chars*55) ms) -> fade (FADE_MS 280ms) ->
+//   GAP (7000-13000ms) -> repeat.
+//
+// Most of the time the bubble is hidden. We advance fake timers to exercise
+// each phase.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -25,112 +31,143 @@ afterEach(() => {
 
 const LINES = ["First line.", "Second line.", "Third line."];
 
+// How long it takes to fully type in a line.
+function typeMs(line: string) {
+  return line.length * 38;
+}
+
+// Minimum hold time for a given line.
+function holdMs(line: string) {
+  return Math.max(3000, line.length * 55);
+}
+
+// Initial delay before the first line appears.
+const INITIAL_DELAY = 1200;
+// Fade duration.
+const FADE = 280;
+// Minimum gap between lines.
+const GAP_MIN = 7000;
+
+// Total ms to advance to see the first line fully typed in.
+function timeToFirstLine(line: string) {
+  return INITIAL_DELAY + typeMs(line);
+}
+
 // ─── Tests ───────────────────────────────────────────────────────────────────
 
 describe("BeakerSpeech", () => {
-  it("renders the first line on initial mount", () => {
+  it("renders nothing visible before the initial delay", () => {
     render(<BeakerSpeech lines={LINES} />);
-    // The component starts at index 0 on SSR / initial render.
-    // After mount a random offset effect fires -- but with fake timers and
-    // synchronous React rendering we check the aria-live paragraph.
-    // Note: after mount the useEffect may shift the index; we flush effects.
-    // Flush the mount effects (random index pick is triggered after mount).
-    act(() => {
-      vi.advanceTimersByTime(50);
-    });
-    // At least one of the lines must be visible (the effect may have run).
+    // The component mounts but the bubble is hidden (opacity 0 / phase hidden).
+    // The aria-live paragraph exists but should be empty.
     const para = screen.getByRole("paragraph");
-    expect(LINES).toContain(para.textContent);
+    expect(para.textContent?.replace(/ /g, "")).toBe("");
   });
 
-  it("shows the bubble when given a single line", () => {
-    render(<BeakerSpeech lines={["Only line."]} />);
-    expect(screen.getByText("Only line.")).toBeDefined();
+  it("starts typing the first line after the initial delay", () => {
+    render(<BeakerSpeech lines={LINES} />);
+
+    // Advance past the initial delay and a few characters.
+    act(() => {
+      vi.advanceTimersByTime(INITIAL_DELAY + 38 * 3);
+    });
+
+    const para = screen.getByRole("paragraph");
+    // At least the first 3 characters of "First line." should be revealed.
+    expect(para.textContent?.startsWith("Fir")).toBe(true);
+  });
+
+  it("reveals the full first line after typing completes", () => {
+    render(<BeakerSpeech lines={LINES} />);
+
+    act(() => {
+      vi.advanceTimersByTime(timeToFirstLine(LINES[0]));
+    });
+
+    const para = screen.getByRole("paragraph");
+    // The full text should now be in the paragraph (caret span has no text).
+    expect(para.textContent?.startsWith(LINES[0])).toBe(true);
   });
 
   it("does not crash with an empty lines array (renders nothing)", () => {
     const { container } = render(<BeakerSpeech lines={[]} />);
-    // Returns null so the container should be empty.
     expect(container.firstChild).toBeNull();
   });
 
-  it("advances to the next line when the bubble is clicked", () => {
-    // Pin Math.random to 0 so the post-mount random-index effect picks 0.
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
-
-    render(
-      <BeakerSpeech
-        lines={LINES}
-        rotateMs={10_000}
-      />,
-    );
-
-    // Flush the mount effect (random index pick). Use advanceTimersByTime
-    // instead of runAllTimers so we don't run the rotate interval indefinitely.
+  it("renders with a single line without crashing", () => {
+    render(<BeakerSpeech lines={["Only line."]} />);
     act(() => {
-      vi.advanceTimersByTime(100);
+      vi.advanceTimersByTime(timeToFirstLine("Only line."));
+    });
+    const para = screen.getByRole("paragraph");
+    expect(para.textContent?.startsWith("Only line.")).toBe(true);
+  });
+
+  it("clicking the bubble while a line is visible advances to the next line", () => {
+    render(<BeakerSpeech lines={LINES} rotateMs={10_000} />);
+
+    // Wait for the first line to be fully typed.
+    act(() => {
+      vi.advanceTimersByTime(timeToFirstLine(LINES[0]));
     });
 
-    // We are at index 0. Get the button and click it.
+    // Click the bubble to advance.
     const button = screen.getByRole("button");
     fireEvent.click(button);
 
-    // After the click, advanceLine starts a FADE_MS fade-out then swaps
-    // the line. Advance past the FADE_MS (300ms) delay.
+    // Advance past the fade and the type-in of the second line.
     act(() => {
-      vi.advanceTimersByTime(400);
+      vi.advanceTimersByTime(FADE + typeMs(LINES[1]) + 50);
     });
 
     const para = screen.getByRole("paragraph");
-    // Should now show line at index 1 (or wrapped to another line).
-    expect(para.textContent).toBe("Second line.");
-
-    randomSpy.mockRestore();
+    expect(para.textContent?.startsWith(LINES[1])).toBe(true);
   });
 
-  it("auto-advances via the interval without any click", () => {
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+  it("hides the bubble again after the hold and fade", () => {
+    render(<BeakerSpeech lines={LINES} />);
 
-    render(
-      <BeakerSpeech
-        lines={LINES}
-        rotateMs={5000}
-      />,
-    );
-
-    // Flush mount effects.
+    // Advance through: initial delay + type-in + hold + fade.
+    const line0 = LINES[0];
     act(() => {
-      vi.advanceTimersByTime(50);
-    });
-
-    // Advance past one full rotate interval plus fade delay.
-    act(() => {
-      vi.advanceTimersByTime(5000 + 400);
+      vi.advanceTimersByTime(
+        INITIAL_DELAY + typeMs(line0) + holdMs(line0) + FADE + 100,
+      );
     });
 
     const para = screen.getByRole("paragraph");
-    // Should have moved past the first line.
-    expect(para.textContent).toBe("Second line.");
-
-    randomSpy.mockRestore();
+    // After fade the text is cleared.
+    expect(para.textContent?.replace(/ /g, "")).toBe("");
   });
 
-  it("does not advance when there is only one line (no button behavior change)", () => {
-    render(<BeakerSpeech lines={["Sole line."]} rotateMs={1000} />);
+  it("shows the second line after the gap elapses", () => {
+    // Pin Math.random to 0 so the gap is exactly GAP_MIN (no random extra).
+    const randSpy = vi.spyOn(Math, "random").mockReturnValue(0);
 
+    render(<BeakerSpeech lines={LINES} />);
+
+    const line0 = LINES[0];
+    // Advance through initial delay + type + hold + fade + GAP + type.
     act(() => {
-      vi.advanceTimersByTime(5000);
+      vi.advanceTimersByTime(
+        INITIAL_DELAY +
+          typeMs(line0) +
+          holdMs(line0) +
+          FADE +
+          GAP_MIN +
+          typeMs(LINES[1]) +
+          200,
+      );
     });
 
-    // Single-line means the bubble still shows the same line with no crash.
-    expect(screen.getByText("Sole line.")).toBeDefined();
+    randSpy.mockRestore();
+
+    const para = screen.getByRole("paragraph");
+    expect(para.textContent?.startsWith(LINES[1])).toBe(true);
   });
 
-  it("cleans up the rotation interval on unmount without throwing", () => {
-    const { unmount } = render(
-      <BeakerSpeech lines={LINES} rotateMs={1000} />,
-    );
-    // Should not throw when unmounting with a live interval.
+  it("cleans up all timers on unmount without throwing", () => {
+    const { unmount } = render(<BeakerSpeech lines={LINES} />);
     expect(() => {
       unmount();
       vi.runAllTimers();
@@ -141,5 +178,32 @@ describe("BeakerSpeech", () => {
     render(<BeakerSpeech lines={LINES} />);
     const para = screen.getByRole("paragraph");
     expect(para.getAttribute("aria-live")).toBe("polite");
+  });
+
+  it("renders with side=right and the notch position class is present", () => {
+    const { container } = render(
+      <BeakerSpeech lines={LINES} side="right" />,
+    );
+    // The left-edge notch for side=right has -left- in its class.
+    const leftNotch = container.querySelector('[class*="-left-3"]');
+    expect(leftNotch).not.toBeNull();
+  });
+
+  it("renders with side=left and the notch position class is present", () => {
+    const { container } = render(
+      <BeakerSpeech lines={LINES} side="left" />,
+    );
+    // The right-edge notch for side=left has -right- in its class.
+    const rightNotch = container.querySelector('[class*="-right-3"]');
+    expect(rightNotch).not.toBeNull();
+  });
+
+  it("renders with side=below (default) and the top notch class is present", () => {
+    const { container } = render(
+      <BeakerSpeech lines={LINES} side="below" />,
+    );
+    // The top notch has -top-3 in its class.
+    const topNotch = container.querySelector('[class*="-top-3"]');
+    expect(topNotch).not.toBeNull();
   });
 });

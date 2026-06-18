@@ -15,6 +15,7 @@ import {
   WHOLE_LAB_SENTINEL,
   normalizeSharedWith,
 } from "@/lib/sharing/unified";
+import { formatUsernameHandle } from "@/lib/account/workspace-username";
 
 export interface SharingChipsProps {
   /** The record's `shared_with` array. */
@@ -57,7 +58,9 @@ export default function SharingChips({
           ask) so it reads as a vibrant tag, not a faint tint. */}
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 dark:bg-slate-600 dark:text-white">
         <span className="w-1.5 h-1.5 rounded-full bg-gray-500 dark:bg-slate-300" />
-        {ownerUsername === viewerUsername ? "you" : `@${ownerUsername}`}
+        {ownerUsername === viewerUsername
+          ? "you"
+          : formatUsernameHandle(ownerUsername)}
         <span className="text-gray-400 dark:text-white/70">(owner)</span>
       </span>
 
@@ -75,7 +78,7 @@ export default function SharingChips({
         >
           {s.username === WHOLE_LAB_SENTINEL
             ? "Whole lab"
-            : `@${s.username}`}
+            : formatUsernameHandle(s.username)}
           <span className="text-meta opacity-75">
             {s.level === "edit" ? "edit" : "read"}
           </span>

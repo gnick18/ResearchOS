@@ -53,6 +53,12 @@ import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 import { getLabRemote, resyncLabRemote } from "./lab-do-client";
 import type { GetLabResult } from "./lab-do-client";
 import { readPendingGenesis } from "./lab-genesis-pending";
+import {
+  clearLabEnvelopeCache,
+  readLabEnvelopeCache,
+  saveLabEnvelopeCache,
+} from "./lab-envelope-cache";
+import { LAB_RELOAD_RECONNECT_ENABLED } from "./config";
 import { openLabKeyCopy } from "./lab-key";
 import { verifyMemberEmailBinding } from "./lab-binding";
 import { autoBindLabProfile } from "./lab-profile-auto-bind";
@@ -220,7 +226,21 @@ export function createLabSessionEffects(params: {
       // never locked out of a lab they just created offline. The lab key is
       // re-derived from the persisted sealed envelope below, exactly as it would
       // be from the relay copy.
-      let result = await getLabRemote(labId);
+      //
+      // Reload-reconnect (NEXT_PUBLIC_LAB_RELOAD_RECONNECT): getLabRemote THROWS
+      // on a network error or a relay 5xx (the relay is a Cloudflare DO, separate
+      // infra from the Vercel auth endpoint), which today bounces a still-signed-in
+      // member to the full sign-in gate on reload. With the flag on we swallow that
+      // throw and fall through to the local fallbacks below, so a transient relay
+      // hiccup re-derives the lab key from a cached envelope instead. Flag off keeps
+      // the original throw-to-locked behavior byte-for-byte.
+      let result: GetLabResult | null;
+      try {
+        result = await getLabRemote(labId);
+      } catch (err) {
+        if (!LAB_RELOAD_RECONNECT_ENABLED) throw err;
+        result = null;
+      }
       if (!result || result.envelopes.length === 0) {
         const pending = await readPendingGenesis(username);
         if (pending && pending.labId === labId) {
@@ -229,6 +249,18 @@ export function createLabSessionEffects(params: {
             envelopes: [pending.envelope],
           };
           result = local;
+        } else if (LAB_RELOAD_RECONNECT_ENABLED) {
+          // Non-head members have no pending genesis. Fall back to the public
+          // sealed artifacts cached on the last successful open so a reload during
+          // a relay outage re-derives the key offline. The OAuth-email binding in
+          // step 4.5 still runs against this cached record.
+          const cached = await readLabEnvelopeCache(username);
+          if (cached && cached.labId === labId) {
+            result = {
+              record: cached.record,
+              envelopes: [cached.envelope],
+            };
+          }
         }
       }
       if (!result) {
@@ -245,6 +277,22 @@ export function createLabSessionEffects(params: {
 
       // Step 4: open this member's sealed copy.
       const labKey = openLabKeyCopy(current, username, x25519Priv);
+
+      // Step 4a (reload-reconnect): cache the PUBLIC sealed artifacts we just
+      // opened from so a later reload can re-derive the lab key offline when the
+      // relay is briefly unreachable. The 32-byte labKey is NEVER cached; only the
+      // head-signed record and this member's sealed envelope are stored, both of
+      // which the relay already serves publicly. Best-effort and flag-gated, so a
+      // write failure or a flag-off load never touches the login path.
+      if (LAB_RELOAD_RECONNECT_ENABLED) {
+        void saveLabEnvelopeCache(username, {
+          labId,
+          record: result.record,
+          envelope: current,
+        }).catch(() => {
+          // best-effort offline-resume cache, swallow all errors
+        });
+      }
 
       // Step 4.5: OAuth-email to membership binding (Phase 8a). Opening the
       // sealed copy above already proves this keypair is a recipient. This
@@ -325,6 +373,19 @@ export function createLabSessionEffects(params: {
       };
 
       return { labId, labKey, signingKeyPair, member };
+    },
+
+    // -----------------------------------------------------------------
+    // clearEnvelopeCache()
+    //
+    // Called by the controller on logout. Drops this user's offline-resume
+    // envelope cache so a signed-out session leaves no artifact behind. A no-op
+    // unless NEXT_PUBLIC_LAB_RELOAD_RECONNECT is on (nothing is ever written
+    // otherwise). Best-effort: the controller already swallows failures.
+    // -----------------------------------------------------------------
+    async clearEnvelopeCache(): Promise<void> {
+      if (!LAB_RELOAD_RECONNECT_ENABLED) return;
+      await clearLabEnvelopeCache(username);
     },
   };
 }

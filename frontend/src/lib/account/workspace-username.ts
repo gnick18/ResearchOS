@@ -73,3 +73,38 @@ export function deriveWorkspaceUsername(parts: AccountNameParts): string | null 
   }
   return null;
 }
+
+/**
+ * A space-free, handle-style slug for any username. The workspace username is a
+ * human display identity that deliberately keeps spaces and capitalization (see
+ * deriveWorkspaceUsername above), which reads naturally in a greeting but is
+ * wrong wherever the value is shown as an "@handle" (a handle never contains a
+ * space). Use this at every "@"-prefixed display site so a username like
+ * "Aspergillus fumigatus" renders as "aspergillus-fumigatus" instead of
+ * "Aspergillus fumigatus".
+ *
+ * Lowercase, collapse every run of disallowed characters (spaces included) to a
+ * single hyphen, then trim leading and trailing separators. The output charset
+ * matches the account-handle rule (lowercase letters, digits, hyphen,
+ * underscore) so a slugged username and a claimed @handle read the same way.
+ * Returns an empty string only when the input has no slug-able characters; call
+ * sites should guard for that and fall back to the raw value.
+ */
+export function toHandleSlug(raw: string): string {
+  return raw
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9_-]+/g, "-")
+    .replace(/^[-_]+|[-_]+$/g, "");
+}
+
+/**
+ * Render a username as a display handle ("@slug"). Defensive wrapper for the
+ * many member-card, roster, and people surfaces that previously interpolated a
+ * raw workspace username straight after "@". Falls back to the trimmed raw value
+ * when the username has no slug-able characters so we never show a bare "@".
+ */
+export function formatUsernameHandle(username: string): string {
+  const slug = toHandleSlug(username);
+  return `@${slug || username.trim()}`;
+}

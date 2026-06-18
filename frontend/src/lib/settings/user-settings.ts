@@ -343,6 +343,17 @@ export interface UserSettings {
    *  relay, and lets openLabKey re-derive the key offline. */
   lab_pending_genesis?: import("@/lib/lab/lab-membership").PendingLabGenesis;
 
+  /** Lab-tier reload-reconnect (NEXT_PUBLIC_LAB_RELOAD_RECONNECT): the PUBLIC
+   *  sealed key artifacts for the lab this user last opened (the head-signed lab
+   *  record plus this member's current-generation key envelope, exactly what a
+   *  blind relay serves). Written on every successful openLabKey so that a later
+   *  reload can re-derive the lab key offline when the relay is briefly
+   *  unreachable, instead of bouncing the still-authenticated member to the
+   *  "Sign in to your lab" gate. The 32-byte lab key is NEVER stored here (it is
+   *  re-derived from the envelope, same as lab_pending_genesis). Absent until the
+   *  flag is on and a lab has been opened at least once. */
+  lab_envelope_cache?: import("@/lib/lab/lab-envelope-cache").CachedLabEnvelope;
+
   /** Department tier Phase 1: the dept_id this user ADMINISTERS, if any. Set when
    *  they create a department or accept an institution's dept-admin invite. An
    *  additive org relationship, NOT a mutually-exclusive account_type, so a PI can
