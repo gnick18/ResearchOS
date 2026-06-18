@@ -311,13 +311,15 @@ export default function DatasetView({
           <button
             type="button"
             onClick={onOpenTransform}
-            className={`ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground ${
+            className={`ros-btn-neutral datahub-transform-shimmer inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground ${
               analyzeEnabled ? "" : "ml-auto"
             }`}
             data-testid="bigtable-open-transform"
           >
-            <Icon name="transform" className="h-3.5 w-3.5" />
-            Transform
+            <span className="relative z-10 inline-flex items-center gap-1.5">
+              <Icon name="transform" className="h-3.5 w-3.5" />
+              Transform
+            </span>
           </button>
         )}
         {analyzeEnabled && (

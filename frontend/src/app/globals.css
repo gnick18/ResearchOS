@@ -2107,3 +2107,52 @@ body.recording-mode * {
     color: var(--foreground-muted);
   }
 }
+
+/* Data Hub large-table Transform shimmer (2026-06-18). Transform is the most
+   powerful action in large-table mode (it opens the rule-builder, where every
+   filter/derive/aggregate runs over the whole dataset in DuckDB), so it is easy
+   to walk past. The button keeps its calm neutral face and just catches a slow
+   pastel-rainbow sheen that sweeps across every few seconds, the same
+   brand-rainbow family as the BeakerBot ask bar. The sheen rides a clipped
+   ::before band so the face is untouched at rest, and the label/icon sit on a
+   z-raised span so they stay crisp as the band passes. */
+@keyframes datahub-transform-shimmer {
+  0% {
+    transform: translateX(-160%);
+  }
+  /* Hold off-screen after each pass so the gleam is occasional, not constant. */
+  55%,
+  100% {
+    transform: translateX(320%);
+  }
+}
+.datahub-transform-shimmer {
+  position: relative;
+  overflow: hidden;
+}
+.datahub-transform-shimmer::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 45%;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    transparent 0%,
+    rgba(255, 210, 176, 0.5) 30%,
+    rgba(183, 235, 177, 0.5) 45%,
+    rgba(166, 210, 244, 0.5) 60%,
+    rgba(214, 181, 240, 0.5) 75%,
+    transparent 100%
+  );
+  transform: translateX(-160%);
+  animation: datahub-transform-shimmer 4.6s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .datahub-transform-shimmer::before {
+    animation: none;
+    display: none;
+  }
+}
