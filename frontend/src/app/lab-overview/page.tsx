@@ -6,6 +6,7 @@ import { useQueryClient } from "@tanstack/react-query";
 
 import AppShell from "@/components/AppShell";
 import LabOverviewPage from "@/components/lab-overview/LabOverviewPage";
+import LabHeadCopilotMount from "@/components/lab/LabHeadCopilotMount";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAccountType } from "@/hooks/useAccountType";
@@ -74,6 +75,10 @@ export default function LabOverviewRoute() {
       <div className="flex-1 overflow-auto">
         <LabOverviewPage />
       </div>
+      {/* The lab-head BeakerBot: scopes the tools to the PI-oversight set and
+          renders the ask bar. The mount self-gates on account_type + the AI
+          assistant flag so it is safe here even if the page gate ever softens. */}
+      <LabHeadCopilotMount />
     </AppShell>
   );
 }
