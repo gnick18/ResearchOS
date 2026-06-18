@@ -151,14 +151,19 @@ export default function PickerWalkthroughModal({
       <div className="relative z-10 flex min-h-full items-center justify-center px-4 py-6">
         <div
           className={`relative flex w-full flex-col items-center ${
-            wide ? "max-w-3xl" : "max-w-2xl"
+            wide
+              ? "max-w-5xl gap-1 lg:flex-row lg:items-center lg:gap-6"
+              : "max-w-2xl"
           }`}
         >
         {/* BeakerBot mascot. ~144px reads larger than the v4 tour's 120px
             (the user's first impression of the character) without crowding
-            the speech bubble on smaller viewports. */}
+            the speech bubble on smaller viewports. On the tall data-flow beat
+            (wide) it sits to the LEFT of the card on lg+ instead of on top, so
+            the interactive does not run off the bottom of the screen and the
+            mascot never gets clipped at the top. */}
         <div
-          className="mb-1 flex h-36 w-36 items-center justify-center text-sky-500"
+          className="mb-1 flex h-36 w-36 flex-shrink-0 items-center justify-center text-sky-500 lg:mb-0"
           data-testid="picker-walkthrough-mascot"
         >
           <BeakerBot
@@ -169,7 +174,11 @@ export default function PickerWalkthroughModal({
           />
         </div>
 
-        <SpeechBubble testId={`picker-walkthrough-bubble-${step}`} wide={wide}>
+        <SpeechBubble
+          testId={`picker-walkthrough-bubble-${step}`}
+          wide={wide}
+          tail={wide ? "adaptive" : "top"}
+        >
           {step === "welcome" && (
             <WelcomeBeat onNext={() => setStep("where-work-lives")} />
           )}
