@@ -7,6 +7,7 @@ import { getReadableTextColor } from "@/lib/colors";
 import {
   type CalendarItem,
   EVENT_TYPE_COLORS,
+  eventCoversDate,
   eventTimeOrder,
   formatTime,
   toLocalDateString,
@@ -67,18 +68,10 @@ export default function MonthView({
     (date: Date): CalendarItem[] => {
       const dateStr = toLocalDateString(date);
       const native: CalendarItem[] = events
-        .filter((event) => {
-          const startDate = event.start_date;
-          const endDate = event.end_date || event.start_date;
-          return dateStr >= startDate && dateStr <= endDate;
-        })
+        .filter((event) => eventCoversDate(event, dateStr))
         .map((event) => ({ kind: "native", event }));
       const external: CalendarItem[] = externalEvents
-        .filter((event) => {
-          const startDate = event.start_date;
-          const endDate = event.end_date || event.start_date;
-          return dateStr >= startDate && dateStr <= endDate;
-        })
+        .filter((event) => eventCoversDate(event, dateStr))
         .map((event) => ({ kind: "external", event }));
       return [...native, ...external];
     },

@@ -8,6 +8,7 @@ import {
   assignLanes,
   type CalendarItem,
   EVENT_TYPE_COLORS,
+  eventCoversDate,
   eventTimeOrder,
   formatTime,
   minutesToTime,
@@ -48,12 +49,12 @@ export default function DayView({
   const items = useMemo(() => {
     const out: CalendarItem[] = [];
     for (const e of events) {
-      if (dateStr >= e.start_date && dateStr <= (e.end_date || e.start_date)) {
+      if (eventCoversDate(e, dateStr)) {
         out.push({ kind: "native", event: e });
       }
     }
     for (const e of externalEvents) {
-      if (dateStr >= e.start_date && dateStr <= (e.end_date || e.start_date)) {
+      if (eventCoversDate(e, dateStr)) {
         out.push({ kind: "external", event: e });
       }
     }

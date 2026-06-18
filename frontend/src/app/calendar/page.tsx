@@ -15,7 +15,9 @@ import WeekView from "@/components/calendar/WeekView";
 import DayView from "@/components/calendar/DayView";
 import {
   type CalendarView,
+  eventCoversDate,
   formatTime,
+  validateEventRange,
   EVENT_TYPE_COLORS,
 } from "@/components/calendar/utils";
 import { useFormErrors } from "@/lib/forms/useFormErrors";
@@ -436,16 +438,10 @@ export default function CalendarPage() {
       {expandedDate && (
         <DayDetailDrawer
           dateStr={expandedDate}
-          events={events.filter((e) => {
-            const start = e.start_date;
-            const end = e.end_date || e.start_date;
-            return expandedDate >= start && expandedDate <= end;
-          })}
-          externalEvents={externalEvents.filter((e) => {
-            const start = e.start_date;
-            const end = e.end_date || e.start_date;
-            return expandedDate >= start && expandedDate <= end;
-          })}
+          events={events.filter((e) => eventCoversDate(e, expandedDate))}
+          externalEvents={externalEvents.filter((e) =>
+            eventCoversDate(e, expandedDate),
+          )}
           onClose={() => setExpandedDate(null)}
           onSelectNative={(e) => {
             setExpandedDate(null);
@@ -611,10 +607,13 @@ function EventModal({
   // user's pto_dates list when on, removes them when off. Stored on the
   // event record as `is_pto` so the box survives reopen.
   const [isPto, setIsPto] = useState<boolean>(event.is_pto === true);
-  // P1-6: end-before-start validation
+  // P1-6: end-before-start validation. Covers both date inversion (which
+  // would expand to zero days and hide the event everywhere) and same-day
+  // time inversion. See validateEventRange for the overnight-event nuance.
   const [endTimeTouched, setEndTimeTouched] = useState(false);
-  const endBeforeStart =
-    !!startTime && !!endTime && endTime < startTime;
+  const { endDateInvalid: endDateBeforeStart, endTimeInvalid: endTimeBeforeStart } =
+    validateEventRange({ startDate, endDate, startTime, endTime });
+  const invalidRange = endDateBeforeStart || endTimeBeforeStart;
 
   // P1-3: Escape key closes the modal
   useEffect(() => {
@@ -626,7 +625,7 @@ function EventModal({
   }, [onClose]);
 
   const handleSave = () => {
-    if (endBeforeStart) return;
+    if (invalidRange) return;
     onSave({
       title: hardenTitle(title),
       event_type: eventType,
@@ -711,8 +710,17 @@ function EventModal({
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      endDateBeforeStart ? "border-red-400" : "border-border"
+                    }`}
                   />
+                  {/* End date before the start date would hide the event on
+                      every view, so explain why Save is blocked. */}
+                  {endDateBeforeStart && (
+                    <p className="mt-1 text-meta text-red-500">
+                      End date must be on or after the start date, otherwise the event would not show on any day.
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -739,15 +747,15 @@ function EventModal({
                       setEndTimeTouched(true);
                     }}
                     className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      endTimeTouched && endBeforeStart
+                      endTimeTouched && endTimeBeforeStart
                         ? "border-red-400"
                         : "border-border"
                     }`}
                   />
                   {/* P1-6: inline error shown after user has interacted with end time */}
-                  {endTimeTouched && endBeforeStart && (
+                  {endTimeTouched && endTimeBeforeStart && (
                     <p className="mt-1 text-meta text-red-500">
-                      End time must be after start time.
+                      End time must be after start time on the same day.
                     </p>
                   )}
                 </div>
@@ -889,10 +897,10 @@ function EventModal({
               <button onClick={onClose} className="px-4 py-2 text-body text-foreground-muted hover:bg-surface-sunken rounded-lg">
                 Cancel
               </button>
-              {/* P1-6: disabled when end time is before start time */}
+              {/* P1-6: disabled when the end date or time is before the start */}
               <button
                 onClick={handleSave}
-                disabled={endBeforeStart}
+                disabled={invalidRange}
                 className="ros-btn-raise px-4 py-2 text-body text-white bg-brand-action hover:bg-brand-action/90 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Save
@@ -966,12 +974,18 @@ function CreateEventModal({
       setError("new-event-start-date", "Start date is required.");
       ok = false;
     }
-    if (endDate && startDate && endDate < startDate) {
-      setError("new-event-end-date", "End date must be on or after the start date.");
+    const { endDateInvalid, endTimeInvalid } = validateEventRange({
+      startDate,
+      endDate,
+      startTime,
+      endTime,
+    });
+    if (endDateInvalid) {
+      setError("new-event-end-date", "End date must be on or after the start date, otherwise the event would not show on any day.");
       ok = false;
     }
-    if (startTime && endTime && endTime < startTime) {
-      setError("new-event-end-time", "End time must be after start time.");
+    if (endTimeInvalid) {
+      setError("new-event-end-time", "End time must be after start time on the same day.");
       ok = false;
     }
     if (!ok) {

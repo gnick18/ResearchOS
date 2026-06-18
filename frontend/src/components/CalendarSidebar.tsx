@@ -20,6 +20,7 @@ import { updateFeed } from "@/lib/calendar/external-feeds-store";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import {
   EVENT_TYPE_COLORS,
+  effectiveEndDate,
   formatTime,
   toLocalDateString,
 } from "@/components/calendar/utils";
@@ -77,7 +78,7 @@ export default function CalendarSidebar() {
   const grouped = useMemo(() => {
     const items: UpcomingItem[] = [];
     for (const e of events) {
-      const end = e.end_date || e.start_date;
+      const end = effectiveEndDate(e);
       if (end < todayStr) continue;
       if (e.start_date > horizonStr) continue;
       // For multi-day events, anchor in the list at today if it's currently
@@ -90,7 +91,7 @@ export default function CalendarSidebar() {
       });
     }
     for (const e of externalEvents) {
-      const end = e.end_date || e.start_date;
+      const end = effectiveEndDate(e);
       if (end < todayStr) continue;
       if (e.start_date > horizonStr) continue;
       const anchor = e.start_date < todayStr ? todayStr : e.start_date;

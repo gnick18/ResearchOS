@@ -8,6 +8,7 @@ import {
   assignLanes,
   type CalendarItem,
   EVENT_TYPE_COLORS,
+  eventCoversDate,
   eventTimeOrder,
   formatTime,
   getWeekDays,
@@ -51,12 +52,12 @@ export default function WeekView({
       const dateStr = toLocalDateString(d);
       const items: CalendarItem[] = [];
       for (const e of events) {
-        if (dateStr >= e.start_date && dateStr <= (e.end_date || e.start_date)) {
+        if (eventCoversDate(e, dateStr)) {
           items.push({ kind: "native", event: e });
         }
       }
       for (const e of externalEvents) {
-        if (dateStr >= e.start_date && dateStr <= (e.end_date || e.start_date)) {
+        if (eventCoversDate(e, dateStr)) {
           items.push({ kind: "external", event: e });
         }
       }

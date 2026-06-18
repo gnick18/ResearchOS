@@ -81,15 +81,52 @@ export function getWeekDays(anchor: Date): Date[] {
   });
 }
 
+/** The event's end date, clamped to never fall before its start date.
+ *  A blank end date collapses to the start (single-day event). An inverted
+ *  range (end_date before start_date) would otherwise cover zero days and
+ *  make the event render nowhere, leaving it unclickable and looking like
+ *  data loss, so we collapse it to a single day on the start date. Every
+ *  render path should resolve the end date through this helper. */
+export function effectiveEndDate(event: {
+  start_date: string;
+  end_date: string | null;
+}): string {
+  const end = event.end_date || event.start_date;
+  return end < event.start_date ? event.start_date : end;
+}
+
+/** Validates an event's date/time range as entered in the create and edit
+ *  forms. Returns a flag per field so the forms can place inline errors and
+ *  block Save.
+ *
+ *  - endDateInvalid: the end date falls before the start date. Such a range
+ *    expands to zero days, so the event would render on no calendar day and
+ *    become unclickable, which looks like data loss. Always blocked.
+ *  - endTimeInvalid: the end time falls before the start time ON THE SAME
+ *    DAY. An overnight event (later end date, earlier wall-clock time) is
+ *    legitimate, so the time is only checked when the end date equals the
+ *    start date (or no end date is set). */
+export function validateEventRange(input: {
+  startDate: string;
+  endDate: string;
+  startTime: string;
+  endTime: string;
+}): { endDateInvalid: boolean; endTimeInvalid: boolean } {
+  const { startDate, endDate, startTime, endTime } = input;
+  const endDateInvalid = !!endDate && !!startDate && endDate < startDate;
+  const sameDay = !endDate || endDate === startDate;
+  const endTimeInvalid =
+    sameDay && !!startTime && !!endTime && endTime < startTime;
+  return { endDateInvalid, endTimeInvalid };
+}
+
 /** Returns true if `dateStr` (YYYY-MM-DD) falls within the event's
  *  inclusive start_date..end_date range. */
 export function eventCoversDate(
   event: { start_date: string; end_date: string | null },
   dateStr: string
 ): boolean {
-  const start = event.start_date;
-  const end = event.end_date || event.start_date;
-  return dateStr >= start && dateStr <= end;
+  return dateStr >= event.start_date && dateStr <= effectiveEndDate(event);
 }
 
 /** Split a set of items for a given day into all-day-or-multi-day items vs.
