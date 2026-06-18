@@ -32,6 +32,7 @@ import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { readStreak } from "@/lib/streak/streak-sidecar";
 import { writeUserStats } from "@/lib/beakerbot/user-stats-cache";
+import { computeUserStats } from "@/lib/beakerbot/compute-user-stats";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
@@ -126,42 +127,62 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
 
   // BeakerBot Tier-B stats cache write. Once per session (keyed on
   // currentUser) after the shell mounts with a real user, read the
-  // streak sidecar and write a UserStatsSummary to localStorage so the
-  // NEXT launch's splash can show real facts. We only populate fields
-  // we can derive cleanly here: streakDays (current_count) and
-  // lastActivityAt (last_activity_date -> midnight ms). Additional
-  // counts (experiments, notes, projects) require async list queries
-  // that are not available app-wide in AppShell without extra fetches;
-  // they are deferred to a future enhancement. The entry-lines builder
-  // skips absent fields gracefully, so a partial snapshot is safe.
-  // Guard: only write when currentUser is real (not demo, not null).
+  // streak sidecar AND compute real activity counts (experiments, notes,
+  // projects, wordsLastWeek, checkinsThisMonth) then merge them into a
+  // single UserStatsSummary written to localStorage. The entry-lines
+  // builder skips absent/zero fields gracefully, so a partial snapshot
+  // is safe. Guard: only write when currentUser is real (not demo, not null).
   useEffect(() => {
     if (!currentUser || isDemoOrWikiCapture()) return;
+    // Cancel flag: prevents writes after unmount (writeUserStats itself is
+    // safe to call late, but this avoids unnecessary work).
+    let cancelled = false;
     void (async () => {
+      const now = Date.now();
+
+      // 1. Streak sidecar (streakDays + lastActivityAt).
+      let streakDays: number | undefined;
+      let lastActivityAt: number | undefined;
       try {
         const sc = await readStreak(currentUser);
-        const streakDays =
-          sc.current_count > 0 ? sc.current_count : undefined;
+        if (sc.current_count > 0) streakDays = sc.current_count;
         // Convert YYYY-MM-DD last activity to a midnight-UTC ms timestamp.
-        let lastActivityAt: number | undefined;
         if (sc.last_activity_date) {
           const ms = Date.parse(sc.last_activity_date);
           if (Number.isFinite(ms)) lastActivityAt = ms;
         }
-        // Only write when we have at least one real data point beyond updatedAt,
-        // so a fresh user with no streak does not clobber a real snapshot with
-        // an all-absent record.
-        if (streakDays !== undefined || lastActivityAt !== undefined) {
-          writeUserStats(currentUser, {
-            updatedAt: Date.now(),
-            ...(streakDays !== undefined && { streakDays }),
-            ...(lastActivityAt !== undefined && { lastActivityAt }),
-          });
-        }
       } catch {
-        // Sidecar missing or unreadable on first login: silently skip.
+        // Sidecar missing or unreadable on first login: streakDays stays undefined.
+      }
+
+      // 2. Real activity counts from data stores.
+      let computed: Partial<import("@/lib/beakerbot/entry-lines").UserStatsSummary> = {};
+      try {
+        computed = await computeUserStats(currentUser, now);
+      } catch {
+        // computeUserStats should never reject (internal try/catch per source),
+        // but guard here so streak fields still write if something escapes.
+      }
+
+      if (cancelled) return;
+
+      // 3. Merge: real counts + streak fields; skip writing on empty snapshot.
+      const merged = {
+        ...computed,
+        ...(streakDays !== undefined && { streakDays }),
+        ...(lastActivityAt !== undefined && { lastActivityAt }),
+      };
+      const hasData =
+        streakDays !== undefined ||
+        lastActivityAt !== undefined ||
+        Object.keys(computed).length > 0;
+      if (hasData) {
+        writeUserStats(currentUser, { ...merged, updatedAt: now });
       }
     })();
+    return () => {
+      cancelled = true;
+    };
     // Run once per distinct user (covers folder-switch + account-switch).
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentUser]);

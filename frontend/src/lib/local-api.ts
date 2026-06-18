@@ -946,6 +946,17 @@ export const tasksApi = {
   // user's. Without it, a receiver opening a shared project sees nothing —
   // or worse, sees their own tasks whose numeric `project_id` collides with
   // the shared project's id, since per-user id spaces are independent.
+
+  /**
+   * List all tasks owned by the given user. Falls back to listAll() when
+   * no owner is supplied (solo-folder path). Used by computeUserStats to
+   * derive experiment counts without touching the internal store directly.
+   */
+  listAllForUser: async (owner: string): Promise<Task[]> => {
+    const tasks = await tasksStore.listAllForUser(owner);
+    return tasks.map(computeTaskEndDate).map((t) => backfillTaskSourceUuid(t, owner));
+  },
+
   listByProject: async (projectId: number, owner?: string): Promise<Task[]> => {
     const tasks = owner
       ? (await tasksStore.listAllForUser(owner)).filter((t) => t.project_id === projectId)
