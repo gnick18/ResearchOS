@@ -26,17 +26,16 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
         Hi, I&apos;m BeakerBot.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        Welcome to ResearchOS, a free and open source digital lab notebook
-        from ResearchOS LLC, a registered Wisconsin company that grew out of a
-        UW-Madison Distinguished Research Fellowship.
+        Welcome to ResearchOS, a free and open source digital lab notebook.
+        We&apos;re ResearchOS LLC, a registered Wisconsin company, and the
+        project grew out of a UW-Madison Distinguished Research Fellowship.
       </p>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        You sign in once to create your free account, and from there I will
-        help you set up. Your account is just your identity.
+        You sign in once to create your free account, and then I&apos;ll help
+        you get set up. That account is just your identity.
       </p>
       <p className="mb-6 text-title leading-relaxed text-slate-700">
-        Your research stays on your computer. Let me show you exactly how that
-        works.
+        Your research stays on your computer. Let me show you how.
       </p>
       <div className="flex justify-end">
         <button

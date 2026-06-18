@@ -28,8 +28,8 @@ export default function WhereWorkLivesBeat({
         Your research stays on your computer.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        ResearchOS is local-first. The folder you pick is yours, and every
-        experiment, note, and measurement lives inside it on your machine. The
+        ResearchOS is local-first. You pick a folder, and every experiment,
+        note, and measurement lives inside it, right there on your machine. The
         browser reads and writes that folder directly.
       </p>
       <ul className="mb-4 space-y-2 text-body text-slate-700">
@@ -42,7 +42,7 @@ export default function WhereWorkLivesBeat({
             <strong className="font-semibold text-slate-900">
               Your folder never uploads.
             </strong>{" "}
-            There is no ResearchOS server reading it.
+            There&apos;s no ResearchOS server reading it.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -52,9 +52,9 @@ export default function WhereWorkLivesBeat({
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              We cannot see your data.
+              We can&apos;t see your data.
             </strong>{" "}
-            The website only sees what your browser shows on screen.
+            The website only sees what your browser puts on screen.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -71,8 +71,8 @@ export default function WhereWorkLivesBeat({
         </li>
       </ul>
       <p className="mb-6 text-body leading-relaxed text-slate-600">
-        So what does touch the cloud, and when? That is the next screen, and
-        it is the part worth understanding.
+        So what does touch the cloud, and when? That&apos;s the next screen,
+        and it&apos;s worth a minute.
       </p>
       <div className="flex justify-end">
         <button

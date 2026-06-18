@@ -28,9 +28,9 @@ export default function DataFlowBeat({ onNext }: DataFlowBeatProps) {
       </h2>
       <p className="mb-4 text-title leading-relaxed text-slate-700">
         Almost everything you do never leaves your laptop. The cloud is a thin
-        stream you open only for three things. Send something to another
-        researcher, co-edit live with your lab, or ask the AI a question. The
-        rest stays home. Click through the four steps.
+        stream you open for only three things. Send something to another
+        researcher, co-edit live with your lab, or ask the AI a question.
+        Everything else stays home. Click through the four steps.
       </p>
 
       <DataFlowExplainer testId="picker-walkthrough-data-flow-explainer" />

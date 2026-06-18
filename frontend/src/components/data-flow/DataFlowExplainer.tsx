@@ -65,7 +65,7 @@ const STEPS: ReadonlyArray<StepDef> = [
     stream: "none",
     body:
       "Every experiment, note, and result sits in a folder on your own machine. The browser reads and writes that folder directly. Nothing uploads to us.",
-    note: "There is no ResearchOS database holding your folder. Quit the app and your data stays exactly where it is.",
+    note: "There's no ResearchOS database holding your folder. Close the app and your data stays right where it is.",
   },
   {
     key: "share",
@@ -75,7 +75,7 @@ const STEPS: ReadonlyArray<StepDef> = [
     stream: "parcel",
     body:
       "When you send a method, dataset, or figure to another researcher, ResearchOS seals a one-time copy and routes it through a relay that only ever holds the sealed bytes.",
-    note: "This send is end-to-end encrypted. Receiving is always free; sending a copy is a paid feature.",
+    note: "The send is end-to-end encrypted, so the relay can't read it. Receiving is always free, and sending a copy is a paid feature.",
   },
   {
     key: "collab",
@@ -85,7 +85,7 @@ const STEPS: ReadonlyArray<StepDef> = [
     stream: "live",
     body:
       "When two people edit the same note live, only that one shared document streams to our relay so each change reaches the other person right away. The rest of your folder never moves.",
-    note: "Live collaboration is encrypted in transit and at rest, but it is not end-to-end, because the relay merges the edits. Hosting live collaboration is a paid feature.",
+    note: "Live collaboration is encrypted in transit and at rest, but it isn't end-to-end, because the relay merges everyone's edits. Hosting a live session is a paid feature.",
   },
   {
     key: "cost",
@@ -94,7 +94,7 @@ const STEPS: ReadonlyArray<StepDef> = [
     cloudIcon: "gauge",
     stream: "none",
     body:
-      "Because your data is not parked on our servers, we are not paying to store everyone's research. Only the thin streams, a sealed send or a live document, ever cost anything.",
+      "Because your data isn't sitting on our servers, we're not paying to store everyone's research. Only the thin streams, a sealed send or a live document, cost us anything.",
     note: "Low cost and strong privacy both come from the same choice. The data stays with you, not with us.",
   },
 ];

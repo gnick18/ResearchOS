@@ -43,7 +43,7 @@ describe("DataFlowExplainer", () => {
     );
     // Honesty guard: live collaboration is explicitly NOT end-to-end.
     expect(
-      screen.getByText(/it is not end-to-end/i)
+      screen.getByText(/it isn't end-to-end/i)
     ).toBeInTheDocument();
   });
 

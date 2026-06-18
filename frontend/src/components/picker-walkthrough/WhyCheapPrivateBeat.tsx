@@ -32,9 +32,9 @@ export default function WhyCheapPrivateBeat({
         Why this is cheap and private.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        Here is the part most tools get backwards. Because we never store your
-        research, we do not have to charge you to store it, and we cannot lose
-        it, sell it, or leak it.
+        Here&apos;s the part most tools get backwards. Because we never store
+        your research, we don&apos;t have to charge you to store it, and we
+        can&apos;t lose it, sell it, or leak it.
       </p>
       <ul className="mb-4 space-y-2 text-body text-slate-700">
         <li className="flex items-start gap-2">
@@ -46,9 +46,9 @@ export default function WhyCheapPrivateBeat({
             <strong className="font-semibold text-slate-900">
               The app is free.
             </strong>{" "}
-            Every feature works locally at no cost. Receiving shared work is
-            free too. Sending a copy and hosting live collaboration are the
-            paid parts, because those are the only things that use our relay.
+            Every feature works locally at no cost, and receiving shared work
+            is free too. Sending a copy or hosting live collaboration are the
+            paid parts, since those are the only things that touch our relay.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -62,7 +62,7 @@ export default function WhyCheapPrivateBeat({
             </strong>{" "}
             A lab pays for live collaboration and AI, never for storing the
             lab&apos;s data, which still lives on each person&apos;s own disk.
-            The PI carries one pooled cost and members join for free.
+            The PI covers one pooled cost, and members join for free.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -74,17 +74,17 @@ export default function WhyCheapPrivateBeat({
             <strong className="font-semibold text-slate-900">
               The AI helper is optional.
             </strong>{" "}
-            When you ask it something, only the note or table it needs is sent
-            through our server to an AI provider, with the key held on our side
-            and the provider set to keep nothing by default. Nothing else from
-            your folder goes along for the ride.
+            When you ask it something, only the note or table it needs goes
+            through our server to an AI provider. We hold the key on our side,
+            and the provider keeps nothing by default. Nothing else from your
+            folder goes with it.
           </span>
         </li>
       </ul>
       <p className="mb-6 text-body leading-relaxed text-slate-600">
-        That is the whole model. Local by default, a free account for
+        That&apos;s the whole model. Local by default, a free account for your
         identity, and small paid streams only when you choose to share or
-        collaborate. Now let us set up your folder.
+        collaborate. Now let&apos;s set up your folder.
       </p>
       <div className="flex justify-end">
         <button
