@@ -163,7 +163,7 @@ export default function PickerWalkthroughModal({
         >
           <BeakerBot
             pose={BEAT_POSE[step]}
-            className="h-full w-full text-sky-300"
+            className="h-full w-full text-sky-500"
             ariaLabel="BeakerBot"
             easterEgg="heart"
           />
