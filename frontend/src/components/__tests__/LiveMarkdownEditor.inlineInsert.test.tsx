@@ -109,6 +109,44 @@ describe("InlineMarkdownEditor: imperative insert API (insertRef)", () => {
     expect(last).toBe("**bold**seed");
   }, TEST_TIMEOUT);
 
+  it("gives a block-level snippet its own line when inserted mid-line", async () => {
+    // Regression: clicking the Style Guide "## Heading 2" while the caret sat at
+    // the end of a non-empty line used to glue the marker onto that line
+    // (`a checkbox task## Heading 2`), which CommonMark reads as paragraph text
+    // so the Preview showed the literal `## ` joined onto the next line. The
+    // insert now breaks the heading onto its own line.
+    const onChange = vi.fn();
+    const insertRef: React.MutableRefObject<((syntax: string) => void) | null> = {
+      current: null,
+    };
+
+    render(
+      <InlineMarkdownEditor value="a checkbox task" onChange={onChange} insertRef={insertRef} />,
+    );
+
+    await waitFor(() => {
+      expect(screen.queryByText("Loading editor...")).toBeNull();
+    }, IMPORT_WAIT);
+    await waitFor(() => {
+      expect(insertRef.current).toBeTypeOf("function");
+    }, IMPORT_WAIT);
+
+    act(() => {
+      insertRef.current?.("## Heading 2");
+    });
+
+    await waitFor(() => {
+      expect(onChange).toHaveBeenCalled();
+    }, IMPORT_WAIT);
+    const last = onChange.mock.calls[onChange.mock.calls.length - 1][0];
+    // A fresh mount selects offset 0, so the heading is inserted BEFORE the seed
+    // and lands on its own line with the seed pushed below it.
+    expect(last).toBe("## Heading 2\na checkbox task");
+    // The marker is never glued onto adjacent text.
+    expect(last).not.toContain("task## Heading");
+    expect(last).not.toContain("Heading 2a checkbox");
+  }, TEST_TIMEOUT);
+
   it("clears the insert ref on unmount", async () => {
     const insertRef: React.MutableRefObject<((syntax: string) => void) | null> = {
       current: null,
