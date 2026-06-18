@@ -942,6 +942,31 @@ export function estimateLabelWidth(text: string, fontSize: number): number {
   return text.length * fontSize * 0.58;
 }
 
+/**
+ * Clamp a rotated axis title to the vertical track it is centered in, so a long
+ * title can never run past the plot edge. A rotated y-title is drawn with
+ * text-anchor middle, so it would otherwise overflow equally at the top and the
+ * bottom of its track (and a dual-panel figure's two titles would smear into
+ * each other and the tick labels). When the text does not fit, it is trimmed and
+ * an ellipsis is appended; when it fits, it is returned unchanged. `trackPx` is
+ * the available pixel span (the panel height less a small inset). Pure, so the
+ * renderers stay unit-testable.
+ */
+export function fitAxisTitle(
+  text: string,
+  fontSize: number,
+  trackPx: number,
+): string {
+  if (trackPx <= 0) return "";
+  if (estimateLabelWidth(text, fontSize) <= trackPx) return text;
+  const ellipsis = "…";
+  let s = text;
+  while (s.length > 1 && estimateLabelWidth(s + ellipsis, fontSize) > trackPx) {
+    s = s.slice(0, -1);
+  }
+  return s.replace(/\s+$/, "") + ellipsis;
+}
+
 /** GraphPad-style significance stars from an adjusted p-value. */
 export function significanceStars(p: number): string {
   if (!Number.isFinite(p)) return "ns";
@@ -1548,12 +1573,14 @@ export function renderPlotSvg(
         `<text x="${geo.x0 - 8}" y="${t.y + 4}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="end">${fmtTick(t.value)}</text>`,
     );
   }
-  // Y axis title (rotated).
+  // Y axis title (rotated). Clamp to the axis track so a long title can never
+  // clip at the top edge of the plot.
   if (style.yTitle.trim() !== "") {
     const midY = (geo.y0 + geo.y1) / 2;
+    const title = fitAxisTitle(style.yTitle, f, geo.y0 - geo.y1 - 12);
     parts.push(
       `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
-        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(title)}</text>`,
     );
   }
   // X axis line.
@@ -2204,9 +2231,10 @@ export function renderXYPlotSvg(geo: XYPlotGeometry, style: PlotStyle): string {
   }
   if (style.yTitle.trim() !== "") {
     const midY = (geo.y0 + geo.y1) / 2;
+    const title = fitAxisTitle(style.yTitle, f, geo.y0 - geo.y1 - 12);
     parts.push(
       `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
-        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(title)}</text>`,
     );
   }
 
@@ -2576,9 +2604,10 @@ export function renderGroupedBarSvg(
   }
   if (style.yTitle.trim() !== "") {
     const midY = (geo.y0 + geo.y1) / 2;
+    const title = fitAxisTitle(style.yTitle, f, geo.y0 - geo.y1 - 12);
     parts.push(
       `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
-        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(title)}</text>`,
     );
   }
   // X axis.
@@ -2962,7 +2991,11 @@ export function renderSurvivalCurveSvg(
         `<text x="${geo.x0 - 8}" y="${t.px + 4}" font-size="${tickFont}" fill="${TICK_TEXT}" text-anchor="end">${fmtTick(t.value)}</text>`,
     );
   }
-  const yTitle = style.yTitle.trim() || "Survival";
+  const yTitle = fitAxisTitle(
+    style.yTitle.trim() || "Survival",
+    f,
+    geo.y0 - geo.y1 - 12,
+  );
   const midY = (geo.y0 + geo.y1) / 2;
   parts.push(
     `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +

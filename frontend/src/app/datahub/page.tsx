@@ -1946,13 +1946,19 @@ export default function DataHubPage() {
         estimationPaired: data.estimationPaired,
         estimationControlIndex: data.estimationControlIndex,
         diagnosticColumnIndex: data.diagnosticColumnIndex,
+        // Column-family figures (column / grouped) plot the groups on X, so the
+        // Y axis is the MEASURED quantity, not the dataset. Seed it with a short,
+        // sensible "Value" rather than the full dataset name, which can be long
+        // ("Biofuel yield vs sugar feed + aeration") and would otherwise clip at
+        // the rotated left/top edge. XY uses the chosen Y column name, survival
+        // its own short label, and diagnostics default in the renderer.
         yTitle: isDiagnostic
           ? ""
           : isXY
             ? yName ?? selectedMeta?.name ?? "Y"
             : isSurvival
               ? "Survival"
-              : selectedMeta?.name ?? "Value",
+              : "Value",
         xTitle: isDiagnostic ? "" : isXY ? "X" : isSurvival ? "Time" : undefined,
       });
       setPlotInDoc(handle.doc, spec);

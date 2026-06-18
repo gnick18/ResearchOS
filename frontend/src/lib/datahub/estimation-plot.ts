@@ -42,6 +42,7 @@ import {
   figureBox,
   esc,
   fmtTick,
+  fitAxisTitle,
   AXIS_COLOR,
   TICK_TEXT,
   LABEL_TEXT,
@@ -609,9 +610,13 @@ export function renderEstimationSvg(
   }
   if (style.yTitle.trim() !== "") {
     const midY = (geo.dataY0 + geo.dataY1) / 2;
+    // Clamp to the TOP panel's own track so a long raw-data title can never
+    // overflow down into the difference panel and collide with its "Mean
+    // difference" title or the group tick labels.
+    const title = fitAxisTitle(style.yTitle, f, geo.dataY0 - geo.dataY1 - 12);
     parts.push(
       `<text transform="translate(${geo.x0 - 38}, ${midY}) rotate(-90)" font-size="${f}" ` +
-        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(style.yTitle)}</text>`,
+        `fill="${LABEL_TEXT}" text-anchor="middle">${esc(title)}</text>`,
     );
   }
 
@@ -659,6 +664,10 @@ export function renderEstimationSvg(
   parts.push(
     `<line x1="${geo.x0}" y1="${geo.zeroY.toFixed(2)}" x2="${geo.x1}" y2="${geo.zeroY.toFixed(2)}" stroke="${AXIS_COLOR}" stroke-width="1" stroke-dasharray="3 3"/>`,
   );
+  // "Mean difference" is a fixed, essential label and the difference panel is
+  // intentionally short, so it is NOT clamped to the panel track (clamping would
+  // truncate it). The collision Issue 2 describes comes from a LONG top-panel
+  // title overflowing DOWN into this lane, which the top title's clamp prevents.
   const diffTitle = "Mean difference";
   const midDiff = (geo.diffY0 + geo.diffY1) / 2;
   parts.push(

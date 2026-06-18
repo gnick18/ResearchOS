@@ -85,6 +85,21 @@ function plotLabel(spec: PlotSpec): string {
       return "Grouped bar";
     case "survivalCurve":
       return "Survival curve";
+    case "estimationGardnerAltman":
+    case "estimationCumming":
+      return "Estimation plot";
+    case "qqPlot":
+      return "QQ plot";
+    case "residualPlot":
+      return "Residual plot";
+    case "rocCurve":
+      return "ROC curve";
+    case "pie":
+      return "Pie chart";
+    case "donut":
+      return "Donut chart";
+    case "stackedBar":
+      return "Stacked bar";
     case "columnScatter":
     default:
       return "Column scatter";
