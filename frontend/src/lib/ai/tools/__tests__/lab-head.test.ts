@@ -6,7 +6,15 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// The tools are exercised through their factories with mock dep objects, so the
+// real lab readers are never called here. Stub their modules so importing
+// lab-head does not eagerly pull @/lib/local-api through lab-scoped-read /
+// lab-index-search (that transitive load fails to resolve under vitest in this
+// import graph, while the registry/read-my-work path resolves fine).
+vi.mock("@/lib/lab/lab-scoped-read", () => ({ readLabMembersWork: vi.fn() }));
+vi.mock("@/lib/lab/lab-index-search", () => ({ searchLabIndex: vi.fn() }));
 
 import {
   makeLabPulseTool,
