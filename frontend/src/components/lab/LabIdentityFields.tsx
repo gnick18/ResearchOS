@@ -87,7 +87,7 @@ export default function LabIdentityFields({
           type="text"
           value={value.labName}
           onChange={(e) => set({ labName: e.target.value })}
-          placeholder="Fungal Interactions Lab"
+          placeholder="Gomez Lab"
           className={inputClass}
           disabled={disabled}
           autoComplete="off"
@@ -136,7 +136,7 @@ export default function LabIdentityFields({
             type="text"
             value={value.piDisplay}
             onChange={(e) => set({ piDisplay: e.target.value })}
-            placeholder="Emile Gluck-Thaler"
+            placeholder="Dr. Maria Gomez"
             className={inputClass}
             disabled={disabled}
             autoComplete="off"
