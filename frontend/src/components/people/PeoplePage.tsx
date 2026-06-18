@@ -17,6 +17,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
+import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useLabSession } from "@/hooks/useLabSession";
 import { useLabData } from "@/hooks/useLabData";
@@ -209,7 +210,7 @@ export default function PeoplePage() {
                       )}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-foreground-muted">
-                      <span className="truncate">@{row.username}</span>
+                      <span className="truncate">{formatUsernameHandle(row.username)}</span>
                       {/* Workload (PE-2). */}
                       {w && (w.open > 0 || w.overdue > 0) ? (
                         <span>
@@ -306,7 +307,7 @@ function MemberPanel({
             <h2 className="truncate text-title font-semibold text-foreground">
               {label}
             </h2>
-            <p className="text-meta text-foreground-muted">@{row.username}</p>
+            <p className="text-meta text-foreground-muted">{formatUsernameHandle(row.username)}</p>
           </div>
         </div>
 

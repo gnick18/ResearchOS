@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
+import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useQueryClient } from "@tanstack/react-query";
 import { archiveUser, restoreUser } from "@/lib/lab/user-archive";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -314,7 +315,7 @@ export default function LabRoster() {
                     )}
                   </div>
                   <div className="text-meta text-foreground-muted truncate">
-                    @{row.username}
+                    {formatUsernameHandle(row.username)}
                     {row.archived && row.archived_at && (
                       <>
                         {" "}
