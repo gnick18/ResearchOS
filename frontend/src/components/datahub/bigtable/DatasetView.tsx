@@ -42,6 +42,7 @@ import DatasetPlotDialog from "./DatasetPlotDialog";
 import DatasetExportDialog from "./DatasetExportDialog";
 import Tooltip from "@/components/Tooltip";
 import { isBigTableEnabled } from "@/lib/datahub/config";
+import { humanizeEngineError } from "@/lib/datahub/transform/validate";
 
 /** How many rows to fetch per engine page. The grid windows the DOM; this is the
  *  network-equivalent batch the engine returns per LIMIT/OFFSET call. */
@@ -166,7 +167,7 @@ export default function DatasetView({
       } catch (e) {
         if (!cancelled) {
           setOpenError(
-            e instanceof Error ? e.message : "Could not open this dataset.",
+            e instanceof Error ? humanizeEngineError(e.message) : "Could not open this dataset.",
           );
         }
       }
