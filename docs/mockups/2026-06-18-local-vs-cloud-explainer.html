@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Local by default, cloud only when you ask</title>
+<style>
+  :root {
+    --ink:#0f172a; --muted:#64748b; --faint:#94a3b8; --line:#e2e8f0; --bg:#f4f7fb;
+    --card:#ffffff; --sky:#1283c9; --sky-d:#0f6fa8; --sky-bg:#e6f3fb;
+    --teal:#0d9488; --teal-bg:#d6f2ef; --green:#15803d; --green-bg:#dcfce7;
+    --violet:#5b47d6; --violet-bg:#ede9fe; --amber:#b45309; --amber-bg:#fef3c7;
+    --disk:#cbd5e1; --raise:0 1px 2px rgba(15,23,42,.06), 0 10px 30px rgba(15,23,42,.10);
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,sans-serif;
+         color:var(--ink); background:var(--bg); line-height:1.5; }
+  .wrap { max-width:980px; margin:0 auto; padding:36px 22px 72px; }
+  .eyebrow { font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:var(--sky); margin:0 0 6px; }
+  h1 { font-size:27px; font-weight:800; margin:0 0 6px; letter-spacing:-.01em; }
+  .sub { color:var(--muted); margin:0 0 24px; max-width:64ch; font-size:15px; }
+
+  .stage { background:var(--card); border:1px solid var(--line); border-radius:22px; box-shadow:var(--raise); overflow:hidden; }
+  .tabs { display:flex; gap:4px; padding:10px; border-bottom:1px solid var(--line); background:linear-gradient(#fbfdff,#fff); flex-wrap:wrap; }
+  .tab { flex:1 1 140px; border:1px solid transparent; background:transparent; border-radius:13px; padding:10px 12px; cursor:pointer;
+         text-align:left; transition:all .18s ease; color:var(--muted); min-width:0; }
+  .tab:hover { background:#f1f5f9; }
+  .tab.on { background:#fff; border-color:var(--line); box-shadow:var(--raise); color:var(--ink); }
+  .tab .tn { display:block; font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--faint); }
+  .tab.on .tn { color:var(--accent,var(--sky)); }
+  .tab .tt { display:block; font-size:14px; font-weight:700; margin-top:2px; }
+  .tab[data-k="local"] { --accent:var(--sky); }
+  .tab[data-k="share"] { --accent:var(--green); }
+  .tab[data-k="collab"] { --accent:var(--teal); }
+  .tab[data-k="cost"] { --accent:var(--violet); }
+
+  .viz { display:grid; grid-template-columns:1.35fr 1fr; gap:0; }
+  @media (max-width:760px){ .viz { grid-template-columns:1fr; } }
+  .scene { padding:18px 20px 22px; border-right:1px solid var(--line); }
+  @media (max-width:760px){ .scene { border-right:0; border-bottom:1px solid var(--line); } }
+  .panel { padding:22px 22px 24px; }
+  .panel .ptag { display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:800; letter-spacing:.06em; text-transform:uppercase;
+                 padding:4px 11px; border-radius:999px; }
+  .ptag.local { background:var(--sky-bg); color:var(--sky-d); }
+  .ptag.share { background:var(--green-bg); color:var(--green); }
+  .ptag.collab { background:var(--teal-bg); color:var(--teal); }
+  .ptag.cost { background:var(--violet-bg); color:var(--violet); }
+  .panel h2 { font-size:20px; font-weight:800; margin:13px 0 8px; letter-spacing:-.01em; }
+  .panel p { color:var(--muted); font-size:14px; margin:0 0 14px; }
+  .panel p b { color:var(--ink); font-weight:700; }
+  ul.facts { list-style:none; padding:0; margin:0; }
+  ul.facts li { position:relative; padding:8px 0 8px 26px; font-size:13.5px; border-top:1px solid var(--line); }
+  ul.facts li:first-child { border-top:0; }
+  ul.facts li svg { position:absolute; left:0; top:9px; }
+  .nav { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:18px; }
+  .dots { display:flex; gap:6px; }
+  .dot { width:7px; height:7px; border-radius:999px; background:var(--line); transition:all .2s; }
+  .dot.on { background:var(--accent2,var(--sky)); width:20px; }
+  .btn { border:0; border-radius:11px; padding:9px 16px; font-weight:700; font-size:13.5px; cursor:pointer; }
+  .btn.primary { background:var(--sky); color:#fff; } .btn.primary:hover{ background:var(--sky-d); }
+  .btn.ghost { background:#fff; color:var(--muted); border:1px solid var(--line); }
+  .btn.ghost:hover { color:var(--ink); }
+  .foot { margin-top:14px; font-size:12px; color:var(--faint); }
+
+  /* SVG scene helpers */
+  svg.canvas { width:100%; height:auto; display:block; }
+  .laptop-body { fill:#f1f5f9; stroke:#cbd5e1; stroke-width:2; }
+  .laptop-screen { fill:#fff; stroke:#cbd5e1; stroke-width:2; }
+  .file { fill:#fff; stroke:#cbd5e1; stroke-width:1.4; }
+  .file-bar { fill:#dbe3ec; }
+  .cloud { fill:#eef2f7; stroke:#cbd5e1; stroke-width:2; transition:fill .4s, stroke .4s; }
+  .cloud.warm { fill:var(--teal-bg); stroke:var(--teal); }
+  .cloud.warm-g { fill:var(--green-bg); stroke:var(--green); }
+  .label { font:700 11px -apple-system,system-ui,sans-serif; fill:var(--muted); }
+  .label.dim { fill:var(--faint); }
+  .stream { stroke-dasharray:5 6; stroke-linecap:round; fill:none; opacity:0; }
+  .pulse { transform-box:fill-box; transform-origin:center; }
+
+  /* animations toggled by adding .play-<k> on the svg */
+  @keyframes homeglow { 0%,100%{ opacity:.55 } 50%{ opacity:1 } }
+  @keyframes dash { to { stroke-dashoffset:-220; } }
+  @keyframes parcelRun { 0%{ opacity:0; transform:translate(0,0) scale(.6) } 12%{opacity:1}
+    46%{ transform:translate(132px,-26px) scale(1) } 60%{ opacity:1 }
+    80%{ transform:translate(250px,4px) scale(1) } 92%{ opacity:1 } 100%{ opacity:0; transform:translate(250px,4px) scale(.6) } }
+  @keyframes blip { 0%{ transform:translate(0,0) scale(.5); opacity:0 } 15%{opacity:1} 50%{ transform:translate(118px,0) scale(1) }
+    85%{opacity:1} 100%{ transform:translate(236px,0) scale(.5); opacity:0 } }
+  @keyframes blipBack { 0%{ transform:translate(236px,0) scale(.5); opacity:0 } 15%{opacity:1} 50%{ transform:translate(118px,0) scale(1) }
+    85%{opacity:1} 100%{ transform:translate(0,0) scale(.5); opacity:0 } }
+  @keyframes popdoc { 0%,100%{ transform:scale(1) } 50%{ transform:scale(1.06) } }
+  @keyframes fade { to { opacity:1 } }
+
+  .play .stream { opacity:1; animation:dash 3s linear infinite; }
+  .play-local .home { animation:homeglow 2.6s ease-in-out infinite; }
+  .play-share .parcel { animation:parcelRun 3.4s ease-in-out infinite; }
+  .play-collab .docpop { animation:popdoc 2s ease-in-out infinite; }
+  .play-collab .blip-a { animation:blip 2.6s ease-in-out infinite; }
+  .play-collab .blip-b { animation:blipBack 2.6s ease-in-out infinite .3s; }
+
+  .legend { display:flex; gap:16px; flex-wrap:wrap; margin-top:10px; font-size:11.5px; color:var(--muted); }
+  .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .swatch { width:11px; height:11px; border-radius:3px; display:inline-block; }
+  .reduced-note { font-size:11px; color:var(--faint); margin-top:7px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Onboarding explainer prototype</p>
+  <h1>Local by default, cloud only when you ask</h1>
+  <p class="sub">A prototype of the animated beat for the rewritten 3-minute walkthrough. Click the four steps, or use Next. Everything here is house-style content for Grant's review, not yet wired into the app.</p>
+
+  <div class="stage">
+    <div class="tabs" id="tabs">
+      <button class="tab on" data-k="local"><span class="tn">Step 1</span><span class="tt">It stays home</span></button>
+      <button class="tab" data-k="share"><span class="tn">Step 2</span><span class="tt">Send something</span></button>
+      <button class="tab" data-k="collab"><span class="tn">Step 3</span><span class="tt">Co-edit live</span></button>
+      <button class="tab" data-k="cost"><span class="tn">Step 4</span><span class="tt">Why it's cheap</span></button>
+    </div>
+
+    <div class="viz">
+      <div class="scene" id="scene"><!-- svg injected --></div>
+      <div class="panel" id="panel"><!-- copy injected --></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const CHECK = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="8" fill="#dcfce7"/><path d="M4.5 8.2l2.2 2.2 4.6-4.8" stroke="#15803d" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+const LOCK  = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><rect x="3.5" y="7" width="9" height="6.5" rx="1.4" fill="#e6f3fb" stroke="#1283c9" stroke-width="1.3"/><path d="M5.5 7V5.4a2.5 2.5 0 0 1 5 0V7" stroke="#1283c9" stroke-width="1.3" fill="none"/></svg>';
+const DOTC = '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.6" fill="#fff" stroke="#cbd5e1" stroke-width="1.3"/><circle cx="8" cy="8" r="2.4" fill="#94a3b8"/></svg>';
+
+// Shared laptop + folder glyph. `cls` lets a scene mark the folder as "home" (glow).
+function laptop(x, y, cls='') {
+  return `
+  <g transform="translate(${x},${y})">
+    <rect class="laptop-screen ${cls}" x="0" y="0" width="118" height="80" rx="8"/>
+    <g transform="translate(14,13)">
+      <rect class="file file-a" x="0" y="0" width="40" height="50" rx="4"/>
+      <rect class="file-bar" x="6" y="8" width="28" height="3.2" rx="1.6"/>
+      <rect class="file-bar" x="6" y="16" width="28" height="3.2" rx="1.6"/>
+      <rect class="file-bar" x="6" y="24" width="20" height="3.2" rx="1.6"/>
+      <rect class="file file-b" x="50" y="6" width="40" height="50" rx="4"/>
+      <rect class="file-bar" x="56" y="14" width="28" height="3.2" rx="1.6"/>
+      <rect class="file-bar" x="56" y="22" width="28" height="3.2" rx="1.6"/>
+      <rect class="file-bar" x="56" y="30" width="20" height="3.2" rx="1.6"/>
+    </g>
+    <path class="laptop-body" d="M-9 80 H127 l8 12 H-17 Z"/>
+  </g>`;
+}
+function cloud(x, y, cls='') {
+  return `<g transform="translate(${x},${y})"><path class="cloud ${cls}" d="M20 34 a14 14 0 0 1 2 -27 a17 17 0 0 1 31 -4 a13 13 0 0 1 7 31 Z"/></g>`;
+}
+
+const SCENES = {
+  local: () => `
+    <svg class="canvas play play-local" viewBox="0 0 420 200" role="img" aria-label="A laptop holding the whole research folder, the cloud idle and dim">
+      ${cloud(300, 18)}
+      <text class="label dim" x="318" y="78" text-anchor="middle">cloud, idle</text>
+      ${laptop(40, 70, 'home')}
+      <text class="label" x="99" y="178" text-anchor="middle">your folder, your disk</text>
+    </svg>
+    <div class="legend"><span><i class="swatch" style="background:#e6f3fb;border:1px solid #1283c9"></i> stays on your machine</span></div>`,
+
+  share: () => `
+    <svg class="canvas play play-share" viewBox="0 0 420 200" role="img" aria-label="One encrypted item travels from your laptop through the cloud to a colleague, then the cloud copy dissolves">
+      ${cloud(196, 8, 'warm-g')}
+      <path class="stream" d="M150 96 C 196 70, 220 70, 234 40" stroke="#15803d" stroke-width="2.2"/>
+      <path class="stream" d="M250 40 C 270 72, 300 80, 322 96" stroke="#15803d" stroke-width="2.2"/>
+      ${laptop(28, 72)}
+      ${laptop(300, 72)}
+      <text class="label" x="86" y="180" text-anchor="middle">you</text>
+      <text class="label" x="358" y="180" text-anchor="middle">a colleague</text>
+      <text class="label dim" x="222" y="20" text-anchor="middle">one-time, encrypted</text>
+      <g class="parcel pulse"><g transform="translate(150,90)">
+        <rect x="-12" y="-12" width="24" height="24" rx="5" fill="#dcfce7" stroke="#15803d" stroke-width="1.6"/>
+        <path d="M-7 -1.5h14M-1.5 -7v-1.2a1.8 1.8 0 0 1 3.6 0v1.2" stroke="#15803d" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+        <rect x="-3.5" y="-1.5" width="7" height="6" rx="1.2" fill="#fff" stroke="#15803d" stroke-width="1.1"/>
+      </g></g>
+    </svg>
+    <div class="legend"><span><i class="swatch" style="background:#dcfce7;border:1px solid #15803d"></i> encrypted parcel</span><span>relay holds ciphertext only, then deletes it</span></div>`,
+
+  collab: () => `
+    <svg class="canvas play play-collab" viewBox="0 0 420 200" role="img" aria-label="Only the one shared document syncs live between two laptops through a small cloud node, the rest of the folder stays put">
+      ${cloud(196, 6, 'warm')}
+      <text class="label dim" x="222" y="18" text-anchor="middle">live sync</text>
+      <path class="stream" d="M150 92 C 192 64, 214 64, 232 40" stroke="#0d9488" stroke-width="2.2"/>
+      <path class="stream" d="M252 40 C 272 64, 298 70, 320 92" stroke="#0d9488" stroke-width="2.2"/>
+      ${laptop(28, 70)}
+      ${laptop(300, 70)}
+      <text class="label" x="86" y="180" text-anchor="middle">you</text>
+      <text class="label" x="358" y="180" text-anchor="middle">a labmate</text>
+      <!-- the one shared doc, highlighted on the disk -->
+      <g class="docpop pulse"><g transform="translate(150,92)">
+        <rect x="-13" y="-15" width="26" height="30" rx="4" fill="#d6f2ef" stroke="#0d9488" stroke-width="1.8"/>
+        <rect x="-8" y="-9" width="16" height="2.4" rx="1.2" fill="#0d9488"/>
+        <rect x="-8" y="-3" width="16" height="2.4" rx="1.2" fill="#0d9488"/>
+        <rect x="-8" y="3" width="10" height="2.4" rx="1.2" fill="#0d9488"/>
+      </g></g>
+      <g class="blip-a pulse"><circle cx="160" cy="60" r="4.5" fill="#0d9488"/></g>
+      <g class="blip-b pulse"><circle cx="160" cy="60" r="4.5" fill="#14b8a6"/></g>
+    </svg>
+    <div class="legend"><span><i class="swatch" style="background:#d6f2ef;border:1px solid #0d9488"></i> the one shared doc</span><span>the rest of your folder never syncs</span></div>`,
+
+  cost: () => `
+    <svg class="canvas" viewBox="0 0 420 200" role="img" aria-label="What we store is a tiny identity card, what we never store is your whole folder">
+      <g transform="translate(40,44)">
+        <rect x="0" y="0" width="150" height="112" rx="14" fill="#f5f3ff" stroke="#c4b5fd" stroke-width="1.6"/>
+        <text class="label" x="75" y="22" text-anchor="middle" style="fill:#5b47d6">WHAT WE STORE</text>
+        <rect x="40" y="38" width="70" height="46" rx="8" fill="#fff" stroke="#c4b5fd" stroke-width="1.4"/>
+        <circle cx="60" cy="56" r="8" fill="#ede9fe" stroke="#5b47d6" stroke-width="1.3"/>
+        <rect x="74" y="50" width="28" height="3.4" rx="1.7" fill="#c4b5fd"/>
+        <rect x="74" y="58" width="20" height="3.4" rx="1.7" fill="#ddd6fe"/>
+        <text class="label dim" x="75" y="100" text-anchor="middle">your @handle + name</text>
+      </g>
+      <g transform="translate(228,28)">
+        <rect x="0" y="0" width="156" height="144" rx="14" fill="#fff" stroke="#e2e8f0" stroke-width="1.6" stroke-dasharray="6 6"/>
+        <text class="label dim" x="78" y="22" text-anchor="middle">WHAT WE NEVER STORE</text>
+        <g transform="translate(34,38)">
+          <rect class="file" x="0" y="0" width="40" height="50" rx="4"/><rect class="file-bar" x="6" y="9" width="28" height="3" rx="1.5"/><rect class="file-bar" x="6" y="17" width="28" height="3" rx="1.5"/><rect class="file-bar" x="6" y="25" width="20" height="3" rx="1.5"/>
+          <rect class="file" x="48" y="8" width="40" height="50" rx="4"/><rect class="file-bar" x="54" y="17" width="28" height="3" rx="1.5"/><rect class="file-bar" x="54" y="25" width="28" height="3" rx="1.5"/><rect class="file-bar" x="54" y="33" width="20" height="3" rx="1.5"/>
+        </g>
+        <text class="label dim" x="78" y="132" text-anchor="middle">all of your research</text>
+      </g>
+    </svg>
+    <div class="legend"><span><i class="swatch" style="background:#ede9fe;border:1px solid #5b47d6"></i> tiny identity</span><span>vs the whole folder we never hold</span></div>`,
+};
+
+const PANELS = {
+  local: {
+    tag:'local', tagText:'On your machine', h:'Almost everything stays home',
+    p:'Every project, note, experiment, method, table, image, and file is a plain file in a folder you picked on <b>your own disk</b>. ResearchOS reads and writes it directly, so the app works offline and nothing uploads.',
+    facts:[[CHECK,'Your folder never leaves your computer'],[CHECK,'Works offline after you sign in once'],[CHECK,'Want a backup? Copy the folder. Want to leave? Delete it.']],
+  },
+  share: {
+    tag:'share', tagText:'A one-time send', h:'Send something, end to end',
+    p:'Hand a note, method, or figure to another researcher. It travels <b>end-to-end encrypted</b>, the relay only ever holds ciphertext, and the copy deletes itself the moment they pick it up.',
+    facts:[[LOCK,'Encrypted the whole way, we cannot read it'],[CHECK,'Deleted on pickup, not a stored copy'],[CHECK,'Only the one thing you send, never your folder']],
+  },
+  collab: {
+    tag:'collab', tagText:'Live co-editing', h:'Co-edit live, just the one doc',
+    p:'When you co-edit with your lab, <b>only that one shared document</b> syncs in real time, not your folder. It is encrypted in transit and at rest, and each person’s files still live on their own disk.',
+    facts:[[CHECK,'Only the document you are co-editing syncs'],[CHECK,'The rest of your folder stays put'],[DOTC,'Encrypted in transit and at rest']],
+  },
+  cost: {
+    tag:'cost', tagText:'Why it stays cheap', h:'Cheap and private, on purpose',
+    p:'Most tools store all of your data and charge you for it. We store only <b>who you are</b>. Because we never hold your research, we do not have to charge to store it, and we cannot lose, sell, or leak it.',
+    facts:[[CHECK,'This stays true on a paid lab account'],[CHECK,'A lab pays for live collab and AI, never for storage'],[CHECK,'Nothing for us to breach, because we do not hold it']],
+  },
+};
+
+const ORDER = ['local','share','collab','cost'];
+const ACCENT = { local:'#1283c9', share:'#15803d', collab:'#0d9488', cost:'#5b47d6' };
+let cur = 'local';
+
+function render(k){
+  cur = k;
+  document.getElementById('scene').innerHTML = SCENES[k]();
+  const d = PANELS[k];
+  const idx = ORDER.indexOf(k);
+  const dots = ORDER.map((o,i)=>`<span class="dot ${i===idx?'on':''}" style="--accent2:${ACCENT[k]}"></span>`).join('');
+  const facts = d.facts.map(([ic,t])=>`<li>${ic}<span>${t}</span></li>`).join('');
+  const nextLabel = idx < ORDER.length-1 ? 'Next' : 'Start over';
+  document.getElementById('panel').innerHTML = `
+    <span class="ptag ${d.tag}">${d.tagText}</span>
+    <h2>${d.h}</h2>
+    <p>${d.p}</p>
+    <ul class="facts">${facts}</ul>
+    <div class="nav">
+      <div class="dots">${dots}</div>
+      <div style="display:flex;gap:8px">
+        ${idx>0?'<button class="btn ghost" id="prev">Back</button>':''}
+        <button class="btn primary" id="next" style="background:${ACCENT[k]}">${nextLabel}</button>
+      </div>
+    </div>
+    <p class="foot">Prototype for review. Beat 3 of the rewritten walkthrough. House style, light default, custom SVG.</p>`;
+  document.querySelectorAll('.tab').forEach(t=>{
+    const on = t.dataset.k===k; t.classList.toggle('on',on);
+    t.style.setProperty('--accent', ACCENT[t.dataset.k]);
+  });
+  const nx = document.getElementById('next');
+  nx.onclick = ()=> render(ORDER[(idx+1)%ORDER.length]);
+  const pv = document.getElementById('prev'); if(pv) pv.onclick = ()=> render(ORDER[idx-1]);
+}
+document.getElementById('tabs').addEventListener('click', e=>{
+  const t = e.target.closest('.tab'); if(t) render(t.dataset.k);
+});
+render('local');
+</script>
+</body>
+</html>
