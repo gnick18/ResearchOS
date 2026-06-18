@@ -880,6 +880,16 @@ const ICONS_RAW = {
       </>
     ),
   },
+  logout: {
+    concept: "Log out / sign out (door with an arrow leaving)",
+    body: (
+      <>
+        <path d="M13.5 4.5H7A2.5 2.5 0 0 0 4.5 7v10A2.5 2.5 0 0 0 7 19.5h6.5" />
+        <path d="M10 12h11" />
+        <path d="M17.5 8.5 21 12l-3.5 3.5" />
+      </>
+    ),
+  },
   camera: {
     concept: "Camera / photo",
     body: (

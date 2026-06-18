@@ -918,15 +918,15 @@ function SettingsBodyInner({
                 </button>
               </Tooltip>
               {/* Log out: ends the NextAuth cloud session and returns to /.
-                  Text-only on purpose. There is no dedicated sign-out glyph in
-                  the icon registry, and reusing another meaning's glyph (lock =
-                  identity locked) would break the one-glyph-per-meaning rule. */}
+                  Uses the dedicated "logout" glyph (door with an arrow leaving),
+                  added to the registry for this meaning. */}
               <Tooltip label="Sign out of your account" placement="bottom">
                 <button
                   type="button"
                   onClick={() => void signOut({ callbackUrl: "/" })}
                   className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-meta text-foreground-muted transition hover:border-border-strong hover:text-foreground"
                 >
+                  <Icon name="logout" className="h-3.5 w-3.5 shrink-0" />
                   <span>Log out</span>
                 </button>
               </Tooltip>
