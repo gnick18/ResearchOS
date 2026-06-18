@@ -150,9 +150,25 @@ export default function PeoplePage() {
           </p>
         </div>
         {!isLoading && (
-          <span className="shrink-0 rounded-full bg-surface-sunken px-3 py-1 text-meta font-medium text-foreground-muted">
-            {activeCount} active
-          </span>
+          <div className="flex shrink-0 items-center gap-3">
+            <span className="rounded-full bg-surface-sunken px-3 py-1 text-meta font-medium text-foreground-muted">
+              {activeCount} active
+            </span>
+            {isLabHead && (
+              <Tooltip
+                label="Invite a member"
+                body="Opens Settings, where you can search the directory, invite by email, or create an invite link."
+              >
+                <Link
+                  href="/settings?section=members"
+                  className="ros-btn-raise flex items-center gap-1.5 rounded-lg bg-brand-action px-3 py-2 text-body font-medium text-white transition-colors hover:bg-brand-action/90"
+                >
+                  <Icon name="userPlus" className="h-4 w-4" />
+                  Invite member
+                </Link>
+              </Tooltip>
+            )}
+          </div>
         )}
       </div>
 
