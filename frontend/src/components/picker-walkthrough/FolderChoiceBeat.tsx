@@ -42,7 +42,7 @@ export default function FolderChoiceBeat({ onContinue }: FolderChoiceBeatProps) 
   return (
     <div data-testid="picker-walkthrough-beat-folder-choice">
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
-        Where should your folder live?
+        Where should this folder live?
       </h2>
       <p className="mb-4 text-title leading-relaxed text-slate-700">
         Pick the spot that fits how you work. You can always migrate later.

@@ -24,11 +24,13 @@ export default function DataFlowBeat({ onNext }: DataFlowBeatProps) {
   return (
     <div data-testid="picker-walkthrough-beat-data-flow">
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
-        What touches the cloud, and when.
+        Local by default, cloud only when you ask.
       </h2>
       <p className="mb-4 text-title leading-relaxed text-slate-700">
-        Click through the four steps. Your data stays on your computer, and
-        only thin, specific streams ever leave it.
+        Almost everything you do never leaves your laptop. The cloud is a thin
+        stream you open only for three things. Send something to another
+        researcher, co-edit live with your lab, or ask the AI a question. The
+        rest stays home. Click through the four steps.
       </p>
 
       <DataFlowExplainer testId="picker-walkthrough-data-flow-explainer" />

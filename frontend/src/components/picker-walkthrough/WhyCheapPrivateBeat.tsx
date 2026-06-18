@@ -29,12 +29,12 @@ export default function WhyCheapPrivateBeat({
   return (
     <div data-testid="picker-walkthrough-beat-why-cheap-private">
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
-        Why it stays cheap and private.
+        Why this is cheap and private.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        Both come from the same choice. Your data lives with you, not with us,
-        so we are not paying to store everyone&apos;s research and we have
-        nothing of yours to lose, sell, or get breached.
+        Here is the part most tools get backwards. Because we never store your
+        research, we do not have to charge you to store it, and we cannot lose
+        it, sell it, or leak it.
       </p>
       <ul className="mb-4 space-y-2 text-body text-slate-700">
         <li className="flex items-start gap-2">
@@ -58,11 +58,11 @@ export default function WhyCheapPrivateBeat({
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              Only the PI ever pays for a lab.
+              This stays true on a paid lab account.
             </strong>{" "}
-            A lab plan is one pooled cost the PI carries, and members join for
-            free. Storage is billed at roughly what it costs us, not as a
-            markup to profit from.
+            A lab pays for live collaboration and AI, never for storing the
+            lab&apos;s data, which still lives on each person&apos;s own disk.
+            The PI carries one pooled cost and members join for free.
           </span>
         </li>
         <li className="flex items-start gap-2">

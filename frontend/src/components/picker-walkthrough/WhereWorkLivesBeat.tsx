@@ -25,12 +25,12 @@ export default function WhereWorkLivesBeat({
   return (
     <div data-testid="picker-walkthrough-beat-where-work-lives">
       <h2 className="mb-3 text-2xl font-bold text-slate-900">
-        Your work lives on your computer.
+        Your research stays on your computer.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        ResearchOS is local-first. You pick a folder on your own machine, and
-        every experiment, note, and measurement lives inside it. The browser
-        reads and writes that folder directly through your operating system.
+        ResearchOS is local-first. The folder you pick is yours, and every
+        experiment, note, and measurement lives inside it on your machine. The
+        browser reads and writes that folder directly.
       </p>
       <ul className="mb-4 space-y-2 text-body text-slate-700">
         <li className="flex items-start gap-2">
@@ -42,8 +42,7 @@ export default function WhereWorkLivesBeat({
             <strong className="font-semibold text-slate-900">
               Your folder never uploads.
             </strong>{" "}
-            Notes, measurements, and files stay on your machine. There is no
-            ResearchOS server holding your folder.
+            There is no ResearchOS server reading it.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -53,10 +52,9 @@ export default function WhereWorkLivesBeat({
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              We cannot read it.
+              We cannot see your data.
             </strong>{" "}
-            Even on a paid lab account, we do not store your folder in the
-            cloud. The website only sees what your browser shows on screen.
+            The website only sees what your browser shows on screen.
           </span>
         </li>
         <li className="flex items-start gap-2">
@@ -66,11 +64,9 @@ export default function WhereWorkLivesBeat({
           />
           <span>
             <strong className="font-semibold text-slate-900">
-              You stay in control.
+              One anonymous pageview ping,
             </strong>{" "}
-            Open the folder in Finder or File Explorer any time and read every
-            file yourself. Quit the app and your data stays exactly where it
-            is.
+            and you can turn it off in Settings.
           </span>
         </li>
       </ul>
