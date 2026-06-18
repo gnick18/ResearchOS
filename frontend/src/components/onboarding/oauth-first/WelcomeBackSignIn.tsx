@@ -147,18 +147,21 @@ export function WelcomeBackSignIn({
 
         <div className="relative z-[1] flex w-full max-w-xs flex-col items-center">
           {/* Same beaker size + center placement as the landing hero, so he
-              never shrinks or jumps between the welcome and the sign-in screen. */}
-          <IntroBubbleBot size="xl" className="mb-2" />
-
-          {/* Tier-A greeting bubble, compact for the narrow card. The notch
-              points up toward the beaker above. rotateMs slightly slower so it
-              does not distract while the user is reading provider buttons. */}
-          <BeakerSpeech
-            lines={entryLines}
-            tinted
-            rotateMs={5500}
-            className="mb-4 w-full"
-          />
+              never shrinks or jumps between the welcome and the sign-in screen.
+              The speech bubble floats to the right of the beaker into the open
+              viewport space. It is positioned relative to the beaker wrapper,
+              not the narrow max-w-xs column, so it is not clipped by the card.
+              left-full + ml-3 pushes it past the card's right edge; it is safe
+              to overflow because the outer div is full-width (w-full). */}
+          <div className="relative mb-2">
+            <IntroBubbleBot size="xl" />
+            <BeakerSpeech
+              lines={entryLines}
+              tinted
+              side="right"
+              className="absolute left-full top-1/2 -translate-y-1/2 ml-3 z-10"
+            />
+          </div>
 
           <h1 className="text-[23px] font-extrabold tracking-tight text-brand-ink">
             Welcome back

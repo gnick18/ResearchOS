@@ -252,13 +252,16 @@ export function VariantSplitStage({
 
           {/* Tier-B speech bubble. Only shown after mount (returningLines is
               seeded empty on first render), so it never causes a hydration
-              mismatch. Capped width so it does not overflow the hero column. */}
+              mismatch. The beaker is in the RIGHT column so the bubble sits in
+              the left hero column with side="left" -- the notch points RIGHT
+              toward the beaker across the grid gap. Width is fit-content so
+              short lines make a short bubble. */}
           {returningLines.length > 0 && (
             <BeakerSpeech
               lines={returningLines}
               tinted
-              rotateMs={4200}
-              className="mt-6 w-full max-w-sm"
+              side="left"
+              className="mt-6"
             />
           )}
         </div>

@@ -2,14 +2,19 @@
 
 // frontend/src/components/beakerbot/BeakerSpeech.tsx
 //
-// Rotating speech-bubble component for BeakerBot on entry / login screens.
-// Pure presentational: the parent supplies `lines` and positions this
-// element via `className`. No data fetching, no builder calls here.
+// Intermittent speech-bubble component for BeakerBot on entry / login screens.
+// Pure presentational: the parent supplies `lines` and positions this element
+// via `className`. No data fetching, no builder calls here.
 //
-// Mirrors BeakerBotGreeting's rotation mechanic (auto-cycle + click-to-
-// advance + fade). Bubble look matches SpeechBubble's white card + sky-blue
-// border + notch (the picker-walkthrough variant with a top notch, since
-// BeakerBot sits above the bubble on entry screens).
+// Rhythm: mount -> short delay -> pick a line -> TYPE it in -> HOLD -> FADE OUT
+// -> SILENT GAP (7-13 s) -> repeat with the next line. Most of the time the
+// bubble is fully hidden. Long silences make each message feel deliberate.
+//
+// Bubble width is fit-content (not w-full), capped at max-w-xs so short lines
+// make a short bubble while long ones wrap cleanly.
+//
+// The `side` prop controls notch direction and is used by the parent to float
+// the bubble to one side of the beaker with an arrow pointing at him.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -17,167 +22,451 @@ import { useEffect, useRef, useState } from "react";
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-/** Default auto-rotate interval in milliseconds. */
-const DEFAULT_ROTATE_MS = 4200;
+/** Milliseconds per character while typing in a new line. */
+const CHAR_MS = 38;
 
-/** Fade transition duration in milliseconds. */
-const FADE_MS = 300;
+/** Minimum visible hold time (ms) after typing finishes. */
+const HOLD_MIN_MS = 3000;
+
+/** Additional hold time per character (ms). Approx 55ms/char of the full line. */
+const HOLD_PER_CHAR_MS = 55;
+
+/** Fade transition duration (ms). Skipped under reduced-motion. */
+const FADE_MS = 280;
+
+/** Initial delay after mount before the first line appears (ms). */
+const INITIAL_DELAY_MS = 1200;
+
+/** Minimum silent gap between lines (ms). */
+const GAP_MIN_MS = 7000;
+
+/** Random additional silent gap on top of the minimum (ms). */
+const GAP_RAND_MS = 6000;
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function holdMs(line: string): number {
+  return Math.max(HOLD_MIN_MS, line.length * HOLD_PER_CHAR_MS);
+}
+
+function gapMs(rand: () => number): number {
+  return GAP_MIN_MS + Math.floor(rand() * GAP_RAND_MS);
+}
 
 // ─── Props ───────────────────────────────────────────────────────────────────
 
 export interface BeakerSpeechProps {
-  /** The ordered list of lines to rotate through. */
+  /** The ordered list of lines to cycle through. */
   lines: string[];
   /** Optional Tailwind / utility classes for outer positioning. */
   className?: string;
-  /** Override the auto-rotate interval (ms). Defaults to 4200. */
+  /**
+   * Ignored in the new timing model (kept for back-compat so callers do not
+   * need to be updated). The rhythm is now driven by the internal constants.
+   */
   rotateMs?: number;
   /**
-   * When true, applies a light sky-50 tint to the bubble background
-   * instead of pure white. Useful against very light page backgrounds.
+   * When true, applies a light sky-50 tint to the bubble background instead
+   * of pure white. Useful against very light page backgrounds.
    */
   tinted?: boolean;
+  /**
+   * Where the bubble sits relative to the beaker. Controls which edge the
+   * notch appears on and how the bubble expands away from the beaker.
+   *
+   * "below" (default) -- notch on the TOP edge pointing up (beaker is above).
+   * "right"           -- notch on the LEFT edge pointing left (beaker is left).
+   * "left"            -- notch on the RIGHT edge pointing right (beaker is right).
+   */
+  side?: "below" | "left" | "right";
 }
+
+// ─── Types ───────────────────────────────────────────────────────────────────
+
+type Phase = "hidden" | "typing" | "holding" | "fading";
 
 // ─── Component ───────────────────────────────────────────────────────────────
 
 /**
- * Rotating BeakerBot speech bubble for entry screens.
+ * Intermittent BeakerBot speech bubble for entry screens.
  *
- * Shows one line at a time, auto-rotating every `rotateMs` milliseconds.
- * Clicking the bubble advances to the next line immediately.
- * Starts at index 0 on SSR and first client render to avoid hydration
- * mismatches; after mount a random start index is picked in an effect
- * for per-visit variety.
- * When `lines.length <= 1`, rotation and clicking are disabled.
+ * Shows one line at a time with a typewriter reveal, a hold, a fade-out, and
+ * then a long silent gap before the next line. Most of the time the bubble is
+ * fully invisible -- each message feels deliberate and special.
+ *
+ * Clicking the visible bubble advances to the next line immediately.
+ * Renders nothing until after mount (fully SSR-safe, no Math.random on render).
  */
 export default function BeakerSpeech({
   lines,
   className,
-  rotateMs = DEFAULT_ROTATE_MS,
+  // rotateMs kept for API compat but not used in new timing model
+  rotateMs: _rotateMs,
   tinted = false,
+  side = "below",
 }: BeakerSpeechProps) {
-  // Index is 0 during SSR and initial hydration to avoid mismatch.
-  const [idx, setIdx] = useState(0);
-  // Opacity state drives the fade between lines.
-  const [visible, setVisible] = useState(true);
-  // Tracks the fade-out timer so it can be cancelled on fast clicks.
-  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Nothing renders until after mount (SSR-safe).
+  const [mounted, setMounted] = useState(false);
 
-  // After mount, pick a random start index for per-visit variety.
-  // Wrapped in an effect so it never runs on the server.
+  // The full current line being shown (set when a new line is picked).
+  const [currentLine, setCurrentLine] = useState("");
+
+  // How many characters of currentLine are currently revealed.
+  const [revealed, setRevealed] = useState(0);
+
+  // Lifecycle phase.
+  const [phase, setPhase] = useState<Phase>("hidden");
+
+  // Whether the bubble has opacity-1 (controls CSS transition).
+  const [opaque, setOpaque] = useState(false);
+
+  // Stable ref for the current line index so effects do not need it in deps.
+  const idxRef = useRef(0);
+
+  // Whether the user prefers reduced motion. Detected once after mount.
+  const reducedRef = useRef(false);
+
+  // Master abort ref -- set to true on unmount so no timer callback fires.
+  const deadRef = useRef(false);
+
+  // Random function -- injected via ref so tests can override it.
+  // Uses a module-level identity that can be replaced in tests.
+  const randRef = useRef<() => number>(() => Math.random());
+
+  // Collect all active timer handles so we can cancel them all at once.
+  const timersRef = useRef<Set<ReturnType<typeof setTimeout>>>(new Set());
+
+  function schedule(fn: () => void, ms: number): ReturnType<typeof setTimeout> {
+    const id = setTimeout(() => {
+      timersRef.current.delete(id);
+      if (!deadRef.current) fn();
+    }, ms);
+    timersRef.current.add(id);
+    return id;
+  }
+
+  function cancelAll() {
+    timersRef.current.forEach((id) => clearTimeout(id));
+    timersRef.current.clear();
+  }
+
+  // ── Mount detection ──────────────────────────────────────────────────────
+
   useEffect(() => {
-    if (lines.length > 1) {
-      setIdx(Math.floor(Math.random() * lines.length));
-    }
+    deadRef.current = false;
+    reducedRef.current =
+      typeof window !== "undefined" &&
+      window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    setMounted(true);
+
+    return () => {
+      deadRef.current = true;
+      cancelAll();
+    };
     // Run once on mount only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Auto-rotate interval.
-  useEffect(() => {
-    if (lines.length <= 1) return;
-    const interval = setInterval(() => {
-      advanceLine();
-    }, rotateMs);
-    return () => clearInterval(interval);
-    // advanceLine is stable within each render cycle; eslint-disable below
-    // covers the intentional omission (we want the interval to use the
-    // latest `lines.length` without resetting on every render).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lines.length, rotateMs]);
+  // ── Main loop ────────────────────────────────────────────────────────────
+  //
+  // Kicks off after mount. Each "cycle" is:
+  //   showLine() -> type in -> hold -> fade out -> gap -> showLine() ...
 
-  // Clean up any pending fade timer on unmount.
   useEffect(() => {
+    if (!mounted || lines.length === 0) return;
+
+    function showLine() {
+      const line = lines[idxRef.current] ?? "";
+      setCurrentLine(line);
+      setRevealed(0);
+      setPhase("typing");
+      setOpaque(true);
+
+      if (reducedRef.current) {
+        // Reduced motion: show full line immediately, skip type animation.
+        setRevealed(line.length);
+        schedule(beginHold, 0);
+      } else {
+        typeNextChar(0, line);
+      }
+    }
+
+    function typeNextChar(charIdx: number, line: string) {
+      if (charIdx >= line.length) {
+        beginHold();
+        return;
+      }
+      setRevealed(charIdx + 1);
+      schedule(() => typeNextChar(charIdx + 1, line), CHAR_MS);
+    }
+
+    function beginHold() {
+      setPhase("holding");
+      schedule(beginFade, holdMs(lines[idxRef.current] ?? ""));
+    }
+
+    function beginFade() {
+      setPhase("fading");
+
+      if (reducedRef.current) {
+        // Reduced motion: skip opacity fade, jump straight to hidden.
+        setOpaque(false);
+        schedule(beginGap, 0);
+      } else {
+        setOpaque(false);
+        // Wait for the CSS transition to complete before hiding content.
+        schedule(beginGap, FADE_MS);
+      }
+    }
+
+    function beginGap() {
+      setPhase("hidden");
+      setCurrentLine("");
+      setRevealed(0);
+      // Advance to the next line, wrapping around.
+      idxRef.current = (idxRef.current + 1) % lines.length;
+      schedule(showLine, gapMs(randRef.current));
+    }
+
+    // Kick off after initial delay.
+    schedule(showLine, INITIAL_DELAY_MS);
+
     return () => {
-      if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
+      cancelAll();
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mounted, lines]);
 
-  /** Fade out, advance index, fade back in. */
-  function advanceLine() {
-    if (lines.length <= 1) return;
-    setVisible(false);
-    if (fadeTimerRef.current) clearTimeout(fadeTimerRef.current);
-    fadeTimerRef.current = setTimeout(() => {
-      setIdx((i) => (i + 1) % lines.length);
-      setVisible(true);
-    }, FADE_MS);
+  // ── Click handler -- advance immediately ─────────────────────────────────
+
+  function handleClick() {
+    if (phase === "hidden") return;
+    cancelAll();
+    // Move to the next line immediately.
+    idxRef.current = (idxRef.current + 1) % lines.length;
+
+    // Re-trigger the mount/lines effect by cycling through a fade + re-show.
+    setOpaque(false);
+    setPhase("fading");
+
+    const nextLine = lines[idxRef.current] ?? "";
+    const show = () => {
+      if (deadRef.current) return;
+      setCurrentLine(nextLine);
+      setRevealed(0);
+      setPhase("typing");
+      setOpaque(true);
+
+      if (reducedRef.current) {
+        setRevealed(nextLine.length);
+        scheduleHoldFromClick(nextLine);
+      } else {
+        typeNextCharClick(0, nextLine);
+      }
+    };
+
+    schedule(show, reducedRef.current ? 0 : FADE_MS);
   }
 
-  const handleClick = () => {
-    advanceLine();
-  };
+  function typeNextCharClick(charIdx: number, line: string) {
+    if (charIdx >= line.length) {
+      scheduleHoldFromClick(line);
+      return;
+    }
+    setRevealed(charIdx + 1);
+    schedule(() => typeNextCharClick(charIdx + 1, line), CHAR_MS);
+  }
 
-  const currentLine = lines[idx] ?? "";
+  function scheduleHoldFromClick(line: string) {
+    setPhase("holding");
+    schedule(beginFadeFromClick, holdMs(line));
+  }
+
+  function beginFadeFromClick() {
+    setPhase("fading");
+    if (reducedRef.current) {
+      setOpaque(false);
+      schedule(beginGapFromClick, 0);
+    } else {
+      setOpaque(false);
+      schedule(beginGapFromClick, FADE_MS);
+    }
+  }
+
+  function beginGapFromClick() {
+    setPhase("hidden");
+    setCurrentLine("");
+    setRevealed(0);
+    idxRef.current = (idxRef.current + 1) % lines.length;
+    // Re-enter the main loop: next line appears after the gap.
+    schedule(() => {
+      if (deadRef.current) return;
+      const line = lines[idxRef.current] ?? "";
+      setCurrentLine(line);
+      setRevealed(0);
+      setPhase("typing");
+      setOpaque(true);
+      if (reducedRef.current) {
+        setRevealed(line.length);
+        scheduleHoldFromClick(line);
+      } else {
+        typeNextCharClick(0, line);
+      }
+    }, gapMs(randRef.current));
+  }
+
+  // ── Early exits ──────────────────────────────────────────────────────────
 
   if (lines.length === 0) return null;
 
+  // Render an invisible placeholder before mount to avoid layout shift.
+  if (!mounted) {
+    return <div className={className} aria-hidden />;
+  }
+
+  // ── Visual variables ─────────────────────────────────────────────────────
+
   const bgColor = tinted ? "#f0f9ff" : "white"; // sky-50 or white
+  const displayText = currentLine.slice(0, revealed);
+
+  // Whether to show the caret (blinking while actively typing).
+  const showCaret = phase === "typing" && !reducedRef.current;
+
+  // ── Notch triangles ──────────────────────────────────────────────────────
+  //
+  // Two-triangle technique: a larger sky-300 outer triangle and a smaller
+  // white/tinted inner triangle 1 px inward to simulate a bordered notch.
+  // No inline SVG (icon-guard).
+  //
+  // side="below"  -> notch on the TOP edge, pointing up toward the beaker.
+  // side="right"  -> notch on the LEFT edge, pointing left toward the beaker.
+  // side="left"   -> notch on the RIGHT edge, pointing right toward the beaker.
+
+  let notchOuter: React.CSSProperties;
+  let notchInner: React.CSSProperties;
+  let notchOuterClass: string;
+  let notchInnerClass: string;
+
+  if (side === "right") {
+    // Beaker is to the left of the bubble. Notch on the LEFT edge points left.
+    notchOuterClass = "absolute top-1/2 -left-3 h-0 w-0 -translate-y-1/2";
+    notchInnerClass = "absolute top-1/2 -left-[9px] h-0 w-0 -translate-y-1/2";
+    notchOuter = {
+      borderTop: "10px solid transparent",
+      borderBottom: "10px solid transparent",
+      borderRight: "12px solid #7dd3fc", // sky-300
+    };
+    notchInner = {
+      borderTop: "9px solid transparent",
+      borderBottom: "9px solid transparent",
+      borderRight: `11px solid ${bgColor}`,
+    };
+  } else if (side === "left") {
+    // Beaker is to the right of the bubble. Notch on the RIGHT edge points right.
+    notchOuterClass = "absolute top-1/2 -right-3 h-0 w-0 -translate-y-1/2";
+    notchInnerClass = "absolute top-1/2 -right-[9px] h-0 w-0 -translate-y-1/2";
+    notchOuter = {
+      borderTop: "10px solid transparent",
+      borderBottom: "10px solid transparent",
+      borderLeft: "12px solid #7dd3fc", // sky-300
+    };
+    notchInner = {
+      borderTop: "9px solid transparent",
+      borderBottom: "9px solid transparent",
+      borderLeft: `11px solid ${bgColor}`,
+    };
+  } else {
+    // side="below" (default) -- notch on the TOP edge pointing up.
+    notchOuterClass = "absolute -top-3 left-1/2 h-0 w-0 -translate-x-1/2";
+    notchInnerClass = "absolute -top-2 left-1/2 h-0 w-0 -translate-x-1/2";
+    notchOuter = {
+      borderLeft: "10px solid transparent",
+      borderRight: "10px solid transparent",
+      borderBottom: "12px solid #7dd3fc", // sky-300
+    };
+    notchInner = {
+      borderLeft: "9px solid transparent",
+      borderRight: "9px solid transparent",
+      borderBottom: `11px solid ${bgColor}`,
+    };
+  }
+
+  // ── Render ───────────────────────────────────────────────────────────────
 
   return (
     <div className={className}>
-      {/* Outer wrapper: white card with sky-blue border, matching
-          SpeechBubble's visual language. */}
+      {/* The bubble is only visible while a line is in-flight (typing, holding,
+          or fading). The container is always in the DOM after mount so the
+          parent layout does not shift when the bubble appears. */}
       <div
-        className="relative"
+        className="relative inline-block"
         style={{
-          // Check for reduced motion: keep rotating but skip the fade.
-          // We read the media query once at render time; the fade CSS
-          // transition handles the actual animation.
+          // Fades in/out via CSS opacity transition (skipped under reduced-motion
+          // because we never reach opaque=true via the CSS transition then).
+          opacity: opaque && phase !== "hidden" ? 1 : 0,
+          pointerEvents: phase === "hidden" ? "none" : "auto",
+          transition: reducedRef.current
+            ? "none"
+            : `opacity ${FADE_MS}ms ease`,
+          // Bubble grows AWAY from the beaker: anchor it on the notch side so
+          // new content pushes outward rather than inward.
+          ...(side === "right"
+            ? { transformOrigin: "left center" }
+            : side === "left"
+              ? { transformOrigin: "right center" }
+              : { transformOrigin: "top center" }),
         }}
       >
-        {/* Top notch (border triangle, sky-300) pointing upward toward
-            BeakerBot who sits above the bubble on entry screens. */}
+        {/* Notch outer (sky-300 border color) */}
         <div
           aria-hidden="true"
-          className="absolute -top-3 left-1/2 h-0 w-0 -translate-x-1/2"
-          style={{
-            borderLeft: "10px solid transparent",
-            borderRight: "10px solid transparent",
-            borderBottom: "12px solid #7dd3fc", // sky-300
-          }}
+          className={notchOuterClass}
+          style={notchOuter}
         />
-        {/* Inner notch fill (white/tinted, 1 px lower to reveal the sky
-            border as the visible "border" of the notch). */}
+        {/* Notch inner (white/tinted fill) */}
         <div
           aria-hidden="true"
-          className="absolute -top-2 left-1/2 h-0 w-0 -translate-x-1/2"
-          style={{
-            borderLeft: "9px solid transparent",
-            borderRight: "9px solid transparent",
-            borderBottom: `11px solid ${bgColor}`,
-          }}
+          className={notchInnerClass}
+          style={notchInner}
         />
 
-        {/* Bubble card */}
+        {/* Bubble card -- fit-content width, capped at max-w-xs */}
         <button
           type="button"
-          onClick={lines.length > 1 ? handleClick : undefined}
+          onClick={phase !== "hidden" ? handleClick : undefined}
           aria-label={
-            lines.length > 1
-              ? "BeakerBot says: click for next line"
-              : undefined
+            phase !== "hidden" ? "BeakerBot says: click to skip to next" : undefined
           }
           className={[
-            "w-full rounded-2xl border border-sky-300 px-5 py-3 text-left text-slate-900 shadow-xl",
+            "rounded-2xl border border-sky-300 px-5 py-3 text-left text-slate-900 shadow-xl",
             tinted ? "bg-sky-50" : "bg-white",
-            lines.length > 1 ? "cursor-pointer" : "cursor-default",
-            // Fade transition (skip under reduced-motion via media query).
-            "motion-safe:transition-opacity",
+            phase !== "hidden" ? "cursor-pointer" : "cursor-default",
           ]
             .filter(Boolean)
             .join(" ")}
           style={{
-            opacity: visible ? 1 : 0,
-            transitionDuration: `${FADE_MS}ms`,
+            // max-content (NOT fit-content) so the bubble sizes to the text
+            // itself. Because the bubble is absolutely positioned at left:100%
+            // of a narrow wrapper, fit-content would compute its available
+            // width as nearly zero and collapse to one word per line
+            // ("Hi\nthere"). max-content ignores available width, so short
+            // lines stay on one line and only lines wider than the cap wrap.
+            width: "max-content",
+            maxWidth: "18rem", // ~max-w-xs
+            minWidth: "6rem",
           }}
         >
           <p
             aria-live="polite"
-            className="text-sm leading-snug"
+            className="text-sm leading-snug whitespace-pre-wrap"
           >
-            {currentLine}
+            {displayText}
+            {showCaret && (
+              <span
+                aria-hidden="true"
+                className="ml-0.5 inline-block w-[2px] h-[0.85em] align-middle bg-slate-400 motion-safe:animate-pulse"
+              />
+            )}
           </p>
         </button>
       </div>
