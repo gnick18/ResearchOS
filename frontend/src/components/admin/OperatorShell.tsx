@@ -42,6 +42,7 @@ import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import { MarginExplorerTab } from "@/components/admin/PriceModelingModal";
+import LockedPricingPanel from "@/components/admin/LockedPricingPanel";
 import {
   CapacitySection,
   FeatureUsageSection,
@@ -275,6 +276,14 @@ const GROUPS: RailGroup[] = [
   {
     label: "Modeling",
     sections: [
+      {
+        id: "locked-pricing",
+        group: "Modeling",
+        title: "Locked pricing",
+        icon: "shield",
+        desc: "The final, settled Model A prices, read live from the pricing engine. Just the numbers, nothing modeled.",
+        keywords: "pricing final locked numbers tiers solo lab dept storage ai packs emile sign-off",
+      },
       {
         id: "price-modeling",
         group: "Modeling",
@@ -941,7 +950,10 @@ export default function OperatorShell() {
             {/* FINANCES */}
             <FinanceSections business={business} actions={actions} />
 
-            {/* MODELING: Model A margin explorer. */}
+            {/* MODELING: the locked final prices first, then the live explorer. */}
+            <Section section={byId("locked-pricing")}>
+              <LockedPricingPanel />
+            </Section>
             <Section section={byId("price-modeling")}>
               <MarginExplorerTab />
             </Section>
