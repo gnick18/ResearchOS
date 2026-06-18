@@ -53,11 +53,13 @@ export default function AccountsPage() {
       </p>
       <ul>
         <li>
-          <strong>Cross-boundary sharing.</strong> Send notes, methods, and
-          files to any ResearchOS user who has an account, even if they are not
-          in your folder. Recipients get a copy in their own folder. The
+          <strong>Receive shared work.</strong> When another researcher sends
+          you a note, method, sequence, or file, you get a copy in your own
+          folder and open it for free, even if they are not in your folder. The
           transfer is end-to-end encrypted, so the relay holds only ciphertext
-          and neither ResearchOS nor the relay can read what you sent.
+          and neither ResearchOS nor the relay can read what was sent. Sending a
+          copy of your own work to someone outside your folder is a paid feature
+          (Solo and up), because the sender covers the cost of the relay handoff.
         </li>
         <li>
           <strong>Researcher directory.</strong> You become findable by name
@@ -73,9 +75,9 @@ export default function AccountsPage() {
 
       <h3>Lab (team collaboration)</h3>
       <p>
-        All the sharing features of the Free account, plus real-time
-        co-editing inside a lab. Notes, experiments, and notebooks sync live
-        between lab members. The PI gets a{" "}
+        All the sharing features of the Free account, plus the ability to send
+        your own work across folders and real-time co-editing inside a lab.
+        Notes, experiments, and notebooks sync live between lab members. The PI gets a{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link> with
         cross-member views of workload, the purchase-approval queue, and a
         running feed of lab activity.
@@ -131,26 +133,31 @@ export default function AccountsPage() {
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes, but live co-editing needs internet</td>
             </tr>
             <tr>
-              <td className="px-4 py-2.5 text-foreground">Send notes/files to other researchers</td>
+              <td className="px-4 py-2.5 text-foreground">Receive shared notes/files from other researchers</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
             <tr className="bg-surface-sunken/40">
+              <td className="px-4 py-2.5 text-foreground">Send your own notes/files to other researchers</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">No, sending is a paid feature</td>
+              <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
+            </tr>
+            <tr>
               <td className="px-4 py-2.5 text-foreground">Researcher directory listing</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
-            <tr>
+            <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">Real-time co-editing with labmates</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>
             </tr>
-            <tr className="bg-surface-sunken/40">
+            <tr>
               <td className="px-4 py-2.5 text-foreground">PI Lab Overview dashboard</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes (Lab Head)</td>
             </tr>
-            <tr>
+            <tr className="bg-surface-sunken/40">
               <td className="px-4 py-2.5 text-foreground">Cloud sync for real-time collaboration</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">No</td>
               <td className="px-4 py-2.5 text-center text-foreground-muted">Yes</td>

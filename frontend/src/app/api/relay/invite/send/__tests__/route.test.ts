@@ -65,6 +65,17 @@ vi.mock("@/lib/sharing/relay/storage", () => ({
     presignSpy(key, contentLength),
 }));
 
+// Model A produce gate. Off by default (the beta), so the gate is inert and the
+// existing tests behave exactly as before; the gate suite flips these to prove
+// the paid-send paywall on the invite path.
+const billingState = { enabled: false, entitled: true };
+vi.mock("@/lib/billing/config", () => ({
+  isBillingEnabled: () => billingState.enabled,
+}));
+vi.mock("@/lib/billing/model-a/resolve", () => ({
+  isProduceEntitled: async () => billingState.entitled,
+}));
+
 import { POST } from "../route";
 
 function makeRequest(): Request {
@@ -95,6 +106,8 @@ beforeEach(() => {
   relayState.count = 0;
   relayState.bytes = 0;
   verifyState.result = makeParsed(100);
+  billingState.enabled = false;
+  billingState.entitled = true;
   insertSpy.mockClear();
   presignSpy.mockClear();
 });
@@ -162,6 +175,36 @@ describe("relay invite send route, size-bound presign", () => {
     expect(presignSpy).toHaveBeenCalledTimes(1);
     // presignUpload(inviteId, contentLength) — the 2nd arg is the binding.
     expect(presignSpy.mock.calls[0][1]).toBe(4096);
+  });
+});
+
+describe("relay invite send route, paid-send produce gate", () => {
+  it("blocks a FREE sender with 402 once billing is live", async () => {
+    billingState.enabled = true;
+    billingState.entitled = false;
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(402);
+    const body = (await res.json()) as { reason?: string };
+    expect(body.reason).toBe("send-is-paid");
+    // The gate fires before any reservation, so nothing is parked on the relay.
+    expect(insertSpy).not.toHaveBeenCalled();
+    expect(presignSpy).not.toHaveBeenCalled();
+  });
+
+  it("allows a PAID sender (or a free member of a paid lab) to invite", async () => {
+    billingState.enabled = true;
+    billingState.entitled = true;
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it("is inert while billing is off, a free sender can still invite in the beta", async () => {
+    billingState.enabled = false;
+    billingState.entitled = false; // would block if the gate read it, but it must not
+    const res = await POST(makeRequest());
+    expect(res.status).toBe(200);
+    expect(insertSpy).toHaveBeenCalledTimes(1);
   });
 });
 

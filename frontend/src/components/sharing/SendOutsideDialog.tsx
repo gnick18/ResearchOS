@@ -26,6 +26,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
+import { SendOutsideGate } from "@/components/sharing/SendOutsideGate";
 import {
   sendShare,
   inviteShare,
@@ -100,12 +101,14 @@ export default function SendOutsideDialog({
       {identity.status === "needs-restore" && <NeedsRestoreBody />}
 
       {identity.status === "ready" && (
-        <SendForm
-          note={note}
-          ownerUsername={ownerUsername}
-          senderEmail={identity.email}
-          onClose={onClose}
-        />
+        <SendOutsideGate onClose={onClose}>
+          <SendForm
+            note={note}
+            ownerUsername={ownerUsername}
+            senderEmail={identity.email}
+            onClose={onClose}
+          />
+        </SendOutsideGate>
       )}
 
       {wizardOpen && (

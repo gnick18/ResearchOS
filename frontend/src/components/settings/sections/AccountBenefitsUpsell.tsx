@@ -29,9 +29,9 @@ const ACCOUNT_FEATURES: { title: string; detail: string }[] = [
       "Route any notification to your inbox or the companion phone app, not just the bell.",
   },
   {
-    title: "Sharing and collaboration",
+    title: "Receive shared work",
     detail:
-      "Send notes, methods, and files to people who do not share your folder.",
+      "Get notes, methods, and files others send you, filed into your own folder and end to end encrypted. Sending your own work outside your folder is a paid feature.",
   },
 ];
 

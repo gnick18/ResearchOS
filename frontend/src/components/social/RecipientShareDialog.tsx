@@ -29,6 +29,7 @@ import { Icon, type IconName } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import InviteOutOfBandPanel from "@/components/sharing/InviteOutOfBandPanel";
+import { SendOutsideGate } from "@/components/sharing/SendOutsideGate";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { notesApi, methodsApi, sequencesApi } from "@/lib/local-api";
 import type { Note, Method, SequenceRecord } from "@/lib/types";
@@ -311,6 +312,10 @@ export default function RecipientShareDialog({
         </div>
 
         <div className="overflow-y-auto px-5 py-5">
+          {/* Sending a copy is the paid produce side. A free account sees the
+              escapable upsell here; receiving and opening stay free. Dormant in
+              the beta (the gate renders the children unchanged). */}
+          <SendOutsideGate onClose={onClose}>
           {phase.name === "pick" && (
             <div className="space-y-3">
               {/* Kind tabs */}
@@ -523,6 +528,7 @@ export default function RecipientShareDialog({
               </button>
             </div>
           )}
+          </SendOutsideGate>
         </div>
       </div>
     </div>

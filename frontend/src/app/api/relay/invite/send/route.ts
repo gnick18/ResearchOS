@@ -39,6 +39,8 @@ import {
   json,
 } from "@/lib/sharing/directory/guard";
 import { verifyRelayRequest } from "@/lib/sharing/relay/auth";
+import { isBillingEnabled } from "@/lib/billing/config";
+import { isProduceEntitled } from "@/lib/billing/model-a/resolve";
 import {
   countInvitesBySender,
   ensureInviteSchema,
@@ -112,6 +114,16 @@ export async function POST(request: Request): Promise<Response> {
   );
   if (!identityVerdict.success) {
     return json(429, { error: "rate limited" });
+  }
+
+  // Model A produce gate: inviting a non-user IS a send (the sender seals a copy
+  // and parks it on the relay), so it is the paid produce side just like
+  // /api/relay/send. Once billing is live a FREE sender cannot invite-and-send. A
+  // free member of a paid lab still can, the PI covers them (isProduceEntitled
+  // resolves member -> PI). Returns 402 so the client surfaces the upgrade nudge.
+  // Entirely inert while billing is off, so the beta is byte-for-byte unchanged.
+  if (isBillingEnabled() && !(await isProduceEntitled(verified.emailHash))) {
+    return json(402, { error: "upgrade required", reason: "send-is-paid" });
   }
 
   // Per-sender invite RATE LIMIT (keyed by the sender's email hash, not IP, so it

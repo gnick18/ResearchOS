@@ -250,13 +250,13 @@ function SignInChoiceCards({
             <ChoiceCheck /> + Use it locally. Your notebook still lives on your machine.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <ChoiceCheck /> Send notes, methods, and projects to anyone by email.
+            <ChoiceCheck /> Receive notes, methods, and projects others send you by email.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <ChoiceCheck /> A {inboxGb} GB encrypted inbox for work others send you, held {TTL_DAYS} days.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
-            <ChoiceCheck /> Cross-lab sharing, no shared folder needed.
+            <ChoiceCheck /> Receive work across labs, no shared folder needed.
           </li>
           <li className="flex items-start gap-2 text-body leading-snug text-[#475569]">
             <ChoiceCheck /> Find other ResearchOS users to share with.
