@@ -19,6 +19,7 @@
 // text labels only.
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { signOut } from "next-auth/react";
 
 import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
@@ -394,6 +395,23 @@ export default function UserAvatarMenu({
               {isDark ? <SunIcon /> : <MoonIcon />}
               {isDark ? "Light mode" : "Dark mode"}
             </DropdownItem>
+            {!inDemo && (
+              <>
+                <div className="my-1 h-px bg-border" />
+                <DropdownItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    void signOut({ callbackUrl: "/" });
+                  }}
+                >
+                  <Icon
+                    name="logout"
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  Sign out
+                </DropdownItem>
+              </>
+            )}
             {inDemo && (
               <>
                 <div className="my-1 h-px bg-border" />
