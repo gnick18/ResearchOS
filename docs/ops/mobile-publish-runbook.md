@@ -126,6 +126,14 @@ The only one-time step left, and it happens on the FIRST build:
 
 ## After launch
 
+- **[OPTIONAL, nice-to-have]** Upload the R8/ProGuard deobfuscation (mapping) file
+  with the Android release so Play can de-obfuscate crash and ANR stack traces. The
+  first v1.0.0 (version code 2) upload triggered a non-blocking Play warning about
+  the missing mapping file. It is purely for readable crash reports, not required to
+  ship. If wanted on a future release, have EAS emit the mapping (the build's
+  `mapping.txt` under the Android Gradle `outputs/mapping/release/`) and attach it in
+  Play Console under the release's "App bundles -> deobfuscation files", or wire it
+  through `eas submit`. Low priority.
 - **[YOU]** Add the Apple $99/year renewal to the `/admin/business` deadline strip so
   the membership does not lapse (a lapse pulls the app from sale).
 - **[YOU]** Shipping an update: bump `version` (and the native build number) in
