@@ -5,6 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { tasksApi } from "@/lib/local-api";
 import type { Task, Project } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import Tooltip from "./Tooltip";
 import { useAppStore } from "@/lib/store";
 
@@ -166,7 +167,7 @@ export default function TaskQuickPopup({
       </div>
 
       {/* Celebration animation */}
-      {animationPosition && (
+      {POPUP_ANIMATIONS_ENABLED && animationPosition && (
         <DynamicAnimation
           type={animationType}
           x={animationPosition.x}

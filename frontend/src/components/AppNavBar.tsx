@@ -150,20 +150,15 @@ export default function AppNavBar({
     }
     const navEl = navRef.current;
     if (!navEl) return;
-    const measure = () => {
+    // Pure read of how many inline tabs fit. No setState here.
+    const compute = () => {
       const inline = resolved.inline;
-      if (inline.length === 0) {
-        setVisibleInlineCount(0);
-        return;
-      }
+      if (inline.length === 0) return 0;
       // No layout to measure against (SSR/first paint, or jsdom in tests where
       // clientWidth is always 0): show every inline tab rather than collapsing
-      // all but Home into More. Real browsers report a real width on the next
-      // ResizeObserver tick and the responsive split below takes over.
-      if (navEl.clientWidth === 0) {
-        setVisibleInlineCount(inline.length);
-        return;
-      }
+      // all but Home into More. Real browsers report a real width once layout
+      // settles and the responsive split below takes over.
+      if (navEl.clientWidth === 0) return inline.length;
       // Available width for the tab strip = the nav element width minus the
       // More button (reserve a fixed allowance so its presence never causes a
       // flip-flop). We sum measured tab widths until we run out of room.
@@ -179,12 +174,35 @@ export default function AppNavBar({
         fit += 1;
       }
       // Home (inline[0]) always stays inline.
-      setVisibleInlineCount(Math.max(1, Math.min(fit, inline.length)));
+      return Math.max(1, Math.min(fit, inline.length));
+    };
+    // Defer the state write out of the ResizeObserver callback via rAF, and only
+    // write when the value actually changed. Writing state synchronously inside
+    // the observer callback can feed back into layout (a sibling view mounting, a
+    // scrollbar appearing) and re-trigger the observer on the next tick, an
+    // infinite measure/setState/reflow loop that React aborts with "Maximum
+    // update depth exceeded". The rAF read runs after layout has settled for the
+    // frame, so transient mid-thrash widths (including a transient 0) are never
+    // sampled, and the change guard stops a stable width from re-rendering.
+    let raf = 0;
+    let last = -1;
+    const measure = () => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        const next = compute();
+        if (next !== last) {
+          last = next;
+          setVisibleInlineCount(next);
+        }
+      });
     };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(navEl);
-    return () => ro.disconnect();
+    return () => {
+      cancelAnimationFrame(raf);
+      ro.disconnect();
+    };
   }, [editing, recording, resolved.inline]);
 
   // The displayed split: while editing, the full saved split. Otherwise, the

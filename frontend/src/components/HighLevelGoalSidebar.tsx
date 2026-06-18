@@ -6,6 +6,7 @@ import { goalsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import type { HighLevelGoal } from "@/lib/types";
 import DynamicAnimation from "./DynamicAnimation";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import Tooltip from "./Tooltip";
 import { useState } from "react";
 
@@ -298,7 +299,7 @@ export default function HighLevelGoalSidebar({
         })}
       </div>
 
-      {celebrationPosition && (
+      {POPUP_ANIMATIONS_ENABLED && celebrationPosition && (
         <DynamicAnimation
           type={animationType}
           x={celebrationPosition.x}

@@ -14,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import PurchaseEditor from "./PurchaseEditor";
 import DynamicAnimation from "./DynamicAnimation";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import MethodTabs from "./MethodTabs";
 import TaskPicker from "./TaskPicker";
 import UnifiedShareDialog from "@/components/sharing/UnifiedShareDialog";
@@ -1099,7 +1100,7 @@ export default function TaskDetailPopup({
         dockedFitContent
         accentColor={project?.color || "#3b82f6"}
       >
-        {animationPosition && (
+        {POPUP_ANIMATIONS_ENABLED && animationPosition && (
           <DynamicAnimation
             type={animationType}
             x={animationPosition.x}
@@ -1535,7 +1536,7 @@ export default function TaskDetailPopup({
       onCardDrop={handleUniversalDrop}
       escapeLayers={escapeLayers}
     >
-      {animationPosition && (
+      {POPUP_ANIMATIONS_ENABLED && animationPosition && (
         <DynamicAnimation
           type={animationType}
           x={animationPosition.x}

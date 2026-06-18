@@ -29,6 +29,7 @@ import Tooltip from "@/components/Tooltip";
 import SubTaskProgressDots from "@/components/workbench/SubTaskProgressDots";
 import type { DateSignalKind } from "@/components/workbench/ListTaskRow";
 import DynamicAnimation from "@/components/DynamicAnimation";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import { useAppStore } from "@/lib/store";
 
 // Celebration-animation overlay state. The `nonce` is bumped on every
@@ -782,7 +783,7 @@ export default function ExpandableListCard({
        *  setCelebration(null) it queues is harmless because the new
        *  state has already replaced null. Same pattern as the settings
        *  animation preview (commit 0d778d95). */}
-      {celebration && (
+      {POPUP_ANIMATIONS_ENABLED && celebration && (
         <DynamicAnimation
           key={celebration.nonce}
           type={animationType}

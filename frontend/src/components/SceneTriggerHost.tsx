@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useEffect } from "react";
 import BeakerBotBugStompScene from "@/components/BeakerBotBugStompScene";
+import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import BeakerBotTwirlScene from "@/components/BeakerBotTwirlScene";
 import {
   useSceneTriggerStore,
@@ -45,7 +46,18 @@ export default function SceneTriggerHost() {
     clearActiveScene();
   }, [activeOnComplete, clearActiveScene]);
 
-  if (activeScene === null) return null;
+  // A decorative scene gated off by POPUP_ANIMATIONS_ENABLED still needs to run
+  // its onComplete (which often opens a follow-up modal, e.g. the bug report), so
+  // we complete it from an EFFECT, never during render (calling handleComplete
+  // mid-render would set state on this host and the follow-up modal as a side
+  // effect of rendering). When the flag is on, the scene renders normally.
+  const skipGated =
+    activeScene === "bugstomp" && !POPUP_ANIMATIONS_ENABLED;
+  useEffect(() => {
+    if (skipGated) handleComplete();
+  }, [skipGated, handleComplete]);
+
+  if (activeScene === null || skipGated) return null;
 
   return renderScene(activeScene, handleComplete);
 }
@@ -56,6 +68,8 @@ function renderScene(
 ): React.ReactElement | null {
   switch (sceneId) {
     case "bugstomp":
+      // Gated by POPUP_ANIMATIONS_ENABLED in the host above (it completes the
+      // scene from an effect when the flag is off), so this only renders when on.
       return <BeakerBotBugStompScene active onComplete={onComplete} />;
     case "twirlMilestone":
       // The celebratory twirl, fired once per rare checkpoint milestone
