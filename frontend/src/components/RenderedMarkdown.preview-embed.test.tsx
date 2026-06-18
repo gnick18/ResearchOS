@@ -84,6 +84,58 @@ describe("RenderedMarkdown Preview embeds", () => {
 });
 
 // ---------------------------------------------------------------------------
+// CommonMark block separation without a trailing blank line
+//
+// A heading (and other block elements) terminate the block on a SINGLE newline
+// per CommonMark, so "## H\nparagraph" is an h2 followed by a paragraph and
+// does NOT require a blank line after the heading. These lock that the Preview
+// renderer matches what the Edit-mode CM6 decorator shows, so a heading typed
+// directly above a paragraph never renders as the literal "## " joined onto the
+// following text.
+// ---------------------------------------------------------------------------
+
+describe("RenderedMarkdown CommonMark block separation (single newline)", () => {
+  it("renders '## H\\nparagraph' as a heading element plus a separate paragraph", () => {
+    const { container } = render(
+      <RenderedMarkdown content={"## Heading test\nSome body text."} />,
+    );
+    const h2 = container.querySelector("h2");
+    expect(h2).not.toBeNull();
+    expect(h2!.textContent).toBe("Heading test");
+    // The literal marker must NOT survive into the rendered text.
+    expect(container.textContent).not.toContain("## ");
+    // The paragraph is its own block, not joined into the heading.
+    const p = container.querySelector("p");
+    expect(p).not.toBeNull();
+    expect(p!.textContent).toBe("Some body text.");
+    expect(h2!.textContent).not.toContain("Some body text.");
+  });
+
+  it("renders a heading immediately followed by a list (block\\nlist) as separate blocks", () => {
+    const { container } = render(
+      <RenderedMarkdown content={"## Heading test\n- one\n- two"} />,
+    );
+    const h2 = container.querySelector("h2");
+    expect(h2).not.toBeNull();
+    expect(h2!.textContent).toBe("Heading test");
+    const items = container.querySelectorAll("li");
+    expect(items.length).toBe(2);
+    expect(container.textContent).not.toContain("## ");
+  });
+
+  it("renders a paragraph immediately followed by a heading (paragraph\\n## H) as separate blocks", () => {
+    const { container } = render(
+      <RenderedMarkdown content={"A first paragraph.\n## Heading test\nMore text."} />,
+    );
+    const h2 = container.querySelector("h2");
+    expect(h2).not.toBeNull();
+    expect(h2!.textContent).toBe("Heading test");
+    expect(container.querySelectorAll("p").length).toBe(2);
+    expect(container.textContent).not.toContain("## ");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Object chip rendering (inline references, same surface)
 // ---------------------------------------------------------------------------
 
