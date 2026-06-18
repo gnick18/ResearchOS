@@ -5,17 +5,21 @@ import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 
 /**
- * Not-found state for the public lab companion-site route (lab-domains Phase 2).
+ * Generic public 404 for the top-level optional-catch-all route. Because
+ * [labSlug] is the segment that catches any path with no matching static route,
+ * this renders for BOTH a missing lab companion page AND any unknown or retired
+ * top-level path (a typo, an old bookmark, the retired /welcome route, ...), so
+ * the copy is deliberately generic. The earlier lab-specific wording ("this lab
+ * page does not exist, published lab pages stay live") was misleading on a plain
+ * unknown path, which is the far more common case.
  *
- * Rendered whenever the route notFound()s: the feature flag is off, the slug is
- * not a lab, the lab has no site, or the page is missing / unpublished. It is a
- * calm public 404 on the shared marketing chrome with explicit escape
- * affordances (home + the researcher network), so a wrong / lapsed / draft URL is
- * never a soft-lock (per the project's no-soft-locks rule).
+ * It is a calm public 404 on the shared marketing chrome with explicit escape
+ * affordances (home + the researcher network), so a wrong / lapsed / retired URL
+ * is never a soft-lock (per the project's no-soft-locks rule).
  *
  * House style: no em-dashes, no emojis, no mid-sentence colons.
  */
-export default function LabSiteNotFound() {
+export default function MarketingNotFound() {
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
@@ -26,9 +30,8 @@ export default function LabSiteNotFound() {
             Page not found
           </h1>
           <p className="mt-3 text-body text-foreground-muted">
-            This lab page does not exist, has not been published, or its address
-            has changed. Published lab pages stay live, so a citation link will
-            keep working once it is set up.
+            The page you are looking for does not exist or may have moved. Check
+            the address, or head back home.
           </p>
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
