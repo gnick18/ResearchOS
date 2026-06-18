@@ -22,11 +22,21 @@ export interface SpeechBubbleProps {
   /** Optional test id passthrough so beat-specific tests can pin the
    *  bubble for that beat without grepping shared markup. */
   testId?: string;
+  /** Widens the bubble for beats that host a wide interactive (the
+   *  data-flow explainer). Default keeps the narrow reading width. */
+  wide?: boolean;
 }
 
-export default function SpeechBubble({ children, testId }: SpeechBubbleProps) {
+export default function SpeechBubble({
+  children,
+  testId,
+  wide = false,
+}: SpeechBubbleProps) {
   return (
-    <div className="relative mt-4 w-full max-w-xl" data-testid={testId}>
+    <div
+      className={`relative mt-4 w-full ${wide ? "max-w-3xl" : "max-w-xl"}`}
+      data-testid={testId}
+    >
       {/* Notch border (outer triangle, sky-300) */}
       <div
         aria-hidden="true"
