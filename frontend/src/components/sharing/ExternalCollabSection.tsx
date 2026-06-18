@@ -21,8 +21,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import type { Note } from "@/lib/types";
 import { openNote } from "@/lib/loro/store";
+import { Icon } from "@/components/icons/Icon";
+import { useBillingModal } from "@/lib/billing/billing-modal-store";
 import { getCollabDocId } from "@/lib/collab/client/doc-id";
 import { collabSessionFromDocId } from "@/lib/loro/collab/doc-id-session";
+import { isExternalCollabHostEntitled } from "@/lib/collab/client/entitlement";
 import {
   lookupOutsideUser,
   grantExternalCollab,
@@ -51,8 +54,15 @@ export default function ExternalCollabSection({
   note,
   ownerUsername,
 }: ExternalCollabSectionProps) {
+  const billingModal = useBillingModal();
   const [email, setEmail] = useState("");
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
+
+  // Paid-tier gate (Grant 2026-06-18): hosting external live collab is a paid
+  // produce feature. null = still checking, false = free (show the upsell), true
+  // = entitled (show the grant form). Fails closed in the helper, so a transient
+  // failure renders the upsell rather than a working form a free account cannot use.
+  const [entitled, setEntitled] = useState<boolean | null>(null);
 
   // External-collab chunk 5: the doc's collab session id (derived from its
   // collab_doc_id) plus the current external collaborators, for the revoke UI.
@@ -60,7 +70,8 @@ export default function ExternalCollabSection({
   const [members, setMembers] = useState<CollabMember[] | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
 
-  const canSubmit = phase.kind !== "working" && looksLikeEmail(email);
+  const canSubmit =
+    entitled === true && phase.kind !== "working" && looksLikeEmail(email);
 
   // Resolve the collab session id from the note's live doc, then load the
   // current member list. An OPEN (never-granted) note has no member table, so
@@ -88,6 +99,18 @@ export default function ExternalCollabSection({
   useEffect(() => {
     void refreshMembers();
   }, [refreshMembers]);
+
+  // Load the host entitlement once on mount. The grant path enforces the same
+  // check server-side, so this only decides which UI to show (form vs upsell).
+  useEffect(() => {
+    let live = true;
+    void isExternalCollabHostEntitled().then((ok) => {
+      if (live) setEntitled(ok);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   const onRevoke = useCallback(
     async (member: CollabMember) => {
@@ -142,6 +165,13 @@ export default function ExternalCollabSection({
         setPhase({ kind: "granted", email: outside.email });
         // Reflect the newly-granted collaborator in the list immediately.
         void refreshMembers();
+        return;
+      }
+      if (result.reason === "not-entitled") {
+        // The server refused because this account is not on a paid plan. Reflect
+        // that in the UI by switching to the upsell, rather than a transient error.
+        setEntitled(false);
+        setPhase({ kind: "idle" });
         return;
       }
       const message =
@@ -206,6 +236,58 @@ export default function ExternalCollabSection({
           They will see it under their shared notes once they are notified.
         </p>
         {collaboratorList}
+      </div>
+    );
+  }
+
+  // Still checking the plan. Keep the heading so the section does not pop in, and
+  // show a quiet status line instead of a form the user might not be able to use.
+  if (entitled === null) {
+    return (
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
+        <p className="text-body font-medium text-foreground">Collaborate live</p>
+        <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
+          Checking your plan...
+        </p>
+      </div>
+    );
+  }
+
+  // Free account. Live collaboration runs a real per-document hot store on our
+  // servers, so it is the part a paid plan pays for. We explain that and point to
+  // the upgrade rather than hiding the feature (no soft-lock). The one-time
+  // encrypted copy send above stays free and is unaffected.
+  if (entitled === false) {
+    return (
+      <div className="rounded-lg border border-border bg-surface px-4 py-3">
+        <div className="flex items-start gap-2">
+          <Icon
+            name="star"
+            className="mt-0.5 h-4 w-4 shrink-0 text-brand-action"
+            title="Paid feature"
+          />
+          <div>
+            <p className="text-body font-medium text-foreground">
+              Collaborate live is a paid feature
+            </p>
+            <p className="text-meta text-foreground-muted mt-0.5 leading-relaxed">
+              Live editing keeps a shared copy running on our servers for as long
+              as you collaborate, which is the one part of ResearchOS that costs us
+              per use. A paid plan (Solo and up) covers it. Your one-time encrypted
+              copy send stays free, and you can always receive a live invite
+              someone else hosts.
+            </p>
+            <button
+              type="button"
+              onClick={(e) =>
+                billingModal.open({ x: e.clientX, y: e.clientY })
+              }
+              className="ros-btn-raise mt-2 rounded-md bg-brand-action px-3 py-1.5 text-body font-medium text-white transition-colors hover:bg-brand-action/90"
+            >
+              See plans
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
