@@ -10,6 +10,31 @@ Every step is tagged with who does it:
 - **[AGENT]** the Chrome agent can do it (fill fields, upload staged files) and must
   stop at anything tagged [YOU].
 
+## Launch status (live, 2026-06-18)
+
+- **Android v1.0.0 (version code 2) is SUBMITTED and IN REVIEW on the OPEN TESTING
+  track** (not Production yet). In review: the store listing, app content, and 3
+  countries (Canada, South Africa, United States). **Managed publishing is ON**, so
+  it auto-publishes the moment Google approves (no second click).
+- **Timeline:** first review for a new app on a new-ish developer account commonly
+  takes a few days, up to ~1-2 weeks (new-account scrutiny). It may bounce back first
+  for the data-safety form, content rating, or privacy policy. Updates after the
+  first approval are much faster.
+- **Open Testing share link** (the soft-launch / Emile-test channel): a public opt-in
+  URL, `play.google.com/apps/testing/app.researchos.companion`, under Test and
+  release -> Testing -> Open testing -> "How testers join your test". Works only
+  AFTER approval, Android only (iOS is the separate TestFlight path), and testers
+  must be in CA / ZA / US (Play uses the account country). Public launch later =
+  promote Open Testing -> Production (another, faster review).
+- **Play Console protection:** Automatic protection is ON (leave it). Skip the Play
+  Integrity API (a code-integration project, not a toggle, and over-enforcing can
+  lock out legit users on emulators/rooted devices). Play Billing protection is N/A.
+  Turn nothing else on.
+- **POLICY (important):** the app must NEVER take payment in-app. Users buy plans on
+  the web and the app only signs into their account, so Stripe is clear. An in-app
+  "upgrade" that takes payment would trigger Google's Play Billing requirement. Keep
+  all purchases web-only.
+
 ## Account decision (read first)
 
 UPDATE (2026-06-17): launching under the **ResearchOS LLC organization** accounts on
