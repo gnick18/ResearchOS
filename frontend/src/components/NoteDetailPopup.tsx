@@ -28,6 +28,7 @@ import { openNote, type NoteHandle } from "@/lib/loro/store";
 import { restoreLoroVersion, undoLoroRestore } from "@/lib/loro/restore";
 import { makeLoroHistoryEngine } from "@/lib/loro/history-engine";
 import { persistEntryContent } from "@/lib/notes/persist-entry-content";
+import { formatEntryDate, todayLocalISO } from "@/lib/notes/entry-date";
 import LiveMarkdownEditor from "./LiveMarkdownEditor";
 import NoteCommentsThread from "./NoteCommentsThread";
 import CommentsSidebar from "./CommentsSidebar";
@@ -256,9 +257,7 @@ export default function NoteDetailPopup({
   const sharedWithBeforeShareRef = useRef<import("@/lib/types").SharedUser[]>([]);
   const [showNewEntryForm, setShowNewEntryForm] = useState(false);
   const [newEntryTitle, setNewEntryTitle] = useState("");
-  const [newEntryDate, setNewEntryDate] = useState(
-    new Date().toISOString().split("T")[0]
-  );
+  const [newEntryDate, setNewEntryDate] = useState(todayLocalISO());
   // Unified Popup Chrome (UNIFIED_POPUP_CHROME_SPEC.md §4): CalmPopupShell now
   // OWNS the canonical expand state, the Focus toggle, the calm-surface class,
   // and the Escape state machine. This stays only as a local MIRROR the shell
@@ -1245,7 +1244,7 @@ export default function NoteDetailPopup({
       setActiveTab(updated.entries[updated.entries.length - 1].id);
       setShowNewEntryForm(false);
       setNewEntryTitle("");
-      setNewEntryDate(new Date().toISOString().split("T")[0]);
+      setNewEntryDate(todayLocalISO());
       onUpdate(updated);
     } catch (error) {
       console.error("Failed to add entry:", error);
@@ -1538,19 +1537,10 @@ export default function NoteDetailPopup({
   const activeRestoreBusy =
     LORO_PILOT_ENABLED && loroHandle ? loroRestoreBusy : restoreBusy;
 
-  // Format date for display
-  const formatDate = (dateStr: string) => {
-    if (!dateStr) return "";
-    try {
-      return new Date(dateStr).toLocaleDateString("en-US", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    } catch {
-      return dateStr;
-    }
-  };
+  // Format date for display. Date-only strings are read as LOCAL calendar days
+  // (see entry-date.ts) so the shown day matches the stored day in every
+  // timezone, not the UTC-parsed previous day.
+  const formatDate = formatEntryDate;
 
   // ── Unified Popup Chrome slots (UNIFIED_POPUP_CHROME_SPEC.md §2/§4) ─────────
   // The note's chrome is composed here as CalmPopupShell slots. The shell owns
@@ -2147,8 +2137,12 @@ export default function NoteDetailPopup({
                   </div>
                 ) : (
                 <LiveMarkdownEditor
-                  // Remount (re-seed from the Loro doc) after a restore/undo.
-                  key={`note-editor-${loroEditorRemountKey}`}
+                  // Key by entry id so switching tabs (or adding a fresh entry)
+                  // remounts the editor and re-seeds its document from the new
+                  // entry. Without this the CM6 instance keeps the prior entry's
+                  // text until the note is closed and reopened. The remount key
+                  // also re-seeds from the Loro doc after a restore/undo.
+                  key={`note-editor-${activeTab ?? "none"}-${loroEditorRemountKey}`}
                   value={currentEntry.content}
                   onChange={updateEntryContent}
                   placeholder="Write your meeting notes in Markdown..."
