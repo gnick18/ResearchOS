@@ -213,14 +213,15 @@ export default function LabCreateResume() {
     [currentUser],
   );
 
-  // Cold paid-signup door (Billing handoff). When the chooser's paid "Start a lab"
-  // CTA set the start-plan marker, send the freshly provisioned PI to the Stripe
-  // card-on-file checkout so a user who chose paid up front saves a card instead of
-  // landing as a free signed-in lab head. Runs once the lab + PI are provisioned
-  // (done). Best-effort and billing-flag-gated server side: a non-ok response
-  // (billing off, not ready) leaves them a provisioned free lab head, and the
-  // in-app upgrade nudge + settings panel still convert them later. Only the "lab"
-  // marker is ours, a future Solo door redirects from its own provisioning path.
+  // Paid "Start a lab" landing (NO-CARD-UP-FRONT, Grant 2026-06-17). The chooser's
+  // paid CTA sets the start-plan marker; we consume it once the lab + PI are
+  // provisioned, but DO NOT collect a card here. Per the no-card-up-front decision
+  // the lab head lands straight in the app as a provisioned lab head, and the card
+  // is captured later at the conversion moment (the in-app upgrade nudge + the
+  // settings billing panel). The old up-front Stripe card-on-file redirect was
+  // removed, it forced a card at signup AND its full external redirect to hosted
+  // Checkout dropped the local folder's read-write permission, dumping the user
+  // back at the folder picker with no confirmation on return.
   useEffect(() => {
     if (!done) return;
     let plan: string | null = null;
@@ -230,25 +231,13 @@ export default function LabCreateResume() {
       // sessionStorage unavailable; nothing to do.
     }
     if (plan !== "lab") return;
+    // Consume the marker so it does not linger. No Stripe redirect, the lab head
+    // simply lands in the app (no-card-up-front).
     try {
       sessionStorage.removeItem("researchos:start-plan");
     } catch {
       // best-effort consume.
     }
-    void (async () => {
-      try {
-        const res = await fetch("/api/billing/model-a/card-setup", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ planId: "lab" }),
-        });
-        if (!res.ok) return;
-        const data = (await res.json()) as { url?: string };
-        if (data.url) window.location.assign(data.url);
-      } catch {
-        // best-effort: stay a provisioned free lab head, the nudge converts later.
-      }
-    })();
   }, [done]);
 
   useEffect(() => {
