@@ -55,6 +55,7 @@ const EXCLUDED_PREFIXES = [
   "/sharing-setup-test", // dev-only test harness for the cross-boundary sharing setup wizard (NODE_ENV=development gated, renders "not available" in prod); not a user feature
   "/privacy", // privacy policy (legal/informational, no AppShell, not a documented app feature; like /open-source). OAuth providers require a privacy-policy URL
   "/terms", // terms of service (legal/informational, no AppShell, not a documented app feature; like /privacy and /open-source)
+  "/welcome", // retired standalone route, re-added 2026-06-18 as a small page: a log-out prompt for signed-in users + redirect to "/" for signed-out (the welcome lives on the signed-out landing at "/"). Entry/marketing surface, not a documented in-app feature (the archetype the other entries reference)
   "/welcome-preview", // internal design preview for the welcome page redesign, not a documented user feature
   "/dev-gate", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
   "/dev-join", // dev-only lab-flow entry route (IS_DEV gated, not a documented user feature; like /sharing-setup-test)
