@@ -26,6 +26,7 @@ import {
   formatUSD,
   isReimbursementSettlement,
   monthlyBurnCents,
+  researchosAppEmailSendAsWatch,
   subscriptionDeadlines,
   upcomingDeadlines,
   vercelOssApplicationDeadline,
@@ -2129,6 +2130,7 @@ export default function BusinessTracker() {
               deadlines={[
                 ...deadlines,
                 vercelOssApplicationDeadline(),
+                researchosAppEmailSendAsWatch(),
                 ...subscriptionDeadlines(subscriptions),
               ]
                 .filter((d): d is Deadline => d !== null)

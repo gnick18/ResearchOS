@@ -83,6 +83,7 @@ import {
   formatUSD,
   monthlyBurnCents,
   researchosAppDropWatch,
+  researchosAppEmailSendAsWatch,
   subscriptionDeadlines,
   vercelOssApplicationDeadline,
   type Deadline,
@@ -427,6 +428,7 @@ function DashboardSection({
         ...b.deadlines,
         vercelOssApplicationDeadline(),
         researchosAppDropWatch(),
+        researchosAppEmailSendAsWatch(),
         ...subscriptionDeadlines(b.subscriptions),
       ]
         .filter((d): d is Deadline => d !== null)
@@ -556,6 +558,7 @@ function FinanceSections({
     ...deadlines,
     vercelOssApplicationDeadline(),
     researchosAppDropWatch(),
+    researchosAppEmailSendAsWatch(),
     ...subscriptionDeadlines(subscriptions),
   ]
     .filter((d): d is Deadline => d !== null)

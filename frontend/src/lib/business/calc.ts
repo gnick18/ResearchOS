@@ -450,6 +450,28 @@ export function researchosAppDropWatch(now: Date = new Date()): Deadline | null 
   };
 }
 
+/** Target to finish the @research-os.app email send-as. The domain was
+ *  registered 2026-05-28, and ForwardEmail's free tier blocks all inbound
+ *  forwarding for domains under 90 days old (abuse hold), so the block lifts
+ *  around 2026-08-26. This target is the day after, with a little buffer. */
+export const RESEARCH_OS_APP_EMAIL_SENDAS_TARGET = "2026-08-27";
+
+/** One-time reminder to finish the Gmail "send mail as" for @research-os.app
+ *  once the ForwardEmail new-domain block lifts. Returns null after 2026-10-15
+ *  so it stops lingering whether or not it was completed. */
+export function researchosAppEmailSendAsWatch(now: Date = new Date()): Deadline | null {
+  const due = new Date(`${RESEARCH_OS_APP_EMAIL_SENDAS_TARGET}T00:00:00Z`);
+  const dropOff = new Date("2026-10-15T00:00:00Z");
+  if (now.getTime() >= dropOff.getTime()) return null;
+  return {
+    key: "research-os-app-email-send-as",
+    label: "Finish @research-os.app email send-as (ForwardEmail block lifts)",
+    dueDate: RESEARCH_OS_APP_EMAIL_SENDAS_TARGET,
+    daysUntil: daysUntil(due, now),
+    note: "research-os.app was registered 2026-05-28, so ForwardEmail's free tier blocks all inbound forwarding (abuse hold on domains under 90 days) until roughly 2026-08-26. Outbound via Resend already works. Once the block lifts, finish the Gmail Send mail as for grant@ and founders@research-os.app (SMTP already verified through Resend with the dedicated key gmail-send-as) by reopening Gmail Settings, Accounts, Send mail as, resending the confirmation, and clicking the link. Until then send founder mail from the plain Gmail. Detail in agent memory reference_email_infra.",
+  };
+}
+
 /** The upcoming deadlines, soonest first. WI report only if a formation date is set. */
 /**
  * The next Apple Developer Program renewal, the annual anniversary of the
