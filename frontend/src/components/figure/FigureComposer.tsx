@@ -2071,14 +2071,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 ["bracket", "Bracket"],
               ] as const
             ).map(([t, lbl]) => (
-              <button
-                key={t}
-                type="button"
-                onClick={() => setTool(tool === t ? null : t)}
-                className={`flex-1 rounded-lg border px-2 py-1.5 text-meta font-medium ${tool === t ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
-              >
-                {lbl}
-              </button>
+              <Tooltip key={t} label={lbl}>
+                <button
+                  type="button"
+                  aria-label={lbl}
+                  onClick={() => setTool(tool === t ? null : t)}
+                  className={`flex flex-1 items-center justify-center rounded-lg border px-2 py-2 ${tool === t ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong text-foreground-muted hover:border-brand-action"}`}
+                >
+                  <Icon name={t as IconName} className="h-4 w-4" />
+                </button>
+              </Tooltip>
             ))}
           </div>
           {/* Typed-text picker: choose the semantic style the Text tool places. */}
@@ -2111,13 +2113,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
             Connect
           </h3>
-          <button
-            type="button"
-            onClick={() => setTool(tool === "connect" ? null : "connect")}
-            className={`w-full rounded-lg border px-2 py-1.5 text-meta font-medium ${tool === "connect" ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong hover:border-brand-action"}`}
-          >
-            {tool === "connect" ? "Connecting (drag node to node)" : "Smart connector"}
-          </button>
+          <Tooltip label={tool === "connect" ? "Connecting (drag node to node)" : "Smart connector"}>
+            <button
+              type="button"
+              aria-label="Smart connector"
+              onClick={() => setTool(tool === "connect" ? null : "connect")}
+              className={`flex items-center justify-center rounded-lg border px-3 py-2 ${tool === "connect" ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong text-foreground-muted hover:border-brand-action"}`}
+            >
+              <Icon name="connector" className="h-4 w-4" />
+            </button>
+          </Tooltip>
           {tool === "connect" && (
             <p className="mt-2 text-meta text-foreground-faint">
               Drag from a blue node on one element onto another element to connect them.

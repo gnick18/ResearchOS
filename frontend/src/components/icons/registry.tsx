@@ -1093,6 +1093,34 @@ const ICONS_RAW = {
       </>
     ),
   },
+  arrow: {
+    concept: "Arrow annotation / pointer that points at a figure feature",
+    body: (
+      <>
+        <path d="M17 7 7 17" />
+        <path d="M8 7h9v9" />
+      </>
+    ),
+  },
+  bracket: {
+    concept: "Bracket annotation / square brackets that span or group a range",
+    body: (
+      <>
+        <path d="M9 5H7v14h2" />
+        <path d="M15 5h2v14h-2" />
+      </>
+    ),
+  },
+  connector: {
+    concept: "Smart connector / line that links one element to another at node anchors",
+    body: (
+      <>
+        <path d="M8 16 16 8" />
+        <circle cx="6" cy="18" r="2" />
+        <circle cx="18" cy="6" r="2" />
+      </>
+    ),
+  },
   emptySet: {
     concept: "Empty set / missing or null values",
     body: (
