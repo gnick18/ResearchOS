@@ -82,19 +82,17 @@ let originalWebSocket: typeof WebSocket | undefined;
 
 beforeEach(() => {
   fakeInstances = [];
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  originalWebSocket = (globalThis as any).WebSocket as typeof WebSocket | undefined;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  (globalThis as any).WebSocket = FakeWebSocket;
+  const g = globalThis as Record<string, unknown>;
+  originalWebSocket = g.WebSocket as typeof WebSocket | undefined;
+  g.WebSocket = FakeWebSocket;
 });
 
 afterEach(() => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const g = globalThis as Record<string, unknown>;
   if (originalWebSocket !== undefined) {
-    (globalThis as any).WebSocket = originalWebSocket;
+    g.WebSocket = originalWebSocket;
   } else {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).WebSocket;
+    Reflect.deleteProperty(g, "WebSocket");
   }
 });
 

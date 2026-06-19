@@ -110,7 +110,7 @@ function buildMultiVersionDoc(owner: string): {
   note: Note;
   firstContent: string;
   secondContent: string;
-  devicePeer: BigInt;
+  devicePeer: bigint;
 } {
   const note = fixtureNote();
   const firstContent = "Annealing temp 58 C, 30 cycles.";

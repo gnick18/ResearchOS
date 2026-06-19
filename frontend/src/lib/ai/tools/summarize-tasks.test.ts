@@ -7,7 +7,7 @@
 import { describe, it, expect } from "vitest";
 import { aggregateTasks } from "./summarize-tasks";
 import { taskSummaryReport } from "@/lib/ai/summary-report";
-import type { Task } from "@/lib/types";
+import type { Task, PiFlag } from "@/lib/types";
 
 function task(partial: Partial<Task> & { id: number }): Task {
   return {
@@ -43,7 +43,7 @@ function sampleTasks(): Task[] {
     task({ id: 2, name: "order tips", end_date: "2026-06-18", task_type: "purchase" }), // due this week
     task({ id: 3, name: "list item", end_date: "2026-06-30", task_type: "list" }), // upcoming
     task({ id: 4, name: "done exp", end_date: "2026-06-05", is_complete: true }), // complete (not overdue)
-    task({ id: 5, name: "delegated", end_date: "2026-06-12", owner: "me", assignee: "alice", flagged: { by: "pi", at: "x" } as any }), // overdue + assigned + flagged
+    task({ id: 5, name: "delegated", end_date: "2026-06-12", owner: "me", assignee: "alice", flagged: { by: "pi", at: "x" } satisfies PiFlag }), // overdue + assigned + flagged
   ];
 }
 

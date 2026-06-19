@@ -790,11 +790,9 @@ function bakeFile(
 
 /** The external dependencies bakeAllEmbeds needs from the environment.
  *  Providing them explicitly (rather than closing over module-level singletons)
- *  makes the function mockable in unit tests. */
-export interface BakeEmbedsDeps {
-  // Intentionally left structurally open so callers can pass the real singletons
-  // or test mocks. The module-level re-exports above are the real values.
-}
+ *  makes the function mockable in unit tests. Structurally open so callers can
+ *  pass the real singletons or test mocks. */
+export type BakeEmbedsDeps = object;
 
 /**
  * Pre-pass: scan all block-embed references in one or more markdown strings,

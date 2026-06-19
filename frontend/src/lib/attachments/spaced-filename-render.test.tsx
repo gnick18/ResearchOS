@@ -22,16 +22,19 @@ import { encodeAttachmentRefPath, blobUrlResolver } from "@/lib/utils/blob-url-r
 function capturedImgSrc(md: string): string | null {
   let src: string | null = null;
   renderToStaticMarkup(
-    createElement(ReactMarkdown, {
-      remarkPlugins: [remarkGfm],
-      components: {
-        img: ({ src: s }) => {
-          src = s == null ? "" : String(s);
-          return null;
+    createElement(
+      ReactMarkdown,
+      {
+        remarkPlugins: [remarkGfm],
+        components: {
+          img: ({ src: s }) => {
+            src = s == null ? "" : String(s);
+            return null;
+          },
         },
       },
-      children: md,
-    }),
+      md,
+    ),
   );
   return src;
 }
