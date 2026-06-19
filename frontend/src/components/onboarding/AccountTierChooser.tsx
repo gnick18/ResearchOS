@@ -21,6 +21,7 @@
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { LAB_TIER_ENABLED } from "@/lib/lab/config";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
@@ -759,10 +760,14 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
   if (step.view === "tiles") {
     return (
       <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
-        {/* header BeakerBot + wordmark */}
-        <div className="w-16 h-20 mb-3 flex-none">
-          <BeakerBotScene name="solo" className="w-full h-full" />
-        </div>
+        {/* Canonical mascot. For the common two-option layout he sits BETWEEN
+            the tiles (below). For one or three tiles there is no clean "between",
+            so he leads from the top instead. */}
+        {tileCount !== 2 && (
+          <div className="mb-1 flex-none">
+            <WelcomeMascot />
+          </div>
+        )}
 
         <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
           How will you use ResearchOS?
@@ -772,42 +777,40 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
         </p>
 
         {/* tiles */}
-        <div
-          className={["grid gap-4 w-full max-w-3xl mt-8", gridCols].join(" ")}
-        >
-          {/* Local-only tile, hidden when the require-account flag retires the
-              no-account path (kept as a defensive fallback, see showLocal). */}
-          {showLocal && (
-          <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
-            <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
-            <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
-              Free
-            </span>
-            <h3 className="font-extrabold text-lg text-foreground mb-1">Just me, local</h3>
-            <p className="text-xs text-foreground-muted mt-1">
-              Everything stays on your computer. No account, no login, nothing
-              leaves your disk.
-            </p>
-            <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
-              <li>Full app, offline</li>
-              <li>No sign-in ever</li>
-              <li>Most private</li>
-            </ul>
-            <div className="mt-auto pt-4">
-              <button
-                type="button"
-                className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
-                onClick={handleLocal}
-              >
-                Start local
-              </button>
+        {(() => {
+          // Local-only tile, hidden when the require-account flag retires the
+          // no-account path (kept as a defensive fallback, see showLocal).
+          const localTile = showLocal ? (
+            <div key="local" className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
+              <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
+                Free
+              </span>
+              <h3 className="font-extrabold text-lg text-foreground mb-1">Just me, local</h3>
+              <p className="text-xs text-foreground-muted mt-1">
+                Everything stays on your computer. No account, no login, nothing
+                leaves your disk.
+              </p>
+              <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
+                <li>Full app, offline</li>
+                <li>No sign-in ever</li>
+                <li>Most private</li>
+              </ul>
+              <div className="mt-auto pt-4">
+                <button
+                  type="button"
+                  className="w-full py-2 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
+                  onClick={handleLocal}
+                >
+                  Start local
+                </button>
+              </div>
             </div>
-          </div>
-          )}
+          ) : null;
 
-          {/* Free account tile — shown when SHARING_ENABLED */}
-          {showFree && (
-            <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
+          // Free account tile, shown when SHARING_ENABLED.
+          const freeTile = showFree ? (
+            <div key="free" className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="computer" className="w-20 h-20 mb-2 flex-none" />
               <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
                 Free
@@ -834,15 +837,15 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
                 </button>
               </div>
             </div>
-          )}
+          ) : null;
 
-          {/* Start-a-lab tile, LAB HEAD ONLY (shown when LAB_TIER_ENABLED). A
-              joining member uses the separate free "Join a lab" entry below, and
-              must never be funneled through this paid create path. Suppressed
-              entirely while a pending invite is stashed (showCreateLab), so an
-              invited visitor can never create a spurious second lab. */}
-          {showCreateLab && (
-            <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
+          // Start-a-lab tile, LAB HEAD ONLY (shown when LAB_TIER_ENABLED). A
+          // joining member uses the separate free "Join a lab" entry below, and
+          // must never be funneled through this paid create path. Suppressed
+          // entirely while a pending invite is stashed (showCreateLab), so an
+          // invited visitor can never create a spurious second lab.
+          const labTile = showCreateLab ? (
+            <div key="lab" className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
               <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
                 Paid
@@ -868,8 +871,28 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
                 </button>
               </div>
             </div>
-          )}
-        </div>
+          ) : null;
+
+          const tiles = [localTile, freeTile, labTile].filter(Boolean);
+
+          // Two options: the canonical mascot sits BETWEEN them (a flex row on
+          // desktop, stacked with him between the two on mobile). One or three
+          // options fall back to the grid with the mascot up top.
+          if (tiles.length === 2) {
+            return (
+              <div className="mt-8 flex w-full max-w-3xl flex-col items-center gap-4 sm:flex-row sm:items-stretch sm:gap-6">
+                <div className="w-full sm:flex-1">{tiles[0]}</div>
+                <WelcomeMascot className="flex-none self-center" />
+                <div className="w-full sm:flex-1">{tiles[1]}</div>
+              </div>
+            );
+          }
+          return (
+            <div className={["grid gap-4 w-full max-w-3xl mt-8", gridCols].join(" ")}>
+              {tiles}
+            </div>
+          );
+        })()}
 
         {/* JOIN A LAB: a member joining is FREE (only the PI pays), so this is a
             separate, clearly-free entry that routes straight to the invite path
