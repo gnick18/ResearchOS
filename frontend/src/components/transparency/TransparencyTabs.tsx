@@ -1,22 +1,28 @@
 "use client";
 
 /**
- * Tabbed body of the /transparency page. One tab per validated domain (Tm,
- * alignment, digest, translation); only the selected domain's panel is shown.
+ * Rail + panel body of the /transparency page. A sticky grouped left rail
+ * (TransparencyRail) switches between validated domains, and a single
+ * summary-first panel renders the active one.
  *
  * The report itself is computed on the server in `TransparencyView` and passed
  * in as plain serializable data, so none of the bioinformatic engines are
- * bundled into the client. This component only holds the active-tab state and
+ * bundled into the client. This component only holds the active-domain state and
  * renders the already-computed numbers + visuals.
  *
- * Voice: factual, no em-dashes, no emojis, no mid-sentence colons. Every icon is
- * an inline SVG.
+ * Panel order is summary-first: a plain-language verdict header, the domain
+ * summary plus a quiet tested-module line, the signature visual, then the full
+ * per-case table behind a "Show all" disclosure, then the references in a
+ * de-emphasized block at the very bottom.
+ *
+ * Voice: factual, no em-dashes, no emojis, no mid-sentence colons. The only
+ * inline SVGs here are the ExternalIcon and Chevron helpers (baseline holds 2).
  */
 
 import { useState, type ReactNode } from "react";
 
-import { domainCounts } from "@/lib/transparency/summary";
-import type { CaseResult, DomainReport, OracleRef } from "@/lib/transparency/types";
+import { domainCounts, type AgreementCounts } from "@/lib/transparency/summary";
+import type { CaseResult, DomainReport, OracleRef, ScalarComparison } from "@/lib/transparency/types";
 
 import AlignmentColumns from "./AlignmentColumns";
 import CodonTrack from "./CodonTrack";
@@ -30,6 +36,7 @@ import PropertyTable from "./PropertyTable";
 import ScalarMixedTable from "./ScalarMixedTable";
 import SequenceMatch from "./SequenceMatch";
 import StatusPill from "./StatusPill";
+import TransparencyRail from "./TransparencyRail";
 
 /** Stable accent colors per oracle for the scatter + legend. */
 const ORACLE_COLOR: Record<string, string> = {
@@ -301,7 +308,7 @@ function Collapsible({ label, children }: { label: string; children: ReactNode }
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted hover:border-sky-300 hover:text-sky-700"
+        className="inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-meta font-medium text-foreground-muted hover:border-brand-action/40 hover:text-brand-action"
         aria-expanded={open}
       >
         {open ? "Hide" : "Show"} {label}
@@ -312,36 +319,81 @@ function Collapsible({ label, children }: { label: string; children: ReactNode }
   );
 }
 
-/** Small exact / within / flagged summary chips for a domain. */
-function DomainSummary({ domain }: { domain: DomainReport }) {
-  const c = domainCounts(domain.cases.flatMap((cc) => cc.comparisons));
-  const hasInfo = domain.cases.some((cc) => cc.comparisons.some((cmp) => cmp.informational));
-  const infoCount = domain.cases.reduce(
-    (n, cc) => n + cc.comparisons.filter((cmp) => cmp.informational).length,
-    0,
-  );
+/**
+ * One plain-language verdict for the domain, derived from the gated counts. The
+ * pill leads the panel so the reader gets the conclusion before any numbers.
+ */
+function domainVerdict(counts: AgreementCounts): { label: string; tone: "exact" | "tolerance" | "flagged" } {
+  if (counts.larger > 0) return { label: "Differences flagged", tone: "flagged" };
+  if (counts.within > 0 || counts.expected > 0) return { label: "Within documented tolerance", tone: "tolerance" };
+  return { label: "All comparisons exact", tone: "exact" };
+}
+
+function VerdictChip({ counts }: { counts: AgreementCounts }) {
+  const verdict = domainVerdict(counts);
+  const style =
+    verdict.tone === "exact"
+      ? "bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-200"
+      : verdict.tone === "flagged"
+        ? "bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-200"
+        : "bg-surface-sunken text-foreground-muted ring-border";
+  const dot =
+    verdict.tone === "exact" ? "bg-emerald-500" : verdict.tone === "flagged" ? "bg-amber-500" : "bg-foreground-muted";
   return (
-    <div className="flex flex-wrap items-center gap-2 text-meta">
-      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 dark:bg-emerald-500/15 px-2.5 py-0.5 font-semibold text-emerald-700 dark:text-emerald-300 ring-1 ring-inset ring-emerald-200">
-        {c.exact} exact
-      </span>
-      {c.within > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-gray-100 dark:bg-gray-700/50 px-2.5 py-0.5 font-semibold text-gray-600 dark:text-gray-300">
-          {c.within} within tolerance
+    <span
+      className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-meta font-semibold ring-1 ring-inset ${style}`}
+    >
+      <span aria-hidden className={`h-2 w-2 rounded-full ${dot}`} />
+      {verdict.label}
+    </span>
+  );
+}
+
+/**
+ * The single most representative gated comparison for a scalar domain, rendered
+ * below as a readable pair instead of a six-column table. Prefers a non-exact
+ * case (so the reader sees a real number-to-number agreement) and falls back to
+ * the first gated comparison.
+ */
+function representativeComparison(
+  domain: DomainReport,
+): { label: string; oracleName: string; ours: number; theirs: number; unit: string } | null {
+  let fallback: { c: CaseResult; cmp: ScalarComparison } | null = null;
+  let nonExact: { c: CaseResult; cmp: ScalarComparison } | null = null;
+  for (const c of domain.cases) {
+    for (const cmp of c.comparisons) {
+      if (cmp.informational) continue;
+      if (!fallback) fallback = { c, cmp };
+      if (!nonExact && cmp.delta !== 0) nonExact = { c, cmp };
+    }
+  }
+  const pick = nonExact ?? fallback;
+  if (!pick) return null;
+  return {
+    label: pick.c.label,
+    oracleName: oracleName(domain.oracles, pick.cmp.oracleId),
+    ours: pick.cmp.ours,
+    theirs: pick.cmp.theirs,
+    unit: pick.cmp.tolerance.unit,
+  };
+}
+
+/** De-emphasized references block, collapsed by default at the foot of a panel. */
+function References({ oracles }: { oracles: OracleRef[] }) {
+  return (
+    <details className="group mt-8 border-t border-border pt-5">
+      <summary className="flex cursor-pointer list-none items-center gap-1.5 text-meta font-medium text-foreground-muted transition hover:text-foreground [&::-webkit-details-marker]:hidden">
+        References ({oracles.length})
+        <span aria-hidden className="font-mono transition-transform group-open:rotate-90">
+          &rsaquo;
         </span>
-      ) : null}
-      {c.expected > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-slate-100 dark:bg-slate-700/50 px-2.5 py-0.5 font-semibold text-slate-600 dark:text-slate-300">
-          {c.expected} expected difference{c.expected === 1 ? "" : "s"}
-        </span>
-      ) : null}
-      {c.larger > 0 ? (
-        <span className="inline-flex items-center rounded-full bg-amber-50 dark:bg-amber-500/15 px-2.5 py-0.5 font-semibold text-amber-700 dark:text-amber-300 ring-1 ring-inset ring-amber-200">
-          {c.larger} larger difference{c.larger === 1 ? "" : "s"}
-        </span>
-      ) : null}
-      {hasInfo ? <span className="text-foreground-muted">+ {infoCount} cross-method context</span> : null}
-    </div>
+      </summary>
+      <ul className="mt-4 space-y-2">
+        {oracles.map((o) => (
+          <OracleCitation key={o.id} oracle={o} />
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -384,32 +436,63 @@ function DomainPanel({ domain }: { domain: DomainReport }) {
     detail = <ScalarTable domain={domain} unit={unit} />;
   }
 
+  const counts = domainCounts(domain.cases.flatMap((cc) => cc.comparisons));
+  const rep = isScatter ? representativeComparison(domain) : null;
+  const hasInfo = domain.cases.some((cc) => cc.comparisons.some((cmp) => cmp.informational));
+  const infoCount = domain.cases.reduce(
+    (n, cc) => n + cc.comparisons.filter((cmp) => cmp.informational).length,
+    0,
+  );
+
   return (
     <div>
-      <h2 className="mb-2 text-heading font-bold tracking-tight text-foreground">{domain.title}</h2>
-      <DomainSummary domain={domain} />
+      {/* (a) Verdict header: title + one plain-language status chip. */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <h2 className="text-heading font-bold tracking-tight text-brand-ink">{domain.title}</h2>
+        <VerdictChip counts={counts} />
+      </div>
 
-      <p className="mb-2 mt-4 max-w-2xl text-body text-foreground-muted">{domain.summary}</p>
-      <p className="mb-6 text-meta text-foreground-muted">
-        Tested module: <span className="font-mono text-foreground-muted">{domain.impl}</span>
+      {/* (b) Summary sentence + quiet tested-module line. */}
+      <p className="mt-3 max-w-2xl text-body text-foreground-muted">{domain.summary}</p>
+      <p className="mt-2 text-meta text-foreground-muted">
+        Tested module <span className="font-mono text-foreground-muted">{domain.impl}</span>
       </p>
 
-      {/* The scatter is the at-a-glance summary for a scalar domain, so it stays
-          visible; the per-row tables and per-case cards collapse so the panel
-          reads as a summary rather than a wall of verdicts. */}
+      {/* A single readable representative comparison for scalar domains, so the
+          summary view shows a real number-to-number agreement without a table. */}
+      {rep ? (
+        <p className="mt-4 text-body text-foreground">
+          <span className="text-foreground-muted">{rep.label}</span>
+          {"  "}
+          <span className="font-mono text-foreground">ResearchOS {rep.ours} {rep.unit}</span>
+          <span className="text-foreground-muted"> = </span>
+          <span className="font-mono text-foreground">{rep.oracleName} {rep.theirs} {rep.unit}</span>
+        </p>
+      ) : null}
+
+      {/* (c) The signature visual stays prominent. For scalar domains that is the
+          agreement scatter; visual and mixed-unit domains carry their own
+          picture inside the disclosure below. */}
       {isScatter ? (
-        <div className="mb-6 max-w-xl">
+        <div className="mt-6 max-w-xl">
           <ParityScatter points={points} oracles={oracleStyles} unit={unit} />
         </div>
       ) : null}
 
-      <Collapsible label={`all ${gatedTotal} comparisons`}>{detail}</Collapsible>
+      {hasInfo ? (
+        <p className="mt-4 text-meta text-foreground-muted">
+          Plus {infoCount} cross-method context comparison{infoCount === 1 ? "" : "s"}, shown for
+          reference and not counted toward the totals.
+        </p>
+      ) : null}
 
-      <ul className="mt-6 space-y-2">
-        {domain.oracles.map((o) => (
-          <OracleCitation key={o.id} oracle={o} />
-        ))}
-      </ul>
+      {/* (d) The full per-case table stays behind the disclosure. */}
+      <div className="mt-6">
+        <Collapsible label={`all ${gatedTotal} comparisons`}>{detail}</Collapsible>
+      </div>
+
+      {/* (e) De-emphasized references at the very bottom. */}
+      <References oracles={domain.oracles} />
     </div>
   );
 }
@@ -421,37 +504,12 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
   if (!active) return null;
 
   return (
-    <div>
-      <div role="tablist" aria-label="Validated calculations" className="flex flex-wrap gap-1 border-b border-border">
-        {domains.map((d) => {
-          const selected = d.id === active.id;
-          return (
-            <button
-              key={d.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => setActiveId(d.id)}
-              className={`-mb-px flex items-center gap-2 rounded-t-lg border border-b-2 px-4 py-2.5 text-body font-medium transition ${
-                selected
-                  ? "border-sky-200 dark:border-sky-500/30 border-b-sky-600 bg-sky-50/70 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300"
-                  : "border-transparent border-b-transparent text-foreground-muted hover:border-b-border hover:text-foreground"
-              }`}
-            >
-              {d.title}
-              <span
-                className={`rounded-full px-1.5 py-0.5 text-meta font-semibold tabular-nums ${
-                  selected ? "bg-sky-100 dark:bg-sky-500/15 text-sky-700 dark:text-sky-300" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
-                }`}
-              >
-                {d.totals.pass}/{total(d)}
-              </span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8">
+      <aside className="md:sticky md:top-6 md:self-start">
+        <TransparencyRail domains={domains} activeId={active.id} onSelect={setActiveId} />
+      </aside>
 
-      <div role="tabpanel" className="pt-10">
+      <div role="tabpanel" className="min-w-0">
         <DomainPanel domain={active} />
       </div>
     </div>
