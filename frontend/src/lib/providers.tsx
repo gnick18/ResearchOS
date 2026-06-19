@@ -455,12 +455,20 @@ function AppContent({ children }: { children: ReactNode }) {
   // browser, so they bypass the File System Access + folder-connect gate exactly
   // like the operator and marketing routes do (cloud-accounts Phase 1: data is
   // local, the account is cloud).
+  //
+  // The lab-join page is folderless too, and it is load-bearing for the onboarding
+  // join-vs-create branch. A fresh invited visitor (no folder yet) must reach it so
+  // it can STASH the invite (which the rest of onboarding reads to route them to
+  // JOIN, not create) and offer "sign in or create an account". Without this it
+  // fell through to the front-door landing, the invite was never stashed, and the
+  // visitor was funneled into creating a spurious second lab (the co-founder test).
   const isFolderlessAccountRoute =
     pathname === "/account" ||
     pathname?.startsWith("/department") ||
     pathname?.startsWith("/institution") ||
     pathname?.startsWith("/dept/") ||
-    pathname?.startsWith("/u/");
+    pathname?.startsWith("/u/") ||
+    pathname?.startsWith("/lab/join");
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
   // so non-React-tree consumers (e.g. the onboarding-v4 cursor scripts
