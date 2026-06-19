@@ -63,6 +63,14 @@ import { useRunningTimerCount } from "@/lib/timers/laptop-timers";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
+import RequireAccountGate from "@/components/account/RequireAccountGate";
+import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import {
+  isRequireAccountEnabled,
+  shouldGateForClaim,
+} from "@/lib/account/require-account";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
 import LabGenesisPublishRetry from "@/components/lab/LabGenesisPublishRetry";
@@ -93,6 +101,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // settings rail badge by key, so this is not an extra fetch.
   const pendingRequests = useLabPendingRequests();
   const { currentUser } = useFileSystem();
+  // Require-account enforcement (require-account-ironclad, 2026-06-18). A
+  // connected user whose account is local-only (a keypair with no verified-email
+  // binding, status "ready" + not published) is held at the claim gate before
+  // the app renders. Guarded so it never soft-locks: only when require-account
+  // is on, an OAuth claim path actually exists, and not in demo/capture. The
+  // identity hook is called unconditionally here to keep hook order stable.
+  const identity = useSharingIdentity();
+  // Whether an OAuth session exists (null while the imperative check resolves).
+  // This is the gate's release signal: the requirement is "signed in", not a
+  // successful directory publish.
+  const hasCloudSession = useHasCloudSession();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
   // Onboarding v3 §10: feature_picks is the primary tab-visibility
@@ -449,6 +468,40 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           : `linear-gradient(to right, ${stop1}, ${stop2})`,
       }
     : undefined;
+
+  // Hold a local-only account at the claim gate before the app renders. All
+  // hooks above have run, so this early return keeps hook order stable. The
+  // guards encode the no-soft-lock rule: skip when require-account is off, when
+  // there is no OAuth claim path to complete, in demo/capture, and never block
+  // while the identity read is still resolving (status only becomes "ready"
+  // after the async read settles, and a stalled read falls back to "none").
+  //
+  // CRITICAL: skip the gate while a claim is actively resuming (?sharingClaim /
+  // ?sharingEmail in the URL). During that window the normal shell must render
+  // so the global SharingClaimResume below mounts and finishes keygen + publish.
+  // The gate's own panel cannot resume a claim, so blocking here would loop the
+  // user back to the claim screen after every OAuth round-trip.
+  const claimResuming =
+    !!searchParams?.get("sharingClaim") || !!searchParams?.get("sharingEmail");
+  const mustClaimAccount =
+    !claimResuming &&
+    shouldGateForClaim({
+      requireAccount: isRequireAccountEnabled(),
+      oauthPublishAvailable: isOAuthPublishAvailable(),
+      hasConnectedUser: !!currentUser,
+      isDemoOrCapture: isDemoOrWikiCapture(),
+      identityStatus: identity.status,
+      published: identity.published,
+      hasCloudSession,
+    });
+  if (mustClaimAccount && currentUser) {
+    return (
+      <RequireAccountGate
+        username={currentUser}
+        onClaimed={() => void identity.refresh()}
+      />
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-surface-sunken">

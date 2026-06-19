@@ -14,7 +14,7 @@ import {
   listPublishedPages,
 } from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
-import { labSiteOrigin, labSlugFromHost } from "@/lib/social/lab-byo";
+import { labSlugFromHost } from "@/lib/social/lab-byo";
 import { getByoSiteByOwner } from "@/lib/social/lab-byo-db";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
@@ -162,8 +162,17 @@ export default async function LabSitePublicPage({
     const host = (await headers()).get("host");
     const onSubdomain = labSlugFromHost(host) === slug;
     if (!onSubdomain) {
-      const tail = normPath ? `/${normPath}` : "";
-      permanentRedirect(`${labSiteOrigin(slug)}${tail}`);
+      // A cross-origin redirect from a Server Component render returns a 200
+      // client-side fallback, not a real 308, so hop through a same-origin route
+      // handler (api/social/lab-site/goto) that issues the true 308 to the
+      // subdomain. The slug is already DB-gated above (decision === render), so the
+      // handler is just the cross-origin mechanism.
+      const gotoParams = new URLSearchParams({ slug });
+      if (normPath) gotoParams.set("path", normPath);
+      console.log("[lab301-diag2] about to permanentRedirect", slug);
+      permanentRedirect(`/api/social/lab-site/goto?${gotoParams.toString()}`);
+      // SENTINEL: must never print. If it does, the NEXT_REDIRECT throw was caught.
+      console.log("[lab301-diag2] AFTER permanentRedirect (throw swallowed!)", slug);
     }
   }
   // Resolve the frozen baked-block snapshots (Phase 3b). The public reader has no

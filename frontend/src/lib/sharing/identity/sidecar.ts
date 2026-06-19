@@ -83,11 +83,25 @@ export async function readSharingIdentity(
 /**
  * Writes (or replaces) the sharing identity sidecar for a user.
  */
+/**
+ * Window event fired after a sharing-identity sidecar write (claim, rotate,
+ * restore). Live readers (useSharingIdentity) subscribe so a surface like the
+ * require-account gate releases the instant a claim publishes, without waiting
+ * for a remount. detail.username names the affected user.
+ */
+export const SHARING_IDENTITY_WRITTEN_EVENT = "researchos:sharing-identity-written";
+
 export async function writeSharingIdentity(
   username: string,
   data: SharingIdentitySidecar,
 ): Promise<void> {
   await fileService.writeJson(sidecarPath(username), data);
+  // Notify live readers across hook instances. Best-effort and browser-only.
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent(SHARING_IDENTITY_WRITTEN_EVENT, { detail: { username } }),
+    );
+  }
 }
 
 /**
