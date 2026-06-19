@@ -1,0 +1,85 @@
+<!-- @dsCard group="Navigation" name="Tabs and nav" subtitle="Top nav bar treatment, a tab row with active brand-action fill, and a breadcrumb trail" width="920" height="520" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS tabs and nav</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 26px; max-width: 660px; line-height: 1.45; }
+  h2 { font-size: var(--text-meta); color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 28px 0 12px; }
+
+  /* Top nav bar: raised surface, hairline bottom border, rounded pill items */
+  .navbar {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 8px 12px;
+  }
+  .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; color: var(--brand-ink); font-size: var(--text-title); }
+  .brand .logo { width: 22px; height: 22px; border-radius: 7px; background: var(--brand-rainbow-vivid); }
+  .nav-items { display: flex; align-items: center; gap: 4px; flex: 1; }
+  /* pill nav item, rounded-lg, active = accent-soft + accent text */
+  .nav-item { font-size: 13px; color: var(--foreground-muted); padding: 5px 10px; border-radius: var(--radius-md); }
+  .nav-item:hover { color: var(--foreground); background: var(--surface-sunken); }
+  .nav-item.active { color: var(--brand-action); background: var(--accent-soft); font-weight: 500; }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
+  .nav-cta { font-size: 13px; font-weight: 500; color: #fff; background: var(--brand-action); padding: 6px 12px; border-radius: var(--radius-md); box-shadow: var(--ros-btn-raise); }
+  .avatar { width: 28px; height: 28px; border-radius: 999px; background: var(--brand-sky); }
+
+  /* Tab row: underline-on-active, brand-action accent */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border-subtle); }
+  .tab { font-size: var(--text-body); color: var(--foreground-muted); padding: 9px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .tab:hover { color: var(--foreground); }
+  .tab.active { color: var(--brand-action); border-bottom-color: var(--brand-action); font-weight: 500; }
+
+  /* Breadcrumb */
+  .crumbs { display: flex; align-items: center; gap: 8px; font-size: var(--text-body); }
+  .crumbs a { color: var(--foreground-muted); text-decoration: none; }
+  .crumbs a:hover { color: var(--foreground); }
+  .crumbs .sep { color: var(--foreground-muted); opacity: 0.6; }
+  .crumbs .current { color: var(--foreground); font-weight: 500; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Tabs and nav</h1>
+  <p class="sub">Navigation uses brand-action as the single active signal. Top-nav items fill with accent-soft when active, tabs underline in brand-action, and breadcrumbs keep the trail muted with a solid current page.</p>
+
+  <h2>Top nav bar</h2>
+  <div class="navbar">
+    <span class="brand"><span class="logo"></span>ResearchOS</span>
+    <div class="nav-items">
+      <span class="nav-item active">Experiments</span>
+      <span class="nav-item">Methods</span>
+      <span class="nav-item">Sequences</span>
+      <span class="nav-item">Data Hub</span>
+      <span class="nav-item">Lab</span>
+    </div>
+    <div class="nav-right">
+      <span class="nav-cta">New</span>
+      <span class="avatar"></span>
+    </div>
+  </div>
+
+  <h2>Tab row</h2>
+  <div class="tabs">
+    <span class="tab active">Overview</span>
+    <span class="tab">Notes</span>
+    <span class="tab">Attachments</span>
+    <span class="tab">History</span>
+  </div>
+
+  <h2>Breadcrumb</h2>
+  <div class="crumbs">
+    <a href="#">Gluck-Thaler Lab</a>
+    <span class="sep">&#8250;</span>
+    <a href="#">Experiments</a>
+    <span class="sep">&#8250;</span>
+    <span class="current">Western blot, anti-FLAG</span>
+  </div>
+</body>
+</html>

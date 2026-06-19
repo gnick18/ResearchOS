@@ -1,0 +1,108 @@
+<!-- @dsCard group="Overlays" name="Dialogs, popovers, tooltips" subtitle="Modal dialog (overlay + card shadow + xl radius), a popover menu, and a tooltip bubble" width="920" height="600" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS overlays</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 26px; max-width: 660px; line-height: 1.45; }
+  h2 { font-size: var(--text-meta); color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 14px; }
+  .stage-row { display: flex; gap: 36px; align-items: flex-start; }
+  .col-wide { flex: 0 0 420px; }
+  .col-narrow { flex: 1; display: flex; flex-direction: column; gap: 34px; }
+
+  /* Modal dialog: surface-overlay + card shadow + xl radius, on a dimmed scrim */
+  .scrim { background: rgba(15, 23, 42, 0.32); border-radius: var(--radius-lg); padding: 28px; }
+  .dialog {
+    background: var(--surface-overlay);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--ros-popup-card-shadow);
+    overflow: hidden;
+  }
+  .dialog-head { padding: 18px 20px 12px; border-bottom: 1px solid var(--border-subtle); }
+  .dialog-title { font-size: var(--text-title); font-weight: 600; color: var(--foreground); margin: 0; }
+  .dialog-body { padding: 16px 20px; font-size: var(--text-body); color: var(--foreground); line-height: 1.5; }
+  .dialog-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 20px 18px; }
+  .btn { font-family: var(--font-sans); font-size: var(--text-body); font-weight: 500; line-height: 1; border-radius: var(--radius-md); padding: 9px 16px; border: 1px solid transparent; cursor: pointer; }
+  .btn-primary { background: var(--brand-action); color: #fff; box-shadow: var(--ros-btn-raise); }
+  .btn-neutral { background: var(--surface-raised); color: var(--foreground); border-color: var(--border-subtle); box-shadow: var(--ros-btn-raise); }
+
+  /* Popover: smaller raise (popover-shadow), xl radius, p-1.5 menu of rows */
+  .popover {
+    background: var(--surface-overlay);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 6px;
+    width: 220px;
+  }
+  .pop-head { padding: 6px 10px 8px; font-size: 10.5px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--foreground-muted); }
+  .pop-item { display: flex; align-items: center; gap: 9px; padding: 8px 10px; font-size: var(--text-body); color: var(--foreground); border-radius: var(--radius-md); }
+  .pop-item:hover, .pop-item.active { background: var(--surface-sunken); }
+  .pop-item .ic { width: 14px; height: 14px; border-radius: 4px; background: var(--brand-action); flex: none; opacity: 0.85; }
+
+  /* Tooltip: small overlay card, hairline border, lg shadow */
+  .tip-wrap { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+  .tooltip {
+    display: inline-block;
+    background: var(--surface-overlay);
+    color: var(--foreground);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    font-size: var(--text-meta);
+    font-weight: 500;
+    padding: 6px 10px;
+    box-shadow: var(--ros-popover-shadow);
+    white-space: nowrap;
+  }
+  .tip-anchor { font-size: var(--text-body); color: var(--brand-action); font-weight: 500; }
+  .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 6px; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Dialogs, popovers, tooltips</h1>
+  <p class="sub">Every floating surface uses surface-overlay plus a raised-shadow tier. Dialogs take the full card shadow and the xl radius. Popovers and tooltips take the lighter popover shadow.</p>
+
+  <div class="stage-row">
+    <div class="col-wide">
+      <h2>Modal dialog</h2>
+      <div class="scrim">
+        <div class="dialog">
+          <div class="dialog-head"><h3 class="dialog-title">Delete experiment</h3></div>
+          <div class="dialog-body">Western blot GT-2026-0114 and its 3 attachments will move to the trash. You can restore it for 30 days.</div>
+          <div class="dialog-foot">
+            <button class="btn btn-neutral">Cancel</button>
+            <button class="btn btn-primary">Move to trash</button>
+          </div>
+        </div>
+      </div>
+      <div class="tok">--surface-overlay + ros-popup-card-shadow + radius-xl</div>
+    </div>
+
+    <div class="col-narrow">
+      <div>
+        <h2>Popover</h2>
+        <div class="popover">
+          <div class="pop-head">Add to experiment</div>
+          <div class="pop-item active"><span class="ic"></span>Method note</div>
+          <div class="pop-item"><span class="ic"></span>Sequence</div>
+          <div class="pop-item"><span class="ic"></span>Figure</div>
+        </div>
+        <div class="tok">--surface-overlay + ros-popover-shadow + radius-xl</div>
+      </div>
+
+      <div>
+        <h2>Tooltip</h2>
+        <div class="tip-wrap">
+          <span class="tooltip">Open lab settings</span>
+          <span class="tip-anchor">Settings</span>
+        </div>
+        <div class="tok">--surface-overlay + ros-popover-shadow + radius-md</div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

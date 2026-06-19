@@ -1,0 +1,147 @@
+<!-- @dsCard group="Onboarding" name="Walkthrough beats" subtitle="One opt-in walkthrough beat, the full modal frame with mascot, bubble, step dots, and Skip" width="920" height="700" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS walkthrough beat</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 20px; max-width: 760px; line-height: 1.45; }
+
+  /* The full-screen modal frame, scaled into a card. MarketingBackdrop (vivid)
+     over an opaque light base, with the centered beat column above it. */
+  .modal {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    background: var(--background);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 40px 24px 44px;
+  }
+
+  .backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+  .aurora { position: absolute; border-radius: 50%; filter: blur(64px); will-change: transform;
+    background: conic-gradient(from 0deg, #ffd2b0, #fff1a8, #b7ebb1, #a6d2f4, #d6b5f0, #ffd2b0); }
+  .a1 { width: 420px; height: 420px; top: 2%; left: -150px; opacity: 0.42; }
+  .a2 { width: 480px; height: 480px; bottom: 0%; right: -160px; opacity: 0.42; }
+  .a3 { width: 300px; height: 300px; top: 44%; left: 3%; opacity: 0.30; }
+  .a4 { width: 320px; height: 320px; top: 20%; right: 6%; opacity: 0.30; }
+  .dotgrid { position: absolute; inset: 0;
+    background-image: radial-gradient(circle, rgba(18, 131, 201, 0.1) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 54% at 50% 42%, #000 20%, transparent 74%);
+    mask-image: radial-gradient(ellipse 60% 54% at 50% 42%, #000 20%, transparent 74%); }
+
+  /* Skip link, true top-right corner of the dialog. */
+  .skip {
+    position: absolute; top: 16px; right: 16px; z-index: 20;
+    border: 0; background: transparent; cursor: pointer;
+    border-radius: var(--radius-sm); padding: 6px 12px;
+    font-family: var(--font-sans); font-size: var(--text-meta); font-weight: 500; color: #64748b;
+  }
+  .skip:hover { background: rgba(15, 23, 42, 0.05); color: #1e293b; }
+
+  .col { position: relative; z-index: 10; display: flex; flex-direction: column; align-items: center; max-width: 560px; margin: 0 auto; }
+
+  /* ~144px mascot, the v4-beating first impression size. */
+  .mascot { width: 132px; height: 132px; display: flex; align-items: center; justify-content: center; margin-bottom: 6px; }
+
+  /* Speech bubble: white card, sky-300 border, rounded-2xl, shadow-xl, top notch. */
+  .bubble-wrap { position: relative; width: 100%; }
+  .notch-outer { position: absolute; top: -12px; left: 50%; transform: translateX(-50%); width: 0; height: 0;
+    border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 12px solid #7dd3fc; }
+  .notch-inner { position: absolute; top: -8px; left: 50%; transform: translateX(-50%); width: 0; height: 0;
+    border-left: 9px solid transparent; border-right: 9px solid transparent; border-bottom: 11px solid white; }
+  .bubble {
+    background: white; border: 1px solid #7dd3fc; border-radius: 1rem; padding: 24px;
+    color: #0f172a; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1);
+  }
+
+  .bubble h2 { margin: 0 0 12px; font-size: 1.5rem; font-weight: 700; color: #0f172a; }
+  .bubble p.body { margin: 0 0 12px; font-size: var(--text-title); line-height: 1.6; color: #334155; }
+  .bullets { list-style: none; margin: 0 0 16px; padding: 0; }
+  .bullets li { display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px; font-size: var(--text-body); line-height: 1.5; color: #334155; }
+  .dot { margin-top: 7px; flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; }
+  .bullets strong { font-weight: 600; color: #0f172a; }
+  .footnote { margin: 0 0 20px; font-size: var(--text-body); line-height: 1.6; color: #475569; }
+
+  .controls { display: flex; align-items: center; justify-content: space-between; }
+  /* Step-dot row: 5 beats, beat 2 active. */
+  .steps { display: flex; gap: 8px; }
+  .step { width: 8px; height: 8px; border-radius: 50%; background: #cbd5e1; }
+  .step.active { background: #0ea5e9; width: 22px; border-radius: 999px; }
+
+  .next {
+    border: 0; cursor: pointer; border-radius: var(--radius-md);
+    background: #0ea5e9; color: #fff;
+    padding: 10px 20px; font-family: var(--font-sans); font-size: var(--text-body); font-weight: 600;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+  }
+  .next:hover { background: #38bdf8; }
+
+  .caption { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 22px; line-height: 1.5; max-width: 760px; }
+  .caption strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Walkthrough beats</h1>
+  <p class="sub">One beat of the opt-in walkthrough (frontend/src/components/picker-walkthrough/). The 5-beat intro teaches how the site actually works now: a free account for identity, local-first data, an animated data-flow explainer, why that stays cheap and private, then folder setup. Shown here is beat 2, the trust beat, with real copy from WhereWorkLivesBeat.</p>
+
+  <div class="modal">
+    <div class="backdrop">
+      <div class="dotgrid"></div>
+      <span class="aurora a1"></span><span class="aurora a2"></span><span class="aurora a3"></span><span class="aurora a4"></span>
+    </div>
+
+    <button class="skip" type="button">Skip</button>
+
+    <div class="col">
+      <!-- BeakerBot mascot, verbatim geometry. -->
+      <div class="mascot">
+        <svg width="100" height="129" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+          <defs><linearGradient id="liqB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liqB)" stroke="none" />
+          <path d="M22 8 C 22 6, 24 4, 26 6" />
+          <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+          <path d="M11 12 L29 12" />
+          <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <path d="M18 22 Q 20 24, 22 22" />
+          <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+        </svg>
+      </div>
+
+      <div class="bubble-wrap">
+        <div class="notch-outer"></div>
+        <div class="notch-inner"></div>
+        <div class="bubble">
+          <h2>Your research stays on your computer.</h2>
+          <p class="body">ResearchOS is local-first. You pick a folder, and every experiment, note, and measurement lives inside it, right there on your machine. The browser reads and writes that folder directly.</p>
+          <ul class="bullets">
+            <li><span class="dot"></span><span><strong>Your folder never uploads.</strong> There&apos;s no ResearchOS server reading it.</span></li>
+            <li><span class="dot"></span><span><strong>We can&apos;t see your data.</strong> The website only sees what your browser puts on screen.</span></li>
+            <li><span class="dot"></span><span><strong>One anonymous pageview ping,</strong> and you can turn it off in Settings.</span></li>
+          </ul>
+          <p class="footnote">So what does touch the cloud, and when? That&apos;s the next screen, and it&apos;s worth a minute.</p>
+          <div class="controls">
+            <div class="steps" aria-label="Beat 2 of 5">
+              <span class="step"></span>
+              <span class="step active"></span>
+              <span class="step"></span>
+              <span class="step"></span>
+              <span class="step"></span>
+            </div>
+            <button class="next" type="button">Got it, next</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p class="caption"><strong>This is the onboarding we are taking to a 10 out of 10.</strong> The five beats are Welcome, Where your work lives, the animated Data flow explainer, Why this is cheap and private, then Set up your folder. The Skip link in the corner is always an escape, since the whole walkthrough is opt-in.</p>
+</body>
+</html>

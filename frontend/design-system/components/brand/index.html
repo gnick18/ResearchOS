@@ -1,0 +1,106 @@
+<!-- @dsCard group="Brand" name="Brand and wordmark" subtitle="The ResearchOS wordmark with rainbow OS, plus the brand-purple-on-dark auth pill" width="920" height="500" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS brand and wordmark</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  /* The "legible" rainbow used to clip the OS, vivid on light surfaces.
+     Verbatim from globals.css --brand-rainbow-vivid. */
+  :root { --brand-rainbow-vivid: linear-gradient(180deg, #fb923c 0%, #fbbf24 25%, #4ade80 50%, #38bdf8 75%, #c084fc 100%); }
+
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 30px; max-width: 680px; line-height: 1.45; }
+
+  .panel {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 36px 40px;
+    margin-bottom: 24px;
+  }
+
+  /* Wordmark: Geist 800, tight tracking. "Research" in brand-ink, "OS" rainbow-clipped. */
+  .wordmark {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: 56px;
+    line-height: 1;
+    color: var(--brand-ink);
+  }
+  .wordmark .os {
+    background-image: var(--brand-rainbow-vivid);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .caption { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 16px; line-height: 1.5; }
+  .caption code { font-family: var(--font-mono); color: var(--foreground); }
+
+  /* Auth pill: brand-purple field, mark + wordmark in white, used on sign-in. */
+  .pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    background: var(--brand-purple);
+    border-radius: var(--radius-xl);
+    padding: 16px 26px;
+    box-shadow: var(--ros-popup-card-shadow);
+  }
+  .pill .mark { width: 34px; height: 44px; }
+  .pill .pill-text {
+    font-family: var(--font-sans);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    font-size: 28px;
+    color: #fff;
+    line-height: 1;
+  }
+  .pill .pill-text .os {
+    background-image: linear-gradient(180deg, #ffd2b0 0%, #fff1a8 25%, #b7ebb1 50%, #a6d2f4 75%, #d6b5f0 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+  .row { display: flex; align-items: center; gap: 40px; flex-wrap: wrap; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Brand and wordmark</h1>
+  <p class="sub">The canonical lockup. The word ResearchOS in Geist extrabold, brand-ink for Research, with OS carrying the brand rainbow. Identity blue stays in the mascot mark, never in the text.</p>
+
+  <div class="panel">
+    <div class="wordmark">Research<span class="os">OS</span></div>
+    <p class="caption">Geist weight 800, tracking about -0.03em. Research in <code>--brand-ink</code> (#111827), OS clipped from the theme-aware legible rainbow (vivid on light, luminous on dark). References the Wordmark component, frontend/src/components/Wordmark.tsx.</p>
+  </div>
+
+  <div class="row">
+    <div class="pill">
+      <svg class="mark" viewBox="8 3 24 31" fill="none" stroke="#ffffff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+        <defs>
+          <linearGradient id="pillLiq" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#FFD2B0" /><stop offset="25%" stop-color="#FFF1A8" />
+            <stop offset="50%" stop-color="#B7EBB1" /><stop offset="75%" stop-color="#A6D2F4" />
+            <stop offset="100%" stop-color="#D6B5F0" />
+          </linearGradient>
+        </defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="rgba(255,255,255,0.12)" stroke="none" />
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#pillLiq)" stroke="none" />
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <path d="M11 12 L29 12" />
+        <circle cx="17" cy="18" r="1.2" fill="#ffffff" stroke="none" />
+        <circle cx="23" cy="18" r="1.2" fill="#ffffff" stroke="none" />
+        <path d="M18 22 Q 20 24, 22 22" />
+        <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+      </svg>
+      <span class="pill-text">Research<span class="os">OS</span></span>
+    </div>
+    <p class="caption" style="max-width: 320px;">The brand-purple-on-dark lockup pill (<code>--brand-purple</code> #5b47d6) used on the auth and sign-in screens. On the dark field the mark and Research go white and OS uses the pastel ramp.</p>
+  </div>
+</body>
+</html>

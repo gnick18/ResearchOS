@@ -1,0 +1,69 @@
+<!-- @dsCard group="Surfaces" name="Cards and surfaces" subtitle="The nesting model, page surface holds a raised card holds a sunken inset, each labeled by token" width="920" height="560" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS cards and surfaces</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 24px; max-width: 660px; line-height: 1.45; }
+  .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); }
+  .layer-label { display: flex; align-items: baseline; gap: 10px; margin-bottom: 10px; }
+  .layer-label .name { font-size: var(--text-body); font-weight: 600; color: var(--foreground); }
+
+  /* Layer 1: the page / canvas */
+  .page {
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  /* Layer 2: a raised card, owns the popup-card shadow */
+  .card {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ros-popup-card-shadow);
+    padding: 20px;
+  }
+  /* Layer 3: a sunken inset well inside the card */
+  .inset {
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 16px;
+  }
+  .card-title { font-size: var(--text-title); font-weight: 600; color: var(--foreground); margin: 0 0 2px; }
+  .card-meta { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 14px; }
+  .row { display: flex; justify-content: space-between; font-size: var(--text-body); color: var(--foreground); padding: 4px 0; }
+  .row .k { color: var(--foreground-muted); }
+  .legend { margin-top: 22px; font-size: var(--text-meta); color: var(--foreground-muted); line-height: 1.6; }
+  .legend strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Cards and surfaces</h1>
+  <p class="sub">ResearchOS uses three stacked surface tokens to signal depth. A page surface holds raised cards, and each card can hold a sunken inset. The shadow only ever lives on the raised card.</p>
+
+  <div class="page">
+    <div class="layer-label"><span class="name">Page</span><span class="tok">--surface, flat</span></div>
+
+    <div class="card">
+      <div class="layer-label"><span class="name">Raised card</span><span class="tok">--surface-raised + ros-popup-card-shadow</span></div>
+      <h3 class="card-title">Western blot, anti-FLAG</h3>
+      <p class="card-meta">Experiment GT-2026-0114, updated 2 hours ago</p>
+
+      <div class="inset">
+        <div class="layer-label"><span class="name">Sunken inset</span><span class="tok">--surface-sunken</span></div>
+        <div class="row"><span class="k">Antibody</span><span>anti-FLAG M2</span></div>
+        <div class="row"><span class="k">Dilution</span><span>1 to 1000</span></div>
+        <div class="row"><span class="k">Gel</span><span>12 percent SDS-PAGE</span></div>
+      </div>
+    </div>
+  </div>
+
+  <p class="legend"><strong>Read order.</strong> Lower contrast reads as further back. <strong>--surface</strong> is the matte canvas, <strong>--surface-raised</strong> floats on it with the card shadow, and <strong>--surface-sunken</strong> recesses again for inputs, metadata, and inset wells. Stacking more than three layers flattens the hierarchy, so nest no deeper than this.</p>
+</body>
+</html>

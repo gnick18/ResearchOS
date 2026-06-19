@@ -1,0 +1,65 @@
+<!-- @dsCard group="Buttons" name="Buttons" subtitle="Primary / neutral / ghost / danger, three sizes, all on the raised-shadow box" width="920" height="460" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS buttons</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  .row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 22px; }
+  .label { width: 92px; color: var(--foreground-muted); font-size: var(--text-meta); }
+  .btn {
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    font-weight: 500;
+    line-height: 1;
+    border-radius: var(--radius-md);
+    padding: 9px 16px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  /* Primary: brand-action fill, owns its color, raised */
+  .btn-primary { background: var(--brand-action); color: #fff; box-shadow: var(--ros-btn-raise); transition: box-shadow .15s ease; }
+  .btn-primary:hover { box-shadow: var(--ros-btn-raise-hover); }
+  /* Neutral: raised box that reads as the SAME elevation as primary */
+  .btn-neutral { background: var(--surface-raised); color: var(--foreground); border-color: var(--border-subtle); box-shadow: var(--ros-btn-raise); transition: box-shadow .15s ease; }
+  .btn-neutral:hover { box-shadow: var(--ros-btn-raise-hover); }
+  /* Ghost: no fill until hover, no shadow */
+  .btn-ghost { background: transparent; color: var(--foreground); }
+  .btn-ghost:hover { background: var(--surface-sunken); }
+  /* Danger */
+  .btn-danger { background: #dc2626; color: #fff; box-shadow: var(--ros-btn-raise); }
+  .btn-sm { padding: 6px 12px; font-size: var(--text-meta); }
+  .btn-lg { padding: 12px 22px; font-size: var(--text-title); }
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 26px; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Buttons</h1>
+  <p class="sub">Every solid button sits on the same raised-shadow box (ros-btn-raise) so a colored and a neutral action read as one elevation. Ghost stays flat until hover.</p>
+
+  <div class="row"><span class="label">Variants</span>
+    <button class="btn btn-primary">Save changes</button>
+    <button class="btn btn-neutral">Cancel</button>
+    <button class="btn btn-ghost">Skip for now</button>
+    <button class="btn btn-danger">Delete</button>
+  </div>
+
+  <div class="row"><span class="label">Sizes</span>
+    <button class="btn btn-primary btn-sm">Small</button>
+    <button class="btn btn-primary">Default</button>
+    <button class="btn btn-primary btn-lg">Large</button>
+  </div>
+
+  <div class="row"><span class="label">Neutral</span>
+    <button class="btn btn-neutral btn-sm">Small</button>
+    <button class="btn btn-neutral">Default</button>
+    <button class="btn btn-neutral btn-lg">Large</button>
+  </div>
+</body>
+</html>

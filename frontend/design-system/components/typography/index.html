@@ -1,0 +1,60 @@
+<!-- @dsCard group="Type" name="Type scale" subtitle="Meta / body / title / heading / display in Geist, real sizes with px and token" width="920" height="560" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS type scale</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 28px; max-width: 640px; line-height: 1.45; }
+  .tier { display: flex; align-items: baseline; gap: 24px; padding: 14px 0; border-bottom: 1px solid var(--border-subtle); }
+  .tier:last-of-type { border-bottom: none; }
+  .sample { flex: 1; color: var(--foreground); font-family: var(--font-sans); }
+  .spec { width: 200px; flex-shrink: 0; text-align: right; }
+  .px { font-family: var(--font-mono); font-size: var(--text-body); color: var(--foreground); }
+  .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 2px; }
+
+  .t-meta { font-size: var(--text-meta); line-height: var(--text-meta-lh); }
+  .t-body { font-size: var(--text-body); line-height: var(--text-body-lh); }
+  .t-title { font-size: var(--text-title); line-height: var(--text-title-lh); font-weight: 600; }
+  .t-heading { font-size: var(--text-heading); line-height: var(--text-heading-lh); font-weight: 700; color: var(--brand-ink); }
+  .t-display { font-size: var(--text-display); line-height: var(--text-display-lh); font-weight: 800; letter-spacing: -0.02em; color: var(--brand-ink); }
+
+  .samples { margin-top: 30px; padding: 18px 20px; background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--ros-popover-shadow); }
+  .samples h3 { font-size: var(--text-heading); line-height: var(--text-heading-lh); color: var(--brand-ink); margin: 0 0 8px; font-weight: 700; }
+  .samples p { font-size: var(--text-body); line-height: var(--text-body-lh); color: var(--foreground); margin: 0; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Type scale</h1>
+  <p class="sub">Five tiers in Geist (font-sans). Each token is a built-in size, pixel identical to its comment. Weight climbs with the tier so structure reads at a glance.</p>
+
+  <div class="tier">
+    <div class="sample t-meta">Last edited 2 hours ago by Dr. Gluck-Thaler</div>
+    <div class="spec"><div class="px">12px</div><div class="tok">--text-meta</div></div>
+  </div>
+  <div class="tier">
+    <div class="sample t-body">Default running text for notes, fields, and lists.</div>
+    <div class="spec"><div class="px">14px</div><div class="tok">--text-body</div></div>
+  </div>
+  <div class="tier">
+    <div class="sample t-title">Section title and card header</div>
+    <div class="spec"><div class="px">16px</div><div class="tok">--text-title</div></div>
+  </div>
+  <div class="tier">
+    <div class="sample t-heading">Page heading</div>
+    <div class="spec"><div class="px">20px</div><div class="tok">--text-heading</div></div>
+  </div>
+  <div class="tier">
+    <div class="sample t-display">Display</div>
+    <div class="spec"><div class="px">30px</div><div class="tok">--text-display</div></div>
+  </div>
+
+  <div class="samples">
+    <h3>Your lab, organized end to end</h3>
+    <p>ResearchOS keeps protocols, samples, and results in one place so a result is never more than a click from the method that produced it. The body tier carries the day to day reading, the heading tier opens each section, and display is reserved for the hero moment.</p>
+  </div>
+</body>
+</html>

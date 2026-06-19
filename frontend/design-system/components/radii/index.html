@@ -1,0 +1,66 @@
+<!-- @dsCard group="Foundations" name="Radius and spacing" subtitle="The four corner radii sm / md / lg / xl with token, px, and where each is used" width="920" height="420" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS radius and spacing</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 30px; max-width: 680px; line-height: 1.45; }
+  .row { display: flex; gap: 26px; align-items: flex-start; }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .box {
+    width: 120px;
+    height: 120px;
+    background: var(--accent-soft);
+    border: 1px solid var(--brand-action);
+    display: flex;
+    align-items: flex-start;
+    justify-content: flex-start;
+    padding: 10px;
+    color: var(--brand-action);
+    font-size: var(--text-meta);
+    font-weight: 600;
+  }
+  .r-sm { border-radius: var(--radius-sm); }
+  .r-md { border-radius: var(--radius-md); }
+  .r-lg { border-radius: var(--radius-lg); }
+  .r-xl { border-radius: var(--radius-xl); }
+  .name { font-size: var(--text-body); font-weight: 600; color: var(--foreground); margin-top: 16px; }
+  .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 3px; }
+  .note { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 28px; line-height: 1.5; }
+  .note strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Radius and spacing</h1>
+  <p class="sub">Four corner radii cover the whole surface vocabulary. Radius scales with the size of the thing, so a chip and a large popup never share a curve.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="box r-sm">6</div>
+      <div class="name">Small</div>
+      <div class="tok">--radius-sm, 6px</div>
+    </div>
+    <div class="col">
+      <div class="box r-md">8</div>
+      <div class="name">Medium</div>
+      <div class="tok">--radius-md, 8px</div>
+    </div>
+    <div class="col">
+      <div class="box r-lg">12</div>
+      <div class="name">Large</div>
+      <div class="tok">--radius-lg, 12px</div>
+    </div>
+    <div class="col">
+      <div class="box r-xl">16</div>
+      <div class="name">Extra large</div>
+      <div class="tok">--radius-xl, 16px</div>
+    </div>
+  </div>
+
+  <p class="note"><strong>Where each goes.</strong> sm for inputs and chips, md for buttons, lg for cards, xl for large popups.</p>
+</body>
+</html>

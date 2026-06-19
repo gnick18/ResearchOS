@@ -1,0 +1,133 @@
+<!-- @dsCard group="Forms" name="Inputs and fields" subtitle="Text, textarea, select, checkbox, radio, toggle in the sunken-well style, with focus and disabled states" width="920" height="640" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS inputs and fields</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 26px; max-width: 660px; line-height: 1.45; }
+  h2 { font-size: var(--text-meta); color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 26px 0 12px; }
+  .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; align-items: start; }
+  .field-label { display: block; font-size: var(--text-meta); font-weight: 600; color: var(--foreground); margin-bottom: 6px; }
+  /* The ROS sunken-well input: surface-sunken fill, subtle hairline, brand-action focus ring */
+  .input {
+    width: 100%;
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    color: var(--foreground);
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: 8px 12px;
+    outline: none;
+  }
+  .input::placeholder { color: var(--foreground-muted); }
+  /* Focus = brand-action ring (the simulated :focus state) */
+  .input.is-focus {
+    border-color: var(--brand-action);
+    box-shadow: 0 0 0 3px rgba(18, 131, 201, 0.18);
+    background: var(--surface-raised);
+  }
+  .input.is-disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+    background: var(--surface-sunken);
+  }
+  textarea.input { resize: none; min-height: 84px; line-height: 1.45; }
+  .select-trigger {
+    display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  }
+  .chev { color: var(--foreground-muted); font-size: 11px; }
+  .state-tag { font-size: var(--text-meta); color: var(--foreground-muted); margin-bottom: 6px; }
+
+  /* Checkbox + radio: small sunken box, brand-action when checked */
+  .opt-row { display: flex; align-items: center; gap: 9px; margin-bottom: 12px; }
+  .opt-row .text { font-size: var(--text-body); color: var(--foreground); }
+  .box {
+    width: 18px; height: 18px; flex: none;
+    background: var(--surface-sunken);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .box.checked { background: var(--brand-action); border-color: var(--brand-action); }
+  .box .tick { color: #fff; font-size: 12px; line-height: 1; }
+  .dot {
+    width: 18px; height: 18px; flex: none; border-radius: 999px;
+    background: var(--surface-sunken); border: 1px solid var(--border-subtle);
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+  .dot.checked { border-color: var(--brand-action); }
+  .dot.checked::after { content: ""; width: 9px; height: 9px; border-radius: 999px; background: var(--brand-action); }
+
+  /* Toggle: 44x24 track, surface-raised knob, brand-action on */
+  .toggle { position: relative; width: 44px; height: 24px; border-radius: 999px; background: rgba(107,112,128,0.3); flex: none; }
+  .toggle.on { background: var(--brand-action); }
+  .toggle .knob { position: absolute; top: 2px; left: 2px; width: 20px; height: 20px; border-radius: 999px; background: var(--surface-raised); box-shadow: 0 1px 2px rgba(0,0,0,0.2); }
+  .toggle.on .knob { left: 22px; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Inputs and fields</h1>
+  <p class="sub">Form controls sit in a sunken well (surface-sunken) so they read as recessed against a raised card. Focus lifts the field to surface-raised and adds a brand-action ring. Checked states fill with brand-action.</p>
+
+  <h2>Text, textarea, select</h2>
+  <div class="grid">
+    <div>
+      <span class="state-tag">Default</span>
+      <label class="field-label">Experiment title</label>
+      <input class="input" type="text" value="Western blot, anti-FLAG" readonly />
+    </div>
+    <div>
+      <span class="state-tag">Focus</span>
+      <label class="field-label">Sample ID</label>
+      <input class="input is-focus" type="text" value="GT-2026-0114" readonly />
+    </div>
+    <div>
+      <span class="state-tag">Disabled</span>
+      <label class="field-label">Lab folder</label>
+      <input class="input is-disabled" type="text" value="Locked until connected" readonly />
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top: 20px;">
+    <div>
+      <span class="state-tag">Textarea</span>
+      <label class="field-label">Method notes</label>
+      <textarea class="input" readonly>Resuspend pellet in 200 uL lysis buffer. Incubate on ice 30 min, vortex every 10 min.</textarea>
+    </div>
+    <div>
+      <span class="state-tag">Select (closed)</span>
+      <label class="field-label">Antibody dilution</label>
+      <div class="input select-trigger"><span>1 to 1000</span><span class="chev">&#9662;</span></div>
+    </div>
+    <div>
+      <span class="state-tag">Select (focus)</span>
+      <label class="field-label">Gel percentage</label>
+      <div class="input is-focus select-trigger"><span>12 percent</span><span class="chev">&#9662;</span></div>
+    </div>
+  </div>
+
+  <h2>Checkbox, radio, toggle</h2>
+  <div class="grid">
+    <div>
+      <span class="state-tag">Checkbox</span>
+      <div class="opt-row"><span class="box checked"><span class="tick">&#10003;</span></span><span class="text">Include in lab report</span></div>
+      <div class="opt-row"><span class="box"></span><span class="text">Flag for review</span></div>
+    </div>
+    <div>
+      <span class="state-tag">Radio</span>
+      <div class="opt-row"><span class="dot checked"></span><span class="text">Forward primer</span></div>
+      <div class="opt-row"><span class="dot"></span><span class="text">Reverse primer</span></div>
+    </div>
+    <div>
+      <span class="state-tag">Toggle</span>
+      <div class="opt-row"><span class="toggle on"><span class="knob"></span></span><span class="text">Sync to cloud</span></div>
+      <div class="opt-row"><span class="toggle"><span class="knob"></span></span><span class="text">Email reminders</span></div>
+    </div>
+  </div>
+</body>
+</html>

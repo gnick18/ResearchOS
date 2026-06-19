@@ -1,0 +1,152 @@
+<!-- @dsCard group="Onboarding" name="BeakerBot speech bubble" subtitle="The typed-in bubble with a CSS-border notch, max-content width, side placement" width="920" height="520" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS BeakerBot speech bubble</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 28px; max-width: 740px; line-height: 1.45; }
+
+  .stage {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 36px 40px;
+  }
+
+  /* A row pairs the mascot with a bubble floated to one side of it. */
+  .pair { display: flex; align-items: center; gap: 26px; margin-bottom: 34px; }
+  .pair:last-child { margin-bottom: 0; }
+  .mascot { flex-shrink: 0; }
+
+  /* Bubble card: max-content width, capped, sky-300 border, rounded-2xl, shadow-xl.
+     Verbatim look from BeakerSpeech.tsx (rounded-2xl, border-sky-300, white, shadow-xl). */
+  .bubble-wrap { position: relative; display: inline-block; }
+  .bubble {
+    position: relative;
+    width: max-content;
+    max-width: 18rem;
+    min-width: 6rem;
+    background: white;
+    border: 1px solid #7dd3fc;            /* sky-300 */
+    border-radius: 1rem;                  /* rounded-2xl */
+    padding: 12px 20px;                   /* px-5 py-3 */
+    color: #0f172a;                       /* slate-900 */
+    box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.1); /* shadow-xl */
+    font-size: var(--text-body);
+    line-height: 1.375;                   /* leading-snug */
+  }
+  .tinted { background: #f0f9ff; }        /* sky-50 */
+
+  /* Notch: two stacked CSS-border triangles, outer = sky-300, inner = bg, offset 1px inward. */
+  .notch-outer, .notch-inner { position: absolute; width: 0; height: 0; }
+
+  /* side="right": beaker is LEFT of bubble, notch on the LEFT edge points left. */
+  .right .notch-outer { top: 50%; left: -12px; transform: translateY(-50%); border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 12px solid #7dd3fc; }
+  .right .notch-inner { top: 50%; left: -9px;  transform: translateY(-50%); border-top: 9px solid transparent;  border-bottom: 9px solid transparent;  border-right: 11px solid white; }
+  .right.tinted-notch .notch-inner { border-right-color: #f0f9ff; }
+
+  /* side="left": beaker is RIGHT of bubble, notch on the RIGHT edge points right. */
+  .left .notch-outer { top: 50%; right: -12px; transform: translateY(-50%); border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-left: 12px solid #7dd3fc; }
+  .left .notch-inner { top: 50%; right: -9px;  transform: translateY(-50%); border-top: 9px solid transparent;  border-bottom: 9px solid transparent;  border-left: 11px solid white; }
+
+  /* side="below": notch on the TOP edge points up toward the beaker above. */
+  .below .notch-outer { top: -12px; left: 50%; transform: translateX(-50%); border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 12px solid #7dd3fc; }
+  .below .notch-inner { top: -8px;  left: 50%; transform: translateX(-50%); border-left: 9px solid transparent;  border-right: 9px solid transparent;  border-bottom: 11px solid white; }
+
+  .col { display: flex; flex-direction: column; align-items: center; gap: 22px; }
+  .label { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); }
+  .caret { display: inline-block; width: 2px; height: 0.85em; vertical-align: middle; margin-left: 2px; background: #94a3b8; }
+  .caption { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 24px; line-height: 1.5; max-width: 760px; }
+  .caption strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>BeakerBot speech bubble</h1>
+  <p class="sub">The intermittent bubble from frontend/src/components/beakerbot/BeakerSpeech.tsx. Each line types in with a blinking caret, holds, fades, then a long silent gap. The bubble is max-content width capped at ~18rem, white with a sky-300 border, and a two-triangle CSS-border notch points at the mascot.</p>
+
+  <div class="stage">
+
+    <!-- side="right": mascot left, notch points left -->
+    <div class="pair">
+      <div class="mascot">
+        <svg width="76" height="98" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+          <defs><linearGradient id="liq1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq1)" stroke="none" />
+          <path d="M22 8 C 22 6, 24 4, 26 6" />
+          <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+          <path d="M11 12 L29 12" />
+          <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <path d="M18 22 Q 20 24, 22 22" />
+          <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+        </svg>
+      </div>
+      <div class="bubble-wrap right">
+        <div class="notch-outer"></div>
+        <div class="notch-inner"></div>
+        <div class="bubble">Hi, I&apos;m BeakerBot. Need a hand?<span class="caret"></span></div>
+      </div>
+      <span class="label">side="right"</span>
+    </div>
+
+    <!-- side="left": mascot right, notch points right -->
+    <div class="pair" style="justify-content: flex-start;">
+      <div class="bubble-wrap left tinted-notch">
+        <div class="notch-outer"></div>
+        <div class="notch-inner"></div>
+        <div class="bubble tinted">Your folder stays on your machine.</div>
+      </div>
+      <div class="mascot">
+        <svg width="76" height="98" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+          <defs><linearGradient id="liq2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+          <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+          <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq2)" stroke="none" />
+          <path d="M22 8 C 22 6, 24 4, 26 6" />
+          <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+          <path d="M11 12 L29 12" />
+          <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+          <path d="M18 22 Q 20 24, 22 22" />
+          <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+        </svg>
+      </div>
+      <span class="label">side="left", tinted</span>
+    </div>
+
+    <!-- side="below": mascot above, notch points up -->
+    <div class="pair" style="justify-content: center;">
+      <div class="col">
+        <div class="mascot">
+          <svg width="76" height="98" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+            <defs><linearGradient id="liq3" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+            <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+            <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liq3)" stroke="none" />
+            <path d="M22 8 C 22 6, 24 4, 26 6" />
+            <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+            <path d="M11 12 L29 12" />
+            <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+            <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+            <path d="M18 22 Q 20 24, 22 22" />
+            <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+          </svg>
+        </div>
+        <div class="bubble-wrap below">
+          <div class="notch-outer"></div>
+          <div class="notch-inner"></div>
+          <div class="bubble">Let me show you how it all fits together.</div>
+        </div>
+        <span class="label">side="below" (default)</span>
+      </div>
+    </div>
+
+  </div>
+
+  <p class="caption"><strong>The mascot is always BeakerBot.</strong> Lines read in his voice typeface (Hanken Grotesk, the same as his AI-chat replies) so the bubble sounds like BeakerBot talking, not UI chrome. Clicking a visible bubble skips to the next line.</p>
+</body>
+</html>

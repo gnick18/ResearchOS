@@ -1,0 +1,72 @@
+<!-- @dsCard group="Foundations" name="Elevation and shadow" subtitle="The three locked raised-shadow tiers, popover / card / button raise" width="920" height="480" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS elevation</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 30px; max-width: 680px; line-height: 1.45; }
+  .row { display: flex; gap: 30px; align-items: flex-start; }
+  .col { flex: 1; display: flex; flex-direction: column; align-items: center; }
+  .box {
+    width: 100%;
+    height: 120px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground-muted);
+    font-size: var(--text-meta);
+  }
+  .box-popover { box-shadow: var(--ros-popover-shadow); }
+  .box-card { box-shadow: var(--ros-popup-card-shadow); }
+  .raise-btn {
+    background: var(--brand-action);
+    color: #fff;
+    font-size: var(--text-body);
+    font-weight: 500;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    padding: 11px 20px;
+    box-shadow: var(--ros-btn-raise);
+    transition: box-shadow 0.15s ease;
+    cursor: pointer;
+  }
+  .raise-btn:hover { box-shadow: var(--ros-btn-raise-hover); }
+  .box-btnwrap { width: 100%; height: 120px; display: flex; align-items: center; justify-content: center; }
+  .name { font-size: var(--text-body); font-weight: 600; color: var(--foreground); margin-top: 16px; }
+  .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 3px; }
+  .use { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 6px; text-align: center; line-height: 1.4; max-width: 220px; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Elevation and shadow</h1>
+  <p class="sub">The raised-shadow aesthetic is locked. Three tiers, each a soft contact shadow plus a long ambient cast, so a surface reads as lifted off the page rather than outlined. Depth climbs from popover to card to button-on-press.</p>
+
+  <div class="row">
+    <div class="col">
+      <div class="box box-popover">Popover</div>
+      <div class="name">Popover shadow</div>
+      <div class="tok">--ros-popover-shadow</div>
+      <div class="use">Lightest lift. Dropdowns, menus, and popovers that float just above their trigger.</div>
+    </div>
+    <div class="col">
+      <div class="box box-card">Card</div>
+      <div class="name">Popup card shadow</div>
+      <div class="tok">--ros-popup-card-shadow</div>
+      <div class="use">Deepest cast. Modals and cards that sit clearly above the whole page.</div>
+    </div>
+    <div class="col">
+      <div class="box-btnwrap"><button class="raise-btn">Hover me</button></div>
+      <div class="name">Button raise</div>
+      <div class="tok">--ros-btn-raise</div>
+      <div class="use">Tactile lift on every solid button. Deepens to ros-btn-raise-hover on hover.</div>
+    </div>
+  </div>
+</body>
+</html>

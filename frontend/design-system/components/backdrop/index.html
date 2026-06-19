@@ -1,0 +1,83 @@
+<!-- @dsCard group="Onboarding" name="Marketing backdrop" subtitle="Drifting pastel-rainbow auroras plus a masked dot grid, the shared marketing stage" width="920" height="540" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS marketing backdrop</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 22px; max-width: 760px; line-height: 1.45; }
+
+  /* The stage clips the auroras; content floats above at z-10. Ported verbatim
+     from MarketingBackdrop.module.css (vivid tone, the hero setting). */
+  .stage {
+    position: relative;
+    overflow: hidden;
+    height: 360px;
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    background: var(--background);
+    box-shadow: var(--ros-popover-shadow);
+  }
+
+  .backdrop { position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+
+  .aurora {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(64px);
+    pointer-events: none;
+    will-change: transform;
+    background: conic-gradient(from 0deg, #ffd2b0, #fff1a8, #b7ebb1, #a6d2f4, #d6b5f0, #ffd2b0);
+  }
+  /* vivid tone opacities */
+  .a1 { width: 480px; height: 480px; top: 2%; left: -160px; opacity: 0.42; animation: drift1 26s ease-in-out infinite; }
+  .a2 { width: 560px; height: 560px; bottom: 0%; right: -180px; opacity: 0.42; animation: drift2 31s ease-in-out infinite; }
+  .a3 { width: 340px; height: 340px; top: 44%; left: 3%; opacity: 0.30; animation: drift1 35s ease-in-out infinite reverse; }
+  .a4 { width: 380px; height: 380px; top: 22%; right: 5%; opacity: 0.30; animation: drift2 29s ease-in-out infinite reverse; }
+
+  @keyframes drift1 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(54px, -40px); } }
+  @keyframes drift2 { 0%, 100% { transform: translate(0, 0); } 50% { transform: translate(-64px, 38px); } }
+
+  .dotgrid {
+    position: absolute; inset: 0; pointer-events: none;
+    background-image: radial-gradient(circle, rgba(18, 131, 201, 0.1) 1px, transparent 1.5px);
+    background-size: 24px 24px;
+    -webkit-mask-image: radial-gradient(ellipse 60% 54% at 50% 42%, #000 20%, transparent 74%);
+    mask-image: radial-gradient(ellipse 60% 54% at 50% 42%, #000 20%, transparent 74%);
+  }
+
+  @media (prefers-reduced-motion: reduce) { .aurora { animation: none; } }
+
+  /* Content floating above the wash, the welcome-page pattern. */
+  .content { position: relative; z-index: 10; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 32px; }
+  .content h2 { font-size: var(--text-display); color: var(--brand-ink); margin: 0 0 10px; font-weight: 700; }
+  .content p { font-size: var(--text-title); color: var(--foreground-muted); margin: 0; max-width: 460px; line-height: 1.5; }
+
+  .caption { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 22px; line-height: 1.5; max-width: 760px; }
+  .caption strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Marketing backdrop</h1>
+  <p class="sub">The shared ambient stage from frontend/src/components/marketing/MarketingBackdrop. Four soft pastel-rainbow auroras drift slowly over a faint masked dot grid, the same brand wash the welcome, pricing, and walkthrough surfaces sit on. Decorative only, behind the content, and the drift stops under reduced motion. Shown at the vivid tone.</p>
+
+  <div class="stage">
+    <div class="backdrop">
+      <div class="dotgrid"></div>
+      <span class="aurora a1"></span>
+      <span class="aurora a2"></span>
+      <span class="aurora a3"></span>
+      <span class="aurora a4"></span>
+    </div>
+    <div class="content">
+      <h2>One continuous stage</h2>
+      <p>Content floats above the wash on a relative z-10 sibling, so every marketing page reads as one place instead of three unrelated white pages.</p>
+    </div>
+  </div>
+
+  <p class="caption"><strong>The auroras share the BeakerBot liquid ramp</strong> (peach, yellow, mint, sky, lavender), the same stops as the banner and avatars. Drift translates only (never scales) so the 64px blur rasterizes once and rides the compositor.</p>
+</body>
+</html>

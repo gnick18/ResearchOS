@@ -1,0 +1,95 @@
+/* ResearchOS design tokens, the single source of truth, extracted verbatim from
+ * frontend/src/app/globals.css (Tailwind v4 @theme + :root). Every preview card
+ * in this package links this file so the cards render in the real ROS palette,
+ * type scale, and elevation. Keep this in sync with globals.css; globals.css is
+ * authoritative if they ever drift.
+ *
+ * No em-dashes, no emojis, no mid-sentence colons in code or copy. */
+
+:root {
+  /* Base */
+  --background: #ffffff;
+  --foreground: #171717;
+
+  /* Semantic surfaces (light) */
+  --surface: #f8fafc;          /* page / canvas (slate-50) */
+  --surface-raised: #ffffff;   /* cards, panels */
+  --surface-overlay: #ffffff;  /* popups, modals */
+  --surface-sunken: #f1f5f9;   /* input wells, insets (slate-100) */
+  --foreground-muted: #6b7080; /* secondary text, WCAG AA on sunken */
+  --border-subtle: #e5e7eb;    /* hairlines (gray-200) */
+  --accent: #1283c9;           /* = brand-action */
+  --accent-soft: #eff6ff;      /* blue-50 */
+
+  /* Brand palette (locked to brand/README.md) */
+  --brand-sky: #1aa0e6;        /* identity blue: BeakerBot stroke, large marks, gradients. ~2.9:1 on white, never body text */
+  --brand-action: #1283c9;     /* deeper blue ~4.5:1: text, links, buttons, small accents. The default UI accent */
+  --brand-ink: #111827;        /* wordmark + headings (gray-900) */
+  --brand-purple: #5b47d6;     /* channel purple, pairs with sky on dark pills */
+
+  /* Brand rainbow liquid: the most ownable visual (the five BeakerBot stops,
+   * same ramp as the banner + avatars). Decorative only, far too light for text
+   * on white. Vivid is the legible ramp for gradient headline text; luminous is
+   * the preferred ramp on dark surfaces. */
+  --brand-rainbow: linear-gradient(90deg, #ffd2b0 0%, #fff1a8 25%, #b7ebb1 50%, #a6d2f4 75%, #d6b5f0 100%);
+  --brand-rainbow-vertical: linear-gradient(180deg, #ffd2b0 0%, #fff1a8 25%, #b7ebb1 50%, #a6d2f4 75%, #d6b5f0 100%);
+  --brand-rainbow-vivid: linear-gradient(95deg, #f97316 0%, #e8920b 22%, #16a34a 48%, #0284c7 72%, #9333ea 100%);
+  --brand-rainbow-luminous: linear-gradient(95deg, #fb923c 0%, #fbbf24 25%, #4ade80 50%, #38bdf8 75%, #c084fc 100%);
+
+  /* Typography scale (Geist). token = built-in size, pixel-identical */
+  --text-meta: 0.75rem;        /* 12px */  --text-meta-lh: 1rem;
+  --text-body: 0.875rem;       /* 14px */  --text-body-lh: 1.25rem;
+  --text-title: 1rem;          /* 16px */  --text-title-lh: 1.5rem;
+  --text-heading: 1.25rem;     /* 20px */  --text-heading-lh: 1.75rem;
+  --text-display: 1.875rem;    /* 30px */  --text-display-lh: 2.25rem;
+
+  --font-sans: "Geist", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Radii (the common ResearchOS set) */
+  --radius-sm: 0.375rem;       /* 6px, inputs/chips */
+  --radius-md: 0.5rem;         /* 8px, buttons */
+  --radius-lg: 0.75rem;        /* 12px, cards */
+  --radius-xl: 1rem;           /* 16px, large popups */
+
+  /* Elevation. The raised-shadow aesthetic (LOCKED). Three tiers. */
+  --ros-popup-card-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 20px 50px -10px rgba(0, 0, 0, 0.25);
+  --ros-popover-shadow: 0 1px 2px rgba(0, 0, 0, 0.06), 0 8px 20px -6px rgba(0, 0, 0, 0.18);
+  --ros-btn-raise: 0 1px 2px rgba(15, 23, 42, 0.12), 0 3px 8px -1px rgba(15, 23, 42, 0.2);
+  --ros-btn-raise-hover: 0 2px 4px rgba(15, 23, 42, 0.16), 0 6px 14px -2px rgba(15, 23, 42, 0.24);
+}
+
+[data-theme="dark"] {
+  --background: #0a0e1a;
+  --foreground: #f1f5f9;
+  --surface: #0a0e1a;
+  --surface-raised: #1c2638;
+  --surface-overlay: #28344c;
+  --surface-sunken: #0d1424;
+  --foreground-muted: #b4bfd0;
+  --border-subtle: rgba(255, 255, 255, 0.16);
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.14);
+  --ros-btn-raise: 0 1px 2px rgba(190, 205, 235, 0.22), 0 3px 8px -1px rgba(190, 205, 235, 0.26);
+  --ros-btn-raise-hover: 0 2px 5px rgba(190, 205, 235, 0.28), 0 6px 14px -2px rgba(190, 205, 235, 0.3);
+}
+
+/* ── Primitives every card can use ─────────────────────────────────────────── */
+
+.ros-card-shadow { box-shadow: var(--ros-popup-card-shadow); }
+.ros-popover-shadow { box-shadow: var(--ros-popover-shadow); }
+.ros-btn-raise { box-shadow: var(--ros-btn-raise); transition: box-shadow 0.15s ease; }
+.ros-btn-raise:hover { box-shadow: var(--ros-btn-raise-hover); }
+
+/* Card stage: the neutral page every preview sits on, so a card reads the same
+ * in the Design System pane as it does in the app. */
+.ds-stage {
+  font-family: var(--font-sans);
+  background: var(--surface);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  margin: 0;
+  padding: 32px;
+  box-sizing: border-box;
+}
+.ds-stage * { box-sizing: border-box; }

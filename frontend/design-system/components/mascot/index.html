@@ -1,0 +1,76 @@
+<!-- @dsCard group="Brand" name="BeakerBot mascot" subtitle="The real BeakerBot mark at three sizes, brand-sky stroke, always pastel" width="920" height="440" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS BeakerBot mascot</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 30px; max-width: 680px; line-height: 1.45; }
+  .row { display: flex; align-items: flex-end; gap: 56px; padding: 20px 24px; background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); box-shadow: var(--ros-popover-shadow); }
+  .item { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .item .tok { font-family: var(--font-mono); font-size: var(--text-meta); color: var(--foreground-muted); }
+  .caption { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 24px; line-height: 1.5; max-width: 700px; }
+  .caption strong { color: var(--foreground); font-weight: 600; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>BeakerBot mascot</h1>
+  <p class="sub">The identity mark. Geometry is verbatim from frontend/src/components/BeakerBot.tsx (mirrored to brand/beakerbot-mark.svg). The outline is the brand-sky stroke and the liquid is the pastel ramp.</p>
+
+  <div class="row">
+    <!-- BeakerBot mark, paths verbatim from brand/beakerbot-mark.svg -->
+    <div class="item">
+      <svg width="48" height="62" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+        <defs><linearGradient id="liqA" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liqA)" stroke="none" />
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <path d="M11 12 L29 12" />
+        <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <path d="M18 22 Q 20 24, 22 22" />
+        <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+      </svg>
+      <span class="tok">48px</span>
+    </div>
+
+    <div class="item">
+      <svg width="96" height="124" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+        <defs><linearGradient id="liqB" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liqB)" stroke="none" />
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <path d="M11 12 L29 12" />
+        <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <path d="M18 22 Q 20 24, 22 22" />
+        <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+      </svg>
+      <span class="tok">96px</span>
+    </div>
+
+    <div class="item">
+      <svg width="160" height="207" viewBox="8 3 24 31" fill="none" stroke="var(--brand-sky)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-label="BeakerBot mark">
+        <defs><linearGradient id="liqC" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#FFD2B0"/><stop offset="25%" stop-color="#FFF1A8"/><stop offset="50%" stop-color="#B7EBB1"/><stop offset="75%" stop-color="#A6D2F4"/><stop offset="100%" stop-color="#D6B5F0"/></linearGradient></defs>
+        <path d="M 12 12 L 12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L 28 12 Z" fill="white" stroke="none" />
+        <path d="M 12 19 Q 14 17.8, 16 19 T 20 19 T 24 19 T 28 19 L 28 24 C 28 30, 24 32, 20 32 C 16 32, 12 30, 12 24 L 12 19 Z" fill="url(#liqC)" stroke="none" />
+        <path d="M22 8 C 22 6, 24 4, 26 6" />
+        <path d="M12 12 L12 24 C 12 30, 16 32, 20 32 C 24 32, 28 30, 28 24 L28 12" />
+        <path d="M11 12 L29 12" />
+        <circle cx="17" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <circle cx="23" cy="18" r="1.2" fill="var(--brand-sky)" stroke="none" />
+        <path d="M18 22 Q 20 24, 22 22" />
+        <path d="M14 26 L15.5 26" /><path d="M24.5 26 L26 26" />
+      </svg>
+      <span class="tok">160px</span>
+    </div>
+  </div>
+
+  <p class="caption"><strong>The mascot IS BeakerBot, always pastel, no alternatives.</strong> The liquid ramp stays pastel on every surface (peach, yellow, mint, sky, lavender) and the outline is brand-sky. No second mascot, no recolored variant.</p>
+</body>
+</html>

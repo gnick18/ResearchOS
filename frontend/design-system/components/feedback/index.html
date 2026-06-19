@@ -1,0 +1,98 @@
+<!-- @dsCard group="Feedback" name="Badges, toasts, empty states" subtitle="Status pills (success / warn / danger / info / neutral), a toast notification, and an empty-state block" width="920" height="600" -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ResearchOS feedback</title>
+<link rel="stylesheet" href="../../tokens.css" />
+<style>
+  h1 { font-size: var(--text-heading); color: var(--brand-ink); margin: 0 0 6px; }
+  p.sub { font-size: var(--text-meta); color: var(--foreground-muted); margin: 0 0 26px; max-width: 660px; line-height: 1.45; }
+  h2 { font-size: var(--text-meta); color: var(--foreground-muted); text-transform: uppercase; letter-spacing: 0.05em; margin: 26px 0 14px; }
+
+  /* Status pills: soft tinted fill + saturated text, the ROS badge pattern */
+  .badges { display: flex; flex-wrap: wrap; gap: 12px; }
+  .pill { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-meta); font-weight: 600; padding: 4px 10px; border-radius: 999px; }
+  .pill .dot { width: 6px; height: 6px; border-radius: 999px; background: currentColor; }
+  .pill-success { background: #dcfce7; color: #15803d; }
+  .pill-warn { background: #fef3c7; color: #b45309; }
+  .pill-danger { background: #fee2e2; color: #b91c1c; }
+  .pill-info { background: var(--accent-soft); color: var(--brand-action); }
+  .pill-neutral { background: var(--surface-sunken); color: var(--foreground-muted); }
+
+  /* Toast: raised card, accent left mark, message + actions */
+  .toast {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--ros-popover-shadow);
+    padding: 10px 14px 10px 12px;
+    max-width: 460px;
+  }
+  .toast .thumb { width: 40px; height: 40px; border-radius: var(--radius-md); background: var(--surface-sunken); flex: none; display: flex; align-items: center; justify-content: center; }
+  .toast .thumb .glyph { width: 16px; height: 16px; border-radius: 4px; background: var(--brand-action); }
+  .toast .body { flex: 1; min-width: 0; }
+  .toast .title { font-size: var(--text-body); font-weight: 600; color: var(--foreground); }
+  .toast .sub { font-size: var(--text-meta); color: var(--foreground-muted); margin-top: 1px; }
+  .toast .actions { display: flex; gap: 8px; }
+  .toast .act-primary { font-size: var(--text-meta); font-weight: 500; color: #fff; background: var(--brand-action); padding: 5px 10px; border-radius: var(--radius-md); box-shadow: var(--ros-btn-raise); border: none; }
+  .toast .act-ghost { font-size: var(--text-meta); color: var(--foreground-muted); padding: 5px 8px; border-radius: var(--radius-md); background: transparent; border: none; }
+
+  /* Empty state: centered card with icon slot, title, helper, primary action */
+  .empty {
+    background: var(--surface-raised);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--ros-popup-card-shadow);
+    padding: 40px 28px;
+    text-align: center;
+    max-width: 460px;
+  }
+  .empty .icon { width: 56px; height: 56px; border-radius: var(--radius-lg); background: var(--accent-soft); margin: 0 auto 16px; display: flex; align-items: center; justify-content: center; }
+  .empty .icon .mark { width: 24px; height: 24px; border-radius: 6px; background: var(--brand-action); opacity: 0.85; }
+  .empty .e-title { font-size: var(--text-title); font-weight: 600; color: var(--foreground); margin: 0 0 6px; }
+  .empty .e-help { font-size: var(--text-body); color: var(--foreground-muted); line-height: 1.5; margin: 0 0 18px; }
+  .empty .e-cta { font-size: var(--text-body); font-weight: 500; color: #fff; background: var(--brand-action); padding: 9px 18px; border-radius: var(--radius-md); box-shadow: var(--ros-btn-raise); border: none; cursor: pointer; }
+
+  .two-col { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+</style>
+</head>
+<body class="ds-stage">
+  <h1>Badges, toasts, empty states</h1>
+  <p class="sub">Status pills carry meaning by color and stay legible with a soft fill plus saturated text. Toasts ride the lighter popover shadow. Empty states pair an icon slot, a reason, and one primary action.</p>
+
+  <h2>Status pills</h2>
+  <div class="badges">
+    <span class="pill pill-success"><span class="dot"></span>Synced</span>
+    <span class="pill pill-warn"><span class="dot"></span>Pending review</span>
+    <span class="pill pill-danger"><span class="dot"></span>Run failed</span>
+    <span class="pill pill-info"><span class="dot"></span>Shared with lab</span>
+    <span class="pill pill-neutral"><span class="dot"></span>Draft</span>
+  </div>
+
+  <h2>Toast notification</h2>
+  <div class="toast">
+    <div class="thumb"><div class="glyph"></div></div>
+    <div class="body">
+      <div class="title">Sequence received</div>
+      <div class="sub">pUC19-GFP from Emile, ready to add</div>
+    </div>
+    <div class="actions">
+      <button class="act-primary">Add</button>
+      <button class="act-ghost">Dismiss</button>
+    </div>
+  </div>
+
+  <h2>Empty state</h2>
+  <div class="two-col">
+    <div class="empty">
+      <div class="icon"><div class="mark"></div></div>
+      <h3 class="e-title">No experiments yet</h3>
+      <p class="e-help">This lab folder is connected but empty. Create your first experiment to start capturing methods, sequences, and figures.</p>
+      <button class="e-cta">New experiment</button>
+    </div>
+  </div>
+</body>
+</html>
