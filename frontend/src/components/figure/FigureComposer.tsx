@@ -181,13 +181,18 @@ function toHex6(c: string): string {
 }
 
 /** A signature of what affects a panel's RENDER (ref + size + title, not position). */
+// The render-affecting inputs for ONE panel. Two panels with the same panel
+// signature draw the same SVG, so an unchanged panel can keep its cached SVG
+// instead of being redrawn (see the per-panel render effect below).
+function panelSignature(p: FigurePage["panels"][number]): string {
+  return `${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}:${p.overrides?.hideTitle ?? true}:${JSON.stringify(p.style ?? {})}`;
+}
+
+// Whole-page signature: which panels exist plus each one's render inputs. Drives
+// the reactive render effect (any change fires it; it then diffs per panel so a
+// one-panel edit re-renders only that panel).
 function renderSignature(page: FigurePage): string {
-  return page.panels
-    .map(
-      (p) =>
-        `${p.panelId}:${p.ref.type}:${p.ref.id}:${p.wIn.toFixed(3)}x${p.hIn.toFixed(3)}:${p.overrides?.hideTitle ?? true}:${JSON.stringify(p.style ?? {})}`,
-    )
-    .join("|");
+  return page.panels.map((p) => `${p.panelId}:${panelSignature(p)}`).join("|");
 }
 
 export default function FigureComposer({ pageId }: { pageId: string }) {
@@ -240,9 +245,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // panel-render pass runs, so opening a figure shows the BeakerBot loader over an
   // already-drawn composer rather than a blank line that pops panels in one by one.
   const [bootState, setBootState] = useState<BootState | null>(null);
-  // The render signature the boot already drew, so the reactive render effect can
-  // skip the identical first pass (avoids a visible double draw on open).
-  const renderedSigRef = useRef<string | null>(null);
+  // Per-panel render cache key: panelId -> the panelSignature last drawn into
+  // panelSvgs. Lets a one-panel edit re-render just that panel and reuse the
+  // rest. Seeded by the page-boot draw so the first reactive pass is a no-op.
+  const panelSigRef = useRef<Map<string, string>>(new Map());
   // Bumped to retry a failed boot (no soft-lock).
   const [bootAttempt, setBootAttempt] = useState(0);
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket" | "connect">(null);
@@ -288,7 +294,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     let live = true;
     setLoadState("loading");
     setBootState(null);
-    renderedSigRef.current = null;
+    panelSigRef.current = new Map();
 
     void (async () => {
       // Resolve found-vs-missing FIRST with the fast page read. A missing page is a
@@ -327,13 +333,23 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           run: async (onProgress) => {
             const total = found.panels.length;
             const next = new Map<string, string>();
+            const sigs = new Map<string, string>();
             for (let i = 0; i < total; i++) {
               if (!live) return;
-              const svg = await renderPanelSvg(found.panels[i]);
-              if (svg !== null) next.set(found.panels[i].panelId, svg);
+              const p = found.panels[i];
+              const svg = await renderPanelSvg(p);
+              // Cache the sig only for panels that actually drew, so a panel that
+              // failed here is retried by the reactive effect rather than skipped.
+              if (svg !== null) {
+                next.set(p.panelId, svg);
+                sigs.set(p.panelId, panelSignature(p));
+              }
               onProgress((i + 1) / total);
             }
-            if (live) setPanelSvgs(next);
+            if (live) {
+              setPanelSvgs(next);
+              panelSigRef.current = sigs;
+            }
           },
         },
       ];
@@ -352,9 +368,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         return;
       }
       if (!live) return;
-      // Mark the signature the boot already drew so the reactive effect skips the
-      // identical first pass, then reveal the already-drawn composer.
-      renderedSigRef.current = renderSignature(found);
+      // The page-boot draw already seeded panelSigRef + panelSvgs, so the first
+      // reactive pass is a no-op; reveal the already-drawn composer.
       setPage(found);
       setBootState(null);
       setLoadState("ready");
@@ -378,25 +393,49 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
   }, [pageId]);
 
-  // Resolve each panel's SVG when a ref or size changes (not on a move).
+  // Re-render panels when their inputs change (ref / size / style, not a move).
+  // The whole-page `sig` fires the effect, then we diff PER PANEL: only a panel
+  // whose own signature changed is redrawn, the rest keep their cached SVG. That
+  // keeps a one-panel edit to a one-panel render instead of redrawing every panel
+  // (which would lag a heavy multi-panel figure on each resize/restyle).
   const sig = page ? renderSignature(page) : "";
   useEffect(() => {
     if (!page) return;
-    // The page-boot already drew this exact signature on open. Skip the identical
-    // first pass once (avoids a visible double draw); later resize/ref changes
-    // produce a new signature and render normally.
-    if (renderedSigRef.current === sig) {
-      renderedSigRef.current = null;
-      return;
-    }
+    const panels = page.panels;
     let cancelled = false;
     void (async () => {
-      const next = new Map<string, string>();
-      for (const p of page.panels) {
+      const prevSigs = panelSigRef.current;
+      const nextSigs = new Map<string, string>();
+      // panelId -> freshly drawn SVG, or null when its render failed this pass.
+      const drawn = new Map<string, string | null>();
+      for (const p of panels) {
+        const ps = panelSignature(p);
+        if (prevSigs.get(p.panelId) === ps) {
+          // Unchanged and already cached: keep its existing SVG, skip the render.
+          nextSigs.set(p.panelId, ps);
+          continue;
+        }
         const svg = await renderPanelSvg(p);
-        if (svg !== null) next.set(p.panelId, svg);
+        if (cancelled) return;
+        drawn.set(p.panelId, svg);
+        // Cache the sig only on a successful draw, so a failed panel retries.
+        if (svg !== null) nextSigs.set(p.panelId, ps);
       }
-      if (!cancelled) setPanelSvgs(next);
+      if (cancelled) return;
+      panelSigRef.current = nextSigs;
+      const liveIds = new Set(panels.map((p) => p.panelId));
+      setPanelSvgs((cur) => {
+        // Build a new map only if something changes, so an all-unchanged pass
+        // returns the same reference and React skips a wasted re-render.
+        let next: Map<string, string> | null = null;
+        const edit = () => (next ??= new Map(cur));
+        for (const id of cur.keys()) if (!liveIds.has(id)) edit().delete(id);
+        for (const [id, svg] of drawn) {
+          if (svg !== null) edit().set(id, svg);
+          else if (cur.has(id)) edit().delete(id);
+        }
+        return next ?? cur;
+      });
     })();
     return () => {
       cancelled = true;
