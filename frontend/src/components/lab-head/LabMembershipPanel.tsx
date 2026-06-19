@@ -27,7 +27,9 @@ import {
   mintInviteForHead,
   loadPendingAccepts,
   finalizePendingAccepts,
+  reconcilePendingSealsForHead,
 } from "@/lib/lab/lab-head-membership";
+import { isLabTokensV2Enabled } from "@/lib/lab/lab-tokens-config";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
 import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
 import {
@@ -253,6 +255,26 @@ export default function LabMembershipPanel() {
     };
   }, [labId]);
 
+  // Phase 4A: eagerly seal the lab key to any token-joined member who is ready,
+  // once on mount. The PI should never have to perform a full lab login (the
+  // only other place reconcile fires) just for a member to receive data access,
+  // so opening this panel quietly heals pending seals. Fully best-effort and
+  // flag-gated, so a failure never disrupts the panel and behavior is
+  // byte-identical when the V2 tokens flag is off.
+  useEffect(() => {
+    if (!labId) return;
+    if (!isLabTokensV2Enabled()) return;
+    const identity = getSessionIdentity();
+    if (!identity || !currentUser) return;
+    void reconcilePendingSealsForHead({
+      labId,
+      username: currentUser,
+      identity,
+    }).catch(() => {
+      // Silent background heal, swallow all errors.
+    });
+  }, [labId, currentUser]);
+
   useEffect(() => {
     if (!labId) return;
     let cancelled = false;
@@ -297,6 +319,22 @@ export default function LabMembershipPanel() {
       );
     }
     return id;
+  };
+
+  // Phase 4A best-effort heal. After approving or adding a member, also seal the
+  // lab key to any token-joined member who is now ready, so a token join does not
+  // wait on a separate full lab login. Flag-gated + silent (never blocks the UI).
+  const healPendingSeals = () => {
+    if (!isLabTokensV2Enabled()) return;
+    const id = getSessionIdentity();
+    if (!id || !currentUser || !labId) return;
+    void reconcilePendingSealsForHead({
+      labId,
+      username: currentUser,
+      identity: id,
+    }).catch(() => {
+      // Silent background heal, swallow all errors.
+    });
   };
 
   // Clear the awareness badges (rail count pill + dots + avatar-menu dot) right
@@ -463,6 +501,7 @@ export default function LabMembershipPanel() {
         ),
       );
       invalidatePendingBadges();
+      if (action === "approve") healPendingSeals();
     });
 
   const addAll = () =>
@@ -475,6 +514,7 @@ export default function LabMembershipPanel() {
       setOutcomes(o);
       setPending(await loadPendingAccepts(labId, requireIdentity()));
       invalidatePendingBadges();
+      healPendingSeals();
     });
 
   const rosterMembers =

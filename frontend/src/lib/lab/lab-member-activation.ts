@@ -114,7 +114,8 @@ export async function checkAndEnterLab(params: {
     return {
       entered: false,
       reason: "pending",
-      message: "The lab head has not finished adding you yet.",
+      message:
+        "You are a member. A labmate still needs to grant you data access, which happens end-to-end (the server never sees the lab key). This usually lands the next time the lab head opens the lab, so try Enter lab again shortly.",
     };
   }
 
