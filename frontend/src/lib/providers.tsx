@@ -49,7 +49,8 @@ import OnboardingWizard, {
 } from "@/components/onboarding/wizard/OnboardingWizard";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { stripEntryIntentParams } from "@/lib/onboarding/entry-intent-params";
-import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+import { SOCIAL_LAYER_ENABLED, LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
+import { isLabPublicHost } from "@/lib/social/lab-byo";
 import {
   readOnboardingWizardReturn,
   clearOnboardingWizardReturn,
@@ -594,6 +595,31 @@ function AppContent({ children }: { children: ReactNode }) {
       alive = false;
     };
   }, [currentUser]);
+
+  // Public lab origin (research-os.com cutover). A per-lab subdomain
+  // <slug>.research-os.com serves the lab's PUBLIC companion site, which the proxy
+  // rewrites to the internal /<slug> route. That page is fully server-rendered and
+  // needs NO folder, session, or account, so the app's global welcome / folder gate
+  // must never overlay it. Without this bypass the cookie-isolated lab origin (which
+  // has no folder) falls through to WelcomePage after hydration and hides the lab
+  // site, even though the server sent the lab page (the curl-vs-browser split that
+  // made this look like a routing bug when it was the client gate). Keyed off the
+  // same labSlugFromHost single source as the proxy so custom lab domains added
+  // there are covered for free, never a hardcoded hostname literal here. Gated on
+  // mounted so the first client render matches the window-less server render (no
+  // hydration mismatch); the brief pre-mount frame is the same loading screen the
+  // server already emitted, not the welcome page. Inert when the cutover flag is off.
+  const isLabPublicOrigin =
+    mounted &&
+    isLabPublicHost({
+      host: typeof window !== "undefined" ? window.location.host : null,
+      enabled: LAB_SITES_COM_ORIGIN_ENABLED,
+    });
+  if (isLabPublicOrigin) {
+    return (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    );
+  }
 
   // No forced first-visit redirect to /welcome (removed 2026-06-10, Grant). A
   // fresh visitor now lands on the OAuth-first landing directly, which already

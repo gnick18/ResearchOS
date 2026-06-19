@@ -332,6 +332,29 @@ export function labSiteOrigin(slug: string): string {
   return `https://${slug}.${LAB_SITES_PUBLIC_DOMAIN}`;
 }
 
+/**
+ * Client-side companion to resolveLabHostRequest: is the given Host a PUBLIC lab
+ * origin (a per-lab subdomain of the public lab domain)? The app's global client
+ * gate (AppContent in lib/providers.tsx) uses this to skip the folder / welcome
+ * wall on a lab origin, so the server-rendered lab page is never overlaid by the
+ * app's welcome screen after hydration. Without it the cookie-isolated lab origin,
+ * which has no folder or session, falls through to WelcomePage on the client and
+ * hides the lab site.
+ *
+ * Keyed off the SAME labSlugFromHost / RESERVED_LAB_SUBDOMAINS single source as the
+ * proxy decision, so when custom lab domains are added there this bypass follows
+ * automatically with no hardcoded hostname literal in the client. Returns false
+ * when the cutover is disabled, so a flag-off app is byte-identical.
+ */
+export function isLabPublicHost(args: {
+  host: string | null | undefined;
+  enabled: boolean;
+}): boolean {
+  if (!args.enabled) return false;
+  const slug = labSlugFromHost(args.host);
+  return slug !== null && !RESERVED_LAB_SUBDOMAINS.has(slug);
+}
+
 // ---------------------------------------------------------------------------
 // BYO site manifest (stored per lab)
 // ---------------------------------------------------------------------------
