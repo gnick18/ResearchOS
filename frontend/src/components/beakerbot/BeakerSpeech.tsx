@@ -459,6 +459,10 @@ export default function BeakerSpeech({
           <p
             aria-live="polite"
             className="text-sm leading-snug whitespace-pre-wrap"
+            // BeakerBot's spoken lines read in his signature voice typeface
+            // (--font-ai, Hanken Grotesk -- the same face as his AI-chat replies)
+            // so the bubble sounds like BeakerBot talking, not UI chrome.
+            style={{ fontFamily: "var(--font-ai)" }}
           >
             {displayText}
             {showCaret && (
