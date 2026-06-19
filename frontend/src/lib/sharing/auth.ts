@@ -46,6 +46,7 @@
 // on because the app runs behind Vercel's proxy.
 
 import NextAuth from "next-auth";
+import { lookupEmailByOrcid } from "@/lib/sharing/directory/db";
 import Google from "next-auth/providers/google";
 import GitHub from "next-auth/providers/github";
 import MicrosoftEntraID from "next-auth/providers/microsoft-entra-id";
@@ -166,6 +167,31 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       if (account?.provider === "orcid" && profile?.sub) {
         token.orcidId = profile.sub as string;
       }
+      // ORCID never returns an email (the sub is the ORCID iD), so the token has
+      // an orcidId but no email at this point. ResearchOS keys every account on a
+      // plaintext email, so if this ORCID iD already has a verified email on file
+      // (from a previous capture, stored encrypted in directory_orcid_links), we
+      // resolve it here and set it on the token so session.user.email is
+      // populated and the normal account flow proceeds transparently. When there
+      // is no binding yet, the token email stays empty and the capture step
+      // handles it. This runs on EVERY jwt pass that has an orcidId but no email
+      // (not only the sign-in pass), so the FIRST session read after a successful
+      // capture picks the email up without forcing a full re-login.
+      //
+      // Resilient: any failure is swallowed (DB down, secret missing, decode
+      // error) and the email is simply left empty, never throwing out of the
+      // callback (which would 500 every getSession call).
+      const orcidId =
+        typeof token.orcidId === "string" ? token.orcidId : null;
+      if (orcidId && !token.email) {
+        try {
+          const resolved = await lookupEmailByOrcid(orcidId);
+          if (resolved) token.email = resolved;
+        } catch {
+          // Resolution is best-effort; leave the email empty so the capture step
+          // runs rather than breaking the sign-in.
+        }
+      }
       return token;
     },
     async session({ session, token }) {
@@ -173,6 +199,14 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         (session as { provider?: string }).provider = token.provider as string;
       if (token.orcidId)
         (session as { orcidId?: string }).orcidId = token.orcidId as string;
+      // Thread the resolved email (set above when an ORCID binding exists) onto
+      // session.user.email so every reader (oauth-bind, the account flow, billing)
+      // sees the account identity. For Google / Microsoft / LinkedIn the email is
+      // already on the token from the provider, so this is a no-op overwrite with
+      // the same value; for ORCID it is the resolved binding or empty.
+      if (token.email && session.user) {
+        session.user.email = token.email as string;
+      }
       return session;
     },
   },
