@@ -357,7 +357,7 @@ function VerdictChip({ counts }: { counts: AgreementCounts }) {
  */
 function representativeComparison(
   domain: DomainReport,
-): { label: string; oracleName: string; ours: number; theirs: number; unit: string } | null {
+): { label: string; oracleName: string; ours: number; theirs: number; unit: string; delta: number; exact: boolean } | null {
   let fallback: { c: CaseResult; cmp: ScalarComparison } | null = null;
   let nonExact: { c: CaseResult; cmp: ScalarComparison } | null = null;
   for (const c of domain.cases) {
@@ -375,6 +375,8 @@ function representativeComparison(
     ours: pick.cmp.ours,
     theirs: pick.cmp.theirs,
     unit: pick.cmp.tolerance.unit,
+    delta: pick.cmp.delta,
+    exact: pick.cmp.delta === 0,
   };
 }
 
@@ -465,8 +467,11 @@ function DomainPanel({ domain }: { domain: DomainReport }) {
           <span className="text-foreground-muted">{rep.label}</span>
           {"  "}
           <span className="font-mono text-foreground">ResearchOS {rep.ours} {rep.unit}</span>
-          <span className="text-foreground-muted"> = </span>
+          <span className="text-foreground-muted"> {rep.exact ? "=" : "≈"} </span>
           <span className="font-mono text-foreground">{rep.oracleName} {rep.theirs} {rep.unit}</span>
+          {!rep.exact ? (
+            <span className="text-foreground-muted"> (Δ {rep.delta} {rep.unit})</span>
+          ) : null}
         </p>
       ) : null}
 
