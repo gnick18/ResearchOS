@@ -11,6 +11,12 @@
 // can gracefully omit the share CTA rather than presenting an unresolvable target.
 // Real-lab profile resolution is Phase 4 (requires a lab_sites profile column).
 //
+// This module also exports labSamePath, a tiny pure helper that builds a
+// same-origin href for a lab page path given a linkBase computed by the server
+// route. linkBase is "" on the cookie-isolated subdomain (<slug>.research-os.com)
+// and "/<slug>" on the app origin (research-os.app), so the helper produces the
+// correct href on both origins without reading window.location.
+//
 // This module is pure (no IO, no Next.js), so it is unit-testable in isolation
 // and safe to import from both client components and unit tests.
 //
@@ -112,4 +118,54 @@ export function buildRequestDataDeepLink(
 ): string {
   const base = appOrigin.replace(/\/+$/, "");
   return `${base}/u/${encodeURIComponent(piHandle)}?compose=request`;
+}
+
+// ---------------------------------------------------------------------------
+// Origin-aware same-origin link builder
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a same-origin href for a lab page, using a linkBase from labLinkBase.
+ *
+ * linkBase is "" when the request is served from the cookie-isolated lab subdomain
+ * (<slug>.research-os.com) and "/<slug>" when served from the app origin
+ * (research-os.app/<slug>), so the returned href is correct on both origins without
+ * any client-side window.location read (no hydration mismatch).
+ *
+ * subPath is the page path relative to the lab root (e.g. "people", "papers/x").
+ * An empty subPath means the lab home, which returns linkBase || "/" so both origins
+ * produce a navigable root link (the subdomain home = "/" and the app origin = "/<slug>").
+ *
+ * Examples (linkBase = "" means subdomain, linkBase = "/fakeyeast-lab" means app origin):
+ *   labSamePath("",              "")         -> "/"
+ *   labSamePath("/fakeyeast-lab","")         -> "/fakeyeast-lab"
+ *   labSamePath("",              "people")   -> "/people"
+ *   labSamePath("/fakeyeast-lab","people")   -> "/fakeyeast-lab/people"
+ *   labSamePath("",              "papers/x") -> "/papers/x"
+ *   labSamePath("/fakeyeast-lab","papers/x") -> "/fakeyeast-lab/papers/x"
+ */
+export function labSamePath(linkBase: string, subPath: string): string {
+  // Normalize: strip any trailing slash from linkBase and any leading slash from subPath.
+  const base = linkBase.replace(/\/+$/, "");
+  const sub = subPath.replace(/^\/+/, "");
+  if (sub === "") {
+    // Home: prefer the explicit base; fall back to "/" on the subdomain (base = "").
+    return base || "/";
+  }
+  return `${base}/${sub}`;
+}
+
+/**
+ * The same-origin link base for a lab's pages, chosen by the cutover flag.
+ *
+ * Returns "" when the lab is served from its cookie-isolated subdomain (the
+ * research-os.com cutover is live, so the slug is already the host and same-origin
+ * links must be slug-less). Returns "/<slug>" on the app origin (the pre-cutover
+ * path form and local dev), where the slug is still a path segment. Pairs with
+ * labSamePath. comOriginEnabled is the build-inlined LAB_SITES_COM_ORIGIN_ENABLED
+ * flag, passed in (not read here) so this stays pure and unit-testable. This is the
+ * same origin choice LabSiteSwitcher makes, kept in one tested place.
+ */
+export function labLinkBase(slug: string, comOriginEnabled: boolean): string {
+  return comOriginEnabled ? "" : `/${slug}`;
 }

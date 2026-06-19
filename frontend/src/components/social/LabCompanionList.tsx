@@ -16,6 +16,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import { LAB_SITE_BYO_PREFIX } from "@/lib/social/lab-byo";
+import { labLinkBase, labSamePath } from "@/lib/social/lab-collab";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
 
 export default function LabCompanionList({
@@ -50,6 +51,9 @@ export default function LabCompanionList({
   const byoHref = onComOrigin
     ? `https://${labHost}${LAB_SITE_BYO_PREFIX}/`
     : `https://${labHost}`;
+  // Same-origin companion links: slug-less on the subdomain, slug-prefixed on the
+  // app origin (the proxy already prepends the slug on the subdomain).
+  const linkBase = labLinkBase(slug, onComOrigin);
 
   const hasNativeCompanions = companions.length > 0;
   const hasAny = hasNativeCompanions || hasByo;
@@ -68,7 +72,7 @@ export default function LabCompanionList({
 
       <ul className="space-y-2">
         {companions.map((entry) => {
-          const href = `/${slug}/${entry.path}`;
+          const href = labSamePath(linkBase, entry.path);
           return (
             <li key={entry.path}>
               <Link

@@ -41,6 +41,8 @@ import LabSiteSwitcher from "@/components/social/LabSiteSwitcher";
 import LabCompanionList from "@/components/social/LabCompanionList";
 import LabCitation from "@/components/social/LabCitation";
 import LabCollaborationActions from "@/components/social/LabCollaborationActions";
+import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
+import { labLinkBase, labSamePath } from "@/lib/social/lab-collab";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
@@ -117,6 +119,10 @@ export default function LabSitePageView({
   const pages = publishedPages ?? [];
   const normPath = currentPath ?? "";
   const byoActive = hasByo ?? false;
+  // Same-origin link base: slug-less on the cookie-isolated subdomain, slug-prefixed
+  // on the app origin. Used for the non-demo breadcrumb below; the child components
+  // derive the same base the same way.
+  const linkBase = labLinkBase(slug, LAB_SITES_COM_ORIGIN_ENABLED);
 
   return (
     <div className="min-h-dvh bg-surface text-foreground">
@@ -126,7 +132,10 @@ export default function LabSitePageView({
 
       <section className="relative overflow-hidden">
         <MarketingBackdrop tone="soft" />
-        <div className="relative z-10 mx-auto max-w-3xl px-6 pb-16 pt-14 sm:pt-20">
+        {/* Wide structural container so the page uses the full screen width
+            (header, switcher, nav, companions, collaboration grid, citation), with
+            the long-form body prose constrained to a readable line length below. */}
+        <div className="relative z-10 mx-auto max-w-[90rem] px-6 pb-16 pt-14 sm:px-8 sm:pt-20">
 
           {/* Lab identity header (demo-only Phase 1, real labs Phase 4). */}
           {demoCard ? (
@@ -136,7 +145,7 @@ export default function LabSitePageView({
                lab_sites profile column. Byte-identical to the Phase 2 render. */
             <p className="text-meta font-medium text-foreground-muted">
               <Link
-                href={`/${slug}`}
+                href={labSamePath(linkBase, "")}
                 className="text-brand-action underline-offset-2 hover:underline"
               >
                 {slug}
@@ -168,7 +177,7 @@ export default function LabSitePageView({
 
           <RenderedMarkdown
             content={bodyMd ?? ""}
-            className="prose prose-gray mt-8 max-w-none dark:prose-invert"
+            className="prose prose-gray mt-8 max-w-3xl dark:prose-invert"
             bakedEmbeds={bakedEmbeds}
             hostedAssets={hostedAssetsMap}
           />
