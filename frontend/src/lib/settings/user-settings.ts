@@ -259,6 +259,11 @@ export interface UserSettings {
 
   // Personalization
   displayName: string | null;     // null → use folder name
+  /** The user's preferred / greeting name ("call me Grant"). null → derive the
+   *  greeting from the honorific-stripped first name of the display name. Lives
+   *  here as the folder-local slot; the account-scoped value (account-settings)
+   *  elevates over it so the preference follows the user across folders. */
+  preferredName: string | null;
   color: string;                  // hex; mirrored to _user_metadata.json
   /** Optional second hex for a 2-stop user gradient. `null` → solid (the
    *  default). Mirrored to `_user_metadata.json:color_secondary`. */
@@ -520,6 +525,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   defaultCalendarViewMode: "month",
   showSharedByDefault: true,
   displayName: null,
+  preferredName: null,
   color: "#3b82f6",
   colorSecondary: null,
   coloredHeader: true,

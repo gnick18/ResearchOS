@@ -139,6 +139,28 @@ describe("buildReturningLines", () => {
     expect(lines[0]).toBe("Good morning, Alice.");
   });
 
+  it("prefers an explicit preferred name over the passed-in name", () => {
+    const lines = buildReturningLines({
+      name: "Dr",
+      preferredName: "Grant",
+      hour: 9,
+      stats: null,
+      now: NOW,
+    });
+    expect(lines[0]).toBe("Good morning, Grant.");
+  });
+
+  it("falls back to the name when the preferred name is blank", () => {
+    const lines = buildReturningLines({
+      name: "Alice",
+      preferredName: "   ",
+      hour: 9,
+      stats: null,
+      now: NOW,
+    });
+    expect(lines[0]).toBe("Good morning, Alice.");
+  });
+
   it("uses Good afternoon in the greeting for afternoon hours", () => {
     const lines = buildReturningLines({
       name: "Bob",

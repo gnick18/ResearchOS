@@ -68,12 +68,19 @@ const BUBBLE_FADE_IN_MS = 350;
 export function buildGreetingFacts(
   m: GreetingMetrics,
   ctx: GreetingContext,
+  greetingName?: string,
 ): string[] {
   const facts: string[] = [];
   const d = m.directory;
   const r = m.relay;
 
-  facts.push(ctx.returning ? "Welcome back!" : "Hi there!");
+  // An explicit preferred / greeting name personalizes the opener when set.
+  const who = greetingName?.trim();
+  if (who) {
+    facts.push(ctx.returning ? `Welcome back, ${who}!` : `Hi ${who}!`);
+  } else {
+    facts.push(ctx.returning ? "Welcome back!" : "Hi there!");
+  }
 
   if (ctx.delta !== null && ctx.delta > 0) {
     const when =
@@ -173,43 +180,78 @@ export default function BeakerBotGreeting({
   const [facts, setFacts] = useState<string[]>([]);
   const [idx, setIdx] = useState(0);
   const [bubbleVisible, setBubbleVisible] = useState(false);
+  const [greetingName, setGreetingName] = useState<string | undefined>(undefined);
   const pokeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // The greeting context (delta + days-since + returning) is computed and stashed
+  // ONCE; held in a ref so a later async preferred-name resolution can rebuild the
+  // facts without re-reading / re-stashing localStorage (which would zero the delta
+  // on the second pass).
+  const greetCtxRef = useRef<GreetingContext | null>(null);
 
-  // Compute facts once on mount: read the last visit's figures, derive the
-  // delta + days-since, then stash this visit's figures for next time.
+  // Resolve the account-scoped preferred / greeting name once. Flag-guarded inside
+  // the account layer, so this is a clean no-op (and no network) when account
+  // settings are off. When set, it personalizes the opener ("Welcome back, Grant!").
   useEffect(() => {
-    let delta: number | null = null;
-    let daysSince: number | null = null;
-    let returning = false;
-    try {
-      const prevCount = localStorage.getItem(LS_COUNT);
-      const prevSeen = localStorage.getItem(LS_SEEN);
-      if (prevCount !== null && prevCount !== "") {
-        returning = true;
-        delta = metrics.directory.totalIdentities - Number(prevCount);
+    let alive = true;
+    void (async () => {
+      try {
+        const { fetchAccountSettings } = await import(
+          "@/lib/account/account-settings"
+        );
+        const acct = await fetchAccountSettings();
+        const pref = acct?.preferredName?.trim();
+        if (alive && pref) setGreetingName(pref);
+      } catch {
+        // No identity unlocked / network: greet generically.
       }
-      if (prevSeen) {
-        const ms = Date.now() - Date.parse(prevSeen);
-        if (Number.isFinite(ms)) daysSince = Math.floor(ms / 86_400_000);
-      }
-      localStorage.setItem(
-        LS_COUNT,
-        String(metrics.directory.totalIdentities),
-      );
-      localStorage.setItem(LS_SEEN, new Date().toISOString());
-    } catch {
-      // localStorage unavailable (private mode, etc.): just greet without a delta.
-    }
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- the delta depends on the previous visit's figures in localStorage, which can only be read post-mount (not during render / SSR, and not in a useState lazy init). Set once on mount, no cascade.
-    setFacts(buildGreetingFacts(metrics, { delta, daysSince, returning }));
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
+  // Build the facts on mount and again when the preferred name resolves. The
+  // delta + days-since are read from localStorage once (ref-guarded) and stashed
+  // for next time; the rebuild on greetingName only swaps the opener.
+  useEffect(() => {
+    if (!greetCtxRef.current) {
+      let delta: number | null = null;
+      let daysSince: number | null = null;
+      let returning = false;
+      try {
+        const prevCount = localStorage.getItem(LS_COUNT);
+        const prevSeen = localStorage.getItem(LS_SEEN);
+        if (prevCount !== null && prevCount !== "") {
+          returning = true;
+          delta = metrics.directory.totalIdentities - Number(prevCount);
+        }
+        if (prevSeen) {
+          const ms = Date.now() - Date.parse(prevSeen);
+          if (Number.isFinite(ms)) daysSince = Math.floor(ms / 86_400_000);
+        }
+        localStorage.setItem(
+          LS_COUNT,
+          String(metrics.directory.totalIdentities),
+        );
+        localStorage.setItem(LS_SEEN, new Date().toISOString());
+      } catch {
+        // localStorage unavailable (private mode, etc.): just greet without a delta.
+      }
+      greetCtxRef.current = { delta, daysSince, returning };
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- the delta depends on the previous visit's figures in localStorage (read post-mount, ref-stashed once) and the preferred name resolves async. Rebuild on either, no cascade.
+    setFacts(buildGreetingFacts(metrics, greetCtxRef.current, greetingName));
+  }, [metrics, greetingName]);
+
+  // One-time entry wave + bubble fade-in.
+  useEffect(() => {
     const fadeTimer = setTimeout(() => setBubbleVisible(true), BUBBLE_FADE_IN_MS);
     const settleTimer = setTimeout(() => setPose("idle"), WAVE_HELLO_MS);
     return () => {
       clearTimeout(fadeTimer);
       clearTimeout(settleTimer);
     };
-  }, [metrics]);
+  }, []);
 
   // Auto-rotate the bubble through the fact list.
   useEffect(() => {

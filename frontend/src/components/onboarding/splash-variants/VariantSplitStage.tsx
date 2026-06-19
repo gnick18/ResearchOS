@@ -38,7 +38,7 @@ import {
   SKY,
   SplashVariantProps,
   WORDMARK_GRADIENT,
-  firstName,
+  resolveGreetingName,
   prefersReducedMotion,
 } from "./shared";
 
@@ -47,9 +47,12 @@ const FILL_MS = 1500;
 export function VariantSplitStage({
   onComplete,
   userName,
+  preferredName,
   replayKey = 0,
 }: SplashVariantProps) {
-  const name = firstName(userName);
+  // An explicit preferred name ("call me Grant") wins; else the honorific-stripped
+  // first name of the display name, so "Dr. Grant Nickles" greets as "Grant".
+  const name = resolveGreetingName({ preferredName, displayName: userName });
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
@@ -67,13 +70,13 @@ export function VariantSplitStage({
     const hour = new Date().getHours();
     const stats = userName ? readUserStats(userName) : null;
     const lines = buildReturningLines({
-      name: firstName(userName),
+      name: resolveGreetingName({ preferredName, displayName: userName }),
       hour,
       stats,
       now: Date.now(),
     });
     setReturningLines(lines);
-  }, [userName]);
+  }, [userName, preferredName]);
   const [meter, setMeter] = useState(() => (prefersReducedMotion() ? 1 : 0));
   const [leaving, setLeaving] = useState(false);
 

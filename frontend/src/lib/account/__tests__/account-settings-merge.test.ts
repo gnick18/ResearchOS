@@ -63,6 +63,18 @@ describe("mergeAccountOverFolder", () => {
     expect(f.account_type).toBe("member");
     expect(a).toEqual({ labHead: true });
   });
+
+  it("ELEVATES the account preferred name over the folder value", () => {
+    const f = { ...folder("member"), preferredName: null };
+    expect(mergeAccountOverFolder(f, { preferredName: "Grant" }).preferredName).toBe(
+      "Grant",
+    );
+  });
+
+  it("leaves the folder preferred name intact when the account blob lacks one", () => {
+    const f = { ...folder("member"), preferredName: "Local" };
+    expect(mergeAccountOverFolder(f, {}).preferredName).toBe("Local");
+  });
 });
 
 describe("resolveIsLabHead", () => {
@@ -138,6 +150,21 @@ describe("liftFolderIntoAccount", () => {
 
   it("leaves labHead unset when neither the account nor the folder marks it", () => {
     expect(liftFolderIntoAccount(null, [], "member").labHead).toBeUndefined();
+  });
+
+  it("seeds the preferred name from the folder when the account lacks one", () => {
+    const next = liftFolderIntoAccount(null, [], "member", {
+      preferredName: "Grant",
+    });
+    expect(next.preferredName).toBe("Grant");
+  });
+
+  it("does not overwrite an existing account preferred name (idempotent)", () => {
+    const existing: AccountScopedSettings = { preferredName: "Grant" };
+    const next = liftFolderIntoAccount(existing, [], "member", {
+      preferredName: "Other",
+    });
+    expect(next.preferredName).toBe("Grant");
   });
 });
 

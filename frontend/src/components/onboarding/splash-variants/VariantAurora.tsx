@@ -31,16 +31,17 @@ import {
   RAINBOW_CSS,
   SplashVariantProps,
   WORDMARK_GRADIENT,
-  firstName,
+  resolveGreetingName,
   prefersReducedMotion,
 } from "./shared";
 
 export function VariantAurora({
   onComplete,
   userName,
+  preferredName,
   replayKey = 0,
 }: SplashVariantProps) {
-  const name = firstName(userName);
+  const name = resolveGreetingName({ preferredName, displayName: userName });
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {

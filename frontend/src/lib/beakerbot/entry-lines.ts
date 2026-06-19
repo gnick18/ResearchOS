@@ -98,15 +98,23 @@ export function buildEntryGreetingLines(ctx: {
  */
 export function buildReturningLines(ctx: {
   name?: string;
+  /**
+   * The user's preferred / greeting name, if set. Wins over `name` so BeakerBot
+   * greets "Grant" rather than a display-name first word. Optional; when absent
+   * the greeting uses `name` (which callers already honorific-strip).
+   */
+  preferredName?: string;
   hour: number;
   stats: UserStatsSummary | null;
   now: number;
 }): string[] {
   const lines: string[] = [];
 
-  // 1. Greeting line first (time-of-day + name when known).
-  const greeting = ctx.name
-    ? `${timeGreeting(ctx.hour).replace(".", ",")} ${ctx.name}.`
+  // 1. Greeting line first (time-of-day + name when known). An explicit preferred
+  // name wins over the passed-in display name.
+  const greetName = ctx.preferredName?.trim() || ctx.name;
+  const greeting = greetName
+    ? `${timeGreeting(ctx.hour).replace(".", ",")} ${greetName}.`
     : timeGreeting(ctx.hour);
   lines.push(greeting);
 

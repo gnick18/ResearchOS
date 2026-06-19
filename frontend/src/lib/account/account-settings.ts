@@ -53,6 +53,7 @@ export type AccountOverridableSettings = Pick<
   | "autoPublishSnapshotsToPhones"
   | "notificationPreferences"
   | "displayName"
+  | "preferredName"
   | "defaultLandingTab"
   | "visibleTabs"
 >;
@@ -128,6 +129,9 @@ export function mergeAccountOverFolder(
   if (account.displayName !== undefined) {
     next.displayName = account.displayName;
   }
+  if (account.preferredName !== undefined) {
+    next.preferredName = account.preferredName;
+  }
 
   // Nav defaults: account DEFAULT, folder OVERRIDE. Apply the account value only
   // when the folder is still at the system default for that field.
@@ -183,6 +187,7 @@ export interface FolderAccountScopablePrefs {
   autoPublishSnapshotsToPhones?: boolean;
   notificationPreferences?: Record<string, unknown>;
   displayName?: string | null;
+  preferredName?: string | null;
   defaultLandingTab?: string;
   visibleTabs?: string[];
 }
@@ -266,6 +271,7 @@ export function liftFolderIntoAccount(
       : undefined,
   );
   seedIfAbsent(next, "displayName", folderPrefs.displayName);
+  seedIfAbsent(next, "preferredName", folderPrefs.preferredName);
   seedIfAbsent(next, "defaultLandingTab", folderPrefs.defaultLandingTab);
   seedIfAbsent(
     next,
