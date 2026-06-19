@@ -62,6 +62,7 @@ function makeEmptySource(): LabWorkSource {
     listDatahub: vi.fn(async (_owner: string) => []),
     listResultSheets: vi.fn(async (_owner: string) => []),
     listNotesSheets: vi.fn(async (_owner: string) => []),
+    listDeposits: vi.fn(async (_owner: string) => []),
   };
 }
 
@@ -468,6 +469,7 @@ describe("runLabSyncForSession – error path", () => {
       listDatahub: vi.fn(async (_owner: string) => []),
       listResultSheets: vi.fn(async (_owner: string) => []),
       listNotesSheets: vi.fn(async (_owner: string) => []),
+      listDeposits: vi.fn(async (_owner: string) => []),
     };
     const syncImpl = vi.fn(async () => makeSyncResult());
     const { store, saveMock } = makeManifestStore();

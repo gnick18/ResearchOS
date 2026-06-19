@@ -123,6 +123,7 @@ function emptySource(): LabWorkSource {
     listDatahub: none,
     listResultSheets: none,
     listNotesSheets: none,
+    listDeposits: none,
   };
 }
 

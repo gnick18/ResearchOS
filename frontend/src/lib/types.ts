@@ -2636,6 +2636,60 @@ export interface FundingSummary {
   uncategorized_spent: number;
 }
 
+// ── Deposit tracking ────────────────────────────────────────────────────────
+//
+// Deposit records (deposit-tracking bot, 2026-06-18). Per-user store at
+// `users/<owner>/deposits/<id>.json`. One record per guided-deposit handoff:
+// the user has downloaded the bundle and is uploading to the repository; the
+// DOI is null until the repository mints it and the user pastes it back.
+//
+// No em-dashes, no emojis.
+
+export interface Deposit {
+  id: number;
+  /** The deposited experiment id, or null for a project-level deposit. */
+  task_id: number | null;
+  /** The deposited project id, or null for a single-experiment deposit. */
+  project_id: number | null;
+  repository: "zenodo" | "figshare" | "other";
+  /** Snapshot of the deposited item title at deposit time. */
+  title: string | null;
+  /** DOI minted by the repository; null until the user pastes it in. */
+  doi: string | null;
+  /** Permanent concept DOI bridging versions (Zenodo only); null until known. */
+  concept_doi: string | null;
+  /** 1, 2, 3, ... for re-deposited versions of the same item; null when unknown. */
+  version_sequence: number | null;
+  /** Back-link to the previous Deposit record in the chain; null for v1. */
+  prior_version_id: number | null;
+  /** ISO timestamp; set to now at handoff (the user is depositing right now). */
+  deposited_at: string | null;
+  /** ISO timestamp; record creation. */
+  created_at: string;
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+export interface DepositCreate {
+  task_id?: number | null;
+  project_id?: number | null;
+  repository: "zenodo" | "figshare" | "other";
+  title?: string | null;
+  doi?: string | null;
+  concept_doi?: string | null;
+}
+
+export interface DepositUpdate {
+  doi?: string | null;
+  concept_doi?: string | null;
+  deposited_at?: string | null;
+  version_sequence?: number | null;
+  prior_version_id?: number | null;
+}
+
 // ── File-system shapes ──────────────────────────────────────────────────────
 
 export interface GitHubTreeItem {
