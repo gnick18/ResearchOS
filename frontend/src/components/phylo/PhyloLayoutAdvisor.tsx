@@ -27,6 +27,7 @@ import {
 import {
   detectCollisions,
   suggestFixes,
+  recommendedHeightToClearLabelStack,
   type Collision,
   type FixSuggestion,
   type FixId,
@@ -40,6 +41,10 @@ export interface AdvisorDelta {
   labelsTilt?: number;
   labelsFontSize?: number;
   dropPanelIds?: string[];
+  /** A new figure height (px) when the fix is to make the figure taller. The host
+   *  owns the canvas size; this is the absolute target so the row pitch clears the
+   *  label crowding (see recommendedHeightToClearLabelStack). */
+  figureHeight?: number;
 }
 
 /** The host's CURRENT values, so a fix is relative and the wand can snapshot. */
@@ -48,6 +53,8 @@ export interface AdvisorState {
   legendPlacement: "right" | "bottom";
   labelsTilt: number;
   labelsFontSize: number;
+  /** The figure's current height (px), so the "make it taller" fix is reversible. */
+  figureHeight: number;
 }
 
 /** Apply a delta to a spec clone (for the preview render only). */
@@ -80,15 +87,20 @@ function applyDeltaToSpec(spec: RenderSpec, d: AdvisorDelta): RenderSpec {
     ...spec,
     columnGap: d.columnGap ?? spec.columnGap,
     legendPlacement: d.legendPlacement ?? spec.legendPlacement,
+    height: d.figureHeight ?? spec.height,
     panels,
   };
 }
 
-/** The concrete setting change a fix maps to, given the current state. */
+/** The concrete setting change a fix maps to, given the current state. `taller` is
+ *  the figure height the engine measured as enough to clear the label stack (the
+ *  honest fix for a dense tree, since a font shrink alone never separates a stack
+ *  whose row pitch is already below the label height). */
 function deltaForFix(
   id: FixId,
   collisions: Collision[],
   st: AdvisorState,
+  taller: number,
 ): AdvisorDelta {
   switch (id) {
     case "increase-column-gap":
@@ -97,6 +109,9 @@ function deltaForFix(
       return { labelsTilt: -45 };
     case "shrink-label-font":
       return { labelsFontSize: Math.max(7, st.labelsFontSize - 2) };
+    case "increase-canvas-height":
+      // Grow to the measured height (never shrink below the current one).
+      return { figureHeight: Math.max(st.figureHeight, taller) };
     case "relocate-legend":
       return { legendPlacement: "bottom" };
     case "drop-duplicate-overlay": {
@@ -116,6 +131,7 @@ function mergeDeltas(a: AdvisorDelta, b: AdvisorDelta): AdvisorDelta {
     legendPlacement: b.legendPlacement ?? a.legendPlacement,
     labelsTilt: b.labelsTilt ?? a.labelsTilt,
     labelsFontSize: b.labelsFontSize ?? a.labelsFontSize,
+    figureHeight: b.figureHeight ?? a.figureHeight,
     dropPanelIds: [...(a.dropPanelIds ?? []), ...(b.dropPanelIds ?? [])],
   };
 }
@@ -123,30 +139,38 @@ function mergeDeltas(a: AdvisorDelta, b: AdvisorDelta): AdvisorDelta {
 const silKey = (plotId: string) => `ros:phylo:advisor-silenced:${plotId}`;
 
 /** Detect layout collisions on the open figure and keep only the fixes that apply
- *  to a phylo tree (canvas height has no Studio control here; tilting does NOT
- *  de-collide a vertical tip-label stack -- it only helps a horizontal axis-label
- *  row, e.g. Data Hub). Runs on the fixed figure spec and is artboard- and
- *  zoom-independent: the artboard / zoom only UNIFORMLY scale the same figure SVG
- *  (viewBox), and uniform scaling preserves overlaps, so the verdict on the fixed
- *  spec matches the rendered figure at any size. Shared by the advisor card and the
- *  Shape-tab issue badge so the two never drift. */
+ *  to a phylo tree. Tilting is dropped (it does NOT de-collide a vertical tip-label
+ *  stack -- it only helps a horizontal axis-label row, e.g. Data Hub). The
+ *  "make the figure taller" fix IS kept: Tree Studio drives the figure height, and
+ *  for a dense tree it is the only honest fix (a font shrink alone never separates
+ *  a stack whose row pitch is already below the label height). `recommendedHeight`
+ *  is the height the engine measured as enough to clear that stack, so the host can
+ *  apply a fix that actually works in one click. Runs on the fixed figure spec and
+ *  is artboard- and zoom-independent: the artboard / zoom only UNIFORMLY scale the
+ *  same figure SVG (viewBox), and uniform scaling preserves overlaps, so the verdict
+ *  on the fixed spec matches the rendered figure at any size. Shared by the advisor
+ *  card and the Shape-tab issue badge so the two never drift. */
 export function phyloLayoutIssues(
   tree: TreeNode,
   spec: RenderSpec,
-): { collisions: Collision[]; fixes: FixSuggestion[] } {
+): {
+  collisions: Collision[];
+  fixes: FixSuggestion[];
+  recommendedHeight: number;
+} {
   let collisions: Collision[] = [];
+  let recommendedHeight = spec.height;
   try {
-    collisions = detectCollisions(renderTreeWithManifest(tree, spec).manifest);
+    const manifest = renderTreeWithManifest(tree, spec).manifest;
+    collisions = detectCollisions(manifest);
+    recommendedHeight = recommendedHeightToClearLabelStack(manifest);
   } catch {
     collisions = [];
   }
   const fixes = suggestFixes(collisions).filter(
-    (f) =>
-      f.available &&
-      f.id !== "increase-canvas-height" &&
-      f.id !== "tilt-tip-labels",
+    (f) => f.available && f.id !== "tilt-tip-labels",
   );
-  return { collisions, fixes };
+  return { collisions, fixes, recommendedHeight };
 }
 
 /** Read the per-plot "don't show again" silence flag (shared by the advisor card
@@ -181,6 +205,9 @@ export interface PhyloLayoutAdvisorProps {
    *  card agree). See `phyloLayoutIssues`. */
   collisions: Collision[];
   fixes: FixSuggestion[];
+  /** The figure height (px) the engine measured as enough to clear the tip-label
+   *  stack, so the "make it taller" fix applies a height that actually works. */
+  recommendedHeight: number;
   /** Host-owned per-plot silence state (so the tab badge matches the card). */
   silenced: boolean;
   onSilence: () => void;
@@ -193,6 +220,7 @@ export function PhyloLayoutAdvisor({
   onApply,
   collisions,
   fixes,
+  recommendedHeight,
   silenced,
   onSilence,
 }: PhyloLayoutAdvisorProps) {
@@ -215,13 +243,14 @@ export function PhyloLayoutAdvisor({
         legendPlacement: snapshot.legendPlacement,
         labelsTilt: snapshot.labelsTilt,
         labelsFontSize: snapshot.labelsFontSize,
+        figureHeight: snapshot.figureHeight,
       });
       setSnapshot(null);
       return;
     }
     setSnapshot({ ...state });
     const merged = wandFixes
-      .map((f) => deltaForFix(f.id, collisions, state))
+      .map((f) => deltaForFix(f.id, collisions, state, recommendedHeight))
       .reduce(mergeDeltas, {});
     onApply(merged);
   };
@@ -272,7 +301,7 @@ export function PhyloLayoutAdvisor({
       {open && (
         <div className="mt-2 space-y-2">
           {fixes.map((f) => {
-            const delta = deltaForFix(f.id, collisions, state);
+            const delta = deltaForFix(f.id, collisions, state, recommendedHeight);
             const previewSvg = (() => {
               try {
                 return renderTreeSvg(tree, applyDeltaToSpec(spec, delta));

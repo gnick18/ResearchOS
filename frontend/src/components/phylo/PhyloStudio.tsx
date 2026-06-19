@@ -363,9 +363,15 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     artboardInitial(undefined),
   );
   const [figWIn, setFigWIn] = useState<number>(FIG_W / 96);
+  // A taller figure height the layout advisor can apply to de-crowd a dense tip-label
+  // stack (the honest fix when row pitch falls below the label height; a font shrink
+  // alone never separates such a stack). null = the layout's natural height. Reset
+  // when the layout changes or another tree opens, since density is per tree / shape.
+  const [figHeightOverride, setFigHeightOverride] = useState<number | null>(null);
   // The figure height depends on the layout (square for the radial family), so the
-  // tree gets the full radius instead of being starved by the landscape height.
-  const figH = figHeightFor(layout);
+  // tree gets the full radius instead of being starved by the landscape height. The
+  // advisor's "make it taller" override wins when set.
+  const figH = figHeightOverride ?? figHeightFor(layout);
   // The figure width depends on both layout and tree content:
   //   - Radial callout layouts add RADIAL_CALLOUT_GUTTER for the right-side ring labels.
   //   - Rectangular layouts with long tip names (e.g. 40+ char HPV accession strings)
@@ -549,6 +555,10 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     alignment,
     branchColorColumn,
     datahubResolved,
+    // figH carries the advisor's "make it taller" override; without it a height
+    // bump would not recompute the spec, so the figure (and the re-detection that
+    // reads it) would stay frozen at the pre-fix height.
+    figH,
   ]);
 
   // Layout-issue detection runs ONCE here (artboard- and zoom-independent: those only
@@ -559,11 +569,15 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
   // collisionVersion is a counter bumped by applyAdvisorDelta so this useMemo
   // always re-runs after a fix is applied, even when spec identity is stable.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const { collisions: layoutCollisions, fixes: layoutFixes } = useMemo(
+  const {
+    collisions: layoutCollisions,
+    fixes: layoutFixes,
+    recommendedHeight: layoutRecommendedHeight,
+  } = useMemo(
     () =>
       tree && spec
         ? phyloLayoutIssues(tree, spec)
-        : { collisions: [], fixes: [] },
+        : { collisions: [], fixes: [], recommendedHeight: figH },
     // collisionVersion is intentionally included as a re-run signal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [tree, spec, collisionVersion],
@@ -922,6 +936,9 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     setColumnGap(inputs.columnGap ?? 8);
     setLegendPlacement(inputs.legendPlacement ?? "right");
     setTimeAxis(inputs.timeAxis ?? false);
+    // Each tree has its own tip density, so start from the layout's natural height
+    // and let the advisor re-measure (a stored override is not persisted yet).
+    setFigHeightOverride(null);
     // Stored panels win; else project the layer stack from the Phase 0 fields.
     const restored =
       inputs.panels ??
@@ -1125,10 +1142,17 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
     legendPlacement,
     labelsTilt: Number(advisorLabelsPanel?.options?.tilt) || 0,
     labelsFontSize: Number(advisorLabelsPanel?.options?.fontSize) || 11,
+    figureHeight: figH,
   };
   const applyAdvisorDelta = (d: AdvisorDelta) => {
     if (d.columnGap !== undefined) setColumnGap(d.columnGap);
     if (d.legendPlacement !== undefined) setLegendPlacement(d.legendPlacement);
+    if (d.figureHeight !== undefined)
+      // Map back to an override (null when the fix returns to the natural height,
+      // e.g. the wand's "undo" restores the snapshot's original figureHeight).
+      setFigHeightOverride(
+        d.figureHeight === figHeightFor(layout) ? null : d.figureHeight,
+      );
     if (
       d.labelsTilt !== undefined ||
       d.labelsFontSize !== undefined ||
@@ -1281,6 +1305,7 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
               onApply={applyAdvisorDelta}
               collisions={layoutCollisions}
               fixes={layoutFixes}
+              recommendedHeight={layoutRecommendedHeight}
               silenced={advisorSilenced}
               onSilence={() => {
                 writeAdvisorSilenced(openTreeId);
@@ -1300,7 +1325,13 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
                   ["inwardCircular", "Inward circular"],
                   ["unrooted", "Unrooted"],
                 ]}
-                onChange={setLayout}
+                onChange={(next) => {
+                  // A height tuned for one shape (a tall rectangular stack) makes no
+                  // sense for another (a square radial), so drop the advisor override
+                  // back to the new layout's natural height.
+                  setFigHeightOverride(null);
+                  setLayout(next);
+                }}
               />
               <Seg
                 value={phylogram ? "phylo" : "clado"}

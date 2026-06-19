@@ -201,6 +201,50 @@ export function detectCollisions(manifest: LayoutManifest): Collision[] {
   return out;
 }
 
+/** The figure height (in the manifest's units) that would give a vertical stack of
+ *  tip / axis labels enough row pitch to stop overlapping, computed from the EXACT
+ *  measured boxes rather than a guess. A dense tree packs N labels into a fixed
+ *  height, so the row pitch (height / (N-1)) shrinks below a label's own height and
+ *  shrinking the font alone can never separate them -- the honest fix is a taller
+ *  figure. We measure the current pitch and the tallest label, then scale the whole
+ *  figure so the new pitch clears the label height with a little breathing room.
+ *  Returns the current height unchanged when the labels are not a vertical stack or
+ *  already have room (so a quiet figure is never grown). */
+export function recommendedHeightToClearLabelStack(
+  manifest: LayoutManifest,
+): number {
+  const current = manifest.height;
+  const labels = manifest.boxes
+    .filter((b) => isLabelKind(b.kind))
+    .sort((a, b) => a.y - b.y || a.x - b.x);
+  if (labels.length < 2) return current;
+
+  // Adjacent vertical gaps (center-to-center). Use the median so a few outliers
+  // (a clade gap, a missing row) do not skew the pitch estimate.
+  const pitches: number[] = [];
+  for (let i = 1; i < labels.length; i++) {
+    const dy = Math.abs(
+      labels[i].y + labels[i].h / 2 - (labels[i - 1].y + labels[i - 1].h / 2),
+    );
+    // Same-row neighbors (a horizontal axis row) have ~0 vertical gap; ignore them,
+    // a taller figure does not separate a horizontal row.
+    if (dy > 0.5) pitches.push(dy);
+  }
+  if (pitches.length === 0) return current;
+  pitches.sort((a, b) => a - b);
+  const pitch = pitches[Math.floor(pitches.length / 2)];
+  const labelH = Math.max(...labels.map((b) => b.h));
+  // The pitch a label needs to clear its neighbor, with 25% breathing room.
+  const needPitch = labelH * 1.25;
+  if (pitch >= needPitch) return current;
+
+  // Pitch scales linearly with figure height, so the multiplier that lifts the
+  // current pitch to needPitch lifts the height the same way. Round up, and clamp
+  // to a sane ceiling so a pathological tree cannot ask for a 100k px canvas.
+  const scale = needPitch / pitch;
+  return Math.min(20000, Math.ceil(current * scale));
+}
+
 /** Map a set of collisions to the fixes that would resolve them, de-duplicated.
  *  `available` flags whether the toggle exists yet (see proposal phase 1). */
 export function suggestFixes(collisions: Collision[]): FixSuggestion[] {

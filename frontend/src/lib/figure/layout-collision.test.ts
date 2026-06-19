@@ -7,7 +7,11 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { detectCollisions, suggestFixes } from "./layout-collision";
+import {
+  detectCollisions,
+  suggestFixes,
+  recommendedHeightToClearLabelStack,
+} from "./layout-collision";
 import {
   boxOverlapArea,
   labelsOverlap,
@@ -185,5 +189,60 @@ describe("suggestFixes is shared", () => {
     const a: PlacedBox = { id: "a", kind: "mark", x: 0, y: 0, w: 10, h: 10 };
     const b: PlacedBox = { id: "b", kind: "mark", x: 5, y: 5, w: 10, h: 10 };
     expect(boxOverlapArea(a, b)).toBe(25);
+  });
+});
+
+describe("recommendedHeightToClearLabelStack", () => {
+  /** A vertical stack of n label boxes, height h each, pitch px apart, in a figure
+   *  of the given total height. */
+  function stack(n: number, h: number, pitch: number, figH: number): LayoutManifest {
+    const boxes: PlacedBox[] = Array.from({ length: n }, (_, i) => ({
+      id: `tip:${i}`,
+      kind: "tipLabel" as const,
+      x: 0,
+      y: i * pitch,
+      w: 40,
+      h,
+      label: `T${i}`,
+    }));
+    return { width: 620, height: figH, plotRight: 40, boxes };
+  }
+
+  it("leaves a roomy stack unchanged (pitch already clears the labels)", () => {
+    // 12px labels, 20px apart: no crowding, so no growth.
+    const m = stack(10, 12, 20, 460);
+    expect(recommendedHeightToClearLabelStack(m)).toBe(460);
+  });
+
+  it("grows a crowded stack so the new pitch clears the label height", () => {
+    // 12px labels only 5px apart -> crowded. The recommended height must lift the
+    // pitch to at least the label height (with breathing room).
+    const figH = 460;
+    const m = stack(90, 12, 5, figH);
+    const taller = recommendedHeightToClearLabelStack(m);
+    expect(taller).toBeGreaterThan(figH);
+    // After scaling the figure to `taller`, the pitch scales by the same factor and
+    // must now exceed the 12px label height, so adjacent labels separate.
+    const newPitch = 5 * (taller / figH);
+    expect(newPitch).toBeGreaterThanOrEqual(12);
+  });
+
+  it("ignores a horizontal row (a taller figure does not separate it)", () => {
+    // Same y (an axis row), so no vertical pitch to grow.
+    const boxes: PlacedBox[] = Array.from({ length: 6 }, (_, i) => ({
+      id: `ax:${i}`,
+      kind: "axisLabel" as const,
+      x: i * 4,
+      y: 300,
+      w: 30,
+      h: 12,
+    }));
+    const m: LayoutManifest = { width: 430, height: 340, plotRight: 124, boxes };
+    expect(recommendedHeightToClearLabelStack(m)).toBe(340);
+  });
+
+  it("returns the current height when there is nothing to separate", () => {
+    const m: LayoutManifest = { width: 430, height: 340, plotRight: 100, boxes: [] };
+    expect(recommendedHeightToClearLabelStack(m)).toBe(340);
   });
 });
