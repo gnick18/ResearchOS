@@ -110,11 +110,10 @@ jobs:
         # turns on the sharing UI that privacy.spec's read-side gate test exercises;
         # the dummy AUTH_SECRET only lets NextAuth initialize so /api/auth/session
         # returns an empty session instead of 500-ing (it signs nothing real).
-        # These are dev-only feature flags, not secrets. NOTE: the two Share-dialog
-        # tests in privacy.spec are skipped (see the TODO there) because they need a
-        # seeded sharing identity the fixture does not provide; enabling AUTH_DEV_MOCK
-        # was verified safe for the other specs but did NOT satisfy that gate, so it
-        # is left off until the fixture seeds an identity.
+        # These are dev-only feature flags, not secrets. The two Share-dialog tests
+        # in privacy.spec opt into a fixture-seeded sharing identity via
+        # ?seedSharingIdentity=1 (see wiki-capture-mock), so they no longer need a
+        # pre-existing identity and run here without AUTH_DEV_MOCK.
         env:
           AUTH_SECRET: ci-playwright-dummy-secret-not-used-in-production
           NEXT_PUBLIC_SHARING_ENABLED: "true"
