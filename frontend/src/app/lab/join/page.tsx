@@ -238,9 +238,9 @@ function LabTokenJoin({ token }: { token: string }) {
             If you have not set up a device key yet, do that and a labmate can
             grant you access right after.
           </p>
-          <a href="/" className={`block text-center ${primaryBtn}`}>
+          <Link href="/" className={`block text-center ${primaryBtn}`}>
             Go to ResearchOS
-          </a>
+          </Link>
         </div>
       )}
 
@@ -263,9 +263,9 @@ function LabTokenJoin({ token }: { token: string }) {
           >
             {state === "working" ? "Joining..." : "Accept and join"}
           </button>
-          <a href="/" className={`block text-center ${secondaryBtn}`}>
+          <Link href="/" className={`block text-center ${secondaryBtn}`}>
             Decline
-          </a>
+          </Link>
         </div>
       )}
     </BrandedJoinShell>

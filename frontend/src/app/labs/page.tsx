@@ -32,6 +32,7 @@
 
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
@@ -175,14 +176,14 @@ export default function LabsPage() {
                 <Icon name="users" className="h-4 w-4" />
                 Create your lab
               </button>
-              <a
+              <Link
                 href="/demo"
                 data-testid="labs-hero-demo"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 Explore the live demo
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
           </Reveal>
         </header>
@@ -191,7 +192,7 @@ export default function LabsPage() {
         <section className="px-6 py-20 sm:px-12">
           <Reveal className="mx-auto max-w-[1040px]">
             <div className="mb-10 text-center">
-              <Kicker>// what a lab unlocks</Kicker>
+              <Kicker>{"// what a lab unlocks"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 One lab, every member, always in sync
               </h2>
@@ -225,7 +226,7 @@ export default function LabsPage() {
                 The lab is yours to run while your members do the work.
               </FeatureCard>
               <FeatureCard icon="folder" title="One shared workspace">
-                Every member's work lives in one place the whole lab can reach, so
+                Every member&apos;s work lives in one place the whole lab can reach, so
                 nothing is stranded on one laptop.
               </FeatureCard>
             </div>
@@ -236,7 +237,7 @@ export default function LabsPage() {
         <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-2 lg:items-center">
             <div>
-              <Kicker>// a home for your science on the web</Kicker>
+              <Kicker>{"// a home for your science on the web"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Your lab gets a site, not just storage
               </h2>
@@ -337,20 +338,20 @@ export default function LabsPage() {
         <section className="border-t border-[#d8e3f1] bg-gradient-to-b from-white to-[#eef4fb] px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <Kicker>// the local-first promise still holds</Kicker>
+              <Kicker>{"// the local-first promise still holds"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Shared, without giving up your data
               </h2>
               <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
                 Going from solo to a lab does not move your science onto someone
-                else's server. Each member keeps the local-first promise. The
+                else&apos;s server. Each member keeps the local-first promise. The
                 cloud is only the intermediary that keeps the team in sync.
               </p>
             </div>
 
             <div className="flex flex-col gap-6 rounded-2xl border border-[#cfe0f3] bg-white p-7 shadow-[0_4px_24px_rgba(15,40,80,0.06)]">
               <PromiseRow icon="folder" title="Data on each member's own disk">
-                Every member's records live on their own machine, the same as a
+                Every member&apos;s records live on their own machine, the same as a
                 solo workspace. The lab does not pool your files into one server.
               </PromiseRow>
               <PromiseRow icon="lock" title="End to end encrypted in transit">
@@ -399,23 +400,23 @@ export default function LabsPage() {
                 <Icon name="users" className="h-4 w-4" />
                 Create your lab
               </button>
-              <a
+              <Link
                 href="/pricing"
                 data-testid="labs-cta-pricing"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 See what a lab costs
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
             <p className="mt-6 text-meta text-[#94a3b8]">
               Free and open source at the core. A lab is the shared-team tier.{" "}
-              <a
+              <Link
                 href="/pricing"
                 className="font-semibold text-brand-action hover:text-brand-ink"
               >
                 See the pricing <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
           </Reveal>
         </section>

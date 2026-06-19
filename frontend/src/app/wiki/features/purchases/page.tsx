@@ -324,7 +324,7 @@ export default function PurchasesFeaturePage() {
         Scroll past the order list and the page closes out with a live spending
         dashboard. Every number on it is recomputed from the same set of items
         you can see above. Funding accounts store only a budget cap, no spend
-        counter, so each account's spent total is summed live from the line
+        counter, so each account&apos;s spent total is summed live from the line
         items charged to it. Live computation avoids drift bugs when an item is
         edited or moved.
       </p>

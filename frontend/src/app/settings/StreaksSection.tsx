@@ -320,7 +320,7 @@ function ResetStreakModal({
         >
           Reset your {currentCount}-day streak?
         </h3>
-        <p className="mt-2 text-body text-foreground-muted">This can't be undone.</p>
+        <p className="mt-2 text-body text-foreground-muted">This can&apos;t be undone.</p>
 
         <label className="mt-4 flex items-start gap-2 cursor-pointer text-body text-foreground">
           <input

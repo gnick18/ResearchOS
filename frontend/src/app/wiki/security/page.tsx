@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Callout from "@/components/wiki/Callout";
 import Screenshot from "@/components/wiki/Screenshot";
 import { Steps, Step } from "@/components/wiki/Steps";
@@ -443,7 +444,7 @@ export default function SecurityPage() {
         workflow lives in <code>.github/workflows/ci.yml</code>. If any of
         those gates fail, the change does not ship. That same machinery is
         what keeps the scientific calculations honest, which is its own page.{" "}
-        <a href="/wiki/trust/method-validation">Method validation</a> explains
+        <Link href="/wiki/trust/method-validation">Method validation</Link> explains
         how every sequence and lab calculation is re-checked against the
         reference tools the field trusts, on every commit.
       </p>

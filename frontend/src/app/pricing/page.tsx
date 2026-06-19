@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
@@ -158,12 +159,12 @@ export default function PricingPage() {
             academics. It will be back here shortly, and everything in the app
             stays free during the beta in the meantime.
           </p>
-          <a
+          <Link
             href="/"
             className="mt-7 rounded-full border border-border px-5 py-2 text-meta font-medium text-foreground hover:bg-surface"
           >
             Back to home
-          </a>
+          </Link>
         </main>
         <MarketingFooter />
       </div>
@@ -217,12 +218,12 @@ export default function PricingPage() {
                   are the paid part.
                 </p>
               </div>
-              <a
+              <Link
                 href="/"
                 className="inline-flex flex-none items-center gap-2 rounded-xl border border-green-300 bg-white px-5 py-2.5 text-body font-semibold text-green-800 transition-colors hover:border-green-500"
               >
                 Start free
-              </a>
+              </Link>
             </div>
 
             <div className="grid gap-4 lg:grid-cols-3">
@@ -284,12 +285,12 @@ export default function PricingPage() {
             </div>
             <FeatureGrid items={AI_ITEMS} />
             <p className="mt-6 text-center">
-              <a
+              <Link
                 href="/ai"
                 className="inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
               >
                 See everything BeakerBot can do <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
             {!aiBillingEnabled && (
               <p className="mx-auto mt-5 max-w-2xl border-t border-dashed border-border pt-3.5 text-center text-[12px] leading-relaxed text-foreground-muted">

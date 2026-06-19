@@ -32,6 +32,7 @@
  * is the only mascot. Brand tokens only, never raw hex for new accents.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -177,14 +178,14 @@ export default function DepartmentsPage() {
                 <Icon name="layer" className="h-4 w-4" />
                 Set up your department
               </button>
-              <a
+              <Link
                 href="/labs"
                 data-testid="departments-hero-labs"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 A single lab instead
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
           </Reveal>
         </header>
@@ -193,7 +194,7 @@ export default function DepartmentsPage() {
         <section className="px-6 py-20 sm:px-12">
           <Reveal className="mx-auto max-w-[1040px]">
             <div className="mb-10 text-center">
-              <Kicker>// what a department adds</Kicker>
+              <Kicker>{"// what a department adds"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Many labs, one organization
               </h2>
@@ -225,7 +226,7 @@ export default function DepartmentsPage() {
               <FeatureCard icon="gauge" title="Your department portal">
                 A standalone portal for the plan, roster, billing, and policy. It
                 is org admin only, with no research data and no reach into any
-                lab's files.
+                lab&apos;s files.
               </FeatureCard>
               <FeatureCard icon="database" title="Shared methods and databases">
                 Optionally publish department-wide method protocols or reference
@@ -240,7 +241,7 @@ export default function DepartmentsPage() {
         <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-2 lg:items-center">
             <div>
-              <Kicker>// a web presence for the whole department</Kicker>
+              <Kicker>{"// a web presence for the whole department"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 A site for every lab, maintained for you
               </h2>
@@ -335,7 +336,7 @@ export default function DepartmentsPage() {
         <section className="border-t border-[#d8e3f1] bg-gradient-to-b from-white to-[#eef4fb] px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <Kicker>// the local-first promise still holds</Kicker>
+              <Kicker>{"// the local-first promise still holds"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Org-wide, without pooling the data
               </h2>
@@ -349,8 +350,8 @@ export default function DepartmentsPage() {
 
             <div className="flex flex-col gap-6 rounded-2xl border border-[#cfe0f3] bg-white p-7 shadow-[0_4px_24px_rgba(15,40,80,0.06)]">
               <PromiseRow icon="folder" title="Data on each member's own disk">
-                Every member's records live on their own machine. The department
-                manages the org, not a pile of everyone's files on a server.
+                Every member&apos;s records live on their own machine. The department
+                manages the org, not a pile of everyone&apos;s files on a server.
               </PromiseRow>
               <PromiseRow icon="lock" title="End to end encrypted in transit">
                 When work moves between members, it is encrypted end to end. The
@@ -358,7 +359,7 @@ export default function DepartmentsPage() {
               </PromiseRow>
               <PromiseRow icon="cloud" title="The cloud only keeps you in sync">
                 The cloud lets members reach the same live record. It is the sync
-                layer, not the home for the department's science.
+                layer, not the home for the department&apos;s science.
               </PromiseRow>
             </div>
           </Reveal>
@@ -398,24 +399,24 @@ export default function DepartmentsPage() {
                 <Icon name="layer" className="h-4 w-4" />
                 Set up your department
               </button>
-              <a
+              <Link
                 href="/pricing"
                 data-testid="departments-cta-pricing"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 See what a department costs
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
             <p className="mt-6 text-meta text-[#94a3b8]">
               Free and open source at the core. A department is the org tier above
               a lab.{" "}
-              <a
+              <Link
                 href="/pricing"
                 className="font-semibold text-brand-action hover:text-brand-ink"
               >
                 See the pricing <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
           </Reveal>
         </section>

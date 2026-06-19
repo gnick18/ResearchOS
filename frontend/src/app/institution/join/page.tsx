@@ -15,6 +15,7 @@
 
 import { useEffect, useState } from "react";
 import { getSession, signIn } from "next-auth/react";
+import Link from "next/link";
 
 const STASH = "institution-invite-pending";
 
@@ -156,12 +157,12 @@ export default function InstitutionJoinPage() {
             labs. Set up your department, then reopen this link to join{" "}
             {institutionName || "the institution"}.
           </p>
-          <a
+          <Link
             href="/department"
             className="mt-4 inline-block rounded-md bg-brand-action px-4 py-2 text-meta font-semibold text-white"
           >
             Set up department
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -178,12 +179,12 @@ export default function InstitutionJoinPage() {
             keep full control of your department and its labs. You can leave anytime
             from Settings.
           </p>
-          <a
+          <Link
             href="/"
             className="mt-4 inline-block rounded-md bg-brand-action px-4 py-2 text-meta font-semibold text-white"
           >
             Go to ResearchOS
-          </a>
+          </Link>
         </div>
       </div>
     );
@@ -237,12 +238,12 @@ export default function InstitutionJoinPage() {
             >
               {state === "working" ? "Joining…" : "Accept & join"}
             </button>
-            <a
+            <Link
               href="/"
               className="flex-1 rounded-lg border border-border px-4 py-2.5 text-center text-body font-medium text-foreground-muted"
             >
               Decline
-            </a>
+            </Link>
           </div>
         </div>
       </div>

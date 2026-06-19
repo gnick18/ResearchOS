@@ -183,12 +183,12 @@ export default function AboutPage() {
             We are refreshing this page now that the team has grown. Back soon,
             with the full picture of who is building ResearchOS.
           </p>
-          <a
+          <Link
             href="/"
             className="mt-7 rounded-full border border-border px-5 py-2 text-meta font-medium text-foreground hover:bg-surface"
           >
             Back to home
-          </a>
+          </Link>
         </main>
         <MarketingFooter />
       </div>

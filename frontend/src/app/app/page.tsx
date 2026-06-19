@@ -22,6 +22,7 @@
  * the only mascot. Brand tokens only, never raw hex for new accents.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -161,14 +162,14 @@ export default function AppPage() {
                 <Icon name="phone" className="h-4 w-4" />
                 Get started
               </button>
-              <a
+              <Link
                 href="/demo"
                 data-testid="app-hero-demo"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 Explore the live demo
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
           </Reveal>
         </header>
@@ -177,7 +178,7 @@ export default function AppPage() {
         <section className="px-6 py-20 sm:px-12">
           <Reveal className="mx-auto max-w-[1040px]">
             <div className="mb-10 text-center">
-              <Kicker>// what the app unlocks</Kicker>
+              <Kicker>{"// what the app unlocks"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 The bench is where the data is made
               </h2>
@@ -208,7 +209,7 @@ export default function AppPage() {
                 one-tap reorder queue while you are standing at the shelf.
               </FeatureCard>
               <FeatureCard icon="bell" title="Stay in the loop">
-                Push notifications for your lab, so a finished run or a teammate's
+                Push notifications for your lab, so a finished run or a teammate&apos;s
                 request reaches you when you are away from the bench.
               </FeatureCard>
               <FeatureCard icon="cloud" title="Synced to your real workspace">
@@ -224,7 +225,7 @@ export default function AppPage() {
         <section className="border-t border-[#d8e3f1] bg-white px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-12 lg:grid-cols-2 lg:items-center">
             <div>
-              <Kicker>// how the app is packaged</Kicker>
+              <Kicker>{"// how the app is packaged"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Free to download, paired when you pay
               </h2>
@@ -263,14 +264,14 @@ export default function AppPage() {
                   </span>
                 </li>
               </ul>
-              <a
+              <Link
                 href="/pricing"
                 data-testid="app-pricing-link"
                 className="mt-7 inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 See what pairing costs
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
 
             {/* phone frame */}
@@ -343,7 +344,7 @@ export default function AppPage() {
         <section className="border-t border-[#d8e3f1] bg-gradient-to-b from-white to-[#eef4fb] px-6 py-20 sm:px-12">
           <Reveal className="mx-auto grid max-w-[1040px] gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
             <div>
-              <Kicker>// the local-first promise still holds</Kicker>
+              <Kicker>{"// the local-first promise still holds"}</Kicker>
               <h2 className="mt-3 text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-4xl">
                 Your phone, not our vault
               </h2>
@@ -401,24 +402,24 @@ export default function AppPage() {
                 <Icon name="phone" className="h-4 w-4" />
                 Get started
               </button>
-              <a
+              <Link
                 href="/pricing"
                 data-testid="app-cta-pricing"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 See the pricing
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
             <p className="mt-6 text-meta text-[#94a3b8]">
               The app is free to download. Pairing to your real lab is included on
               every paid plan.{" "}
-              <a
+              <Link
                 href="/pricing"
                 className="font-semibold text-brand-action hover:text-brand-ink"
               >
                 See the pricing <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
           </Reveal>
         </section>

@@ -13,6 +13,7 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
@@ -106,12 +107,12 @@ export default function HandleProfilePage() {
                 <p className="mt-2 text-meta text-foreground-muted">
                   There is no ResearchOS account at <b>@{handle}</b>.
                 </p>
-                <a
+                <Link
                   href="/network"
                   className="mt-5 inline-flex items-center gap-1.5 rounded-full border border-border px-4 py-2 text-meta font-medium text-foreground-muted transition hover:border-brand-action hover:text-brand-action"
                 >
                   Back to the researcher network
-                </a>
+                </Link>
               </div>
             ) : (
               <div className="mx-auto mt-4 w-full rounded-2xl border border-border bg-surface p-8 shadow-lg">
@@ -185,9 +186,9 @@ export default function HandleProfilePage() {
       <MarketingBackdrop tone="soft" />
       <div className="relative z-10 flex min-h-screen flex-col">
         <header className="flex items-center px-5 py-3">
-          <a href="/">
+          <Link href="/">
             <Wordmark size="sm" animated={false} className="gap-2" />
-          </a>
+          </Link>
         </header>
         <main className="mx-auto flex w-full max-w-lg flex-1 items-center px-5 py-10">
           {state === "loading" ? (

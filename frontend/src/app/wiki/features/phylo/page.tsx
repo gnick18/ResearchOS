@@ -288,7 +288,7 @@ export default function PhyloFeaturePage() {
       </p>
       <Callout variant="tip" title="Or just ask in plain language">
         The BeakerBot assistant reaches the same engine. With a tree open, ask it
-        something like "what data can I overlay on this tree" and it resolves
+        something like &quot;what data can I overlay on this tree&quot; and it resolves
         which tree you mean, reports the same ranked matches, and mounts the very
         same add-data wizard inside the chat. Whichever door you use, the app does
         the matching and the math and the assistant only narrates it, so the two
@@ -323,15 +323,15 @@ export default function PhyloFeaturePage() {
       <h2>Why you can trust the output</h2>
       <p>
         Two things on the <Link href="/wiki/trust">transparency page</Link> back the
-        workbench up. The first is that the Tree Studio's native layout is checked
+        workbench up. The first is that the Tree Studio&apos;s native layout is checked
         against ggtree, the de-facto standard tree-plotting package in R, on real
         published phylogenies, so the figure you draw here matches the one the
         standard tool draws. The second is published-tree reproduction, where we run
-        the Builder's generated recipe on a real paper's own data and check that it
-        recovers that paper's published tree.
+        the Builder&apos;s generated recipe on a real paper&apos;s own data and check that it
+        recovers that paper&apos;s published tree.
       </p>
       <Callout variant="info" title="What 'reproduces the published tree' honestly means">
-        Maximum-likelihood tree search is stochastic, and we run on the paper's
+        Maximum-likelihood tree search is stochastic, and we run on the paper&apos;s
         alignment rather than its exact tool versions, so we never claim a
         bit-for-bit identical tree. The honest test is whether the recipe recovers
         every clade the original study was confident about. A case passes when it
@@ -344,7 +344,7 @@ export default function PhyloFeaturePage() {
 
       <h2>What it is built on</h2>
       <p>
-        The Tree Studio's layout and rendering are written natively in the app, with
+        The Tree Studio&apos;s layout and rendering are written natively in the app, with
         no plotting library doing the drawing, which is what lets it render in the
         browser with nothing to upload. The Tree Builder writes recipes for the
         standard open-source phylogenetics tools, MAFFT, trimAl, ClipKIT, Gblocks,

@@ -101,7 +101,7 @@ export default function FeedbackFeaturePage() {
         The BugStomp scene (a small BeakerBot moment you might hit after a
         crash recovery) ends with the same feedback flow. Stomping the bug
         opens the FeedbackModal pre-set to Bug type and prefilled with a hint
-        from the crash context. It's the same modal as the manual entry
+        from the crash context. It&apos;s the same modal as the manual entry
         point, just with an auto-populated body. If you have reduced motion
         turned on, the animation is skipped and you get a static aftermath
         tableau instead.
