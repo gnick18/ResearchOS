@@ -1596,41 +1596,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </button>
               </div>
             </div>
-          ) : showQuickConfirm && soleUser ? (
-            <div className="p-6 text-center space-y-5">
-              <div className="flex flex-col items-center gap-3">
-                <UserAvatar username={soleUser} size="xl" />
-                <div>
-                  <p className="text-body text-slate-400">Continue as</p>
-                  <p className="text-heading font-semibold text-white">
-                    {soleUser}?
-                  </p>
-                </div>
-              </div>
-              {error && (
-                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleLogin(soleUser)}
-                  disabled={loggingIn !== null}
-                  className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Yes, I&apos;m {soleUser}
-                </button>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    setExpandPicker(true);
-                  }}
-                  className="w-full py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
-                >
-                  No, I&apos;m someone else
-                </button>
-              </div>
-            </div>
           ) : showCreateForm ? (
             <div className="p-6">
               <button
