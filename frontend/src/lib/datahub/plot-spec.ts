@@ -1236,6 +1236,14 @@ export function layoutPlot(
   const y0 = height - padB - extraBottom;
 
   const auto = pickAxis(groups, style.errorBar);
+  // Vertical step between two stacked significance brackets. It must clear, in one
+  // step: the lower bracket's star label (rises ~fontSize above its span line) AND
+  // the upper bracket's legs that drop legDrop toward it. A fixed 18 was too small
+  // at the default fontSize 13 (needs ~25), so adjacent brackets crammed on top of
+  // each other. Derive it from the font so it scales and never collides. The
+  // headroom reservation below and the layout pass further down share this value.
+  const BRACKET_LEG_DROP = 8;
+  const BRACKET_TIER_PX = Math.max(20, style.fontSize + BRACKET_LEG_DROP + 4);
   // Reserve vertical room for the significance-bracket stack. pickAxis sizes the
   // headroom to the DATA only, so a tall stack (many significant comparisons)
   // would be crammed down onto the points by the ceiling clamp. Convert the
@@ -1259,7 +1267,7 @@ export function layoutPlot(
     const depth = bracketStackDepth(bracketRequests);
     // (depth-1) tier steps + the gap above the tallest point + the top label + a
     // small margin, matching the layout constants used below.
-    const stackPx = (depth - 1) * 18 + 16 + style.fontSize + 8;
+    const stackPx = (depth - 1) * BRACKET_TIER_PX + 16 + style.fontSize + 8;
     const frac = plotH > 0 ? stackPx / plotH : 1;
     if (dataTop > 0 && frac > 0 && frac < 0.8) {
       const needed = dataTop / (1 - frac);
@@ -1367,8 +1375,8 @@ export function layoutPlot(
       return t;
     });
     const gap = 16; // air between a bracket and the tallest element it clears
-    const tier = 18; // vertical step between two stacked (overlapping) brackets
-    const legDrop = 8;
+    const tier = BRACKET_TIER_PX; // font-scaled step so stacked brackets never collide
+    const legDrop = BRACKET_LEG_DROP;
     // Place narrow spans first (then left to right) so a wide span is pushed up
     // OVER the narrow ones it crosses, never the reverse.
     const order = drawn

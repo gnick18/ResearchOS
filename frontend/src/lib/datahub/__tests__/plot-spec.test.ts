@@ -570,6 +570,25 @@ describe("plot-spec: significance brackets", () => {
     expect(b0.labelY).toBeCloseTo(b0.spanY - 3, 6);
   });
 
+  it("spaces stacked brackets so the star label + legs never overlap the bracket above", () => {
+    // Regression: the tier step was a fixed 18px, too small to fit the lower
+    // bracket's star label (rises ~fontSize above its span) plus the upper
+    // bracket's legs (drop 8px toward it), so adjacent brackets crammed on top
+    // of each other. The step now scales with the font. Assert the real
+    // no-overlap invariant, not just "some gap".
+    const content = threeGroupContent();
+    const style = defaultPlotStyle();
+    const groups = resolvePlotGroups(content, style);
+    const reqs = bracketRequestsFromAnalysis(ANOVA_SPEC, groups);
+    const geo = layoutPlot(groups, style, reqs);
+
+    const [b0, b1] = geo.brackets; // b1 sits a tier above b0
+    // Top of b0's star label (baseline labelY, glyphs rise ~fontSize) must clear
+    // the bottom of b1's legs (legY = the lowest ink of the upper bracket).
+    const lowerLabelTop = b0.labelY - style.fontSize;
+    expect(b1.legY).toBeLessThanOrEqual(lowerLabelTop);
+  });
+
   it("omits brackets entirely when showBrackets is off", () => {
     const content = threeGroupContent();
     const style = { ...defaultPlotStyle(), showBrackets: false };
