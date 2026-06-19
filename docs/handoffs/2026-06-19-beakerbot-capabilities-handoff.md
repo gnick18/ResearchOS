@@ -4,7 +4,7 @@ Date 2026-06-19. Lane: BeakerBot AI + the PI (lab-head) copilot + a Claude Desig
 
 ## TL;DR
 
-Five threads. The PI copilot is COMPLETE (18 tools, zero deferred) and live-verified. Three new BeakerBot capabilities landed or got specced, network sharing (built), inline settings (built, one open bug), and an auto-plan offer (specced, decisions locked, not built). A design-system package is built and ready to push into Claude Design. One unrelated blocker, the demo-lab-network lane broke the Turbopack build on main.
+Five threads. The PI copilot is COMPLETE (18 tools, zero deferred) and live-verified. Three new BeakerBot capabilities landed or got specced, network sharing (built), inline settings (built, one open bug), and an auto-plan offer (specced, decisions locked, not built). A design-system package is built and ready to push into Claude Design. One unrelated blocker (the demo-lab-network lane broke the Turbopack build on main) was hit and FIXED this session (`81c6d2a64`).
 
 ## 1. Lab-head PI copilot, COMPLETE at 18 tools
 
@@ -66,17 +66,18 @@ Spec `docs/proposals/2026-06-19-beakerbot-auto-plan-offer.md`. The insight, plan
 
 Two parts, (A) a prompt instruction on WHEN to call `propose_plan`, (B) a loop change in `gateToolCall` so an explicitly-approved offered-plan runs its non-destructive steps free for THAT turn even in step mode (today step mode ignores `planState.approved`). Destructive always hard-stops. Decisions LOCKED (`1218b8194`), offer at 2+ non-trivial actions, per-turn revert, a "review each step instead" card escape, count writes + previewable steps. READY TO BUILD, not built.
 
-## 6. BLOCKER, demo-lab-network broke the Turbopack build on main
+## 6. Build break (demo-lab-network), RESOLVED (`81c6d2a64`)
 
-NOT this lane's code. Commit `9813209bc` (demo-lab-network) has `src/lib/social/seed-demo-lab.ts:77` doing `new URL("./fixtures/demo-byo-site/", import.meta.url)`, a trailing-slash DIRECTORY url Turbopack cannot resolve as an asset ("Module not found"). `src/instrumentation.ts` imports seed-demo-lab, so the whole app fails to compile under Turbopack dev, which blocks :3000 and any live verification. That lane should fix it (reference the fixture files individually, or lazy-guard the seed so the missing-asset path cannot break the build). Flagged to Grant, not yet actioned.
+NOT this lane's code, but it broke the build for everyone so this lane fixed it. Commit `9813209bc` (demo-lab-network) had `src/lib/social/seed-demo-lab.ts` reading fixtures via `new URL("./fixtures/<dir>/", import.meta.url)`, a trailing-slash DIRECTORY url Turbopack cannot resolve as an asset ("Module not found"). `src/instrumentation.ts` imports seed-demo-lab, so the whole app failed to compile under Turbopack dev, blocking :3000 and all live verification. FIX (`81c6d2a64`), derive the module dir from `import.meta.url` at runtime + `path.join` the relative path (opaque to the bundler, so it compiles), the flag-gated seeder still reads the checked-in fixtures from disk. Verified, :3000 compiles and renders again. CAVEAT for the demo-lab-network lane, the old `new URL` form also asset-TRACED the files into the prod server output and the runtime-path form does not, so if the seeder ever runs in PROD they must verify the fixtures are bundled.
 
 ## Open queue (priority order is Grant's call)
 
-1. Fix the demo-lab-network build break (blocks :3000).
-2. Inline settings bug #3, enumerate the safe keys in the tool description, then finish the live widget-render verify.
-3. Build auto-plan-offer Phase 1 (decisions locked).
-4. Network `shareWith` pre-fill in the Send dialogs.
-5. Push the design system to Claude Design (Grant `/login` or `/design-sync`), then redesign onboarding on it.
+1. Inline settings bug #3, enumerate the safe keys in the tool description, then finish the live widget-render verify (now unblocked, the build break is fixed).
+2. Build auto-plan-offer Phase 1 (decisions locked).
+3. Network `shareWith` pre-fill in the Send dialogs.
+4. Push the design system to Claude Design (Grant `/login` or `/design-sync`), then redesign onboarding on it.
+
+DONE since the first cut, the demo-lab-network build break (`81c6d2a64`, see section 6).
 
 ## Conventions reinforced this session
 
