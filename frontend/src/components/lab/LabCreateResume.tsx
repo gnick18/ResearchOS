@@ -39,6 +39,7 @@ import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { ensureLocalIdentity } from "@/lib/sharing/identity/ensure-identity";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { createLabLocal } from "@/lib/lab/lab-create";
+import { hasPendingLabInvite } from "@/lib/lab/lab-invite-stash";
 import {
   publishPendingGenesis,
   readPendingGenesis,
@@ -247,6 +248,13 @@ export default function LabCreateResume() {
   useEffect(() => {
     if (!LAB_TIER_ENABLED) return;
     if (!markerPresent) return;
+    // Join wins over create: if the visitor arrived via a lab invite (a pending
+    // invite is stashed), they are a JOINER and must never provision their own
+    // lab, even if a stale lab-create marker lingers. The chooser already hides
+    // the create tile for an invited visitor, so the marker should not be set in
+    // the first place; this is the final guard on the one invariant that a joiner
+    // never creates a spurious second lab.
+    if (hasPendingLabInvite()) return;
     if (done) return;
     if (!currentUser) return;
     if (needEmail) return; // waiting on the email-OTP wizard

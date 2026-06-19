@@ -18,7 +18,7 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BeakerBotScene } from "@/components/onboarding/BeakerBotScene";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
@@ -29,6 +29,10 @@ import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import { isRequireAccountEnabled, isLocalPathVisible } from "@/lib/account/require-account";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
+import {
+  readPendingLabInvite,
+  type PendingLabInvite,
+} from "@/lib/lab/lab-invite-stash";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 
@@ -581,11 +585,84 @@ function LabJoinSubStep({
   );
 }
 
+// ---- Invite-arrival view: route an invited visitor straight to JOIN ----
+// Shown as the chooser's default beat when the visitor arrived via a lab invite
+// link (a pending invite is stashed). The whole point is that a joiner becomes a
+// pure MEMBER of the inviter's lab and is NEVER pushed to create their own lab
+// (the spurious-second-lab bug from the co-founder test). The primary action
+// resumes the join; a quiet escape reveals the member-only setup tiles so the
+// visitor is never trapped, but the paid "Start a lab" create path is suppressed
+// while an invite is pending.
+function InviteResumeView({
+  invite,
+  onJoin,
+  onOtherWays,
+}: {
+  invite: PendingLabInvite;
+  onJoin: () => void;
+  onOtherWays: () => void;
+}) {
+  const labLabel = invite.labName
+    ? `the ${invite.labName}`
+    : invite.headUsername
+      ? `${invite.headUsername}'s lab`
+      : "a lab";
+  return (
+    <div className="light-scope relative isolate flex flex-col items-center w-full px-6 py-10 min-h-screen bg-white text-foreground"><StepBg />
+      <div className="w-16 h-20 mb-3 flex-none">
+        <BeakerBotScene name="lab" className="w-full h-full" />
+      </div>
+      <h1 className="text-2xl font-extrabold tracking-tight text-foreground text-center mt-1">
+        You were invited to join {labLabel}
+      </h1>
+      <p className="text-sm text-foreground-muted text-center mt-2 mb-8 max-w-md">
+        You have a lab invite waiting. Joining makes you a member of{" "}
+        {invite.labName ? `the ${invite.labName}` : "that lab"}, which is free.
+        Only the lab head pays, members never do, and you do not need a lab of
+        your own.
+      </p>
+      <div className="w-full max-w-sm space-y-3">
+        <button
+          type="button"
+          data-testid="invite-resume-join"
+          className="w-full py-3 px-4 rounded-xl bg-[#1283c9] hover:bg-[#0f6fa8] text-white font-semibold text-sm transition-colors"
+          onClick={onJoin}
+        >
+          Continue to join the lab
+        </button>
+      </div>
+      <button
+        type="button"
+        data-testid="invite-resume-other"
+        className="mt-6 text-sm text-foreground-muted hover:text-foreground underline hover:no-underline transition-colors"
+        onClick={onOtherWays}
+      >
+        Set up a different way
+      </button>
+    </div>
+  );
+}
+
 // ---- Main component ----
 export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTierChooserProps) {
   const router = useRouter();
   const [step, setStep] = useState<ChooserStep>({ view: "tiles" });
   const [compareOpen, setCompareOpen] = useState(false);
+
+  // Invite-arrival routing: when the visitor came in via a lab invite link, a
+  // pending invite is stashed (lab-invite-stash). Such a visitor must JOIN the
+  // inviter's lab as a pure member and must NEVER be funneled into creating their
+  // own lab (the spurious-second-lab bug). Read in an effect so the first client
+  // render matches the server (no stash on the server, no hydration mismatch).
+  const [pendingInvite, setPendingInvite] = useState<PendingLabInvite | null>(
+    null,
+  );
+  // The visitor chose to set up a different way despite the pending invite. Keeps
+  // the resume from being a hard wall: they can still pick a member-only tier.
+  const [inviteOtherWays, setInviteOtherWays] = useState(false);
+  useEffect(() => {
+    setPendingInvite(readPendingLabInvite());
+  }, []);
 
   // Flag gating: evaluate once at render time (these are env-var reads, stable)
   const showFree = isOAuthPublishAvailable();
@@ -598,7 +675,16 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
     requireAccount: isRequireAccountEnabled(),
     hasAccountTier: showFree || showLab,
   });
-  const tileCount = (showLocal ? 1 : 0) + (showFree ? 1 : 0) + (showLab ? 1 : 0);
+  // Invite-pending gating: an invited visitor joins as a member, so the paid
+  // "Start a lab" create tile is suppressed for them, while the free "Join with
+  // an invite" entry is always offered (even if the lab tier flag would otherwise
+  // hide it) so they always have a join door. A visitor with no invite is
+  // unchanged.
+  const hasInvite = pendingInvite !== null;
+  const showCreateLab = showLab && !hasInvite;
+  const showJoinEntry = showLab || hasInvite;
+  const tileCount =
+    (showLocal ? 1 : 0) + (showFree ? 1 : 0) + (showCreateLab ? 1 : 0);
   const gridCols =
     tileCount >= 3
       ? "sm:grid-cols-3"
@@ -651,6 +737,21 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
       ONBOARDING_WIZARD_ENABLED
         ? { labCreate: true, onboardingWizard: "lab", startPlan: "lab" }
         : { labCreate: true, startPlan: "lab" },
+    );
+  }
+
+  // ---- Invite arrival: route straight to JOIN, never to create-a-lab ----
+  // When the visitor came in via a lab invite link, the default beat is the join
+  // resume, not the tier tiles. They can still opt into a member-only setup via
+  // "Set up a different way" (inviteOtherWays), which falls through to the tiles
+  // below with the create-a-lab tile suppressed.
+  if (step.view === "tiles" && pendingInvite && !inviteOtherWays) {
+    return (
+      <InviteResumeView
+        invite={pendingInvite}
+        onJoin={() => router.push("/lab/join")}
+        onOtherWays={() => setInviteOtherWays(true)}
+      />
     );
   }
 
@@ -737,8 +838,10 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
 
           {/* Start-a-lab tile, LAB HEAD ONLY (shown when LAB_TIER_ENABLED). A
               joining member uses the separate free "Join a lab" entry below, and
-              must never be funneled through this paid create path. */}
-          {showLab && (
+              must never be funneled through this paid create path. Suppressed
+              entirely while a pending invite is stashed (showCreateLab), so an
+              invited visitor can never create a spurious second lab. */}
+          {showCreateLab && (
             <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
               <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
@@ -770,8 +873,10 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
 
         {/* JOIN A LAB: a member joining is FREE (only the PI pays), so this is a
             separate, clearly-free entry that routes straight to the invite path
-            and never touches the paid "Start a lab" create flow. */}
-        {showLab && (
+            and never touches the paid "Start a lab" create flow. Shown when the
+            lab tier is on OR a pending invite is stashed (showJoinEntry), so an
+            invited visitor always has a join door even if the tier flag is off. */}
+        {showJoinEntry && (
           <div className="w-full max-w-3xl mt-5">
             <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-center sm:flex-row sm:text-left">
               <div>
