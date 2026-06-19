@@ -169,7 +169,10 @@ export default async function LabSitePublicPage({
       // handler is just the cross-origin mechanism.
       const gotoParams = new URLSearchParams({ slug });
       if (normPath) gotoParams.set("path", normPath);
+      console.log("[lab301-diag2] about to permanentRedirect", slug);
       permanentRedirect(`/api/social/lab-site/goto?${gotoParams.toString()}`);
+      // SENTINEL: must never print. If it does, the NEXT_REDIRECT throw was caught.
+      console.log("[lab301-diag2] AFTER permanentRedirect (throw swallowed!)", slug);
     }
   }
   // Resolve the frozen baked-block snapshots (Phase 3b). The public reader has no
