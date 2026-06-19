@@ -6,6 +6,11 @@
  *
  * No em-dashes, no emojis, no mid-sentence colons in code or copy. */
 
+/* Self-hosted Geist (sans + mono), variable-font subsets bundled under fonts/.
+ * Imported here so every card that links tokens.css renders in real Geist,
+ * with a clean system-ui fallback if a weight or glyph is missing. */
+@import url("fonts/geist.css");
+
 :root {
   /* Base */
   --background: #ffffff;
