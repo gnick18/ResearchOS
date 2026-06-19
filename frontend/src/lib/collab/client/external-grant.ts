@@ -37,6 +37,7 @@ import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
 import { buildNotifyInvitePayload } from "@/lib/sharing/directory/signature";
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
+import { isExternalCollabHostEntitled } from "./entitlement";
 import { EXTERNAL_COLLAB_ENABLED, COLLAB_RELAY_URL } from "@/lib/loro/config";
 
 /** A resolved outside collaborator, the canonical directory email + hex Ed25519
@@ -126,7 +127,7 @@ export interface GrantExternalCollabParams {
 
 export type GrantExternalCollabResult =
   | { ok: true; docId: string }
-  | { ok: false; reason: "no-identity" | "self" | "request-failed" };
+  | { ok: false; reason: "no-identity" | "self" | "not-entitled" | "request-failed" };
 
 /**
  * Grants an outside ResearchOS user live access to a note.
@@ -137,7 +138,10 @@ export type GrantExternalCollabResult =
  * enforced and records the owner (TOFU) plus everyone in members[].
  *
  * Returns ok:false (without sending) when this device has no published sharing
- * identity (cannot sign) or when the owner is granting themselves.
+ * identity (cannot sign), when the owner is granting themselves, or when the
+ * account is not entitled to host external live collab (a paid produce feature,
+ * Solo and up). A free account keeps the one-time E2E copy send and can still
+ * RECEIVE a live invite; only HOSTING is paid.
  */
 export async function grantExternalCollab(
   params: GrantExternalCollabParams,
@@ -154,6 +158,16 @@ export async function grantExternalCollab(
 
   if (canonicalizeEmail(outside.email) === ownerEmail) {
     return { ok: false, reason: "self" };
+  }
+
+  // Paid-tier gate (Grant 2026-06-18): hosting external LIVE collab is a paid
+  // produce feature (Solo and up). We check BEFORE minting the collab doc id or
+  // sending the grant, so a free account never flips a doc to enforced. The check
+  // fails closed, so a transient failure refuses rather than letting a free
+  // account through. The recipient/accept side and the one-time copy send are not
+  // gated; only hosting is.
+  if (!(await isExternalCollabHostEntitled())) {
+    return { ok: false, reason: "not-entitled" };
   }
 
   const docId = getOrMintCollabDocId(doc);
