@@ -39,6 +39,28 @@ export interface ShowcaseStageProps {
 // live phase replaces this with the real element rect.
 const TARGET_POS = { x: 320, y: 150 };
 
+/** Humanize a raw [data-tutor-target] id (e.g. "phylo-export-tab",
+ *  "datahub-analyze-button") into a short readable control label for the stand-in
+ *  marker, so the internal id never shows in the preview. Drops a leading surface
+ *  prefix and trailing control-kind word, then title-cases what remains. */
+function humanizeTarget(id: string): string {
+  const words = id
+    .split("-")
+    .filter((w) => w && !["button", "tab", "btn", "link", "menu", "item"].includes(w));
+  const SURFACES = new Set([
+    "datahub",
+    "phylo",
+    "methods",
+    "sequences",
+    "chemistry",
+    "inventory",
+    "people",
+  ]);
+  const trimmed = words.length > 1 && SURFACES.has(words[0]) ? words.slice(1) : words;
+  const label = (trimmed.length ? trimmed : words).join(" ").trim();
+  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Open";
+}
+
 export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
   const choreography = choreographyFor(surface);
   const [state, dispatch] = useReducer(playerReducer, choreography, initPlayer);
@@ -112,7 +134,7 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
             className="absolute rounded-md border-2 border-[var(--info,#2563eb)] px-2 py-1 text-[9px] font-semibold text-[var(--info-ink,#1b4fa8)]"
             style={{ left: TARGET_POS.x - 8, top: TARGET_POS.y - 26 }}
           >
-            {target}
+            {humanizeTarget(target)}
           </div>
         ) : null}
 

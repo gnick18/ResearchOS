@@ -42,22 +42,25 @@ export default function InterestPicker({
     <TutorScreen>
       <button
         onClick={onSkip}
-        className="absolute right-4 top-4 z-20 text-xs text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)] hover:underline"
+        className="absolute right-4 top-4 z-20 text-sm text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)] hover:underline"
       >
         Skip for now
       </button>
       <div className="w-full max-w-md">
-        <div className="mb-4 flex items-start gap-2">
-          <div className="h-8 w-8 flex-none">
+        <div className="mb-4 flex items-center gap-3">
+          <div className="h-40 w-40 flex-none">
             <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </div>
-          <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
+          <div
+            className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3.5 py-2.5 text-base"
+            style={{ fontFamily: "var(--font-ai)" }}
+          >
             First, who are you and what do you want to get done? I&apos;ll show you
             the parts that matter to you.
           </div>
         </div>
 
-        <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
+        <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
           I&apos;m a
         </div>
         <div className="flex flex-wrap gap-2">
@@ -67,7 +70,7 @@ export default function InterestPicker({
               onClick={() => onSetRole(r.key)}
               aria-pressed={role === r.key}
               className={
-                "rounded-full border px-3 py-1.5 text-xs " +
+                "rounded-full border px-3.5 py-1.5 text-sm " +
                 (role === r.key
                   ? "border-[var(--violet,#7c4dca)] bg-[var(--violet,#7c4dca)] font-semibold text-white"
                   : "border-[var(--line2,#d2d5cd)] bg-[var(--surface,#fff)] text-[var(--muted,#6b716a)] hover:bg-[var(--sunken,#f1f2ef)]")
@@ -78,7 +81,7 @@ export default function InterestPicker({
           ))}
         </div>
 
-        <div className="mb-1.5 mt-4 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
+        <div className="mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
           I want to
         </div>
         <div className="flex flex-wrap gap-2">
@@ -90,7 +93,7 @@ export default function InterestPicker({
                 onClick={() => onToggleGoal(g.key)}
                 aria-pressed={on}
                 className={
-                  "rounded-full border px-3 py-1.5 text-xs " +
+                  "rounded-full border px-3.5 py-1.5 text-sm " +
                   (on
                     ? "border-[var(--brand,#1d9e75)] bg-[var(--brand,#1d9e75)] font-semibold text-white"
                     : "border-[var(--line2,#d2d5cd)] bg-[var(--surface,#fff)] text-[var(--muted,#6b716a)] hover:bg-[var(--sunken,#f1f2ef)]")
@@ -105,7 +108,7 @@ export default function InterestPicker({
         <div className="mt-6 flex items-center justify-between">
           <button
             onClick={onBack}
-            className="text-xs font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
+            className="text-sm font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
           >
             Back
           </button>
@@ -113,7 +116,7 @@ export default function InterestPicker({
             onClick={onStart}
             disabled={!canStart}
             className={
-              "rounded-lg px-4 py-2 text-xs font-bold text-white " +
+              "rounded-lg px-4 py-2 text-sm font-bold text-white " +
               (canStart
                 ? "bg-[var(--brand,#1d9e75)] hover:brightness-105"
                 : "cursor-not-allowed bg-[var(--line2,#d2d5cd)]")

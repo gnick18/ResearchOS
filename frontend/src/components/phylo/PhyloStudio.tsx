@@ -1781,6 +1781,8 @@ export function PhyloStudio({ initialTreeId }: { initialTreeId?: string } = {}) 
       title: "Export",
       sub: "SVG, PNG, save, reference",
       icon: <Icon name="export" className="h-5 w-5" />,
+      // Onboarding-tour anchor for the Phylo "Export at figure size" beat.
+      tutorTarget: "phylo-export-tab",
       panel: (
         <div>
           <div className="flex flex-wrap gap-1.5">

@@ -118,6 +118,51 @@ export function tutorReducer(
   }
 }
 
+/**
+ * Build a `playing` machine state straight from a persisted resume marker
+ * (build plan §2): the tour set the demo sticky and reloaded, tearing down the
+ * in-memory machine, so on the next mount we rebuild the SAME reel from the
+ * stored role + goals and jump to the stored beat, skipping the opaque
+ * welcome/picker (already shown pre-reload). Pure, so it unit-tests with no
+ * component. The beat index is clamped into the playable range, so a stale or
+ * out-of-range marker resumes at the first playable beat rather than stranding
+ * an empty screen (and never past the last beat).
+ */
+export function resumeTutorState(opts: {
+  role: Role;
+  goals: GoalKey[];
+  beatIndex: number;
+}): TutorState {
+  const reel = buildReel({ role: opts.role, pickedGoals: opts.goals });
+  const floor = firstPlayableIndex(reel);
+  const last = reel.beats.length - 1;
+  const clamped = Math.min(Math.max(opts.beatIndex, floor), Math.max(floor, last));
+  return {
+    phase: "playing",
+    role: opts.role,
+    goals: opts.goals,
+    reel,
+    beatIndex: clamped,
+  };
+}
+
+/**
+ * Build the persisted resume marker from the picker's role + goals (the live
+ * coupled pass): when the real mount enters tour-scoped demo mode it HARD-reloads
+ * into /demo, tearing down this machine, so before the reload we persist exactly
+ * what resumeTutorState needs to rebuild the SAME reel and jump straight to the
+ * first playable (deep-demo) beat. The beatIndex is the first playable index so
+ * the post-reload resume skips the already-shown welcome + picker. Pure, so it
+ * unit-tests without a component or the browser.
+ */
+export function tourResumeMarkerFor(opts: {
+  role: Role;
+  goals: GoalKey[];
+}): { role: Role; goals: GoalKey[]; beatIndex: number } {
+  const reel = buildReel({ role: opts.role, pickedGoals: opts.goals });
+  return { role: opts.role, goals: opts.goals, beatIndex: firstPlayableIndex(reel) };
+}
+
 /** The beat currently on screen while playing, or null otherwise. */
 export function currentBeat(state: TutorState): Beat | null {
   if (state.phase !== "playing" || !state.reel) return null;

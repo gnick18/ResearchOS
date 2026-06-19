@@ -158,10 +158,10 @@
  * figure centre on the .twirling class below. */
 @keyframes beakerBotTwirl {
   from {
-    transform: rotate(0deg);
+    transform: perspective(900px) rotateY(0deg);
   }
   to {
-    transform: rotate(360deg);
+    transform: perspective(900px) rotateY(360deg);
   }
 }
 

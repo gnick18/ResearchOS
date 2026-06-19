@@ -1,5 +1,5 @@
 /* Onboarding tutor welcome hero. The signature backdrop + a big Beaker + a
-   shiny rainbow CTA, so the first screen sings instead of sitting empty.
+   frosted glass CTA, so the first screen sings instead of sitting empty.
    No emojis, no em-dashes, no mid-sentence colons. */
 
 /* Soft brand glow pooled behind the big mascot so it reads as a hero, not a
@@ -20,62 +20,64 @@
   pointer-events: none;
 }
 
-/* The shiny rainbow CTA. Vivid brand rainbow, a glossy light streak sweeping
-   across, a brand-tinted glow, and a lift on hover, so it begs to be touched. */
+/* Unified glass CTA. One frosted pill that renders the SAME on every browser (no
+   Chromium-only displacement): a translucent fill the colorful backdrop blurs
+   through, a gradient glass rim that is bright at the top and soft at the bottom
+   (light catching the edge), a top inner highlight, a static specular sheen, and
+   a soft float shadow. Dark legible label. */
 .cta {
   position: relative;
-  overflow: hidden;
-  border: 0;
+  isolation: isolate;
   cursor: pointer;
+  border: 1px solid transparent;
   border-radius: 9999px;
-  padding: 15px 38px;
+  padding: 16px 42px;
   font-size: 16px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.01em;
   color: #fff;
-  background: var(--brand-rainbow-vivid);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.28);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  background:
+    linear-gradient(135deg, rgba(31, 170, 126, 0.82), rgba(22, 132, 168, 0.8)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 255, 255, 0.3)) border-box;
+  -webkit-backdrop-filter: blur(14px) saturate(185%);
+  backdrop-filter: blur(14px) saturate(185%);
   box-shadow:
-    0 10px 34px -8px rgba(147, 51, 234, 0.55),
-    0 2px 8px rgba(0, 0, 0, 0.14);
-  transition: transform 0.15s ease, box-shadow 0.15s ease;
+    inset 0 1px 1px rgba(255, 255, 255, 0.7),
+    inset 0 -8px 16px -6px rgba(255, 255, 255, 0.18),
+    0 12px 28px -8px rgba(20, 120, 110, 0.45),
+    0 2px 6px rgba(0, 0, 0, 0.1);
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+}
+/* Specular sheen across the top half, so the pill reads as a curved glass
+   surface catching light rather than a flat frosted panel. */
+.cta::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.5),
+    rgba(255, 255, 255, 0) 54%
+  );
+  pointer-events: none;
 }
 .cta:hover {
-  transform: translateY(-1px) scale(1.035);
+  transform: translateY(-1px) scale(1.02);
+  background:
+    linear-gradient(135deg, rgba(36, 188, 140, 0.9), rgba(26, 148, 188, 0.88)) padding-box,
+    linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.38)) border-box;
   box-shadow:
-    0 14px 42px -8px rgba(147, 51, 234, 0.65),
-    0 3px 10px rgba(0, 0, 0, 0.16);
+    inset 0 1px 1px rgba(255, 255, 255, 0.85),
+    inset 0 -8px 16px -6px rgba(255, 255, 255, 0.22),
+    0 16px 36px -8px rgba(20, 120, 110, 0.5),
+    0 3px 8px rgba(0, 0, 0, 0.12);
 }
 .cta:active {
   transform: translateY(0) scale(0.99);
 }
-.cta::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    115deg,
-    transparent 32%,
-    rgba(255, 255, 255, 0.6) 50%,
-    transparent 68%
-  );
-  transform: translateX(-120%);
-  animation: ctaShine 3.4s ease-in-out infinite;
-}
-@keyframes ctaShine {
-  0% {
-    transform: translateX(-120%);
-  }
-  55%,
-  100% {
-    transform: translateX(120%);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .cta::after {
-    animation: none;
-  }
   .cta:hover {
     transform: none;
   }
