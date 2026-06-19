@@ -1274,7 +1274,7 @@ export function layoutPlot(
     // bottom quarter). The layout pass below then COMPRESSES the tier step (and
     // shrinks the star font) to fit whatever band this reserves, so the brackets
     // never overlap the data either. Few brackets reserve little (axis unchanged).
-    const idealStackPx = (depth - 1) * BRACKET_TIER_PX + 16 + style.fontSize + 8;
+    const idealStackPx = (depth - 1) * BRACKET_TIER_PX + 24 + style.fontSize + 8;
     const reservedFrac = plotH > 0 ? Math.min(0.52, idealStackPx / plotH) : 0;
     if (dataTop > 0 && reservedFrac > 0) {
       const needed = dataTop / (1 - reservedFrac);
@@ -1381,7 +1381,11 @@ export function layoutPlot(
       for (const p of g.points) t = Math.min(t, p.y);
       return t;
     });
-    const gap = 16; // air between a bracket and the tallest element it clears
+    // Air between a bracket's SPAN and the tallest element under it. The legs then
+    // drop BRACKET_LEG_DROP back toward the data, so the real clearance from the
+    // points/error bars is (gap - legDrop). Keep that comfortably open so the legs
+    // never crowd the dots.
+    const gap = 24; // -> ~16px clearance below the legs
     const legDrop = BRACKET_LEG_DROP;
     // Place narrow spans first (then left to right) so a wide span is pushed up
     // OVER the narrow ones it crosses, never the reverse.
