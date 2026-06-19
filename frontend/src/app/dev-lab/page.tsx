@@ -19,6 +19,8 @@ import { postLabAccept } from "@/lib/lab/lab-accept-client";
 import { verifyMemberEmailBinding } from "@/lib/lab/lab-binding";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
+import { seedSyntheticMemberWork } from "@/lib/lab/dev/synthetic-member-seed";
+import { patchUserSettings } from "@/lib/settings/user-settings";
 import { ed25519, x25519 } from "@noble/curves/ed25519.js";
 
 // Phase 8a: a FRESH lab id. The old 74a805c6 lab predates the email binding, so
@@ -188,6 +190,43 @@ export default function DevLabPage() {
       .join("\n");
   });
 
+  // Phase 8d: seed the finalized synthetic member's work into the LIVE mirror,
+  // signing with the head's real keys (the relay accepts a member-owner push
+  // signed by the head because the head is a roster member). A fresh manifest
+  // means every record is treated as new and pushed.
+  const seedMemberWork = () => run("seed", async () => {
+    const s = controller?.getState();
+    if (s?.kind !== "live") return "head Login first (need the lab key + signing keys)";
+    if (!sim) return 'simulate a member accept first (click "B. Simulate member accept")';
+    const remote = await getLabRemote(LAB_ID);
+    const inRoster =
+      !!remote &&
+      (remote.record.members.some((x) => x.username === sim.username) ||
+        remote.record.head.username === sim.username);
+    if (!inRoster) {
+      return `${sim.username} is not in the roster yet (click "C. Finalize accepts" first)`;
+    }
+    return seedSyntheticMemberWork({
+      labId: LAB_ID,
+      owner: sim.username,
+      labKey: s.labKey,
+      signerEd25519Priv: s.signingKeyPair.ed25519Priv,
+      signerEd25519Pub: s.signingKeyPair.ed25519Pub,
+    });
+  });
+
+  // Phase 8d: flip this account to lab_head so the copilot mounts. The viewer
+  // must reload for the new account_type to take effect, then open /lab-overview.
+  const makeMeLabHead = () => run("lab-head", async () => {
+    if (!currentUser) return "no current user";
+    await patchUserSettings(currentUser, { account_type: "lab_head" });
+    return (
+      `ACCOUNT TYPE set to lab_head for ${currentUser} ✓\n` +
+      `  Now RELOAD this page (or any page), then open /lab-overview and ask\n` +
+      `  BeakerBot e.g. "give me a lab pulse" or "summarize spending".`
+    );
+  });
+
   return (
     <div style={{ padding: 40, fontFamily: "monospace", lineHeight: 1.6 }}>
       <h1>Lab-tier dev harness (login + sync)</h1>
@@ -204,8 +243,15 @@ export default function DevLabPage() {
         <button onClick={finalize} disabled={busy} style={{ ...btn, background: "#b45309" }}>C. Finalize accepts</button>
         <button onClick={verifyMemberLogin} disabled={busy} style={{ ...btn, background: "#7c3aed" }}>D. Verify member login</button>
       </div>
+      <div style={{ marginTop: 10 }}>
+        <button onClick={seedMemberWork} disabled={busy} style={{ ...btn, background: "#0d9488" }}>E. Seed member work</button>
+        <button onClick={makeMeLabHead} disabled={busy} style={{ ...btn, background: "#9333ea" }}>F. Make me a lab head</button>
+      </div>
       <p style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>
         One-tab invite test: A → B → C → D (no 2nd browser needed). The synthetic member uses a different email than the head, exercising the full handshake + the 8a binding.
+      </p>
+      <p style={{ fontSize: 13, color: "#64748b", marginTop: 6 }}>
+        Full live copilot flow (no 2nd browser): Create lab → 1. Login → A. Create invite → B. Simulate member accept → C. Finalize accepts → E. Seed member work → F. Make me a lab head → reload → open <b>/lab-overview</b> and ask BeakerBot e.g. &quot;give me a lab pulse&quot;, &quot;summarize spending&quot;, &quot;what is missing a DOI&quot;, &quot;reproduce {sim?.username ?? "the member"}&apos;s t-test&quot;, &quot;list the lab&apos;s plots&quot;. NEXT_PUBLIC_AI_ASSISTANT_ENABLED is already 1 in .env.local, so the copilot mounts once account_type is lab_head.
       </p>
       <pre style={{ marginTop: 24, padding: 16, background: "#f1f5f9", color: "#0f172a", borderRadius: 8, whiteSpace: "pre-wrap", fontSize: 15 }}>{out}</pre>
     </div>
