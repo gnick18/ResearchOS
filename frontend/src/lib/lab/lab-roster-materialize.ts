@@ -49,6 +49,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { fileService } from "../file-system/file-service";
+import { pickUserColor } from "../file-system/user-color";
 import { fingerprint } from "../sharing/identity/keys";
 import {
   compactFingerprint,
@@ -67,15 +68,13 @@ import type { LabMember, LabRecord } from "./lab-membership";
  *  write-queue-bearing module). */
 const METADATA_PATH = "users/_user_metadata.json";
 
-/** Hex-only palette mirrored from user-metadata.ts USER_COLOR_PALETTE (the
- *  rainbow sentinels are intentionally excluded: they are opt-in only and must
- *  never be auto-assigned). Kept local so the deterministic assignment here
- *  matches the swatches the rest of the app uses without importing the
- *  write-queue-bearing module. */
-const HEX_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
+// The deterministic color a co-member with no stored color is assigned comes
+// from the single source (user-color.ts pickUserColor / deterministicUserColor).
+// That is the same hash + same hex palette the metadata auto-assign and the
+// pre-folder picker fallback use, so the color materialize ASSIGNS here is
+// identical to the fallback every consumer would otherwise compute. The
+// write-queue-bearing user-metadata module is deliberately NOT imported (the
+// color helper is a dependency-free leaf).
 
 // ---------------------------------------------------------------------------
 // Local copies of the on-disk shapes we read / write. We deliberately keep
@@ -278,7 +277,7 @@ export async function materializeLabRoster(
 
     // 3. Color entry: add ONLY when missing so we never overwrite a local color.
     if (!metaFile.users[username]) {
-      const color = pickColor(takenColors, username);
+      const color = pickUserColor(takenColors, username);
       takenColors.add(color);
       metaFile.users[username] = { color, created_at: now };
       metadataAdded.push(username);
@@ -291,24 +290,6 @@ export async function materializeLabRoster(
   }
 
   return { presenceWritten, settingsWritten, metadataAdded, viewer };
-}
-
-/**
- * Deterministic palette assignment mirroring user-metadata.ts pickColor: prefer
- * an unused palette swatch, else fall back to a stable per-username hash so two
- * members never silently collapse to one color and the choice is stable across
- * runs.
- */
-function pickColor(taken: Set<string>, username: string): string {
-  for (const color of HEX_PALETTE) {
-    if (!taken.has(color)) return color;
-  }
-  // Hash fallback (same algorithm as user-metadata.ts hashColor).
-  let hash = 0;
-  for (let i = 0; i < username.length; i += 1) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return HEX_PALETTE[Math.abs(hash) % HEX_PALETTE.length];
 }
 
 /** Exposed for unit tests: the role -> account_type mapping. */
