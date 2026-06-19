@@ -28,6 +28,8 @@ import { deriveWorkspaceUsername } from "@/lib/account/workspace-username";
 import { decodePublicKey, encodePublicKey, fingerprint as computeFingerprint } from "@/lib/sharing/identity/keys";
 import { fetchMyProfile, compactFingerprint } from "@/lib/sharing/profile";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
+import { SINGLE_USER_FOLDERS_ENABLED } from "@/lib/lab/single-user-folders-config";
+import { canCreateAnotherUser } from "@/lib/lab/single-user-folders";
 import { generateDeviceSalt } from "@/lib/sharing/identity/backup";
 import { deleteSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { performUserDelete } from "@/lib/users/perform-delete";
@@ -1091,6 +1093,19 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   };
 
   const handleCreateUser = async () => {
+    // Phase-out-multi-user-folders (flag ON only): defensive belt-and-suspenders.
+    // The "Create New User" CTA is already empty-folder-only, but guard the
+    // submit too so the create path can never grow a folder past one real user
+    // even if it is reached another way. Flag OFF short-circuits to allowed, so
+    // this is byte-identical to today. `users` here is listLocalIdentities (no
+    // materialized co-members), the real-local-user proxy this screen carries.
+    if (!canCreateAnotherUser(users.length)) {
+      setError(
+        "This folder already belongs to someone. Open your own folder instead, and collaborate through a lab account.",
+      );
+      return;
+    }
+
     const username = newUsername.trim();
     if (!username) {
       setError("Please enter a username");
@@ -1923,6 +1938,33 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   Create New User
                 </button>
               )}
+
+              {/* Phase-out-multi-user-folders (flag ON only): a folder that
+                  already has a real local user never grows a second one. The
+                  "Create New User" button above is already EMPTY-folder-only, so
+                  here we replace the missing CTA with an HONEST explanation for the
+                  would-be new user (why there is no "add me", and where to go
+                  instead) rather than a silent dead end. Existing users still
+                  appear above and can sign in + migrate, and the connect screen's
+                  own "Use a different folder" escape stays available, so this is
+                  never a soft-lock. Flag OFF renders nothing extra (byte-identical).
+                  `canCreateAnotherUser` is the same pure predicate the create form
+                  guards with, so the message and the block can never disagree. */}
+              {SINGLE_USER_FOLDERS_ENABLED &&
+                !canCreateAnotherUser(users.length) && (
+                  <div className="mt-2 rounded-xl border border-border bg-surface-sunken px-4 py-3 text-left">
+                    <p className="text-body font-medium text-foreground">
+                      One folder per person
+                    </p>
+                    <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+                      This folder already belongs to someone. ResearchOS now works
+                      best with one folder per person, so a new person opens their
+                      OWN folder instead of sharing this one, and you collaborate
+                      through a lab account (your work syncs to every machine you
+                      sign in on). Use the option below to open a different folder.
+                    </p>
+                  </div>
+                )}
 
               {/* Sharing OAuth section. Shown only when the device is online AND
                   OAuth publish is actually configured (NEXT_PUBLIC_SHARING_ENABLED).

@@ -39,13 +39,32 @@ import { isOperatorSurface } from "@/lib/routes/operator-surface";
 import { getDemoMode } from "@/lib/file-system/wiki-capture-mock";
 import MigrateToSoloModal from "./MigrateToSoloModal";
 import SelfExportModal from "./SelfExportModal";
+import { SINGLE_USER_FOLDERS_ENABLED } from "@/lib/lab/single-user-folders-config";
+import {
+  type MigrationGraceState,
+  isMigrationGateDismissible,
+  recordMigrationDismissal,
+  ensureMigrationFirstSeen,
+  MIGRATION_GRACE_MAX_DISMISSALS,
+  MIGRATION_GRACE_WINDOW_DAYS,
+} from "@/lib/lab/single-user-folders";
 
 // Per-folder so dismissing one shared folder does not silence the nudge for a
 // different multi-user folder the same browser later connects.
 const DISMISS_KEY_PREFIX = "ros_migration_gate_dismissed_v1";
 
+// Phase-out-multi-user-folders grace bookkeeping (flag ON only). A SEPARATE
+// per-folder key from the legacy boolean above, so flag-OFF keeps reading and
+// writing the byte-identical unlimited-dismiss boolean and the two never collide.
+// localStorage only, NO on-disk data, so NO data-shape change.
+const GRACE_KEY_PREFIX = "ros_migration_gate_grace_v1";
+
 function dismissKey(folder: string | null | undefined): string {
   return `${DISMISS_KEY_PREFIX}::${folder ?? "_unknown_"}`;
+}
+
+function graceKey(folder: string | null | undefined): string {
+  return `${GRACE_KEY_PREFIX}::${folder ?? "_unknown_"}`;
 }
 
 function readDismissed(folder: string | null | undefined): boolean {
@@ -54,6 +73,38 @@ function readDismissed(folder: string | null | undefined): boolean {
     return window.localStorage.getItem(dismissKey(folder)) === "1";
   } catch {
     return false;
+  }
+}
+
+function readGraceState(
+  folder: string | null | undefined,
+): MigrationGraceState | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.localStorage.getItem(graceKey(folder));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<MigrationGraceState>;
+    if (
+      typeof parsed?.firstSeen === "number" &&
+      typeof parsed?.dismissals === "number"
+    ) {
+      return { firstSeen: parsed.firstSeen, dismissals: parsed.dismissals };
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+function writeGraceState(
+  folder: string | null | undefined,
+  state: MigrationGraceState,
+): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(graceKey(folder), JSON.stringify(state));
+  } catch {
+    /* localStorage unavailable, in-memory state still drives this session */
   }
 }
 
@@ -67,24 +118,65 @@ export default function MigrationGate() {
   const { directoryName, disconnect } = useFileSystem();
   const queryClient = useQueryClient();
   const [dismissed, setDismissed] = useState<boolean>(false);
+  const [graceState, setGraceState] = useState<MigrationGraceState | null>(null);
   const [mode, setMode] = useState<"convert" | "selfexport" | null>(null);
 
   // Re-read the per-folder dismissal whenever the connected folder changes (the
   // name is null on the first render, before the handle resolves).
   useEffect(() => {
     setDismissed(readDismissed(directoryName));
+    setGraceState(readGraceState(directoryName));
   }, [directoryName]);
 
+  // Flag ON only: stamp first-seen the moment the gate is genuinely showing for a
+  // multi-user folder, even if the user never clicks "Keep it shared for now", so
+  // the days window starts ticking. Idempotent (ensureMigrationFirstSeen returns
+  // prev unchanged once set), so this never resets the clock or counts a dismiss.
+  useEffect(() => {
+    if (!SINGLE_USER_FOLDERS_ENABLED) return;
+    if (!isMultiUser || !currentUser) return;
+    setGraceState((prev) => {
+      const next = ensureMigrationFirstSeen(prev);
+      if (next !== prev) writeGraceState(directoryName, next);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isMultiUser, currentUser, directoryName]);
+
+  // Within grace -> the "Keep it shared for now" dismiss is offered. Once grace is
+  // exhausted (count cap OR days window), the gate is BLOCKING and the dismiss is
+  // removed (the user must Convert / Take-my-data-out, or use the always-present
+  // disconnect escape). Flag OFF -> always dismissible (byte-identical to today).
+  const dismissible = isMigrationGateDismissible(graceState);
+
   const dismiss = () => {
-    try {
-      window.localStorage.setItem(dismissKey(directoryName), "1");
-    } catch {
-      /* localStorage unavailable, in-memory dismiss still applies */
+    // Flag OFF keeps the legacy unlimited-dismiss boolean (byte-identical). Flag
+    // ON records the dismissal into the bounded grace state instead, so a later
+    // reload re-surfaces the gate until grace runs out.
+    if (!SINGLE_USER_FOLDERS_ENABLED) {
+      try {
+        window.localStorage.setItem(dismissKey(directoryName), "1");
+      } catch {
+        /* localStorage unavailable, in-memory dismiss still applies */
+      }
+      setDismissed(true);
+      return;
     }
+    // Guard against a dismiss firing once grace is already spent.
+    if (!dismissible) return;
+    setGraceState((prev) => {
+      const next = recordMigrationDismissal(prev);
+      writeGraceState(directoryName, next);
+      return next;
+    });
     setDismissed(true);
   };
   const onComplete = () => {
-    dismiss();
+    // Close the popup directly (NOT via dismiss()): a completed migration is not
+    // a "keep it shared" dismissal, so it must never spend grace, and once grace
+    // is exhausted dismiss() is a no-op which would leave the popup up. The query
+    // invalidation below recomputes isMultiUser to false, which is the real close.
+    setDismissed(true);
     setMode(null);
     // The migration changed the folder's user count and/or cleared the
     // lab-head role, so the cached multi-user + lab-mode answers (staleTime
@@ -174,14 +266,24 @@ export default function MigrationGate() {
               Trash, and your own data is untouched. You will see exactly what moves before anything happens, and
               nothing is deleted.
             </p>
+            {SINGLE_USER_FOLDERS_ENABLED && dismissible && (
+              <p className="text-meta text-foreground-muted">
+                You can keep this folder shared a little longer while you get
+                ready, but moving to one folder per person will soon be required
+                (up to {MIGRATION_GRACE_MAX_DISMISSALS} reminders or{" "}
+                {MIGRATION_GRACE_WINDOW_DAYS} days, whichever comes first).
+              </p>
+            )}
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={dismiss}
-                className="ros-btn-neutral px-4 py-2 text-body text-foreground"
-              >
-                Keep it shared for now
-              </button>
+              {dismissible && (
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="ros-btn-neutral px-4 py-2 text-body text-foreground"
+                >
+                  Keep it shared for now
+                </button>
+              )}
               <button type="button" onClick={() => setMode("convert")} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Convert this folder to mine
               </button>
@@ -197,14 +299,24 @@ export default function MigrationGate() {
               Your data is copied into a portable folder you open as your own workspace, and your originals move to a
               recoverable Trash here. You will see exactly what moves before anything happens, and nothing is deleted.
             </p>
+            {SINGLE_USER_FOLDERS_ENABLED && dismissible && (
+              <p className="text-meta text-foreground-muted">
+                You can keep working here a little longer while you get ready, but
+                moving to your own folder will soon be required (up to{" "}
+                {MIGRATION_GRACE_MAX_DISMISSALS} reminders or{" "}
+                {MIGRATION_GRACE_WINDOW_DAYS} days, whichever comes first).
+              </p>
+            )}
             <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={dismiss}
-                className="ros-btn-neutral px-4 py-2 text-body text-foreground"
-              >
-                Keep working here for now
-              </button>
+              {dismissible && (
+                <button
+                  type="button"
+                  onClick={dismiss}
+                  className="ros-btn-neutral px-4 py-2 text-body text-foreground"
+                >
+                  Keep working here for now
+                </button>
+              )}
               <button type="button" onClick={() => setMode("selfexport")} className="ros-btn-raise bg-brand-action text-white transition-colors hover:bg-brand-action/90 px-4 py-2 text-body rounded-lg">
                 Take my data to my own folder
               </button>
