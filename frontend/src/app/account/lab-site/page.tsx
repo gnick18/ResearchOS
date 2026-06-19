@@ -3,9 +3,10 @@ import { notFound } from "next/navigation";
 
 import LabSiteDashboard from "@/components/social/LabSiteDashboard";
 import { LAB_SITES_ENABLED } from "@/lib/social/config";
+import { isDemoLabSlug } from "@/lib/social/demo-lab";
 
 /**
- * `/account/lab-site` — the lab head's companion-site authoring dashboard
+ * `/account/lab-site`, the lab head's companion-site authoring dashboard
  * (lab-domains Phase 3a, social lane).
  *
  * A logged-in surface for the paid lab to claim its slug and write/publish
@@ -15,13 +16,25 @@ import { LAB_SITES_ENABLED } from "@/lib/social/config";
  * enforced server-side by /api/social/lab-site*; this client flag only hides the
  * UI. Phase 3a is deliberately minimal (textarea markdown, save-draft +
  * publish); the rich block editor is Phase 3b.
+ *
+ * Demo walkthrough (demo-lab-network Phase 2). `?demo=fakeyeast-lab` renders a
+ * READ-ONLY tour of the wizard for the seeded demo lab. It never calls a write
+ * endpoint and never touches the shared demo lab's rows, so a demo visitor can see
+ * the authoring view safely. The query param is demo-slug-scoped (only the demo
+ * slug turns it on), and the whole route is still behind NEXT_PUBLIC_LAB_SITES, so
+ * this stays inert until that client flag is deliberately on.
  */
 export const metadata: Metadata = {
   title: "Lab site",
   description: "Author your lab's public companion site on ResearchOS.",
 };
 
-export default function LabSiteDashboardPage() {
+export default async function LabSiteDashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ demo?: string }>;
+}) {
   if (!LAB_SITES_ENABLED) notFound();
-  return <LabSiteDashboard />;
+  const { demo } = await searchParams;
+  return <LabSiteDashboard demoReadOnly={isDemoLabSlug(demo ?? "")} />;
 }

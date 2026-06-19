@@ -23,8 +23,10 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
+import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
+import { isDemoLabSlug } from "@/lib/social/demo-lab";
 
 export default function LabSitePageView({
   slug,
@@ -69,9 +71,13 @@ export default function LabSitePageView({
     () => new Map<string, HostedAssetEntry>(Object.entries(hostedAssets ?? {})),
     [hostedAssets],
   );
+  // Demo framing is DEMO-SLUG-SCOPED so it can never appear on a real lab's site.
+  const isDemo = isDemoLabSlug(slug);
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
+
+      {isDemo && <DemoSampleLabRibbon tone="page" />}
 
       <section className="relative overflow-hidden">
         <MarketingBackdrop tone="soft" />

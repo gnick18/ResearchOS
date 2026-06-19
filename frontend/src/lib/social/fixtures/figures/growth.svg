@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" role="img" aria-label="FakeYeast growth, OD600 over time">
+  <rect width="520" height="300" fill="#fffdf8"/>
+  <text x="20" y="30" font-family="sans-serif" font-size="15" font-weight="700" fill="#15243b">FakeYeast growth, OD600 over time</text>
+  <line x1="50" y1="250" x2="500" y2="250" stroke="#dce4f0"/>
+  <line x1="50" y1="60" x2="50" y2="250" stroke="#dce4f0"/>
+  <polyline points="50,245 130,235 200,205 270,150 340,100 410,82 490,78" fill="none" stroke="#e08a2b" stroke-width="3"/>
+  <polyline points="50,247 130,242 200,228 270,200 340,165 410,150 490,146" fill="none" stroke="#5b6b86" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="270" y="285" font-family="sans-serif" font-size="12" fill="#5b6b86" text-anchor="middle">time (h)</text>
+</svg>

@@ -20,6 +20,8 @@ import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
 import { Icon, type IconName } from "@/components/icons";
 import PublicResearcherSearch from "@/components/social/PublicResearcherSearch";
+import LabDirectoryCard from "@/components/social/LabDirectoryCard";
+import { DEMO_LAB_CARD } from "@/lib/social/demo-lab";
 
 const VALUE_PROPS: { icon: IconName; title: string; body: string }[] = [
   {
@@ -104,6 +106,25 @@ export default function NetworkLanding() {
               </p>
               <PublicResearcherSearch />
             </div>
+          </Reveal>
+        </div>
+      </section>
+
+      {/* Labs on the network. For the demo this is the single seeded demo lab,
+          sourced from the DEMO_LAB_CARD fixture (which mirrors the Option A row).
+          The card carries its own sample-lab badge so it is never mistaken for a
+          real listing. */}
+      <section className="relative">
+        <div className="mx-auto max-w-2xl px-6 pb-2 pt-6">
+          <Reveal as="div">
+            <div className="mb-4 flex items-center gap-3">
+              <h2 className="text-lg font-semibold text-foreground">Labs</h2>
+              <span className="h-px flex-1 bg-border" />
+              <span className="text-meta text-foreground-muted">1 listed</span>
+            </div>
+          </Reveal>
+          <Reveal as="div" delay={60}>
+            <LabDirectoryCard card={DEMO_LAB_CARD} />
           </Reveal>
         </div>
       </section>

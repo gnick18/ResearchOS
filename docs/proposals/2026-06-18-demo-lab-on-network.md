@@ -1,7 +1,8 @@
 # Demo lab on the researcher network (two-site showcase)
 
-Status: proposal (design only, no production code)
-Date: 2026-06-18
+Status: Phases 1 + 2 BUILT 2026-06-19 (inert behind default-off flags); Phase 3
+(flag flip + seed run) held for Grant
+Date: 2026-06-18 (updated 2026-06-19)
 Author: demo-lab-network design session
 House style: no em-dashes, no mid-sentence colons, no emojis.
 
@@ -159,10 +160,12 @@ an archived `@sam`. The on-tab demo banner already establishes the framing, "You
 are exploring a sample lab. The data is fictional and lives only in this tab."
 ([DemoEntryCue.tsx:66-68](frontend/src/components/DemoEntryCue.tsx:66)).
 
-Chosen demo slug. `castellanos-lab`. It is a natural lab slug (PI surname plus
-"lab"), passes `normalizeSlug` unchanged, is not in `RESERVED_SLUGS`, and does not
+Chosen demo slug. `fakeyeast-lab` (locked by Grant 2026-06-19, superseding the
+earlier `castellanos-lab` draft). It names the fictional organism rather than the
+PI, passes `normalizeSlug` unchanged, is not in `RESERVED_SLUGS`, and does not
 collide with any existing `@handle` (the handles are first-name based). See the
-slug-shadowing note in section 5.
+slug-shadowing note in section 5. The non-billing sentinel owner key is
+`demo-fakeyeast-lab`.
 
 ## 3. The crux. DB-backed feature vs a no-DB demo
 
@@ -175,7 +178,7 @@ ways to bridge that gap.
 ### Option A. Seed real DB rows plus R2 assets for one reserved demo slug
 
 Provision a genuine, read-only "demo lab" that exists server-side. At deploy time a
-seed script reserves `castellanos-lab` in `slug_registry` as `kind=lab` with a
+seed script reserves `fakeyeast-lab` in `slug_registry` as `kind=lab` with a
 sentinel demo owner key, inserts the `lab_sites` row, upserts the native
 `lab_site_pages` (home, people, paper companion) as `status=published`, uploads the
 BYO bundle to R2 and writes the `lab_byo_sites` manifest. Then flip only the flags
@@ -238,7 +241,7 @@ adding a `seedDemoLab()` in the same idempotent style is a small, familiar surfa
 Two refinements make A safe:
 
 1. Sentinel owner key. The demo `lab_sites.lab_owner_key` is a fixed sentinel (for
-   example `demo-castellanos-lab`) that maps to no real billing account, so the
+   example `demo-fakeyeast-lab`) that maps to no real billing account, so the
    demo lab can never be edited through the authed dashboard and never bills.
 2. Demo framing at the view layer. `LabSitePageView` gets a small, opt-in "sample
    lab" ribbon for the demo slug only (see section 4.4), reusing the
@@ -259,7 +262,7 @@ inside the shared resolve path.
 A new lab card on `/network` (a small `LabDirectoryCard`, sourced for the demo from
 Option A's real row, or from the mockup fixture for review). The card carries:
 
-- Lab handle. `castellanos-lab` (links to `research-os.app/castellanos-lab`).
+- Lab handle. `fakeyeast-lab` (links to `research-os.app/fakeyeast-lab`).
 - Lab name. The Castellanos Lab (FakeYeast synthetic biology).
 - PI. Dr. Mira Castellanos, `@mira`.
 - Members. `@alex`, `@ivy`, `@morgan`, `@nia`, `@remy`, `@theo` (archived `@sam`
@@ -276,7 +279,7 @@ likes, no feed. It is a discovery-and-trust card.
 
 ### 4.2 Built-in wizard companion site (native markdown)
 
-Three published `lab_site_pages` under `castellanos-lab`, authored as plain
+Three published `lab_site_pages` under `fakeyeast-lab`, authored as plain
 markdown in ResearchOS (the wizard companion site):
 
 - Home / about (`path = ""`). Who the FakeYeast lab is, the research question
@@ -289,7 +292,7 @@ markdown in ResearchOS (the wizard companion site):
   the BYO static companion for the full interactive version.
 
 All three render through the existing `LabSitePageView` on the marketing chrome,
-with the breadcrumb back to `/castellanos-lab` already built in.
+with the breadcrumb back to `/fakeyeast-lab` already built in.
 
 ### 4.3 BYO hosted static site (GitHub-style bundle)
 
@@ -297,7 +300,7 @@ A small static "paper companion" the lab built itself (the archetype is a site
 exported from a GitHub Pages repo, recorded via the `lab_byo_github` connection).
 The bundle is a root `index.html` plus `assets/` (a stylesheet, maybe a figure
 image), validated by `validateByoEntries` and served from
-`castellanos-lab.research-os.com` (or `?slug=castellanos-lab` locally). It is the
+`fakeyeast-lab.research-os.com` (or `?slug=fakeyeast-lab` locally). It is the
 same paper as the native companion page, but as the lab's own fully-custom site,
 which is the contrast the demo is making, native authored pages vs a bring-your-own
 static bundle.
@@ -305,13 +308,45 @@ static bundle.
 ### 4.4 Site switcher and demo framing
 
 On both the native lab home and the BYO site, a small site-switcher control shows
-the two surfaces a lab can publish, "Lab site (researchos.app/castellanos-lab)" and
-"Paper companion (castellanos-lab.research-os.com)", with the current one marked.
+the two surfaces a lab can publish, "Lab site (researchos.app/fakeyeast-lab)" and
+"Paper companion (fakeyeast-lab.research-os.com)", with the current one marked.
 This makes the both-sites story explicit.
 
 The demo "sample lab" ribbon (reusing `DemoEntryCue`'s "The data is fictional"
 copy) appears on the native pages and the directory card so a viewer always knows
 the lab is fabricated for the tutorial.
+
+### 4.5 Authoring wizard in the demo (read-only walkthrough, locked)
+
+Grant asked the demo to ALSO show the lab-site authoring wizard, not just the
+published sites. The demo lab is a REAL shared seeded row (Option A), so wiring
+demo authoring to the real dashboard would let any visitor WRITE the shared lab's
+rows. That is unacceptable, so the authoring view is a NON-PERSISTENT showcase.
+
+Chosen option (the simpler safe one). A read-only guided tour of the existing
+`LabSiteDashboard`, reached at `/account/lab-site?demo=fakeyeast-lab`. When the
+`demo` query param is the demo slug, the dashboard hydrates the seeded site plus
+its three pages from the pure `demo-lab.ts` content WITHOUT any network call, opens
+the editor fully populated with the published markdown (the real authoring view),
+and DISABLES every write control (claim, new page, insert, save draft, save and
+publish, BYO upload) with the note "Sample lab, editing is disabled in the demo."
+No write endpoint is ever called, so the shared demo lab's rows can never be
+touched by a visitor. The published public sites remain the canonical demo; the
+authoring view is a non-persistent showcase of the create flow.
+
+Why not a sandboxed in-memory editing session. An in-memory sandbox that lets the
+visitor type and preview would be a larger surface (a second, parallel persistence
+path to keep in sync with the real shapes) for little extra showcase value over a
+populated read-only editor, so it is deferred. The read-only tour already shows the
+wizard, the page list, and the markdown editor with real content.
+
+The walkthrough stays inert behind the existing default-off client gate
+`NEXT_PUBLIC_LAB_SITES` (the same gate the real dashboard route uses): with it off
+the route 404s, so nothing is exposed until that flag is deliberately turned on.
+Turning it on also lights the real dashboard, which is safe because the dashboard
+is server-authz-protected (session plus ownership plus entitlement) and no session
+ever resolves to the `demo-fakeyeast-lab` sentinel owner key, so the demo lab can
+never be edited through it.
 
 ## 5. Flag plan
 
@@ -332,7 +367,7 @@ Recommended production posture for the demo:
 
 - Turn ON `LAB_SITES_ENABLED` (server) and `LAB_BYO_SITES` (server). These only
   make a slug resolve when a real published row exists, so with ONLY the demo lab
-  seeded, the only lab site reachable is `castellanos-lab`. Any other slug still
+  seeded, the only lab site reachable is `fakeyeast-lab`. Any other slug still
   404s because there is no row.
 - Turn ON `NEXT_PUBLIC_SOCIAL_LAYER` so `/network` renders and can show the lab
   card. (Public researcher search also turns on; that is acceptable because listing
@@ -342,19 +377,19 @@ Recommended production posture for the demo:
   controls, so leaving the client gates off keeps the in-app authoring surface dark
   while the public read surfaces are on.
 
-Net effect. The public read paths (`/network`, `research-os.app/castellanos-lab`,
-`castellanos-lab.research-os.com`) are live and populated only by the seeded demo
+Net effect. The public read paths (`/network`, `research-os.app/fakeyeast-lab`,
+`fakeyeast-lab.research-os.com`) are live and populated only by the seeded demo
 lab; the in-app authoring UI stays dark; and because the route gates on a real
 published row, no other lab is reachable.
 
 ### Slug shadowing safety
 
-`castellanos-lab` is a single segment that matches no static directory under
+`fakeyeast-lab` is a single segment that matches no static directory under
 `frontend/src/app`, so Next.js routes it to the `[labSlug]` catch-all rather than
 shadowing a real page. `RESERVED_SLUGS` already makes every static route segment
 unclaimable as a lab slug at registry-write time, and the demo seed reserves
-`castellanos-lab` as `kind=lab`, so no real lab can later claim it. If we ever add
-a top-level `/castellanos-lab` route (we will not), the static segment would win
+`fakeyeast-lab` as `kind=lab`, so no real lab can later claim it. If we ever add
+a top-level `/fakeyeast-lab` route (we will not), the static segment would win
 per Next.js precedence, so the demo could never hijack a real route either.
 
 ## 6. Phased build plan
@@ -362,31 +397,48 @@ per Next.js precedence, so the demo could never hijack a real route either.
 Phase 0. Land this design doc plus the clickable mockup (this change). No
 production code. Get sign-off on the slug, the card content, and Option A.
 
-Phase 1. Demo seed module. A `seedDemoLab()` (idempotent, deploy-time) that
-reserves the slug, inserts the `lab_sites` row under the sentinel owner key, upserts
-and publishes the three native pages, and writes the BYO manifest, with a small
-checked-in BYO bundle and a checked-in markdown source for the native pages. Unit
-test the seed shapes against `parseByoManifest` / `parseSnapshotBundle`.
+Phase 1 (BUILT, 2026-06-19, inert behind default-off flags). Demo seed module.
+`seedDemoLab()` (idempotent, deploy-time) in
+[seed-demo-lab.ts](frontend/src/lib/social/seed-demo-lab.ts) reserves the slug as
+kind=lab under the `demo-fakeyeast-lab` sentinel, creates the `lab_sites` row,
+upserts and publishes the three native pages with their frozen snapshots, and
+uploads the checked-in BYO bundle
+([fixtures/demo-byo-site/](frontend/src/lib/social/fixtures/demo-byo-site)) to R2
+plus the `lab_byo_sites` manifest. The pure content is in
+[demo-lab.ts](frontend/src/lib/social/demo-lab.ts). Shapes + idempotency are unit
+tested in
+[demo-lab.test.ts](frontend/src/lib/social/__tests__/demo-lab.test.ts) against
+`parseByoManifest` / `parseSnapshotBundle` and an in-memory fake store. Every dep
+is injectable so the seed runs in a test with no Neon / R2 / fs. NOT wired to any
+route or deploy step here (running it is Phase 3).
 
-Phase 2. View-layer demo framing. The small "sample lab" ribbon in
-`LabSitePageView` (demo slug only) and the `LabDirectoryCard` on `/network`. Both
-flag-gated and demo-slug-scoped so they never affect a real lab.
+Phase 2 (BUILT, 2026-06-19, inert behind default-off flags). View-layer demo
+framing. A "sample lab" ribbon
+([DemoSampleLabRibbon.tsx](frontend/src/components/social/DemoSampleLabRibbon.tsx))
+in `LabSitePageView` (demo slug only via `isDemoLabSlug`), the
+[LabDirectoryCard.tsx](frontend/src/components/social/LabDirectoryCard.tsx) on
+`/network` (sourced from the `DEMO_LAB_CARD` fixture), and the read-only authoring
+walkthrough in `LabSiteDashboard` (section 4.5). All demo-slug-scoped so they never
+affect a real lab.
 
-Phase 3. Flag flip plus verify in a Neon/R2-backed environment. Set the server
-lab-sites and BYO flags plus `NEXT_PUBLIC_SOCIAL_LAYER`, run the seed, and verify
-all three public surfaces plus the site switcher in a real browser. Confirm every
-non-demo slug still 404s.
+Phase 3 (HELD for Grant, prod activation). Flag flip plus run the seed plus verify
+in a Neon/R2-backed environment. Set the server lab-sites and BYO flags plus
+`NEXT_PUBLIC_SOCIAL_LAYER` (and `NEXT_PUBLIC_LAB_SITES` only if the authoring
+walkthrough should be live), run `seedDemoLab()` against the populated DB/R2, and
+verify all three public surfaces in a real browser. Confirm every non-demo slug
+still 404s.
 
 Phase 4 (optional, later). Author the demo native pages through the real dashboard
 (turning on the client lab-sites gate) so the demo doubles as an authoring
 walkthrough, and connect the BYO bundle via the real `lab_byo_github` pull so the
 "sync from GitHub" story is also demonstrated.
 
-## 7. Open questions for Grant
+## 7. Decisions (locked by Grant 2026-06-19)
 
-1. Slug. `castellanos-lab` confirmed, or prefer `fakeyeast-lab` / `mira-lab`?
-2. Verified domain. Use a fabricated `fakeyeast.edu` for the badge, or borrow the
-   real founders' institution language? (Recommend fabricated, consistent with the
-   "fictional" framing.)
-3. Authoring UI in the demo. Read-only seeded demo only (client gates off), or also
-   expose the dashboard authoring so the demo shows the create flow (Phase 4)?
+1. Slug. `fakeyeast-lab` (was the `castellanos-lab` draft). Names the fictional
+   organism, not the PI.
+2. Verified domain. Fabricated `fakeyeast.edu`, consistent with the fictional
+   framing.
+3. Authoring UI in the demo. Show the wizard as a READ-ONLY walkthrough (section
+   4.5), never wired to real persistence. The published public sites stay the
+   canonical demo.

@@ -28,6 +28,11 @@ import { isBlockEmbedMarkdown } from "@/lib/references";
 import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
 import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { LAB_BYO_SITES_ENABLED } from "@/lib/social/config";
+import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
+import { DEMO_LAB_SLUG, DEMO_NATIVE_PAGES } from "@/lib/social/demo-lab";
+
+/** The note shown on every disabled write control in the demo walkthrough. */
+const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
 
 interface SiteSummary {
   slug: string;
@@ -294,7 +299,19 @@ function ByoGithubSection() {
   );
 }
 
-export default function LabSiteDashboard() {
+export default function LabSiteDashboard({
+  demoReadOnly = false,
+}: {
+  /**
+   * Read-only demo walkthrough (demo-lab-network Phase 2). When true the dashboard
+   * loads the seeded demo lab's site + pages from the pure DEMO content and NEVER
+   * calls any write endpoint, so a demo visitor can tour the authoring wizard
+   * without touching the shared demo lab's real rows. Every save/publish/claim
+   * control is disabled with DEMO_EDIT_NOTE. Demo-slug-scoped by the route (only
+   * `?demo=fakeyeast-lab` turns it on), so it can never affect a real lab.
+   */
+  demoReadOnly?: boolean;
+}) {
   const [load, setLoad] = useState<LoadState>("loading");
   const [site, setSite] = useState<SiteSummary | null>(null);
   const [pages, setPages] = useState<PageSummary[]>([]);
@@ -339,11 +356,36 @@ export default function LabSiteDashboard() {
     }
   }, []);
 
+  // Demo walkthrough hydration: load the seeded site + pages from the pure DEMO
+  // content WITHOUT any network call, so the wizard tour never reads or writes the
+  // shared demo lab's real rows.
+  const loadDemo = useCallback(() => {
+    setSite({ slug: DEMO_LAB_SLUG, createdAt: new Date(0).toISOString() });
+    setPages(
+      DEMO_NATIVE_PAGES.map((p) => ({
+        path: p.path,
+        title: p.title,
+        status: "published" as const,
+        version: 2,
+        updatedAt: new Date(0).toISOString(),
+      })),
+    );
+    setLoad("ready");
+  }, []);
+
   useEffect(() => {
+    if (demoReadOnly) {
+      loadDemo();
+      return;
+    }
     void refresh();
-  }, [refresh]);
+  }, [demoReadOnly, loadDemo, refresh]);
 
   const claimSlug = useCallback(async () => {
+    if (demoReadOnly) {
+      setClaimError(DEMO_EDIT_NOTE);
+      return;
+    }
     setClaimBusy(true);
     setClaimError(null);
     setSuggestions([]);
@@ -374,25 +416,31 @@ export default function LabSiteDashboard() {
     } finally {
       setClaimBusy(false);
     }
-  }, [slugInput, refresh]);
+  }, [slugInput, refresh, demoReadOnly]);
 
-  const openEditor = useCallback((page: PageSummary | null) => {
+  const openEditor = useCallback(
+    (page: PageSummary | null) => {
     if (page) {
       setEditorPath(page.path);
       setEditorTitle(page.title);
-      // The list does not carry the body; fetch the public render is not ideal
-      // for drafts, so we open with the known title and let the author paste/edit
-      // the body. A dedicated GET-page endpoint can hydrate this in 3b. For now a
-      // re-save overwrites the body, so we start the body empty to avoid
-      // clobbering with a stale value the list does not have.
-      setEditorBody("");
+      // In the demo we DO have the body (from the pure DEMO content), so the
+      // editor opens fully populated to show the authoring view. Outside the demo
+      // the list does not carry the body, so we open empty (a re-save overwrites).
+      if (demoReadOnly) {
+        const demoPage = DEMO_NATIVE_PAGES.find((p) => p.path === page.path);
+        setEditorBody(demoPage?.bodyMd ?? "");
+      } else {
+        setEditorBody("");
+      }
     } else {
       setEditorPath("");
       setEditorTitle("");
       setEditorBody("");
     }
     setEditorMsg(null);
-  }, []);
+    },
+    [demoReadOnly],
+  );
 
   const newPage = useCallback(() => {
     setEditorPath("__new__");
@@ -435,6 +483,10 @@ export default function LabSiteDashboard() {
   const saveDraft = useCallback(
     async (then?: "publish") => {
       if (editorPath === null) return;
+      if (demoReadOnly) {
+        setEditorMsg(DEMO_EDIT_NOTE);
+        return;
+      }
       setEditorBusy(true);
       setEditorMsg(null);
       const path = editorPath === "__new__" ? "" : editorPath;
@@ -499,7 +551,7 @@ export default function LabSiteDashboard() {
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh],
+    [editorPath, editorTitle, editorBody, refresh, demoReadOnly],
   );
 
   return (
@@ -514,6 +566,19 @@ export default function LabSiteDashboard() {
             markdown, and publish when ready.
           </p>
         </header>
+
+        {demoReadOnly && (
+          <div className="mb-6 rounded-xl border border-border bg-surface-sunken p-4">
+            <div className="mb-2">
+              <DemoSampleLabRibbon tone="card" />
+            </div>
+            <p className="text-sm text-foreground">
+              This is a read-only tour of the lab-site authoring wizard for the
+              sample lab. {DEMO_EDIT_NOTE} Open a page below to see the editor with
+              the published markdown, the same view a lab head uses to write.
+            </p>
+          </div>
+        )}
 
         {load === "loading" && (
           <p className="text-sm text-muted-foreground">Loading.</p>
@@ -605,7 +670,9 @@ export default function LabSiteDashboard() {
               <button
                 type="button"
                 onClick={newPage}
-                className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                disabled={demoReadOnly}
+                title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
               >
                 <Icon name="plus" className="h-4 w-4" /> New page
               </button>
@@ -647,8 +714,10 @@ export default function LabSiteDashboard() {
               )}
             </div>
 
-            {LAB_BYO_SITES_ENABLED && <ByoUploadSection slug={site.slug} />}
-            {LAB_BYO_SITES_ENABLED && <ByoGithubSection />}
+            {LAB_BYO_SITES_ENABLED && !demoReadOnly && (
+              <ByoUploadSection slug={site.slug} />
+            )}
+            {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection />}
 
             {editorPath !== null && (
               <section className="rounded-xl border border-border bg-surface-raised p-5">
@@ -664,7 +733,8 @@ export default function LabSiteDashboard() {
                   type="text"
                   value={editorTitle}
                   onChange={(e) => setEditorTitle(e.target.value)}
-                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
+                  readOnly={demoReadOnly}
+                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
                   placeholder="Welcome to the Smith Lab"
                 />
                 <div className="mb-1 flex items-center justify-between">
@@ -674,7 +744,9 @@ export default function LabSiteDashboard() {
                   <button
                     type="button"
                     onClick={() => setPickerOpen(true)}
-                    className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs"
+                    disabled={demoReadOnly}
+                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                    className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
                   >
                     <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
                   </button>
@@ -683,8 +755,9 @@ export default function LabSiteDashboard() {
                   ref={bodyRef}
                   value={editorBody}
                   onChange={(e) => setEditorBody(e.target.value)}
+                  readOnly={demoReadOnly}
                   rows={12}
-                  className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground"
+                  className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
                   placeholder="# Our research\n\nWrite your page in markdown."
                 />
                 <p className="mb-4 text-[11px] text-muted-foreground">
@@ -694,7 +767,8 @@ export default function LabSiteDashboard() {
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
-                    disabled={editorBusy}
+                    disabled={editorBusy || demoReadOnly}
+                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
                     onClick={() => void saveDraft()}
                     className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
                   >
@@ -702,7 +776,8 @@ export default function LabSiteDashboard() {
                   </button>
                   <button
                     type="button"
-                    disabled={editorBusy}
+                    disabled={editorBusy || demoReadOnly}
+                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
                     onClick={() => void saveDraft("publish")}
                     className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
                   >
