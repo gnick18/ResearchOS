@@ -41,6 +41,7 @@ import {
   makeMethodDriftTool,
   makeProtocolGapsTool,
   makeMethodsSectionTool,
+  makeDmspComplianceTool,
   LAB_HEAD_TOOLS,
   type LabPulseDeps,
   type FindAcrossLabDeps,
@@ -56,6 +57,7 @@ import {
   type MethodDriftDeps,
   type ProtocolGapsDeps,
   type MethodsSectionDeps,
+  type DmspComplianceDeps,
 } from "../lab-head";
 
 // ---------------------------------------------------------------------------
@@ -458,7 +460,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly fourteen tools in the expected order", () => {
+  it("exports exactly fifteen tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -475,6 +477,7 @@ describe("LAB_HEAD_TOOLS", () => {
       "method_drift",
       "protocol_gaps",
       "methods_section",
+      "dmsp_compliance",
     ]);
   });
 
@@ -2856,5 +2859,397 @@ describe("methods_section", () => {
     const tool = makeMethodsSectionTool(deps);
     const res = (await tool.execute({})) as Record<string, unknown>;
     expect(res.hasLab).toBe(false);
+  });
+});
+
+// ===========================================================================
+// Phase 6: dmsp_compliance
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Helpers for Phase 6 tests
+// ---------------------------------------------------------------------------
+
+function makeDepositRecord(
+  depositId: string,
+  owner: string,
+  overrides: Record<string, unknown> = {},
+): { recordType: string; recordId: string; plaintext: Uint8Array } {
+  const fields: Record<string, unknown> = {
+    repository: "zenodo",
+    title: null,
+    doi: null,
+    concept_doi: null,
+    version_sequence: null,
+    prior_version_id: null,
+    deposited_at: null,
+    created_at: new Date().toISOString(),
+    owner,
+    ...overrides,
+  };
+  return makeRecord("deposit", depositId, fields);
+}
+
+// ---------------------------------------------------------------------------
+// dmsp_compliance
+// ---------------------------------------------------------------------------
+
+describe("dmsp_compliance", () => {
+  it("counts deposits by repository (zenodo, figshare, other)", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", { repository: "zenodo", doi: "10.1/abc" }),
+              makeDepositRecord("d2", "alice", { repository: "figshare", doi: "10.2/xyz" }),
+              makeDepositRecord("d3", "alice", { repository: "other", doi: null }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.total).toBe(3);
+    const byRepo = deposits.byRepository as Record<string, number>;
+    expect(byRepo.zenodo).toBe(1);
+    expect(byRepo.figshare).toBe(1);
+    expect(byRepo.other).toBe(1);
+  });
+
+  it("splits withDoi vs missingDoi correctly", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // doi present.
+              makeDepositRecord("d1", "alice", { doi: "10.5281/zenodo.123" }),
+              // doi null.
+              makeDepositRecord("d2", "alice", { doi: null }),
+              // doi empty string (treated as missing).
+              makeDepositRecord("d3", "alice", { doi: "" }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.withDoi).toBe(1);
+    expect(deposits.missingDoi).toBe(2);
+  });
+
+  it("builds missingDoiList with owner, title, repository, depositId", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "bob",
+            records: [
+              makeDepositRecord("dep-7", "bob", {
+                title: "Mouse genome dataset",
+                repository: "zenodo",
+                doi: null,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    const list = deposits.missingDoiList as Array<Record<string, unknown>>;
+    expect(list).toHaveLength(1);
+    expect(list[0].owner).toBe("bob");
+    expect(list[0].title).toBe("Mouse genome dataset");
+    expect(list[0].repository).toBe("zenodo");
+    expect(list[0].depositId).toBe("dep-7");
+  });
+
+  it("detects version history via concept_doi", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Has concept_doi: version history present.
+              makeDepositRecord("d1", "alice", {
+                doi: "10.5281/zenodo.456",
+                concept_doi: "10.5281/zenodo.000",
+              }),
+              // No version signals.
+              makeDepositRecord("d2", "alice", {
+                doi: "10.5281/zenodo.789",
+                concept_doi: null,
+                prior_version_id: null,
+                version_sequence: 1,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.withVersionHistory).toBe(1);
+  });
+
+  it("detects version history via prior_version_id", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", {
+                doi: "10.5281/zenodo.100",
+                concept_doi: null,
+                prior_version_id: 42,
+                version_sequence: null,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.withVersionHistory).toBe(1);
+  });
+
+  it("detects version history via version_sequence > 1", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", {
+                doi: "10.5281/zenodo.200",
+                concept_doi: null,
+                prior_version_id: null,
+                version_sequence: 3,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.withVersionHistory).toBe(1);
+  });
+
+  it("does NOT count version history when version_sequence is 1 and no other signals", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", {
+                doi: "10.5281/zenodo.300",
+                concept_doi: null,
+                prior_version_id: null,
+                version_sequence: 1,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    expect(deposits.withVersionHistory).toBe(0);
+  });
+
+  it("counts depositable outputs by type", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("datahub", "dh1", { updated_at: isoAgo(2) }),
+              makeRecord("sequence", "seq1", { updated_at: isoAgo(3) }),
+              makeRecord("sequence", "seq2", { updated_at: isoAgo(5) }),
+              makeRecord("phylo", "ph1", { updated_at: isoAgo(1) }),
+              makeRecord("molecule", "mol1", { updated_at: isoAgo(4) }),
+              makeRecord("result_sheet", "rs1", { updated_at: isoAgo(6) }),
+              // Non-depositable type, should not appear in outputs.
+              makeRecord("experiment", "e1", { updated_at: isoAgo(1) }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const outputs = res.outputs as Record<string, unknown>;
+    // datahub(1) + sequence(2) + phylo(1) + molecule(1) + result_sheet(1) = 6.
+    expect(outputs.total).toBe(6);
+    const byType = outputs.byType as Record<string, number>;
+    expect(byType.datahub).toBe(1);
+    expect(byType.sequence).toBe(2);
+    expect(byType.phylo).toBe(1);
+    expect(byType.molecule).toBe(1);
+    expect(byType.result_sheet).toBe(1);
+    // experiment is not a depositable type.
+    expect(byType.experiment).toBeUndefined();
+  });
+
+  it("provides a per-member breakdown with deposits and missingDoi counts", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", { doi: "10.1/a" }),
+              makeDepositRecord("d2", "alice", { doi: null }),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeDepositRecord("d3", "bob", { doi: null }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const members = res.members as Array<Record<string, unknown>>;
+    const alice = members.find((m) => m.owner === "alice");
+    const bob = members.find((m) => m.owner === "bob");
+    expect(alice?.deposits).toBe(2);
+    expect(alice?.missingDoi).toBe(1);
+    expect(bob?.deposits).toBe(1);
+    expect(bob?.missingDoi).toBe(1);
+  });
+
+  it("filters deposits by periodDays using deposited_at as primary signal", async () => {
+    const recentDeposit = isoAgo(5);
+    const oldDeposit = isoAgo(60);
+
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeDepositRecord("d1", "alice", {
+                doi: "10.1/recent",
+                deposited_at: recentDeposit,
+                created_at: recentDeposit,
+              }),
+              makeDepositRecord("d2", "alice", {
+                doi: null,
+                deposited_at: oldDeposit,
+                created_at: oldDeposit,
+              }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({ periodDays: 30 })) as Record<string, unknown>;
+    const deposits = res.deposits as Record<string, unknown>;
+    // Only the recent deposit falls within 30 days.
+    expect(deposits.total).toBe(1);
+    expect(deposits.withDoi).toBe(1);
+    expect(deposits.missingDoi).toBe(0);
+  });
+
+  it("filters depositable outputs by periodDays using created_at / updated_at", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("sequence", "seq1", { updated_at: isoAgo(10) }),
+              makeRecord("sequence", "seq2", { updated_at: isoAgo(90) }),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({ periodDays: 30 })) as Record<string, unknown>;
+    const outputs = res.outputs as Record<string, unknown>;
+    // Only the record from 10 days ago is within the 30-day window.
+    expect(outputs.total).toBe(1);
+    const byType = outputs.byType as Record<string, number>;
+    expect(byType.sequence).toBe(1);
+  });
+
+  it("returns periodDays: null when called without the argument", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    expect(res.periodDays).toBeNull();
+  });
+
+  it("always includes the note string explaining the output count caveat", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(typeof res.note).toBe("string");
+    expect((res.note as string).length).toBeGreaterThan(20);
+  });
+
+  it("degrades to hasLab:false when readWork returns not ok", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("degrades to hasLab:false when members array is empty", async () => {
+    const deps: DmspComplianceDeps = {
+      readWork: async () => ({ ok: true as const, members: [] }),
+    };
+
+    const tool = makeDmspComplianceTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+  });
+
+  it("LAB_HEAD_TOOLS now has fifteen tools", () => {
+    expect(LAB_HEAD_TOOLS).toHaveLength(15);
+    expect(LAB_HEAD_TOOLS[14].name).toBe("dmsp_compliance");
   });
 });

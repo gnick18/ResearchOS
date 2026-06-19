@@ -963,8 +963,6 @@ export const onboardMemberTool = makeOnboardMemberTool({
 // from a markdown sheet, we decode the plaintext as UTF-8 and take the first
 // non-empty line; we do not assume JSON.
 //
-// dmsp_compliance is NOT built: no deposit-record infrastructure exists.
-//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 // ---------------------------------------------------------------------------
@@ -2744,16 +2742,272 @@ export const methodsSectionTool = makeMethodsSectionTool({
   readWork: readLabMembersWork,
 });
 
+// ===========================================================================
+// Phase 6: DMSP compliance tool
+// ===========================================================================
+//
+// dmsp_compliance reports the lab's deposit ledger across Zenodo, Figshare,
+// and other repositories. It surfaces how many deposits have a DOI recorded,
+// how many are missing a DOI (the actionable follow-up list), how many have
+// version history, and a coarse count of depositable outputs (datahub,
+// sequence, phylo, molecule, result_sheet) that COULD be deposited. The
+// output count is a rough coverage signal, not a precise per-output-deposited
+// ledger, and the tool note explains this. The tool NEVER judges whether the
+// lab deposits enough.
+//
+// Deposit record fields used here (recordType "deposit"):
+//   id                                 -- string record id (relay key)
+//   task_id: number|null               -- optional linked task
+//   project_id: number|null            -- optional linked project
+//   repository: "zenodo"|"figshare"|"other"
+//   title: string|null
+//   doi: string|null                   -- null = DOI not yet recorded (actionable)
+//   concept_doi: string|null           -- present = version history
+//   version_sequence: number|null      -- >1 = version history
+//   prior_version_id: number|null      -- present = version history
+//   deposited_at: string|null          -- timestamp of the actual deposit
+//   created_at: string                 -- creation timestamp (always present)
+//   owner: string
+//
+// Version history is present when ANY of: concept_doi != null,
+// prior_version_id != null, version_sequence > 1.
+//
+// Depositable output types: datahub, sequence, phylo, molecule, result_sheet.
+// These are lab data/result records that COULD be deposited externally.
+//
+// Audit path: readLabMembersWork writes an audit entry per member.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Dep type -- Phase 6
+// ---------------------------------------------------------------------------
+
+export interface DmspComplianceDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+// ---------------------------------------------------------------------------
+// dmsp_compliance (factory)
+// ---------------------------------------------------------------------------
+
+// Record types that represent depositable lab outputs.
+const DMSP_DEPOSITABLE_TYPES = new Set([
+  "datahub",
+  "sequence",
+  "phylo",
+  "molecule",
+  "result_sheet",
+]);
+
+export function makeDmspComplianceTool(deps: DmspComplianceDeps): AiTool {
+  return {
+    name: "dmsp_compliance",
+    description:
+      "Report the lab's deposit ledger: total deposits by repository, how many have a DOI recorded, how many are missing a DOI (the go-record-it list), and how many have version history. Also counts depositable output records (datahub, sequence, phylo, molecule, result_sheet) as a coarse coverage signal. Optionally restricts both deposits and outputs to a time window. The tool owns every count; the model only narrates. NEVER judges whether the lab deposits enough. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        periodDays: {
+          type: "number",
+          description:
+            "When given, restrict both deposit records and output records to those created or updated within the last N days (checked against created_at, updated_at, or deposited_at). When omitted, covers all time.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const periodDays =
+        typeof args.periodDays === "number" ? args.periodDays : null;
+
+      const result = await deps.readWork({
+        recordTypes: [
+          "deposit",
+          "datahub",
+          "sequence",
+          "phylo",
+          "molecule",
+          "result_sheet",
+        ],
+      });
+
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+
+      // Deposit accumulators.
+      let depositTotal = 0;
+      const byRepository = { zenodo: 0, figshare: 0, other: 0 };
+      let withDoi = 0;
+      let missingDoi = 0;
+      let withVersionHistory = 0;
+
+      interface MissingDoiEntry {
+        owner: string;
+        title: string | null;
+        repository: string;
+        depositId: string;
+      }
+      const missingDoiList: MissingDoiEntry[] = [];
+
+      // Output accumulators.
+      let outputTotal = 0;
+      const outputByType: Record<string, number> = {};
+
+      // Per-member breakdown.
+      interface MemberBreakdown {
+        owner: string;
+        deposits: number;
+        missingDoi: number;
+        readError: string | null;
+      }
+      const members: MemberBreakdown[] = [];
+
+      for (const member of result.members) {
+        let mDeposits = 0;
+        let mMissingDoi = 0;
+
+        for (const r of member.records) {
+          const parsed = parseRecord(r.plaintext);
+
+          // Period window: check against created_at, updated_at, or deposited_at.
+          if (periodDays !== null) {
+            // For deposit records, also check deposited_at as a primary signal.
+            if (r.recordType === "deposit") {
+              // Construct a synthetic object combining the relevant timestamps so
+              // isWithinDays can find the best one. deposited_at is preferred;
+              // isWithinDays already checks updated_at and created_at, so we just
+              // need to inject deposited_at.
+              const timestamps = {
+                updated_at: parsed
+                  ? ((parsed.deposited_at as string | undefined) ??
+                    (parsed.updated_at as string | undefined) ??
+                    (parsed.created_at as string | undefined))
+                  : undefined,
+                created_at: parsed
+                  ? (parsed.created_at as string | undefined)
+                  : undefined,
+              };
+              if (!isWithinDays(timestamps, periodDays, now)) continue;
+            } else {
+              // Depositable output: use standard isWithinDays.
+              if (!parsed || !isWithinDays(parsed, periodDays, now)) continue;
+            }
+          }
+
+          if (r.recordType === "deposit") {
+            if (!parsed) continue;
+
+            mDeposits += 1;
+            depositTotal += 1;
+
+            // Repository bucket.
+            const repo = (parsed.repository as string | undefined) ?? "other";
+            if (repo === "zenodo") byRepository.zenodo += 1;
+            else if (repo === "figshare") byRepository.figshare += 1;
+            else byRepository.other += 1;
+
+            // DOI presence.
+            const doi = (parsed.doi as string | null | undefined) ?? null;
+            if (doi !== null && doi !== "") {
+              withDoi += 1;
+            } else {
+              missingDoi += 1;
+              mMissingDoi += 1;
+              if (missingDoiList.length < 50) {
+                missingDoiList.push({
+                  owner: member.owner,
+                  title: (parsed.title as string | null | undefined) ?? null,
+                  repository: repo,
+                  depositId: r.recordId,
+                });
+              }
+            }
+
+            // Version history: concept_doi present, prior_version_id present,
+            // or version_sequence > 1.
+            const conceptDoi =
+              (parsed.concept_doi as string | null | undefined) ?? null;
+            const priorVersionId =
+              (parsed.prior_version_id as number | null | undefined) ?? null;
+            const versionSequence =
+              typeof parsed.version_sequence === "number"
+                ? parsed.version_sequence
+                : null;
+
+            const hasVersionHistory =
+              (conceptDoi !== null && conceptDoi !== "") ||
+              priorVersionId !== null ||
+              (versionSequence !== null && versionSequence > 1);
+
+            if (hasVersionHistory) {
+              withVersionHistory += 1;
+            }
+          } else if (DMSP_DEPOSITABLE_TYPES.has(r.recordType)) {
+            // Count depositable output records by type.
+            outputTotal += 1;
+            outputByType[r.recordType] =
+              (outputByType[r.recordType] ?? 0) + 1;
+          }
+        }
+
+        members.push({
+          owner: member.owner,
+          deposits: mDeposits,
+          missingDoi: mMissingDoi,
+          readError: member.error ?? null,
+        });
+      }
+
+      return {
+        hasLab: true,
+        periodDays,
+        deposits: {
+          total: depositTotal,
+          byRepository,
+          withDoi,
+          missingDoi,
+          withVersionHistory,
+          missingDoiList,
+        },
+        outputs: {
+          total: outputTotal,
+          byType: outputByType,
+        },
+        members,
+        note:
+          "Deposits in ResearchOS link to an experiment or project, not to an individual dataset or output record. The output count (datahub, sequence, phylo, molecule, result_sheet records) is therefore a coarse coverage signal and not a precise per-output deposited-or-not ledger. The precise facts are the deposit ledger itself and the DOI and version completeness within it.",
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instance (real deps) -- Phase 6
+// ---------------------------------------------------------------------------
+
+export const dmspComplianceTool = makeDmspComplianceTool({
+  readWork: readLabMembersWork,
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 /**
  * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship + Phase 3
- * grants + Phase 4 operations + Phase 5 quality + synthesis). All read-only
- * tools go through the audited lab-scoped read / index-search engines.
- * onboard_member is the one consented action (non-destructive). Surfaced on
- * the /lab-overview BeakerBot mount, not in the global research-shell tool set.
+ * grants + Phase 4 operations + Phase 5 quality + synthesis + Phase 6 DMSP
+ * compliance). All read-only tools go through the audited lab-scoped read /
+ * index-search engines. onboard_member is the one consented action
+ * (non-destructive). Surfaced on the /lab-overview BeakerBot mount, not in
+ * the global research-shell tool set.
  *
  * Phase 5 deferred: reproduce_member_result and lab_figure are NOT built
  * (blocked on cross-member compute / figure infra).
@@ -2773,6 +3027,7 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   methodDriftTool,
   protocolGapsTool,
   methodsSectionTool,
+  dmspComplianceTool,
 ];
 
 /**
@@ -2806,8 +3061,9 @@ How you answer:
 
 You surface facts, you never interpret:
 - NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts, item counts, spend totals, expiration dates. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section) and answer only from what it returned. The tool owns every number; you relay it.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section, dmsp_compliance) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
+- To answer questions about the lab's data sharing and deposit record, call dmsp_compliance. It reports the deposit ledger, how many deposits have a DOI and version history recorded, and a coarse count of depositable outputs alongside total deposits. It never judges whether the lab deposits enough.
 
 Grants and reporting:
 - grant_tagged_rollup aggregates every lab record tagged to a specific funding account: direct-linked projects and purchases, and tasks reverse-mapped through their project. It returns counts, a per-member breakdown, and a flat record-links list. Call it to answer "what lab work is on grant X" or "how many experiments are charged to this award."
