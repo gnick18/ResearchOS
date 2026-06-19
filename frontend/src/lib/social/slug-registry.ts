@@ -1,6 +1,7 @@
 // Unified slug registry, pure library (lab-domains Phase 1).
 //
-// Every paying lab gets research-os.app/<labslug>. Slugs live in ONE global
+// Every paying lab gets <labslug>.research-os.com (the cookie-isolated public lab
+// origin; old research-os.app/<labslug> links 301 there). Slugs live in ONE global
 // namespace shared with @handles and institution slugs, so a lab can never claim
 // a value that already routes somewhere (a top-level page, a researcher handle,
 // an institution). This module is the PURE, DB-free core: normalization, the
@@ -13,7 +14,7 @@
 /**
  * What kind of thing owns a slug in the unified namespace. Every row in the
  * registry is exactly one of these:
- *   - lab         a paying lab's companion-site slug (research-os.app/<labslug>)
+ *   - lab         a paying lab's companion-site slug (<labslug>.research-os.com)
  *   - handle      a researcher @handle (account_profiles.handle), seeded so a
  *                 lab cannot claim a name a person already uses
  *   - institution a derived institution slug (verified email domain), seeded

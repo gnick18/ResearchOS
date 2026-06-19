@@ -1,5 +1,13 @@
 # Lab-domains go-live + verification checklist (2026-06-16)
 
+> UPDATE 2026-06-19 (origin cutover): native lab sites now serve from the per-lab
+> SUBDOMAIN `<slug>.research-os.com` (not `research-os.app/<slug>`), gated behind a
+> new flag `LAB_SITES_COM_ORIGIN` (server) + `NEXT_PUBLIC_LAB_SITES_COM_ORIGIN`
+> (client), default OFF. Go-live now also requires the `*.research-os.com` wildcard
+> domain + TLS on the production project (platform TBD, Vercel vs OpenNext/Cloudflare)
+> and flipping that flag. The BYO bundle moves under `/_site/` on the same subdomain.
+> See AGENTS.md (lab-sites .com lane) for the full sequence.
+
 Everything in the lab-domains epic (Phases 1-4b + BYO upload + BYO GitHub-connect
 slice A) is on origin/main, flag-gated OFF / byte-identical. This is the exact
 sequence to turn it on in a deploy and verify it live. Nothing here is destructive;

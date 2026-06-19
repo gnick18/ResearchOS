@@ -242,7 +242,7 @@ export default function LabsPage() {
                 Your lab gets a site, not just storage
               </h2>
               <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
-                Every paid lab gets a clean web home at research-os.app/your-lab
+                Every paid lab gets a clean web home at your-lab.research-os.com
                 and a builder to publish the supplemental data behind your papers.
                 Readers and reviewers open citable companion pages with the same
                 interactive dataset viewers you use in the app, so your figures
@@ -285,7 +285,7 @@ export default function LabsPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#aedcb0]" />
                 </span>
                 <span className="ml-2 flex-1 truncate rounded-md border border-[#dce6f1] bg-white px-3 py-1 text-meta text-[#64748b]">
-                  research-os.app/ramirez-lab
+                  ramirez-lab.research-os.com
                 </span>
               </div>
               <div className="p-5">
