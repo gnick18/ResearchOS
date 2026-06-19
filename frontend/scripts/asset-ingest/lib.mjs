@@ -84,6 +84,22 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // SciDraw is CC-BY; credit the drawing authors + SciDraw + the DOI when present.
     return `${title} by ${who}. SciDraw. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "janosh-diagrams") {
+    // MIT: credit the author (Janosh Riebesell) + the repo name.
+    return `${title} by ${who}. janosh/diagrams. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "electricalsymbollib") {
+    // CC0: courtesy credit includes the project name and the CC0 dedication.
+    return `${title}. Electrical Symbol Library by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "acheron-electrical") {
+    // BSD 3-Clause: retain copyright + license notice.
+    return `${title} by ${who}. AcheronProject/electrical_template. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "kicad-symbols") {
+    // CC-BY-SA 4.0: attribution required; credit line must name the license as CC-BY-SA.
+    return `${title} by ${who}. KiCad Symbol Libraries. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
@@ -176,6 +192,42 @@ export function scidrawCategory(raw) {
   if (/apparatus|equipment|instrument|microscope|lab|syringe|tube|pipette|flask|beaker|vial|plate|dish|tip|centrifuge|cuvette|well/.test(t)) return "Lab apparatus";
   if (/plot|chart|data/.test(t)) return "Scientific graphs";
   return "General";
+}
+
+/** janosh/diagrams slug -> curated taxonomy leaf.
+ *
+ *  The repo mixes physics (Feynman diagrams, quantum, thermo, condensed matter),
+ *  math (complex analysis, graph theory, topology), chemistry (periodic table,
+ *  organic molecules, DFT energy landscapes), and ML architectures. ML diagrams
+ *  map to "Computer hardware" (the Data & informatics leaf used by the existing
+ *  Tabler "Computers"/"Logic" mapping). The raw slug is kept as a search tag. */
+export function janoshDiagramsCategory(slug) {
+  const t = (slug || "").toLowerCase();
+  // Chemistry: check specific DFT-chemistry and materials slugs BEFORE the broad
+  // physics pass, which would otherwise catch any slug containing "dft" or "kohn".
+  if (/organic-molecul|periodic-table|dft-choice|dft-jacob|dft-mlff|materials-informatic|kohn-sham/.test(t)) return "Chemistry";
+  // Physics: quantum, condensed matter, field theory, thermodynamics, optics.
+  if (/quantum|bloch|feynman|fermion|boson|magneti|momentu|spin|hamiltonian|propagat|qft|higgs|graviton|m-theory|string|seebeck|ferroelec|fermi|bose|maxwell|boltzmann|thermo|otto-cycle|isotherms|gas-pressure|rg-flow|divergence|euler-angle|sabatier|k-space|wyckoff|sublattice|high-entropy|convex-hull|potential-triangle|plate-capacitor|mosfet|nmosfet|scattering|thomson|wetterich|matsubara|momentum-shell|dft|kohn/.test(t)) return "Physics";
+  // Math: analysis, topology, graph theory, geometry.
+  if (/branch-cut|complex-sign|cylinder-to-plane|disk-to-plane|plane-to-torus|torus|tori|concave|convex-function|change-of-variable|saddle-point|chain-homology|hamiltonian-graph|shortest-path|maximum-flow|graph-isomorphism|de-bruijn|web-graph|timed-event|k-nearest|cartesian|polar|ball-tree|jensens|geometric-bayes|tanh|roc-curve|heatmap|risk-opportunity/.test(t)) return "Math";
+  // ML / neural networks -> "Computer hardware" (Data & informatics section).
+  if (/autoencoder|neural|network|lstm|long-short|perceptron|attention|transformer|dropout|flow|normaliz|rnvp|masked-auto|graph-attention|graph-convolution|gnn|message-passing|reinforcement|supervised|semi-supervised|train-test|random-forest|k-nearest|deep-belief|cyclegan|generative|variational|roost|skip-connection|self-attention|single-head|sparse|denoising|convolutional|in-flight|atomistic|ml-activation/.test(t)) return "Computer hardware";
+  // Signals / modulation.
+  if (/amplitude-modulation|frequency-modulation|signal-sampling/.test(t)) return "Physics";
+  return "Physics"; // the repo is predominantly physics; unknown slugs default here
+}
+
+/** Electrical symbol category mapper used by ElectricalSymbolLibrary, AcheronProject,
+ *  and KiCad. Maps the raw subcategory word or symbol name to a curated taxonomy leaf.
+ *
+ *  All electrical/circuit symbols map to "Computer hardware" (the electronics leaf in
+ *  the Data & informatics section, established by the Tabler "Electrical" mapping).
+ *  Transducers (speakers, piezo) map to "Lab apparatus" as they are physical devices. */
+export function electricalSymbolCategory(raw) {
+  const t = (raw || "").toLowerCase();
+  if (/transducer|loudspeaker|speaker|piezo|microphone|sensor/.test(t)) return "Lab apparatus";
+  // Everything else is an EE symbol -> the electronics leaf.
+  return "Computer hardware";
 }
 
 /**

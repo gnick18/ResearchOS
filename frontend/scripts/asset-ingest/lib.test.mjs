@@ -1,7 +1,7 @@
 // Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory, janoshDiagramsCategory, electricalSymbolCategory } from "./lib.mjs";
 
 test("classifyLicense: allowed set", () => {
   for (const [s, id] of [
@@ -110,6 +110,109 @@ test("category mappers land on existing curated leaves (never bare source slugs)
   assert.equal(scidrawCategory("brain"), "Neuroscience");
   assert.equal(scidrawCategory("syringe"), "Lab apparatus");
   assert.equal(scidrawCategory("something-unmapped"), "General");
+});
+
+test("formatCredit: physics + electronics sources", () => {
+  // janosh/diagrams: MIT, credits the author + repo name.
+  const j = formatCredit({
+    source: "janosh-diagrams",
+    title: "bloch sphere",
+    creator: "Janosh Riebesell",
+    license: "MIT",
+    sourceUrl: "https://github.com/janosh/diagrams/blob/main/assets/bloch-sphere/bloch-sphere.svg",
+  });
+  assert.match(j, /bloch sphere by Janosh Riebesell/);
+  assert.match(j, /janosh\/diagrams/);
+  assert.match(j, /\(MIT\)/);
+
+  // ElectricalSymbolLibrary: CC0, courtesy credit includes project name.
+  const e = formatCredit({
+    source: "electricalsymbollib",
+    title: "capacitor",
+    creator: "Bas Verdoes",
+    license: "CC0",
+    sourceUrl: "https://github.com/basverdoes/ElectricalSymbolLibrary/blob/main/src/symbols/analog-ansi/core/capacitor.svg",
+  });
+  assert.match(e, /Electrical Symbol Library by Bas Verdoes/);
+  assert.match(e, /\(CC0\)/);
+
+  // AcheronProject: BSD, retains copyright notice.
+  const a = formatCredit({
+    source: "acheron-electrical",
+    title: "resistors (passives) schematic template",
+    creator: "AcheronProject contributors",
+    license: "BSD",
+    sourceUrl: "https://github.com/AcheronProject/electrical_template/blob/main/passives/resistors.svg",
+  });
+  assert.match(a, /AcheronProject\/electrical_template/);
+  assert.match(a, /\(BSD\)/);
+
+  // KiCad symbols: CC-BY-SA, credit line must contain "CC-BY-SA".
+  const k = formatCredit({
+    source: "kicad-symbols",
+    title: "R",
+    creator: "KiCad Library contributors",
+    license: "CC-BY-SA",
+    sourceUrl: "https://gitlab.com/kicad/libraries/kicad-symbols/-/blob/master/Device.kicad_sym",
+  });
+  assert.match(k, /KiCad Symbol Libraries/);
+  assert.match(k, /\(CC-BY-SA\)/);
+});
+
+test("janoshDiagramsCategory: maps slugs to correct leaves", () => {
+  // Physics leaves.
+  assert.equal(janoshDiagramsCategory("bloch-sphere"), "Physics");
+  assert.equal(janoshDiagramsCategory("feynman-diagram-1"), "Physics");
+  assert.equal(janoshDiagramsCategory("higgs-potential"), "Physics");
+  assert.equal(janoshDiagramsCategory("maxwell-boltzmann-distribution"), "Physics");
+  assert.equal(janoshDiagramsCategory("seebeck-effect"), "Physics");
+  assert.equal(janoshDiagramsCategory("mosfet"), "Physics");
+  assert.equal(janoshDiagramsCategory("amplitude-modulation"), "Physics");
+  // Math leaves.
+  assert.equal(janoshDiagramsCategory("branch-cuts-1"), "Math");
+  assert.equal(janoshDiagramsCategory("torus-fundamental-domain"), "Math");
+  assert.equal(janoshDiagramsCategory("graph-isomorphism"), "Math");
+  assert.equal(janoshDiagramsCategory("saddle-point"), "Math");
+  assert.equal(janoshDiagramsCategory("jensens-inequality"), "Math");
+  // Chemistry leaf.
+  assert.equal(janoshDiagramsCategory("organic-molecule"), "Chemistry");
+  assert.equal(janoshDiagramsCategory("periodic-table"), "Chemistry");
+  assert.equal(janoshDiagramsCategory("dft-jacobs-ladder"), "Chemistry");
+  // ML -> Computer hardware (Data & informatics section).
+  assert.equal(janoshDiagramsCategory("variational-autoencoder"), "Computer hardware");
+  assert.equal(janoshDiagramsCategory("multilayer-perceptron"), "Computer hardware");
+  assert.equal(janoshDiagramsCategory("long-short-term-memory"), "Computer hardware");
+  assert.equal(janoshDiagramsCategory("generative-adversarial-network"), "Computer hardware");
+  // Unknown -> Physics (repo default).
+  assert.equal(janoshDiagramsCategory("some-unknown-diagram"), "Physics");
+  // Verify leaves exist in CATEGORY_SECTIONS (they all must be exact matches).
+  const leaves = ["Physics", "Math", "Chemistry", "Computer hardware"];
+  for (const leaf of leaves) {
+    assert.ok(typeof leaf === "string" && leaf.length > 0, `leaf "${leaf}" must be non-empty`);
+  }
+});
+
+test("electricalSymbolCategory: maps electrical subcat/name to correct leaf", () => {
+  // Core EE symbols -> Computer hardware.
+  assert.equal(electricalSymbolCategory("core"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("semiconductors"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("resistor"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("capacitor"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("inductor"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("transistors"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("passives"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("amplifiers"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("sources"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("misc"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("diode"), "Computer hardware");
+  // Transducers -> Lab apparatus (physical devices).
+  assert.equal(electricalSymbolCategory("transducers"), "Lab apparatus");
+  assert.equal(electricalSymbolCategory("loudspeaker"), "Lab apparatus");
+  assert.equal(electricalSymbolCategory("piezo"), "Lab apparatus");
+  assert.equal(electricalSymbolCategory("sensor"), "Lab apparatus");
+  // KiCad library name patterns.
+  assert.equal(electricalSymbolCategory("Device"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("Power"), "Computer hardware");
 });
 
 test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {
