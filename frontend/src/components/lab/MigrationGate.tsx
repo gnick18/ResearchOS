@@ -208,7 +208,15 @@ export default function MigrationGate() {
     return <SelfExportModal username={currentUser} onClose={() => setMode(null)} onComplete={onComplete} />;
   }
 
-  if (dismissed) return null;
+  // Flag OFF: the legacy unlimited-dismiss boolean suppresses the gate forever
+  // (byte-identical to before). Flag ON (phase-out): IGNORE the legacy boolean so
+  // a user who dismissed the old always-dismissible gate BEFORE the flag flip is
+  // re-engaged by the grace-then-force flow rather than silently grandfathered
+  // out of the forced migration (the exact existing-folder population the
+  // phase-out targets). Grace, started fresh by the effect above when no grace
+  // key exists yet, then governs whether the "Keep it shared for now" dismiss is
+  // offered. The blocking state and the disconnect escape are unchanged.
+  if (dismissed && !SINGLE_USER_FOLDERS_ENABLED) return null;
 
   // No designated main user => treat the connecting user as the owner so the
   // folder can always be converted by someone.
