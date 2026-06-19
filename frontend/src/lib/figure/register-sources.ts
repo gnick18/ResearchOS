@@ -9,6 +9,7 @@ import { registerDataHubFigureSource } from "@/lib/datahub/figure-source";
 import { registerPhyloFigureSource } from "@/lib/phylo/figure-source";
 import { registerChemistryFigureSource } from "@/lib/chemistry/figure-source";
 import { registerSequenceFigureSource } from "@/lib/sequences/figure-source";
+import { registerLabMemberPlotsFigureSource } from "@/lib/lab/lab-member-plots-source";
 
 let registered = false;
 
@@ -19,4 +20,5 @@ export function registerFigureSources(): void {
   registerPhyloFigureSource();
   registerChemistryFigureSource();
   registerSequenceFigureSource();
+  registerLabMemberPlotsFigureSource();
 }

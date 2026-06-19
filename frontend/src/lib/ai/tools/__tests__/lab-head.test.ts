@@ -460,7 +460,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly fifteen tools in the expected order", () => {
+  it("exports exactly eighteen tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -478,13 +478,18 @@ describe("LAB_HEAD_TOOLS", () => {
       "protocol_gaps",
       "methods_section",
       "dmsp_compliance",
+      "reproduce_member_result",
+      "lab_plots",
+      "lab_figure",
     ]);
   });
 
-  it("only onboard_member has action: true; all others are read-only", () => {
+  it("onboard_member and lab_figure are the action tools; all others are read-only", () => {
     const actionTools = LAB_HEAD_TOOLS.filter((t) => t.action === true);
-    expect(actionTools).toHaveLength(1);
-    expect(actionTools[0].name).toBe("onboard_member");
+    expect(actionTools.map((t) => t.name)).toEqual([
+      "onboard_member",
+      "lab_figure",
+    ]);
   });
 
   it("each tool has a name, description, parameters, and execute", () => {
@@ -3248,8 +3253,11 @@ describe("dmsp_compliance", () => {
     expect(res.hasLab).toBe(false);
   });
 
-  it("LAB_HEAD_TOOLS now has fifteen tools", () => {
-    expect(LAB_HEAD_TOOLS).toHaveLength(15);
+  it("LAB_HEAD_TOOLS now has eighteen tools", () => {
+    expect(LAB_HEAD_TOOLS).toHaveLength(18);
     expect(LAB_HEAD_TOOLS[14].name).toBe("dmsp_compliance");
+    expect(LAB_HEAD_TOOLS[15].name).toBe("reproduce_member_result");
+    expect(LAB_HEAD_TOOLS[16].name).toBe("lab_plots");
+    expect(LAB_HEAD_TOOLS[17].name).toBe("lab_figure");
   });
 });

@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Aurora blur perf A/B (scale vs translate)</title>
+<style>
+  body { margin:0; font-family:-apple-system,system-ui,sans-serif; background:#0f172a; color:#e2e8f0; }
+  .ui { position:fixed; top:0; left:0; right:0; z-index:10; padding:14px 18px; background:rgba(15,23,42,.82); backdrop-filter:none; }
+  h1 { font-size:16px; margin:0 0 4px; }
+  p { font-size:13px; color:#94a3b8; margin:0 0 10px; max-width:80ch; }
+  button { font-size:14px; font-weight:600; border:0; border-radius:8px; padding:8px 14px; margin-right:8px; cursor:pointer; background:#1283c9; color:#fff; }
+  button.alt { background:#334155; }
+  .res { margin-top:12px; font-size:14px; line-height:1.7; font-variant-numeric:tabular-nums; }
+  .res b { color:#fff; }
+  .scale { color:#f0997b; } .trans { color:#5dcaa5; }
+  .verdict { margin-top:8px; font-size:15px; font-weight:700; }
+  #stage { position:fixed; inset:0; overflow:hidden; z-index:1; }
+  .aurora { position:absolute; width:560px; height:560px; border-radius:50%; filter:blur(64px); opacity:.4; will-change:transform;
+    background:conic-gradient(from 0deg,#ffd2b0,#fff1a8,#b7ebb1,#a6d2f4,#d6b5f0,#ffd2b0); }
+  @keyframes ab_scale { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,-30px) scale(1.16)} }
+  @keyframes ab_trans { 0%,100%{transform:translate(0,0)} 50%{transform:translate(40px,-30px)} }
+</style>
+</head>
+<body>
+<div id="stage"></div>
+<div class="ui">
+  <h1>Aurora blur performance: scale (old) vs translate (fix)</h1>
+  <p>Open this in a NORMAL visible tab (rAF is suspended in background tabs). It builds a stack of the real aurora layers (560px, blur 64px) and measures frame rate while they animate. "Scale" reproduces the old keyframe (animates transform scale on a blur, which re-rasterizes every frame). "Translate" is the shipped fix. Higher layer count = more stress; bump it until you see a gap.</p>
+  <label style="font-size:13px">Layers: <input id="n" type="number" value="14" min="2" max="60" style="width:56px"></label>
+  <button onclick="runBoth()">Run A/B</button>
+  <button class="alt" onclick="run('ab_scale','scale')">Scale only</button>
+  <button class="alt" onclick="run('ab_trans','trans')">Translate only</button>
+  <div class="res" id="res">Live FPS: <b id="live">-</b></div>
+  <div class="verdict" id="verdict"></div>
+</div>
+<script>
+  const stage = document.getElementById('stage');
+  const live = document.getElementById('live');
+  const verdict = document.getElementById('verdict');
+  function build(n){
+    stage.innerHTML='';
+    for(let i=0;i<n;i++){ const d=document.createElement('div'); d.className='aurora';
+      d.style.top=((i*90)%900)+'px'; d.style.left=((i*150)%1500)+'px';
+      stage.appendChild(d); }
+    return [...stage.children];
+  }
+  function measure(ms){
+    return new Promise(res=>{
+      const t=[]; let last=performance.now(); let done=false;
+      function fin(){ if(done) return; done=true;
+        const f=t; const n=f.length; const s=[...f].sort((a,b)=>a-b);
+        // worst 1s window min fps
+        let minWin=Infinity; let acc=0, j=0;
+        for(let k=0;k<f.length;k++){ acc+=f[k];
+          while(acc>1000){ const fps=(k-j)/(acc/1000); if(fps<minWin)minWin=fps; acc-=f[j]; j++; } }
+        res({fps:+(n/(ms/1000)).toFixed(0), minFps:isFinite(minWin)?+minWin.toFixed(0):'-',
+             jankPct:+(100*f.filter(x=>x>24).length/(n||1)).toFixed(0), longestMs:+Math.max(0,...f).toFixed(0)});
+      }
+      function tick(now){ const dt=now-last; last=now; t.push(dt); live.textContent=(1000/dt).toFixed(0);
+        if(!done) requestAnimationFrame(tick); }
+      requestAnimationFrame(tick); setTimeout(fin, ms+80);
+    });
+  }
+  async function run(anim, cls){
+    const n=+document.getElementById('n').value||14;
+    const els=build(n);
+    await new Promise(r=>setTimeout(r,200));
+    els.forEach((d,i)=> d.style.animation=`${anim} ${2+(i%3)*0.3}s ease-in-out infinite`);
+    await new Promise(r=>setTimeout(r,250));
+    const m=await measure(2500);
+    document.getElementById('res').innerHTML =
+      `<span class="${cls}"><b>${anim==='ab_scale'?'SCALE (old)':'TRANSLATE (fix)'}</b>: avg ${m.fps} fps, worst-1s ${m.minFps} fps, ${m.jankPct}% janky frames, longest frame ${m.longestMs}ms</span> &nbsp; (${n} layers)`;
+    stage.innerHTML='';
+    return m;
+  }
+  async function runBoth(){
+    verdict.textContent='running...';
+    const s=await run('ab_scale','scale'); const sHtml=document.getElementById('res').innerHTML;
+    await new Promise(r=>setTimeout(r,400));
+    const t=await run('ab_trans','trans');
+    document.getElementById('res').innerHTML = sHtml + '<br>' + document.getElementById('res').innerHTML;
+    const gap = t.fps - s.fps;
+    verdict.innerHTML = gap >= 8
+      ? `Confirmed: translate is ${gap} fps faster (scale-on-blur was the cost). The shipped fix helps.`
+      : `Inconclusive on this GPU: only ${gap} fps apart. Bump the layer count and rerun, or the bottleneck is elsewhere.`;
+  }
+</script>
+</body>
+</html>

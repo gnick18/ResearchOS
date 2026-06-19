@@ -3,7 +3,7 @@
 Date 2026-06-18. Lane: onboarding / data-privacy explainer. Memory: `[[project_onboarding_rewrite]]`.
 
 ## TL;DR
-The stale "3-minute walkthrough" is rewritten and a full data/privacy/cost explainer series is built. Everything user-facing lives on one branch, `feat/data-privacy-explainer-wiring`, ready for Grant to merge. Two related billing gates are on their own branches. The source-of-truth docs and house-style mockups are already committed to main.
+The stale "3-minute walkthrough" is rewritten and a full data/privacy/cost explainer series is built. **ALL MERGED to local main 2026-06-18 (not pushed):** the wiring (merge `15296f764`), the external-collab paid gate (merge `90d229c79`, dark behind `EXTERNAL_COLLAB_ENABLED`), and the one-time-send gate was already in main. tsc 0 on merged main, walkthrough verified live on Grant's :3000. Two follow-on threads also landed this session: an ORCID-login email-capture fix (merge `53676165d`, see end) and a PINNED loading-screen stutter investigation (see end). Remaining: Grant pushes origin/main when ready (= prod deploy) + a live ORCID test.
 
 ## What is on main (committed)
 - `docs/proposals/2026-06-18-onboarding-walkthrough-rewrite.md` — audit of the old walkthrough + the 5-beat rewrite plan + exact beat copy (section 5).
@@ -12,8 +12,8 @@ The stale "3-minute walkthrough" is rewritten and a full data/privacy/cost expla
 - `docs/mockups/2026-06-18-local-vs-cloud-explainer.html` — the 4-step local/share/collab/cost interactive.
 - Committed as `d74273927`.
 
-## The deliverable branch (NOT merged)
-`feat/data-privacy-explainer-wiring`, checked out in worktree `.claude/worktrees/agent-adb5ea733f73b6f4e`, 8 commits ahead of main, tsc 0, ~49 tests green, house-style guard clean. Commits in order:
+## The deliverable branch (MERGED, merge `15296f764`)
+`feat/data-privacy-explainer-wiring`, was 8 commits, tsc 0, ~49 tests green, house-style guard clean, now merged to local main. Commits in order:
 1. wire the explainer (DataFlowExplainer component + 5-beat PickerWalkthroughModal + StartScreen fix + wiki page).
 2. reconcile copy to the committed proposal + expand wiki to all 13 sections.
 3. add `/dev/picker-walkthrough` preview route.
@@ -52,3 +52,9 @@ Note: the isolated dev server has no auth env, so the console shows `getSession`
 1. Merge `feat/data-privacy-explainer-wiring` into main, then walk the modal on `:3000` (auth works there, where the dev-preview route is not needed).
 2. Merge the two gate branches so the copy and enforcement go live together.
 3. Optional: a wiki-internal-links `<a>` to `next/link` sweep (the new wiki page matches the sibling pages' existing `<a>` pattern on purpose).
+
+## ORCID-login fix (merged `53676165d`)
+Memory `[[reference_orcid_login_no_email]]`. ORCID OpenID Connect returns no email (only the ORCID iD as `sub`), and the app keys every account on a plaintext email, so an ORCID sign-in broke the require-account flow (Emile hit it today; Microsoft worked). Fix is an ask-verify-bind email-capture step: on an ORCID session with no email, route to a capture screen, send an OTP, verify it, then bind the ORCID-iD to the email, stored encrypted at rest (`directory_orcid_links.email_enc`, AES-256-GCM under the new secret env `ORCID_EMAIL_ENC_KEY`) and threaded into the session so future ORCID logins resolve transparently. A verified email already on an account links to it. Security-reviewed sound (server-session ORCID iD never client-trusted, OTP mandatory, other providers untouched). GATES: `ORCID_EMAIL_ENC_KEY` set everywhere (Grant did), Resend works, NEEDS a live ORCID sign-in test (the redirect can't be agent-tested).
+
+## Loading-screen stutter (PINNED, not solved)
+Memory `[[reference_loading_screen_stutter]]`. The `StagedLoadingScreen` bar still stuttered on prod for Emile (a modern Mac) even after the earlier bar->translateX compositor fix. Ruled out this session: the bar, the decorative auroras (animating `scale` on a `filter: blur` is a real anti-pattern but FREE on a strong GPU; A/B test `docs/spikes/aurora-blur-perf-test.html` showed 124fps for both variants at 14 layers, and Emile is on a strong Mac), and the loader's own code (CSS-only, just a 250ms timer). An aurora hygiene fix is committed anyway (`9be6a278e`, drift keyframes now translate-only, both LandingBackdrop and MarketingBackdrop), but it is NOT the freeze fix and is NOT pushed. Likely real cause is main-thread boot work, unverified. I could not profile it (the Chrome automation only yields a hidden tab where rAF is suspended). NEXT: capture a real Chrome DevTools Performance trace during an actual slow load (Emile, or a throttled prod build), which will name the blocking task. LESSON: do not ship a confident perf fix without a profile (was wrong twice here).
