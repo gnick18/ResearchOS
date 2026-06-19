@@ -821,7 +821,7 @@ function LayersPanel({
                   onClick={() => onToggleLock(it.ref)}
                   className={`shrink-0 hover:text-foreground ${it.locked ? "text-brand-action" : "text-foreground-faint"}`}
                 >
-                  <Icon name="lock" className="h-3.5 w-3.5" />
+                  <Icon name={it.locked ? "lock" : "lockOpen"} className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"

@@ -1689,7 +1689,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     onClick={() => mutate((p) => setElementLocked(p, single, !locked), true)}
                     className={`flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium ${locked ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong text-foreground-muted hover:border-brand-action"}`}
                   >
-                    <Icon name="lock" className="h-3.5 w-3.5" />
+                    <Icon name={locked ? "lock" : "lockOpen"} className="h-3.5 w-3.5" />
                     {locked ? "Locked" : "Lock"}
                   </button>
                 </Tooltip>
