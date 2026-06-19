@@ -87,6 +87,21 @@ jobs:
         run: pnpm exec playwright install --with-deps chromium
       - name: Run E2E tests
         working-directory: frontend
+        # The webServer (next dev, started by playwright.config.ts) inherits this
+        # env. Locally these come from .env.local (gitignored), so without them
+        # the CI dev server runs with sharing disabled, which fails the
+        # sharing-gated privacy.spec (the Share button is gated on the local
+        # sharing identity, which only initializes when sharing is enabled).
+        # These are feature-flag values, not secrets. We deliberately do NOT set
+        # AUTH_DEV_MOCK here: the sharing "ready" status is local-only and needs
+        # no login, and auto-logging-in a mock user would change the logged-out
+        # state the other E2E specs (dashboard, onboarding tour) assume. The
+        # dummy AUTH_SECRET only lets NextAuth initialize so /api/auth/session
+        # returns an empty session instead of 500-ing; it signs nothing real.
+        env:
+          AUTH_SECRET: ci-playwright-dummy-secret-not-used-in-production
+          NEXT_PUBLIC_SHARING_ENABLED: "true"
+          SHARING_ENABLED: "true"
         run: pnpm run test:e2e
       - name: Upload Playwright report
         if: always()
