@@ -576,6 +576,11 @@ export const WIKI_NAV: WikiNode[] = [
     blurb: "Why you can trust ResearchOS: your data stays local, the science is validated against the tools labs already trust, the code is open, and the funding is clean.",
     children: [
       {
+        href: "/wiki/trust/how-your-data-and-privacy-work",
+        label: "How your data and privacy work",
+        blurb: "Where your work lives, what touches our servers and when, how shared work is protected, and why that keeps ResearchOS private and cheap. With a clickable explainer.",
+      },
+      {
         href: "/wiki/trust/method-validation",
         label: "Method validation",
         blurb: "Every sequence and lab calculation is checked against Biopython, primer3, and pydna on every commit.",

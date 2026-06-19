@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * Walkthrough Beat 1: Welcome.
+ * Walkthrough Beat 1: Welcome + sign-in line.
  *
- * BeakerBot introduces himself + ResearchOS in two sentences. The pose
- * is `waving` (set by the parent) and the copy stays playful but clear:
- * enough warmth to land as "this is friendly software" without tipping
- * into marketing-flavored fluff.
+ * BeakerBot introduces himself and ResearchOS, and the copy now sets the
+ * post-pivot expectation up front: a free ResearchOS account is required,
+ * and that account is your identity, not your storage. Your research data
+ * still stays on your own computer.
  *
- * The component owns the headline + body + primary CTA, and emits
- * `onNext` when the user advances. The parent state machine handles
- * the actual transition to the security beat. No skip link here (the
+ * The component owns the headline, body, and primary CTA, and emits
+ * `onNext` when the user advances. The parent state machine handles the
+ * transition to the where-your-work-lives beat. No skip link here (the
  * orchestrator overlays a SkipLink on every beat).
  *
- * Salvaged from the retired pre-onboarding flow (75c6107b) and rehomed
- * under picker-walkthrough/.
+ * Voice rules apply: no em-dashes, no mid-sentence colons, no emojis.
  */
 export interface WelcomeBeatProps {
   onNext: () => void;
@@ -27,13 +26,17 @@ export default function WelcomeBeat({ onNext }: WelcomeBeatProps) {
         Hi, I&apos;m BeakerBot.
       </h2>
       <p className="mb-3 text-title leading-relaxed text-slate-700">
-        Welcome to ResearchOS, a free and open source digital lab notebook
-        from ResearchOS LLC, a registered Wisconsin company. It grew out of a
-        UW-Madison Distinguished Research Fellowship.
+        Welcome to ResearchOS, a free and open source digital lab notebook.
+        We&apos;re ResearchOS LLC, a registered Wisconsin company, and the
+        project grew out of work begun during a UW-Madison Distinguished
+        Research Fellowship.
+      </p>
+      <p className="mb-3 text-title leading-relaxed text-slate-700">
+        You sign in once to create your free account, and then I&apos;ll help
+        you get set up. That account is just your identity.
       </p>
       <p className="mb-6 text-title leading-relaxed text-slate-700">
-        I&apos;ll help you set things up. Every experiment, note, and result
-        stays on your computer and under your control.
+        Your research stays on your computer. Let me show you how.
       </p>
       <div className="flex justify-end">
         <button

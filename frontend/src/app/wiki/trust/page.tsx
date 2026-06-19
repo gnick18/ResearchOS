@@ -28,10 +28,15 @@ export default function TrustPage() {
       <p>
         ResearchOS reads and writes a folder you pick on your own computer.
         There is no database we control, so there is nothing for us to lose,
-        sell, or get breached. The{" "}
-        <a href="/wiki/security">Security</a> section is the full
-        plain-English version of that claim, including the narrow exceptions
-        and how to verify it in your browser.
+        sell, or get breached.{" "}
+        <a href="/wiki/trust/how-your-data-and-privacy-work">
+          How your data and privacy work
+        </a>{" "}
+        walks through it with a clickable explainer, including the three ways
+        work can be shared and why all of this keeps the tool cheap. The{" "}
+        <a href="/wiki/security">Security</a> section is the audit-grade
+        version, including the narrow exceptions and how to verify it in your
+        browser.
       </p>
 
       <h3>2. The science is validated against tools labs already trust</h3>

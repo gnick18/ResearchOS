@@ -1,18 +1,18 @@
 // Component-level RTL coverage for the opt-in walkthrough modal.
 //
-// The modal is a controlled component (parent owns `open` + `onClose`)
-// so the tests drive it through a tiny harness that wires those props
-// to local state. Three core behaviors:
+// The modal is a controlled component (parent owns `open` + `onClose`) so
+// the tests drive it through a tiny harness that wires those props to local
+// state. Core behaviors:
 //
-//   1. Initially closed: nothing rendered when open=false (and the
-//      picker harness keeps walkthroughOpen=false).
-//   2. Open → render: the dialog appears with the welcome beat.
-//   3. Skip / completion → close: both paths invoke onClose, modal
+//   1. Initially closed: nothing rendered when open=false.
+//   2. Open -> render: the dialog appears with the welcome beat.
+//   3. Skip / completion -> close: both paths invoke onClose, modal
 //      unmounts cleanly.
+//   4. The rewritten 5-beat flow walks welcome -> where-work-lives ->
+//      data-flow -> why-cheap-private -> folder-choice (+ cloud-provider).
 //
-// Also covers the picker copy update: the welcome bubble in
-// ResearchFolderSetupNew contains "strongly recommended" + "2-3
-// minutes" + a CTA button that opens the modal.
+// The data-flow beat hosts the reusable DataFlowExplainer; we assert the
+// explainer mounts inside that beat.
 
 import { describe, expect, it, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
@@ -32,6 +32,18 @@ function Harness({ initialOpen = false }: { initialOpen?: boolean }) {
   );
 }
 
+/** Advance from the welcome beat to the folder-choice beat (beats 1-4). */
+function advanceToFolderChoice() {
+  fireEvent.click(screen.getByTestId("picker-walkthrough-welcome-next"));
+  fireEvent.click(
+    screen.getByTestId("picker-walkthrough-where-work-lives-next")
+  );
+  fireEvent.click(screen.getByTestId("picker-walkthrough-data-flow-next"));
+  fireEvent.click(
+    screen.getByTestId("picker-walkthrough-why-cheap-private-next")
+  );
+}
+
 describe("PickerWalkthroughModal", () => {
   it("renders nothing when open is false", () => {
     render(<PickerWalkthroughModal open={false} onClose={vi.fn()} />);
@@ -41,12 +53,10 @@ describe("PickerWalkthroughModal", () => {
 
   it("renders the welcome beat when opened via the harness", () => {
     render(<Harness />);
-    // Initially closed.
     expect(screen.queryByRole("dialog")).toBeNull();
 
     fireEvent.click(screen.getByTestId("harness-open"));
 
-    // Now open — welcome beat is the entry point.
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(
       screen.getByTestId("picker-walkthrough-beat-welcome")
@@ -70,24 +80,43 @@ describe("PickerWalkthroughModal", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("walks through all 4 beats and closes on the cloud-provider CTA", () => {
+  it("walks all 5 beats and closes on the cloud-provider CTA", () => {
     const onClose = vi.fn();
     render(<PickerWalkthroughModal open={true} onClose={onClose} />);
 
-    // Beat 1: welcome → Next
+    // Beat 1: welcome -> Next
     fireEvent.click(screen.getByTestId("picker-walkthrough-welcome-next"));
     expect(
-      screen.getByTestId("picker-walkthrough-beat-security")
+      screen.getByTestId("picker-walkthrough-beat-where-work-lives")
     ).toBeInTheDocument();
 
-    // Beat 2: security → Got it, next
-    fireEvent.click(screen.getByTestId("picker-walkthrough-security-next"));
+    // Beat 2: where-work-lives -> Got it, next
+    fireEvent.click(
+      screen.getByTestId("picker-walkthrough-where-work-lives-next")
+    );
+    expect(
+      screen.getByTestId("picker-walkthrough-beat-data-flow")
+    ).toBeInTheDocument();
+
+    // Beat 3: the data-flow beat hosts the reusable explainer.
+    expect(
+      screen.getByTestId("picker-walkthrough-data-flow-explainer")
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("picker-walkthrough-data-flow-next"));
+    expect(
+      screen.getByTestId("picker-walkthrough-beat-why-cheap-private")
+    ).toBeInTheDocument();
+
+    // Beat 4: why-cheap-private -> Set up my folder
+    fireEvent.click(
+      screen.getByTestId("picker-walkthrough-why-cheap-private-next")
+    );
     expect(
       screen.getByTestId("picker-walkthrough-beat-folder-choice")
     ).toBeInTheDocument();
 
-    // Beat 3: pick "cloud" → Continue (Continue is gated until a
-    // choice is selected; we select cloud to reach beat 4).
+    // Beat 5: pick "cloud" -> Continue (Continue is gated until a choice is
+    // selected; we select cloud to reach the cloud-provider sub-beat).
     fireEvent.click(
       screen.getByTestId("picker-walkthrough-folder-choice-cloud")
     );
@@ -98,19 +127,18 @@ describe("PickerWalkthroughModal", () => {
       screen.getByTestId("picker-walkthrough-beat-cloud-provider")
     ).toBeInTheDocument();
 
-    // Beat 4: I'm ready, back to the picker → onClose fires
+    // Cloud-provider CTA -> onClose fires.
     fireEvent.click(
       screen.getByTestId("picker-walkthrough-cloud-provider-continue")
     );
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("closes from beat 3 when the user picks local (skips beat 4)", () => {
+  it("closes from the folder-choice beat when the user picks local", () => {
     const onClose = vi.fn();
     render(<PickerWalkthroughModal open={true} onClose={onClose} />);
 
-    fireEvent.click(screen.getByTestId("picker-walkthrough-welcome-next"));
-    fireEvent.click(screen.getByTestId("picker-walkthrough-security-next"));
+    advanceToFolderChoice();
     fireEvent.click(
       screen.getByTestId("picker-walkthrough-folder-choice-local")
     );
@@ -119,7 +147,7 @@ describe("PickerWalkthroughModal", () => {
     );
 
     expect(onClose).toHaveBeenCalledTimes(1);
-    // Beat 4 was never reached.
+    // The cloud-provider sub-beat was never reached.
     expect(
       screen.queryByTestId("picker-walkthrough-beat-cloud-provider")
     ).toBeNull();
@@ -143,7 +171,7 @@ describe("PickerWalkthroughModal", () => {
     // Advance to beat 2.
     fireEvent.click(screen.getByTestId("picker-walkthrough-welcome-next"));
     expect(
-      screen.getByTestId("picker-walkthrough-beat-security")
+      screen.getByTestId("picker-walkthrough-beat-where-work-lives")
     ).toBeInTheDocument();
 
     // Skip closes the modal AND resets state in the same handler.
@@ -151,12 +179,12 @@ describe("PickerWalkthroughModal", () => {
     expect(screen.queryByRole("dialog")).toBeNull();
 
     fireEvent.click(screen.getByTestId("reopen"));
-    // Should be back at the welcome beat, not security.
+    // Should be back at the welcome beat, not where-work-lives.
     expect(
       screen.getByTestId("picker-walkthrough-beat-welcome")
     ).toBeInTheDocument();
     expect(
-      screen.queryByTestId("picker-walkthrough-beat-security")
+      screen.queryByTestId("picker-walkthrough-beat-where-work-lives")
     ).toBeNull();
   });
 });

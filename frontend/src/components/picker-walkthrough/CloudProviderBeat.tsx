@@ -128,7 +128,7 @@ export default function CloudProviderBeat({
           className="inline-flex items-center rounded-lg bg-sky-500 px-5 py-2.5 text-body font-semibold text-white shadow-sm transition-colors hover:bg-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500"
           data-testid="picker-walkthrough-cloud-provider-continue"
         >
-          I&apos;m ready, back to the picker
+          Back to setup
         </button>
       </div>
     </div>

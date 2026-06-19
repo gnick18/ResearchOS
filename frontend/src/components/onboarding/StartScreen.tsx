@@ -132,8 +132,9 @@ export function StartScreen({
 
       {!showSignIn && (
         <p className="mt-8 text-xs text-foreground-muted max-w-sm text-center">
-          Everything is local-first. Your files always live on your own disk; an
-          account only adds sharing and team sync.
+          Everything is local-first. Your files always live on your own disk. A
+          free account is your identity, the way researchers find each other,
+          not a place we store your data.
         </p>
       )}
 

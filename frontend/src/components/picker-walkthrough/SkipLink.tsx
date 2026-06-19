@@ -24,7 +24,7 @@ export default function SkipLink({ onSkip, disabled }: SkipLinkProps) {
       type="button"
       onClick={onSkip}
       disabled={disabled}
-      className="absolute right-4 top-4 rounded-md px-3 py-1.5 text-meta font-medium text-slate-300 transition-colors hover:bg-white/10 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-300 disabled:cursor-not-allowed disabled:opacity-50"
+      className="absolute right-4 top-4 z-20 rounded-md px-3 py-1.5 text-meta font-medium text-slate-500 transition-colors hover:bg-slate-900/5 hover:text-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400 disabled:cursor-not-allowed disabled:opacity-50"
       data-testid="picker-walkthrough-skip"
     >
       Skip
