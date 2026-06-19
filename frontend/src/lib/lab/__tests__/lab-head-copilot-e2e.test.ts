@@ -55,6 +55,10 @@ import {
 import { syncLabWorkToMirror, pullMemberLabRecords } from "../lab-sync";
 import { splitBySize, buildLabIndex, pushLabIndex } from "../lab-index";
 import { readLabMembersWork, type LabScopedReadDeps } from "../lab-scoped-read";
+import {
+  buildSyntheticMemberSource,
+  SYNTHETIC_GRANT_ID,
+} from "../dev/synthetic-member-seed";
 
 import {
   makeLabPulseTool,
@@ -72,13 +76,6 @@ import {
 } from "@/lib/ai/tools/lab-head";
 import { makeLabPlotsTool, makeLabFigureTool } from "@/lib/ai/tools/lab-figure";
 import { createFigurePage, type FigurePage } from "@/lib/figure/figure-page";
-import { runAnalysis } from "@/lib/datahub/run-analysis";
-import type {
-  AnalysisSpec,
-  DataHubDocContent,
-  DataHubDocument,
-  PlotSpec,
-} from "@/lib/datahub/model/types";
 import type { FundingAccount } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -180,333 +177,18 @@ const NOW = new Date();
 function isoDaysAgo(days: number): string {
   return new Date(NOW.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
-function isoDaysAhead(days: number): string {
-  return new Date(NOW.getTime() + days * 24 * 60 * 60 * 1000).toISOString();
-}
 
 // ---------------------------------------------------------------------------
-// A real DataHub table + a real cached analysis (for reproduce_member_result).
-//
-// The demo Column data: Control / Drug A, 6 replicates each. We compute the
-// genuine runAnalysis output here in the test and store it as the analysis
-// resultCache, so the tool re-running the same runAnalysis on the decrypted
-// table reproduces it within tolerance (a true MATCH, not a parsed-only verdict).
-// We also seed one PlotSpec whose source.analysisId points at the analysis.
+// The rich "emile" member source (the seeded DataHub table + real cached
+// unpairedTTest analysis, the tasks / notes / methods / purchases / inventory /
+// deposits) now lives in the committable seed module and is imported above as
+// buildSyntheticMemberSource. Importing it here proves those exact fixtures
+// still produce the numbers this file asserts, so the dev-harness "Seed member
+// work" button seeds the same data a PI sees in /lab-overview.
 // ---------------------------------------------------------------------------
 
-const DH_META: DataHubDocument = {
-  id: "dh-emile-1",
-  name: "Cell viability assay",
-  project_ids: [],
-  folder_path: null,
-  table_type: "column",
-  created_at: isoDaysAgo(3),
-  updated_at: isoDaysAgo(2),
-} as DataHubDocument;
-
-const CONTROL = [98, 102, 95, 105, 100, 99];
-const DRUG_A = [78, 82, 75, 80, 85, 79];
-
-function datahubContentWithRealCache(): DataHubDocContent {
-  const columns = [
-    { id: "col-1", name: "Control", role: "y" as const, dataType: "number" as const },
-    { id: "col-2", name: "Drug A", role: "y" as const, dataType: "number" as const },
-  ];
-  const rows = Array.from({ length: 6 }, (_, r) => ({
-    id: `row-${r + 1}`,
-    cells: { "col-1": CONTROL[r], "col-2": DRUG_A[r] } as Record<string, number>,
-  }));
-
-  const spec: AnalysisSpec = {
-    id: "an-ttest-1",
-    type: "unpairedTTest",
-    params: {},
-    inputs: { columnIds: ["col-1", "col-2"] },
-    resultCache: null,
-    resultStale: false,
-  };
-
-  const baseContent: DataHubDocContent = {
-    meta: DH_META,
-    columns,
-    rows,
-    analyses: [spec],
-    plots: [],
-  };
-
-  // Compute the genuine engine result and store it as the cache, so the PI's
-  // re-run reproduces it exactly. This is what makes the match REAL.
-  const outcome = runAnalysis(spec, baseContent);
-  if (!outcome.ok) {
-    throw new Error(`seed analysis failed to compute: ${outcome.error}`);
-  }
-  const specWithCache: AnalysisSpec = { ...spec, resultCache: outcome };
-
-  const plot: PlotSpec = {
-    id: "pl-1",
-    type: "columnBar",
-    style: { kind: "columnBar", title: "Control vs Drug A" },
-    source: { analysisId: "an-ttest-1", columnIds: ["col-1", "col-2"] },
-  };
-
-  return {
-    meta: DH_META,
-    columns,
-    rows,
-    analyses: [specWithCache],
-    plots: [plot],
-  };
-}
-
-// ---------------------------------------------------------------------------
-// The seeded member source. Realistic records for every tool to chew on.
-// Field names match what each tool parses (see parseRecord usage in
-// lab-head.ts). The funding account id GRANT_ID ties a project, a purchase,
-// and (via the project) a task to one grant.
-// ---------------------------------------------------------------------------
-
-const GRANT_ID = 7;
-
-function richSource(): LabWorkSource {
-  return {
-    ...emptySource(),
-
-    // Tasks (and one experiment). project_id 100 is grant-tagged via the
-    // project record below.
-    listTasks: async () => [
-      // A grant-tagged task, recent.
-      {
-        id: 1,
-        name: "Run PCR plate",
-        task_type: "task",
-        status: "todo",
-        project_id: 100,
-        created_at: isoDaysAgo(2),
-        updated_at: isoDaysAgo(2),
-      },
-      // A done task, recent.
-      {
-        id: 2,
-        name: "Gel imaging",
-        task_type: "task",
-        status: "done",
-        created_at: isoDaysAgo(40),
-        updated_at: isoDaysAgo(3),
-      },
-      // An overdue task (due in the past, not done).
-      {
-        id: 3,
-        name: "Order primers",
-        task_type: "task",
-        status: "todo",
-        due_date: isoDaysAgo(5),
-        created_at: isoDaysAgo(10),
-        updated_at: isoDaysAgo(4),
-      },
-      // A stalled task (no activity in a long time).
-      {
-        id: 4,
-        name: "Old cloning plan",
-        task_type: "task",
-        status: "todo",
-        created_at: isoDaysAgo(120),
-        updated_at: isoDaysAgo(90),
-      },
-      // An experiment with a protocol attachment that carries an override
-      // (drives method_drift) and references method id 50 (in the library).
-      {
-        id: 5,
-        name: "qPCR run A",
-        task_type: "experiment",
-        status: "todo",
-        created_at: isoDaysAgo(3),
-        updated_at: isoDaysAgo(1),
-        method_attachments: [
-          { method_id: 50, owner: null, pcr_gradient: "60-64C" },
-        ],
-      },
-      // An experiment with a protocol that references a method NOT in the
-      // library (drives protocol_gaps -> protocol_not_in_library).
-      {
-        id: 6,
-        name: "qPCR run B",
-        task_type: "experiment",
-        status: "todo",
-        created_at: isoDaysAgo(3),
-        updated_at: isoDaysAgo(2),
-        method_attachments: [{ method_id: 999, owner: null }],
-      },
-      // An experiment with NO protocol at all (drives protocol_gaps ->
-      // no_protocol_attached).
-      {
-        id: 7,
-        name: "Bare experiment",
-        task_type: "experiment",
-        status: "todo",
-        created_at: isoDaysAgo(3),
-        updated_at: isoDaysAgo(2),
-      },
-    ],
-
-    // A project tying tasks to the grant.
-    listNotes: async () => [
-      {
-        id: 11,
-        title: "Lab note 1",
-        note_kind: "note",
-        created_at: isoDaysAgo(2),
-        updated_at: isoDaysAgo(2),
-      },
-      {
-        id: 12,
-        title: "Lab note 2",
-        note_kind: "note",
-        created_at: isoDaysAgo(5),
-        updated_at: isoDaysAgo(5),
-      },
-    ],
-
-    // Methods: a parent + a child variant (parent grouping for method_drift),
-    // and method 50 is the one referenced by the experiment attachment above.
-    listMethods: async () => [
-      {
-        id: 50,
-        name: "qPCR protocol",
-        method_type: "pcr",
-        parent_method_id: null,
-        tags: ["qpcr", "manuscript"],
-        source_path: "https://example.org/qpcr",
-        created_at: isoDaysAgo(20),
-        updated_at: isoDaysAgo(10),
-      },
-      {
-        id: 51,
-        name: "qPCR protocol v2",
-        method_type: "pcr",
-        parent_method_id: 50,
-        tags: ["qpcr"],
-        created_at: isoDaysAgo(15),
-        updated_at: isoDaysAgo(9),
-      },
-    ],
-
-    // Purchases: one placed (ordered) tied to the grant, one pending
-    // (needs_ordering). total_price drives spend_summary; order_status drives
-    // the placed vs pending split and reorder_digest.
-    listPurchases: async () => [
-      {
-        id: 21,
-        item_name: "Taq polymerase",
-        vendor: "NEB",
-        total_price: 250,
-        order_status: "ordered",
-        funding_account_id: GRANT_ID,
-        created_at: isoDaysAgo(10),
-        updated_at: isoDaysAgo(10),
-      },
-      {
-        id: 22,
-        item_name: "PCR tubes",
-        vendor: "Eppendorf",
-        total_price: 40,
-        order_status: "needs_ordering",
-        created_at: isoDaysAgo(2),
-        updated_at: isoDaysAgo(2),
-      },
-    ],
-
-    // Inventory item with a low_at_count threshold.
-    listInventory: async () => [
-      { id: 30, name: "dNTP mix", vendor: "NEB", low_at_count: 5 },
-      { id: 31, name: "Agarose", vendor: "Sigma", low_at_count: 2 },
-    ],
-
-    // Stocks. Item 30 sums to 2 containers (below its threshold of 5 -> low),
-    // and one stock is at 0 (out). One stock expires soon (within 30 days),
-    // one already expired, and one has containers but no location (unlocated).
-    listInventoryStock: async () => [
-      {
-        id: 40,
-        item_id: 30,
-        container_count: 2,
-        status: "in_stock",
-        location_text: "Freezer A",
-      },
-      {
-        id: 41,
-        item_id: 30,
-        container_count: 0,
-        status: "empty",
-        location_text: "Freezer A",
-      },
-      {
-        id: 42,
-        item_id: 31,
-        container_count: 3,
-        status: "in_stock",
-        expiration_date: isoDaysAhead(10),
-        location_text: "Shelf 2",
-      },
-      {
-        id: 43,
-        item_id: 31,
-        container_count: 1,
-        status: "in_stock",
-        expiration_date: isoDaysAgo(5),
-        location_text: "Shelf 2",
-      },
-      {
-        id: 44,
-        item_id: 31,
-        container_count: 4,
-        status: "in_stock",
-        location_text: null,
-        location_node_id: null,
-      },
-    ],
-
-    // Deposits: one with a doi (zenodo), one missing a doi (figshare,
-    // actionable), one with version history (version_sequence > 1).
-    listDeposits: async () => [
-      {
-        id: "100",
-        repository: "zenodo",
-        title: "Genome assembly",
-        doi: "10.5281/zenodo.123",
-        task_id: 5,
-        created_at: isoDaysAgo(20),
-      },
-      {
-        id: "101",
-        repository: "figshare",
-        title: "Raw reads",
-        doi: null,
-        project_id: 100,
-        created_at: isoDaysAgo(10),
-      },
-      {
-        id: "102",
-        repository: "zenodo",
-        title: "Assembly v2",
-        doi: "10.5281/zenodo.456",
-        concept_doi: "10.5281/zenodo.999",
-        version_sequence: 2,
-        created_at: isoDaysAgo(5),
-      },
-    ],
-
-    // A real DataHub doc with a real cached analysis + a plot referencing it.
-    // The enumerator keys the relay object on a top-level id, so we attach one
-    // (matching meta.id) alongside the full DataHubDocContent the tools parse.
-    listDatahub: async () => [
-      {
-        id: DH_META.id,
-        ...datahubContentWithRealCache(),
-      } as unknown as OwnedRecord,
-    ],
-  };
-}
-
+// (the previous local richSource + DataHub fixtures were extracted; kept below
+// is the small maria source for the per-member breakdown assertions.)
 /** A second, smaller member so per-member breakdowns are exercised. */
 function mariaSource(): LabWorkSource {
   return {
@@ -626,7 +308,7 @@ function piReadDeps(
 async function setupLab() {
   const relay = makeInMemoryRelay();
   const labKey = randomLabKey();
-  await memberPush(relay, labKey, "emile", richSource());
+  await memberPush(relay, labKey, "emile", buildSyntheticMemberSource("emile"));
   await memberPush(relay, labKey, "maria", mariaSource());
   const readDeps = piReadDeps(relay, labKey);
   // The bound read every tool factory takes. It threads the real PI deps into
@@ -639,7 +321,7 @@ async function setupLab() {
 
 const GRANTS: FundingAccount[] = [
   {
-    id: GRANT_ID,
+    id: SYNTHETIC_GRANT_ID,
     name: "NIH R01",
     award_number: "R01-GM-000000",
     funder_name: "NIH",
@@ -739,7 +421,7 @@ describe("lab-head copilot end to end (real crypto, single session)", () => {
 
     // The grant breakdown shows the NEB purchase under grant 7.
     const byGrant = res.byGrant as Array<Record<string, unknown>>;
-    const grantEntry = byGrant.find((g) => g.grantId === GRANT_ID);
+    const grantEntry = byGrant.find((g) => g.grantId === SYNTHETIC_GRANT_ID);
     expect(grantEntry).toBeTruthy();
     expect(grantEntry!.total).toBe(250);
   });
@@ -897,7 +579,7 @@ describe("lab-head copilot end to end (real crypto, single session)", () => {
       readWork: boundRead,
       listFundingAccounts: async () => GRANTS,
     });
-    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<
+    const res = (await tool.execute({ grantId: SYNTHETIC_GRANT_ID })) as Record<
       string,
       unknown
     >;
