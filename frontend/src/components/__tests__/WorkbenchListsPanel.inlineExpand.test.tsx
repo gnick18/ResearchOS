@@ -35,6 +35,14 @@ vi.mock("@/lib/local-api", () => ({
   },
 }));
 
+// The completion celebration (ExpandableListCard -> DynamicAnimation) is gated by
+// POPUP_ANIMATIONS_ENABLED, which ships OFF in production. The "celebration
+// animation parity" tests verify the fire-on-complete behavior for when the gate
+// is ON, so force it true here (DynamicAnimation itself is stubbed below).
+vi.mock("@/lib/animations/popup-gate", () => ({
+  POPUP_ANIMATIONS_ENABLED: true,
+}));
+
 vi.mock("@/hooks/useCurrentUser", () => ({
   useCurrentUser: () => ({ currentUser: "alex", isLoggedIn: true }),
 }));

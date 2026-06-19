@@ -13,6 +13,14 @@
 
 import { describe, expect, it, beforeEach, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+
+// The decorative-animation gate ships OFF in production (POPUP_ANIMATIONS_ENABLED
+// = false), which short-circuits ProgressEntertainer to null. These tests verify
+// the component's render logic for when the gate is ON, so force it true here.
+vi.mock("@/lib/animations/popup-gate", () => ({
+  POPUP_ANIMATIONS_ENABLED: true,
+}));
+
 import ProgressEntertainer from "../ProgressEntertainer";
 
 // The ProgressEntertainer composes BeakerBotCentrifugeScene, which

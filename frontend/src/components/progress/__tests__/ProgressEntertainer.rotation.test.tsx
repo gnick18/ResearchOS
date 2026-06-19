@@ -10,6 +10,13 @@
 import { describe, expect, it, afterEach, vi } from "vitest";
 import { render, screen, cleanup, fireEvent, act } from "@testing-library/react";
 
+// The decorative-animation gate ships OFF in production (POPUP_ANIMATIONS_ENABLED
+// = false), which short-circuits ProgressEntertainer to null. These rotation tests
+// exercise the scene cycling for when the gate is ON, so force it true here.
+vi.mock("@/lib/animations/popup-gate", () => ({
+  POPUP_ANIMATIONS_ENABLED: true,
+}));
+
 vi.mock("@/components/BeakerBotCentrifugeScene", () => ({
   default: ({ onComplete }: { active: boolean; onComplete: () => void }) => (
     <div data-testid="scene-centrifuge">
