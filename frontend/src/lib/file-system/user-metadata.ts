@@ -128,6 +128,16 @@ export interface UserMetadataEntry {
   // the others (mirrors how `color` is per-user). No migration needed:
   // existing entries without the field render exactly as before.
   native_calendar_color?: string;
+  // Multi-lab P3 ghost-cleanup marker (lab-roster-materialize.ts). True when
+  // this entry was CREATED by the roster materialize for a co-member of someone
+  // else's lab (a cached identity, not a real local user this viewer made). Only
+  // entries carrying this flag are eligible for the roster reconcile to
+  // TOMBSTONE (set deleted_at) when the member leaves the relay roster, so the
+  // reconcile can never tombstone a genuine local / co-located user. Absent /
+  // false = "not a materialized co-member, never auto-tombstone". Additive +
+  // optional: entries written before this slice load unchanged (the reconcile
+  // simply skips them, the conservative default).
+  materialized_member?: boolean;
   // Structured-research-metadata foundation (metadata implementation bot,
   // 2026-05-28). The person's ORCID iD, stored in the canonical bare
   // hyphenated 16-character form (e.g. "0000-0002-1825-0097") with NO
