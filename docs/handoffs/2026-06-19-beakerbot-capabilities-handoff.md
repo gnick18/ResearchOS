@@ -70,6 +70,17 @@ Two parts, (A) a prompt instruction on WHEN to call `propose_plan`, (B) a loop c
 
 NOT this lane's code, but it broke the build for everyone so this lane fixed it. Commit `9813209bc` (demo-lab-network) had `src/lib/social/seed-demo-lab.ts` reading fixtures via `new URL("./fixtures/<dir>/", import.meta.url)`, a trailing-slash DIRECTORY url Turbopack cannot resolve as an asset ("Module not found"). `src/instrumentation.ts` imports seed-demo-lab, so the whole app failed to compile under Turbopack dev, blocking :3000 and all live verification. FIX (`81c6d2a64`), derive the module dir from `import.meta.url` at runtime + `path.join` the relative path (opaque to the bundler, so it compiles), the flag-gated seeder still reads the checked-in fixtures from disk. Verified, :3000 compiles and renders again. CAVEAT for the demo-lab-network lane, the old `new URL` form also asset-TRACED the files into the prod server output and the runtime-path form does not, so if the seeder ever runs in PROD they must verify the fixtures are bundled.
 
+## 7. Git unstick + CI moved to pnpm (end of session)
+
+Grant's local main was 2 behind origin and the pull was stuck because `next.config.ts` was dirty AND changed by an incoming commit. The 2 incoming commits were the demo-lab-network lane's proper fixture-tracing fix (Phase 3 REDO-v2, building on the lazy fix in section 6). Resolved by committing Grant's 31-file working-tree WIP as one commit (`60a7bfd9a`, the OpenNext/Cloudflare deploy wiring plus assorted WIP and regenerated content) then merging origin cleanly (`next.config.ts` auto-merged, Grant's OpenNext dev-init at the file end plus the incoming `outputFileTracingIncludes` in the config object, different regions). Pushed `b1a2d0064`, main 0/0.
+
+That surfaced the CI being red: CI ran `npm ci` against a secondary `package-lock.json` (the project's real PM is pnpm), which drifted and, with the OpenNext dep, hit an ERESOLVE peer conflict (`@opennextjs/cloudflare` needs next >=16.2.6 or <16, project is on next 16.1.6) that npm rejects but pnpm only warns on. FIX (`0671060d2`), switched all three CI jobs to `pnpm install --frozen-lockfile` via `pnpm/action-setup@v4` + cache pnpm, and regenerated `pnpm-lock.yaml` (the migration had added `@opennextjs/cloudflare` to package.json without updating either lock). CI now installs the way devs actually do.
+
+CAVEATS / follow-ups for this area:
+- The OpenNext peer mismatch is real, `@opennextjs/cloudflare@1.19.11` does not officially support next 16.1.6 (it wants <16 or >=16.2.6). pnpm installs it with a warning; whether OpenNext behaves correctly on 16.1.6 at runtime is unverified. Grant owns that migration call (bump next, or pin a compatible OpenNext).
+- `package-lock.json` is now an unused, drift-prone second lockfile. Consider deleting it so only `pnpm-lock.yaml` is maintained (out of scope this session; Vercel deploy config should be checked first).
+- The 31-file WIP commit was a grab-bag landed at Grant's request to unblock the pull; it mixes the OpenNext migration with assorted edits and regenerated artifacts.
+
 ## Open queue (priority order is Grant's call)
 
 1. Inline settings bug #3, enumerate the safe keys in the tool description, then finish the live widget-render verify (now unblocked, the build break is fixed).
