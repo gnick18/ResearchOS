@@ -83,7 +83,7 @@ type ChooserStep =
 // ---- Feature comparison table data (verbatim from beakerbot-tier-icons.html FEAT array) ----
 type CellValue = boolean | string;
 const FEAT: [string, CellValue, CellValue, CellValue][] = [
-  ["The account itself", "Free (no account)", "Free", "Paid plan"],
+  ["The account itself", "Free (no account)", "Free", "90 days free, then paid"],
   ["Sign-in required", false, "Yes (Google etc.)", "Yes (Google etc.)"],
   ["Local-first: your data lives on your disk", true, true, true],
   [
@@ -153,7 +153,7 @@ const GUIDE = [
   },
   {
     h: "Lab",
-    p: "You run or belong to a lab and want the whole team together, with a shared workspace, real-time co-editing, and PI oversight. It is still local-first, every member's data lives on their own disk, and the cloud is only the intermediary that keeps the team in sync. The Lab plan is a flat per-lab fee plus the cloud your lab actually uses, billed only to the PI on one invoice, with a cap the PI sets so there are no surprises.",
+    p: "You run or belong to a lab and want the whole team together, with a shared workspace, real-time co-editing, and PI oversight. It is still local-first, every member's data lives on their own disk, and the cloud is only the intermediary that keeps the team in sync. A new lab starts with a 90-day free trial and no card or payment required upfront, so you can bring your whole team on and feel the value before any money is involved. After the trial the Lab plan is a flat per-lab fee plus the cloud your lab actually uses, billed only to the PI on one invoice, with a cap the PI sets so there are no surprises.",
   },
 ];
 
@@ -844,16 +844,18 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           {showCreateLab && (
             <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
-              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-purple-100 text-[#5B47D6] self-start">
-                Paid
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-800 self-start">
+                90-day free trial
               </span>
               <h3 className="font-extrabold text-lg text-foreground mb-1">Start a lab</h3>
               <p className="text-xs text-foreground-muted mt-1">
                 For a lab head. You are the PI, so you create the lab and invite
                 your team. Real-time collaboration, the companion app, and your
-                lab&apos;s web home.
+                lab&apos;s web home. No card or payment required upfront, so you
+                can bring the whole team on and feel the value first.
               </p>
               <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
+                <li>90 days free, then a flat per-lab fee plus the cloud you use</li>
                 <li>You pay; your members join free</li>
                 <li>Cloud sync (server-blind)</li>
                 <li>Everything in Free, too</li>

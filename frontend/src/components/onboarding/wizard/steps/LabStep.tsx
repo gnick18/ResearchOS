@@ -74,9 +74,14 @@ export default function LabStep({ defaultPiDisplay = "", onSubmit }: LabStepProp
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
         Set up your lab
       </h1>
-      <p className="mb-6 mt-2 text-sm text-foreground-muted">
+      <p className="mb-3 mt-2 text-sm text-foreground-muted">
         Give your lab an identity. Members see this when they join. You can invite
         people and change any of this later from the lab settings.
+      </p>
+      <p className="mb-6 w-full rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5 text-left text-xs font-medium text-green-800">
+        Your lab starts with a 90-day free trial, no card or payment required
+        upfront, so you can bring your whole team on and feel the value before any
+        money is involved.
       </p>
 
       <div className="w-full text-left">
