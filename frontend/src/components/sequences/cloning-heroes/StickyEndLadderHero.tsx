@@ -71,14 +71,14 @@ export default function StickyEndLadderHero({ product, pieces, enzymeNames }: Pr
                 </div>
                 <div className="rounded bg-surface-sunken px-2 py-1 font-mono text-meta leading-tight text-foreground">
                   <div className="whitespace-pre">
-                    <span className="text-foreground-muted">5' </span>
+                    <span className="text-foreground-muted">5&apos; </span>
                     {seam.top}
-                    <span className="text-foreground-muted"> 3'</span>
+                    <span className="text-foreground-muted"> 3&apos;</span>
                   </div>
                   <div className="whitespace-pre">
-                    <span className="text-foreground-muted">3' </span>
+                    <span className="text-foreground-muted">3&apos; </span>
                     {seam.bottom}
-                    <span className="text-foreground-muted"> 5'</span>
+                    <span className="text-foreground-muted"> 5&apos;</span>
                   </div>
                 </div>
                 {jn.kind !== "blunt" ? (

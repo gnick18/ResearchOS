@@ -603,7 +603,7 @@ export default function NewAnalysisDialog({
             ) : isContingency ? (
               <p className="mt-4 rounded-md border border-border bg-surface-raised px-3 py-2 text-meta text-foreground-muted">
                 Reads every row and every count column on this table as the
-                count matrix. A 2x2 table also reports Fisher's exact p, the
+                count matrix. A 2x2 table also reports Fisher&apos;s exact p, the
                 relative risk, and the odds ratio. No column picking needed.
               </p>
             ) : isNested ? (

@@ -14,6 +14,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import BeakerBot from "@/components/BeakerBot";
@@ -145,18 +146,18 @@ export function StartScreen({
           the front door. */}
       {!showSignIn && (
         <div className="mt-6 flex items-center justify-center gap-4 flex-wrap text-center">
-          <a
+          <Link
             href="/wiki/getting-started/connecting-your-folder"
             className="text-foreground-muted hover:text-foreground text-meta transition-colors"
           >
             New here? Read the setup guide
-          </a>
-          <a
+          </Link>
+          <Link
             href="/wiki/shared-lab-accounts"
             className="text-foreground-muted hover:text-foreground text-meta transition-colors"
           >
             Sharing a folder with your lab?
-          </a>
+          </Link>
           <button
             onClick={openBugReport}
             className="text-foreground-muted hover:text-foreground text-meta transition-colors"

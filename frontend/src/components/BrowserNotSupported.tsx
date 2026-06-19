@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { detectUnsupportedBrowser } from "@/lib/file-system/file-system-context";
 
 /**
@@ -39,12 +40,12 @@ export default function BrowserNotSupported() {
       <div className="max-w-lg mx-4 p-6 bg-white/10 backdrop-blur-xl rounded-2xl border border-white/20">
         <h2 className="text-heading font-bold text-white mb-4">{heading}</h2>
         <p className="text-slate-300 mb-4">{body}</p>
-        <a
+        <Link
           href="/wiki/getting-started/browser-requirements"
           className="inline-block text-body font-medium text-blue-300 hover:text-blue-200 underline"
         >
           Read the browser requirements guide →
-        </a>
+        </Link>
       </div>
     </div>
   );

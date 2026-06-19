@@ -706,7 +706,7 @@ export default function ItemFormDialog({
               </div>
               <p className="text-meta text-foreground-muted">
                 Appear only for the Plasmid category. The sequence file is a path
-                for now; an interactive feature map is the sequence editor's
+                for now; an interactive feature map is the sequence editor&apos;s
                 territory.
               </p>
             </div>

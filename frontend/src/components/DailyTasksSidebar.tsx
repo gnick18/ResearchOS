@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useCallback, useEffect, useRef } from "react";
+import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { fetchAllTasks, eventsApi, fetchAllProjectsIncludingShared } from "@/lib/local-api";
@@ -214,9 +215,9 @@ export default function DailyTasksSidebar() {
             <p className="mb-2">Sidebar is empty.</p>
             <p>
               Enable Tasks or Calendar events in{" "}
-              <a href="/settings" className="text-accent hover:underline">
+              <Link href="/settings" className="text-accent hover:underline">
                 Settings → Sidebar
-              </a>
+              </Link>
               .
             </p>
           </div>

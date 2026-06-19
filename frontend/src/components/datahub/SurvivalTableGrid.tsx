@@ -175,7 +175,7 @@ export default function SurvivalTableGrid({
       </div>
 
       <p className="mt-3 max-w-xl text-meta text-foreground-muted">
-        Enter each subject's follow-up time and whether the event occurred (1) or
+        Enter each subject&apos;s follow-up time and whether the event occurred (1) or
         the subject was censored (0). Add a Group label to compare arms with a
         Kaplan-Meier curve and the log-rank test.
       </p>

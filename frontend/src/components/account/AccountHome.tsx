@@ -10,6 +10,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -612,13 +613,13 @@ export default function AccountHome() {
             {ONBOARDING_WIZARD_ENABLED && (
               <p className="mt-3 text-meta text-foreground-muted">
                 Not ready to pick a folder?{" "}
-                <a
+                <Link
                   href="/demo"
                   data-testid="account-home-try-demo"
                   className="font-semibold text-brand-action hover:underline"
                 >
                   Try the demo instead
-                </a>
+                </Link>
               </p>
             )}
           </>

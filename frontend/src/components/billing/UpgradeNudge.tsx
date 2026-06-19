@@ -11,6 +11,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 
 import { PLAN_PRICES } from "@/lib/billing/catalog";
 import {
@@ -59,13 +60,13 @@ export default function UpgradeNudge() {
           <h3 className="text-sm font-bold text-foreground">{c.h}</h3>
           <p className="mt-0.5 text-xs leading-relaxed text-foreground-muted">{c.p}</p>
           <div className="mt-3 flex items-center gap-2">
-            <a
+            <Link
               href="/pricing#plans"
               className="rounded-lg bg-[#1283c9] px-3 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-[#0f6fa8]"
               onClick={() => setFeature(null)}
             >
               See Solo
-            </a>
+            </Link>
             <button
               type="button"
               className="rounded-lg border border-border bg-surface-raised px-3 py-1.5 text-xs font-semibold text-foreground-muted transition-colors hover:text-foreground"

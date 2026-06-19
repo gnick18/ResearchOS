@@ -17,6 +17,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import type { ReactNode } from "react";
+import Link from "next/link";
 
 import { Icon } from "@/components/icons";
 import { PLAN_PRICES } from "@/lib/billing/catalog";
@@ -85,13 +86,13 @@ function SendIsPaidBody({ onClose }: { onClose: () => void }) {
         >
           Not now
         </button>
-        <a
+        <Link
           href="/pricing#plans"
           onClick={onClose}
           className="ros-btn-raise flex-1 py-2 text-body rounded-lg font-medium bg-brand-action hover:bg-brand-action/90 text-white text-center transition-colors"
         >
           See Solo
-        </a>
+        </Link>
       </div>
     </div>
   );

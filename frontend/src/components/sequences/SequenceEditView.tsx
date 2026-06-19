@@ -26,6 +26,7 @@
 // font sizes and are unaffected.
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 import Tooltip from "@/components/Tooltip";
 import BeakerBot from "@/components/BeakerBot";
@@ -6344,12 +6345,12 @@ export default function SequenceEditView({
             Map added to{" "}
             <span className="font-medium text-foreground">{mapToNoteStatus.noteTitle}</span>
           </span>
-          <a
+          <Link
             href="/workbench?tab=notes"
             className="font-medium text-sky-600 hover:text-sky-700"
           >
             Open in Workbench
-          </a>
+          </Link>
           <button
             type="button"
             onClick={() => setMapToNoteStatus(null)}

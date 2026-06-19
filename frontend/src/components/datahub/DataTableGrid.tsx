@@ -261,7 +261,7 @@ export default function DataTableGrid({
             readOnly={readOnly}
           />
           <p className="mt-3 max-w-xl text-meta text-foreground-muted">
-            You entered each group's mean, spread, and n directly, so any graph
+            You entered each group&apos;s mean, spread, and n directly, so any graph
             and the summary-compatible tests draw from these numbers. There are
             no raw replicates in this format. Double-click a group name to rename
             it.

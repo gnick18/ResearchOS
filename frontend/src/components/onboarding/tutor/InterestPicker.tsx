@@ -52,13 +52,13 @@ export default function InterestPicker({
             <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </div>
           <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
-            First, who are you and what do you want to get done? I'll show you
+            First, who are you and what do you want to get done? I&apos;ll show you
             the parts that matter to you.
           </div>
         </div>
 
         <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-wide text-[var(--faint,#9aa097)]">
-          I'm a
+          I&apos;m a
         </div>
         <div className="flex flex-wrap gap-2">
           {ROLES.map((r) => (

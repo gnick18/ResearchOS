@@ -274,7 +274,7 @@ function parseCount(raw: string): { count: number; issue: string | null } {
   // Tolerate "3 vials", "x2", thousands separators.
   const m = v.replace(/,/g, "").match(/-?\d+(\.\d+)?/);
   if (!m) return { count: 1, issue: `could not read count "${raw}", using 1` };
-  let n = Math.floor(Number(m[0]));
+  const n = Math.floor(Number(m[0]));
   if (!Number.isFinite(n) || n < 0) {
     return { count: 1, issue: `could not read count "${raw}", using 1` };
   }
@@ -298,8 +298,8 @@ function toDateInput(raw: string): string | null {
   // the dominant export format, but fall back to day-first when month > 12.
   m = v.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (m) {
-    let a = Number(m[1]);
-    let b = Number(m[2]);
+    const a = Number(m[1]);
+    const b = Number(m[2]);
     const y = m[3];
     let mo = a;
     let d = b;

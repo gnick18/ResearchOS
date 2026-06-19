@@ -329,7 +329,7 @@ export default function BeakerBotCentrifugeScene({
 
   let bodyTranslateXVw: number;
   let bodyTranslateYPx = 0;
-  let bodyRotateDeg = 0;
+  const bodyRotateDeg = 0;
   let bodyShakeAmp = 0; // when non-zero, body wobbles
   let centrifugeTranslateYPx = 22; // baked-in bench rest position
   let centrifugeRotateDeg = 0; // tilt for visual variety

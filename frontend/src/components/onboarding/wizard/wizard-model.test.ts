@@ -63,7 +63,7 @@ describe("wizardNavReducer", () => {
   });
 
   it("goto clamps into range", () => {
-    let s = initWizardNav();
+    const s = initWizardNav();
     expect(reduce(s, { type: "goto", index: 99 }, 4).index).toBe(3);
     expect(reduce(s, { type: "goto", index: -5 }, 4).index).toBe(0);
     expect(reduce(s, { type: "goto", index: 2 }, 4).index).toBe(2);

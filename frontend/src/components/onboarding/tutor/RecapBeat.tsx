@@ -29,7 +29,7 @@ export default function RecapBeat({ recap, remembered, onFinish }: RecapBeatProp
             <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
           </span>
           <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
-            That's the tour. The sample data is gone, your space is clean.
+            That&apos;s the tour. The sample data is gone, your space is clean.
             {remembered ? " Here is what I'll remember." : ""}
           </div>
         </div>

@@ -35,6 +35,7 @@
 // mid-sentence colons.
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { useBeakerBotReviewMode } from "@/lib/ai/review-mode-store";
@@ -169,14 +170,14 @@ function AiBalanceIndicator({ status }: { status: AiStatus | null }) {
       label={`${label} — click to view AI usage in Settings`}
       placement="bottom"
     >
-      <a
+      <Link
         href="/settings?section=ai-usage"
         data-testid="beakersearch-ai-balance-ring"
         className="flex items-center gap-1 rounded-md border border-transparent px-1 py-0.5 text-[10px] font-semibold text-foreground-muted hover:border-border hover:bg-surface-sunken hover:text-foreground"
       >
         <BalanceRing fraction={fraction} level={level} />
         <span>{formatTokens(balance)} left</span>
-      </a>
+      </Link>
     </Tooltip>
   );
 }
