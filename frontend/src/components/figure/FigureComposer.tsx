@@ -836,8 +836,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   // PNG export at 300 dpi: rasterize the composed SVG via an offscreen canvas.
   // No new dependency: uses the browser's built-in Image + canvas.drawImage.
-  // TODO PDF: no PDF library found in package.json (jspdf / pdf-lib / pdfkit absent).
-  //   Add one via "pnpm add jspdf" and wrap composeFigurePageSvg output to enable.
   const exportPng = useCallback(() => {
     if (!page) return;
     const DPI = 300;
@@ -866,6 +864,53 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     };
     img.onerror = () => URL.revokeObjectURL(url);
     img.src = url;
+  }, [page, panelSvgs, assetSvgs]);
+
+  // PDF export (vector): renders the composed SVG as a true vector PDF sized to the
+  // real artboard dimensions in inches. jsPDF + svg2pdf.js are dynamically imported
+  // so they stay out of the initial bundle (each is ~300-500 kB minified).
+  // Hidden/locked elements are automatically excluded because composeFigurePageSvg
+  // already filters them.
+  const exportPdf = useCallback(async () => {
+    if (!page) return;
+    const { wIn, hIn } = pageSizeIn(page);
+    // Compose at 300 ppi so nested viewBoxes have enough resolution for svg2pdf to
+    // faithfully trace paths. The PDF itself is vector so the ppi only affects how
+    // finely sub-SVG viewboxes are sampled when svg2pdf cannot parse them natively.
+    const svgStr = composeFigurePageSvg(page, { pxPerInch: 300, panelSvgs, assetSvgs });
+
+    // Parse the SVG string into a real DOM element for svg2pdf (it requires Element,
+    // not a string). A detached div keeps this off-screen and out of the layout.
+    const container = document.createElement("div");
+    container.style.position = "absolute";
+    container.style.visibility = "hidden";
+    container.innerHTML = svgStr;
+    document.body.appendChild(container);
+    const svgEl = container.querySelector("svg");
+    if (!svgEl) { document.body.removeChild(container); return; }
+
+    try {
+      // Dynamic imports keep jsPDF + svg2pdf out of the main bundle.
+      const [{ jsPDF }, { svg2pdf }] = await Promise.all([
+        import("jspdf"),
+        import("svg2pdf.js"),
+      ]);
+
+      // Landscape vs portrait: jsPDF chooses orientation from the format array.
+      const orientation = wIn >= hIn ? "l" : "p";
+      const doc = new jsPDF({
+        orientation,
+        unit: "in",
+        format: [wIn, hIn],
+      });
+
+      // Render the SVG into the first (only) page, scaled to fill the page exactly.
+      await svg2pdf(svgEl, doc, { x: 0, y: 0, width: wIn, height: hIn });
+
+      doc.save(`${page.name || "figure"}.pdf`);
+    } finally {
+      document.body.removeChild(container);
+    }
   }, [page, panelSvgs, assetSvgs]);
 
   if (loadState === "missing") {
@@ -2403,6 +2448,16 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                 data-testid="figure-export-png"
               >
                 <Icon name="download" className="h-3.5 w-3.5" /> Export PNG (300 dpi)
+              </button>
+            </Tooltip>
+            <Tooltip label="Export a true vector PDF sized to the artboard dimensions. Hidden elements are excluded.">
+              <button
+                type="button"
+                onClick={() => void exportPdf()}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+                data-testid="figure-export-pdf"
+              >
+                <Icon name="download" className="h-3.5 w-3.5" /> Export PDF (vector)
               </button>
             </Tooltip>
           </div>
