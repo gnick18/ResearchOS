@@ -77,7 +77,7 @@ export async function GET(request: Request): Promise<Response> {
 
     // 3. Run the off-session charge for real (test-mode PaymentIntent).
     const chargeSummary = await runChargeRun(stripeOffSessionCharger, {
-      owners: [{ ownerKey, accruedCents: balanceBefore, customerId: customer.id, paymentMethodId: pm }],
+      owners: [{ ownerKey, accruedCents: balanceBefore, customerId: customer.id, paymentMethodId: pm, trialEndsAt: null }],
       threshold: 0,
     });
     const balanceAfter = await getCloudBalance(ownerKey);

@@ -17,7 +17,7 @@ function makeMockSql() {
 
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = strings.join(" ");
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
+    if (/CREATE TABLE|ALTER TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
     if (/INSERT INTO cloud_usage_ledger/i.test(text) && /'accrual'/i.test(text)) {
       const idem = values[7] as string;
       if (ledger.some((r) => r.idem_key === idem)) return Promise.resolve([]);

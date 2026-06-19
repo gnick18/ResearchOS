@@ -18,7 +18,7 @@ function makeMockSql() {
   let nextId = 1;
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = strings.join(" ");
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
+    if (/CREATE TABLE|ALTER TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
     if (/INSERT INTO cloud_usage_ledger/i.test(text) && /'accrual'/i.test(text)) {
       const idem = values[7] as string;
       if (seen.has(idem)) return Promise.resolve([]);
@@ -51,6 +51,10 @@ function fakeReader(writes: number, storageBytes: number, hostedBytes: number): 
   };
 }
 
+// Default trial-state reader for the non-trial cases: every owner has no trial,
+// so the cron behaves exactly as before the trial gate. Specific tests override it.
+const noTrial = () => Promise.resolve({ trialEndsAt: null, hasCard: false });
+
 describe("runAccrualForPeriod", () => {
   beforeEach(() => __resetCloudSchemaCacheForTests());
 
@@ -62,7 +66,7 @@ describe("runAccrualForPeriod", () => {
       { ownerKey: "lab-a", planId: "lab_pro" }, // legacy paid lab -> lab
       { ownerKey: "free-a", planId: "free" }, // skipped
     ];
-    const summary = await runAccrualForPeriod("2026-06", { subs, reader, sql });
+    const summary = await runAccrualForPeriod("2026-06", { subs, reader, sql, trialState: noTrial });
 
     const soloCents = periodCharge(MODEL_A_PLANS.solo, { writes: 200_000, storageBytes: 4e9, hostedBytes: 0 }).totalCents;
     const labCents = periodCharge(MODEL_A_PLANS.lab, { writes: 200_000, storageBytes: 4e9, hostedBytes: 0 }).totalCents;
@@ -84,17 +88,41 @@ describe("runAccrualForPeriod", () => {
       { ownerKey: "good", planId: "plus" },
       { ownerKey: "bad", planId: "plus" },
     ];
-    const summary = await runAccrualForPeriod("2026-06", { subs, reader: throwingReader, sql });
+    const summary = await runAccrualForPeriod("2026-06", { subs, reader: throwingReader, sql, trialState: noTrial });
     expect(summary.accruedOwners).toBe(1);
     expect(summary.errors).toBe(1);
+  });
+
+  it("pauses accrual for a lab whose trial ended with no card on file", async () => {
+    const { sql } = makeMockSql();
+    const reader = fakeReader(200_000, 4e9, 0);
+    const now = new Date("2026-10-01T00:00:00.000Z");
+    const subs = [
+      { ownerKey: "trialing-lab", planId: "lab_pro" }, // trial open -> still accrues
+      { ownerKey: "paused-lab", planId: "lab_pro" }, // trial over, no card -> paused
+      { ownerKey: "paid-lab", planId: "lab_pro" }, // trial over, has card -> accrues
+    ];
+    const trialState = (k: string) => {
+      if (k === "trialing-lab")
+        return Promise.resolve({ trialEndsAt: "2026-12-01T00:00:00.000Z", hasCard: false });
+      if (k === "paused-lab")
+        return Promise.resolve({ trialEndsAt: "2026-09-01T00:00:00.000Z", hasCard: false });
+      return Promise.resolve({ trialEndsAt: "2026-09-01T00:00:00.000Z", hasCard: true });
+    };
+
+    const summary = await runAccrualForPeriod("2026-09", { subs, reader, sql, now, trialState });
+
+    expect(summary.processed).toBe(3);
+    expect(summary.trialPaused).toBe(1); // only paused-lab is held
+    expect(summary.accruedOwners).toBe(2); // trialing-lab + paid-lab still accrue
   });
 
   it("is idempotent across re-runs of the same period", async () => {
     const { sql } = makeMockSql();
     const reader = fakeReader(200_000, 4e9, 0);
     const subs = [{ ownerKey: "solo-a", planId: "plus" }];
-    const first = await runAccrualForPeriod("2026-06", { subs, reader, sql });
-    const second = await runAccrualForPeriod("2026-06", { subs, reader, sql });
+    const first = await runAccrualForPeriod("2026-06", { subs, reader, sql, trialState: noTrial });
+    const second = await runAccrualForPeriod("2026-06", { subs, reader, sql, trialState: noTrial });
     expect(first.accruedOwners).toBe(1);
     // Second run inserts no new ledger row, so nothing fresh is accrued.
     expect(second.accruedOwners).toBe(0);

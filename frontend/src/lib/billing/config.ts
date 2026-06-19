@@ -32,6 +32,18 @@ export function isAiBillingEnabled(): boolean {
  *  checkout individuals and labs use. */
 export const ORG_INVOICE_NET_DAYS = 30;
 
+/**
+ * Free-trial length for a new lab-head signup, in days (Grant 2026-06-19). A lab
+ * starts with NO card and is not charged for this many days regardless of usage,
+ * so a PI can bring their whole team on and feel the value before any money is
+ * involved. At day 90 a lab with a card on file resumes normal Model-A charging;
+ * a lab with no card pauses (cloud accrual stops, the local app keeps working)
+ * until a card is added, so we never silently run up an uncharged bill and there
+ * is always an escape. We give the full term, not a token week, because a lab
+ * adopts on a semester rhythm, not a weekend.
+ */
+export const LAB_TRIAL_DAYS = 90;
+
 export const BYTES_PER_GB = 1024 ** 3;
 
 /**

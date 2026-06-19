@@ -166,6 +166,13 @@ export default function LabsPage() {
               in once to set it up, then your lab stays in sync as you work.
             </p>
 
+            <p className="mt-3 max-w-[60ch] text-body font-semibold leading-relaxed text-brand-ink sm:text-title">
+              Start with a 90-day free trial, no card or payment required upfront.
+              We give the full term, not a token week, because a lab adopts over a
+              semester, so you can bring your whole team on and feel the value
+              before any money is involved.
+            </p>
+
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
                 type="button"
