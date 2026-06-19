@@ -1,0 +1,10 @@
+{
+  "projectId": "cc5da0e3-841f-4c20-b54f-2dd9effefbb1",
+  "projectName": "ResearchOS Design System",
+  "shape": "cards",
+  "note": "Hand-authored card layout, NOT a buildable package or Storybook. This folder is already in the Claude Design upload layout: tokens.css at root + components/<slug>/index.html preview cards, each with a first-line @dsCard marker linking ../../tokens.css. No converter (no dist/, no package.json). Sync = direct DesignSync upload of tokens.css + every components/**/index.html. Cards carry @dsCard markers so register_assets is NOT needed.",
+  "upload": {
+    "localDir": ".",
+    "writes": ["tokens.css", "components/**/index.html"]
+  }
+}
