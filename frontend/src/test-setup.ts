@@ -3,9 +3,23 @@
 // hit this file.
 
 import "@testing-library/jest-dom/vitest";
-import { afterEach, beforeEach } from "vitest";
+import { afterEach, beforeEach, vi } from "vitest";
 import { cleanup } from "@testing-library/react";
 import { resetVirtualFileSystem } from "./__mocks__/file-system-access";
+
+// The markdown editor lazy-loads spellcheck as part of its CodeMirror module
+// Promise.all (InlineMarkdownEditor). That chain pulls in the ~555 KB scientific
+// wordlist, which frequently resolves AFTER a fast component test has torn down
+// its jsdom environment, surfacing as a flaky `EnvironmentTeardownError` that
+// fails the whole vitest run even though every test passes. No component test
+// asserts spellcheck rendering (the real spellchecker is covered by the
+// node-project src/lib/spellcheck/spellchecker.test.ts, which this jsdom setup
+// does not touch), so stub the editor extension to a no-op across all component
+// tests. This removes the post-teardown async import without changing any
+// behavior under test.
+vi.mock("@/lib/markdown/cm-spellcheck/spellcheck", () => ({
+  spellcheckExtension: () => [],
+}));
 
 // jsdom 27 does not implement Blob.prototype.text() / arrayBuffer(). Our app
 // reads File contents with `file.text()` (see file-service.ts), so polyfill
