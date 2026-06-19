@@ -1,0 +1,43 @@
+# Handoff: DEBUG session — full screen audit + demo-lab-on-network + freeze diagnostics (2026-06-19)
+
+Orchestrator session "DEBUG". A long arc that (1) finished a full Chrome-bridge audit of every reachable screen, (2) shipped the design + Phases 1-2 of the demo-lab-on-network feature and got most of the way through Phase 3 activation, and (3) instrumented the Lab Notes freeze on prod. House rules respected throughout (no em-dashes, no mid-sentence colons, no emojis, `<Tooltip>`/`<Icon>` only, serialize-merge with overlap checks).
+
+## 1. Full screen audit — DONE, all reachable screens swept
+
+Swept via the visible Claude-in-Chrome bridge against a dedicated all-flags worktree server (`:3090`, `.claude/worktrees/ros-plotsweep`, flags DATAHUB/BIGTABLE/PHYLO/CHEMISTRY/INVENTORY/SPATIAL_INVENTORY/SOCIAL_LAYER). Clean: Phylo, Marketing (welcome/pricing/labs/departments/about/transparency), Admin-gate, Notifications, GANTT, Data Hub, Methods, Sequences, Check-ins, Inventory, Purchases, Chemistry, Calendar, Library (icon library + attribution), Lists, Notes, Trash, Links, Experiment (Details/Lab Notes/Results/Method), Network landing, 404.
+
+Bugs found and **all fixed + live on prod**:
+- Phylo layout-advisor fixes were inert -> made effective (`recommendedHeightToClearLabelStack`, taller-figure remedy + honest re-evaluation).
+- Marketing page titles double-suffixed / missing -> 15 pages + 2 dynamic routes de-suffixed, /labs + /departments titled.
+- Standalone GFM tables rendered blank in the CM inline editor -> `render-html.ts` trim + `theme.ts` white-space (the freeze-investigation's adjacent find).
+- Sequence editor: enabling the Translation toggle hid feature arcs on the circular map -> gated bar-suppression on whether a ring is showing (`lib/sequences/translation-tracks.ts`). Live-verified.
+- 404 inconsistency: explicit `notFound()` routes (e.g. flag-dark `/network`) fell to the raw Next default 404 while the catch-all showed a branded one, and the branded 404 linked to `/network` (dead when the social flag is off). Fixed: shared `NotFoundPage` + root `not-found.tsx`, network link gated on `SOCIAL_LAYER_ENABLED`.
+
+Discipline note: four would-be false positives were refuted by verifying before chipping (GANTT "zoom does nothing" = vertical week-stack; Chemistry "wrong editor mode" = Ketcher's inactive DOM; Inventory "filter broken" = row count was correct; Purchases "filter broken" = works, demo-seed quirk). Two soft observations left for Grant's judgment (Check-ins rotation "Up next/Now" wording; completed orders reading as "Awaiting approval").
+
+## 2. Lab Notes freeze — instrumented on prod, awaiting Grant's repro
+
+Two independent methods CLEARED the persist/VC path: a live OPFS repro (zero long tasks on commit, even on a 120-row degenerate doc) and a benchmark driving the real persist functions (every op sub-3ms, snapshot flat across 1->800 commits). The CM measure path was already cleared in a prior session. So the 90s freeze is NOT algorithmic in the doc; the surviving suspects are a **high-iteration commit feedback loop** or the **collab relay path** (`relay-provider.ts` `getAllChanges()` per inbound update; prod-only, demo lacks it). Observe-only diagnostics are LIVE on prod (`[freeze-diag]` console lines: `_runCommit fired N/s` + persistNote count; `relay inbound N/s, getAllChanges M/s, changeCount`; one-time `relay session opened`). **The one thing left is Grant's: reproduce on research-os.app with DevTools console open (filter `freeze-diag`) and paste the output — that names the runaway path.** I cannot do this: the automation bridge cannot connect a real folder (native picker) or sign in. See `[[project_labnotes_freeze]]`.
+
+## 3. Demo lab on the researcher network — Phases 0-2 live (inert), Phase 3 mid-flight
+
+Grant's idea: put the demo lab on the network with a handle + two hosted sites (built-in wizard companion site + a BYO/GitHub-style hosted static site). Locked decisions: slug `fakeyeast-lab`, fabricated `fakeyeast.edu` verified badge, also show the (read-only, safe) authoring walkthrough. Design + approach in `docs/proposals/2026-06-18-demo-lab-on-network.md` (Option A: seed real DB rows + R2 under a non-billing sentinel owner key `demo-fakeyeast-lab`) + mockup `docs/mockups/2026-06-18-demo-lab-on-network.html`.
+
+- **Phase 0** (design doc + mockup) + **Phases 1-2** (seed module + view framing + safe authoring walkthrough) are MERGED + LIVE behind default-off flags. Files: `lib/social/demo-lab.ts`, `lib/social/seed-demo-lab.ts`, `fixtures/demo-byo-site/`, `fixtures/figures/*.svg`, ribbon in `LabSitePageView`, `LabDirectoryCard` on `/network`, read-only authoring at `/account/lab-site?demo=fakeyeast-lab` (every write disabled). No schema change; new well-known sentinel owner key. See `[[project_demo_lab_on_network]]`.
+- **Phase 3 (activation) — IN PROGRESS, the live state right now:**
+  - Prod env: server `LAB_SITES_ENABLED` + `LAB_BYO_SITES` set (Grant); client `NEXT_PUBLIC_SOCIAL_LAYER` on (3d); `DATABASE_URL` + `R2_*` configured. **`/network` is LIVE on prod and shows the demo lab card** (`fakeyeast-lab`, `fakeyeast.edu`) — but that card renders from a client fixture.
+  - **`research-os.app/fakeyeast-lab` still 404s — the seed never ran.** The seed-wiring attempt (a new `instrumentation.ts` calling `seedDemoLab`) BROKE the Turbopack prod build (it pulled `seed-demo-lab` into the build graph, and the fixture read `new URL("./fixtures/<dir>/", import.meta.url)` is a directory URL Turbopack fails to resolve), which BLOCKED all prod deploys. tsc + vitest passed; only a real build catches it. I reverted the wiring (`c40fe7be4`) to unblock; prod recovered. A parallel commit `81c6d2a64` then fixed the fixture read forward (opaque `fileURLToPath(import.meta.url)` + `path.join`), so the module is now build-safe — but `instrumentation.ts` is still absent (unwired) and `81c6d2a64`'s note warns the opaque read no longer TRACES the fixtures into the serverless output.
+  - **Remaining (chipped `task_2cb50ed3`):** re-add the guarded `instrumentation.ts` on top of `81c6d2a64` (reuse the reverted guards verbatim; the break was never in instrumentation), add `outputFileTracingIncludes` for the fixture paths so they ship in the prod function output, and VERIFY with a real `cd frontend && pnpm run build` (+ confirm the fixtures land in the server output). Only merge after that build passes.
+  - **Then to finish activation:** merge -> prod auto-deploys -> instrumentation runs `seedDemoLab()` on boot (server flag on) -> `research-os.app/fakeyeast-lab` resolves -> set `NEXT_PUBLIC_LAB_SITES=1` + redeploy for the read-only authoring walkthrough -> verify. Prod project = `research-os` (Vercel, grant-nickles-projects); the orchestrator has `vercel` CLI access for env + deploy.
+
+## 4. Key lesson (new reference memory)
+
+`[[reference_turbopack_instrumentation_fixture_build]]`: wiring a module that reads fixture DIRECTORIES into the build graph (e.g. via `instrumentation.ts`) breaks the Turbopack prod build, and tsc + vitest do NOT catch it. Any instrumentation / build-graph change MUST be verified with a real `next build`. When a push breaks the prod BUILD (deploys error, prod serves stale), revert the merge immediately to unblock everyone, then fix forward with a verified build.
+
+## 5. Open items
+
+- `task_2cb50ed3` — re-add seed wiring + trace fixtures + real-build-verify (needs start; orchestrator merges only after the build passes, then deploys + seeds + verifies fakeyeast-lab).
+- Lab Notes freeze — Grant's `freeze-diag` prod repro.
+- Pre-existing red test: `slug-registry.test.ts` drift on `welcome` (the `/welcome` route is missing from `APP_ROUTE_SEGMENTS`, so `welcome` is claimable as a lab slug — a slug-shadowing hole). The one-line fix was dropped from a merge because `slug-registry.ts` has a sibling's uncommitted domain-rename edit in local main; it should land WITH that edit (add `"welcome"` to `APP_ROUTE_SEGMENTS`).
+
+All session merges (audit fixes, 404, blank-table, persist benchmark, freeze diagnostics, demo-lab Ph0-2, the build-break revert + `81c6d2a64` forward-fix) are on `origin/main` and live; prod is healthy on a clean build.
