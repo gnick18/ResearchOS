@@ -52,6 +52,8 @@ import {
   OneOnOneActionItemStore,
 } from "@/lib/one-on-one/store";
 import { IdpStore } from "@/lib/idp/store";
+import { stripIdpForMirror } from "@/lib/idp/visibility";
+import type { IDP } from "@/lib/types";
 import { LAB_AS_FOLDER_ENABLED } from "./lab-as-folder-config";
 import { CheckinCompactStore } from "@/lib/checkins/compact-store";
 import { CheckinOnboardingStore } from "@/lib/checkins/onboarding-store";
@@ -188,14 +190,19 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
       if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
       return oneOnOneActionItemsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
     },
-    listIdps(owner: string): Promise<OwnedRecord[]> {
-      // IDP is trainee-owned. The RAW persisted record is pushed verbatim (the
-      // section blanking in normalizeIdpForViewer is a READ-time concern applied
-      // by the consumer, not the mirror). pullLabView only surfaces it to a
-      // non-owner when shared_with names them, so the mentor read still depends
-      // on the trainee's explicit share, never on lab membership.
-      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
-      return idpsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    async listIdps(owner: string): Promise<OwnedRecord[]> {
+      // IDP is trainee-owned. P3 PRIVACY FIX (must-fix): the RAW persisted record
+      // carries the always-private values reflection AND any section the trainee
+      // has NOT shared. Pushing it verbatim would mirror that private content to
+      // R2 and, after a pull, land it on the mentor's disk; read-time blanking
+      // (normalizeIdpForViewer) is INSUFFICIENT because the raw bytes are already
+      // off-device. We strip at PUSH (stripIdpForMirror) so the never-shared
+      // content NEVER leaves the trainee's device. The shared_with gate is
+      // preserved, so pullLabView still surfaces it only to a named recipient and
+      // the read-time normalize still narrows to that viewer's shared sections.
+      if (!LAB_AS_FOLDER_ENABLED) return [];
+      const raw = await idpsStore.listAllForUser(owner);
+      return raw.map((idp) => stripIdpForMirror(idp as unknown as IDP)) as unknown as OwnedRecord[];
     },
     listWeeklyGoals(owner: string): Promise<OwnedRecord[]> {
       // WeeklyGoal carries owner + shared_with. Numeric JsonStore id.

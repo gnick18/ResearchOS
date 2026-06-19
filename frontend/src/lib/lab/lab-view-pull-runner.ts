@@ -50,6 +50,11 @@ import type { LabSessionState } from "./lab-session";
 import { getLabRemote } from "./lab-do-client";
 import { pullLabView, type LabViewRecord } from "./lab-read";
 import { materializeLabView, type MaterializeResult } from "./lab-view-materialize";
+import { verifyMembershipLog } from "./lab-membership";
+import {
+  materializeLabRoster,
+  type RosterMaterializeResult,
+} from "./lab-roster-materialize";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -79,6 +84,22 @@ export interface LabViewPullDeps {
    * Default: materializeLabView.
    */
   materializeImpl?: typeof materializeLabView;
+
+  /**
+   * P3: materialize the ROSTER + per-member metadata (presence scaffold,
+   * settings.json display + PI badge, _user_metadata colors) into the active
+   * OPFS folder so the folder-bound IDENTITY consumers light up. Default:
+   * materializeLabRoster. Runs over the VERIFIED record only.
+   */
+  materializeRosterImpl?: typeof materializeLabRoster;
+
+  /**
+   * P3: verify the head-signed membership log before trusting the roster.
+   * Default: verifyMembershipLog. A forged roster (one that fails the signed
+   * log) must NOT expand the enumerate set, so the runner refuses to pull when
+   * this fails.
+   */
+  verifyImpl?: typeof verifyMembershipLog;
 }
 
 /**
@@ -91,6 +112,7 @@ export interface LabViewPullDeps {
  *   owners:     the roster owners the pull enumerated.
  *   pulled:     count of visible records returned by pullLabView (own + shared).
  *   materialized: the MaterializeResult (shared-with-me written, own skipped).
+ *   roster:     the RosterMaterializeResult (presence + settings + colors).
  */
 export interface LabViewPullResult {
   ran: boolean;
@@ -99,6 +121,7 @@ export interface LabViewPullResult {
   owners?: string[];
   pulled?: number;
   materialized?: MaterializeResult;
+  roster?: RosterMaterializeResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +155,8 @@ export async function runLabViewPullForSession(
   const doGetRemote = deps.getRemoteImpl ?? getLabRemote;
   const doPull = deps.pullImpl ?? pullLabView;
   const doMaterialize = deps.materializeImpl ?? materializeLabView;
+  const doMaterializeRoster = deps.materializeRosterImpl ?? materializeLabRoster;
+  const doVerify = deps.verifyImpl ?? verifyMembershipLog;
 
   const viewer = session.member.username;
   const labId = session.labId;
@@ -140,6 +165,18 @@ export async function runLabViewPullForSession(
   const remote = await doGetRemote(labId);
   if (remote === null) {
     return { ran: false, reason: "no lab record" };
+  }
+
+  // Step 1a (P3 hardening): VERIFY the head-signed membership log before
+  // trusting remote.record.members. A forged roster (extra members spliced in,
+  // a reordered or re-signed log) fails the chained-signature check and must NOT
+  // expand the enumerate set we hand to pullLabView. The lab-do-client docstring
+  // explicitly recommends re-running verifyMembershipLog over the open-read
+  // record; this is that gate. On failure we refuse to pull and leave any
+  // previously materialized cache untouched.
+  const verdict = doVerify(remote.record);
+  if (!verdict.ok) {
+    return { ran: false, reason: `membership log invalid: ${verdict.reason}` };
   }
 
   // The owners list is every roster member (including the viewer). pullLabView
@@ -162,11 +199,19 @@ export async function runLabViewPullForSession(
   // Own records are the source of truth in the local folder and are skipped.
   const materialized = await doMaterialize(records);
 
+  // Step 4 (P3): materialize the ROSTER + per-member metadata so the folder-bound
+  // IDENTITY consumers (display names, PI badge, colors, comments, mentions,
+  // attribution, avatars, version-history actor labels) light up for co-members.
+  // We pass the VERIFIED record so a forged roster cannot inject phantom members.
+  // The viewer's own identity files are preserved (local source-of-truth).
+  const roster = await doMaterializeRoster(remote.record, viewer);
+
   return {
     ran: true,
     viewer,
     owners,
     pulled: records.length,
     materialized,
+    roster,
   };
 }
