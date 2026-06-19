@@ -19,6 +19,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Kit-template source PDFs (frontend/public/method-catalog/sources/*.pdf)
+          # are stored in Git LFS; method-catalog-sources.test.ts verifies each
+          # bundled PDF against a declared sha256. Without lfs:true the runner
+          # checks out pointer files and the digest test fails.
+          lfs: true
       - uses: pnpm/action-setup@v4
         with:
           version: 10.34.3
@@ -43,6 +49,12 @@ jobs:
     needs: lint-and-typecheck
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Kit-template source PDFs (frontend/public/method-catalog/sources/*.pdf)
+          # are stored in Git LFS; method-catalog-sources.test.ts verifies each
+          # bundled PDF against a declared sha256. Without lfs:true the runner
+          # checks out pointer files and the digest test fails.
+          lfs: true
       - uses: pnpm/action-setup@v4
         with:
           version: 10.34.3
@@ -71,6 +83,12 @@ jobs:
     needs: lint-and-typecheck
     steps:
       - uses: actions/checkout@v5
+        with:
+          # Kit-template source PDFs (frontend/public/method-catalog/sources/*.pdf)
+          # are stored in Git LFS; method-catalog-sources.test.ts verifies each
+          # bundled PDF against a declared sha256. Without lfs:true the runner
+          # checks out pointer files and the digest test fails.
+          lfs: true
       - uses: pnpm/action-setup@v4
         with:
           version: 10.34.3
