@@ -123,7 +123,6 @@ export const APP_ROUTE_SEGMENTS: readonly string[] = [
   "transparency",
   "trash",
   "u",
-  "welcome",
   "wiki",
   "workbench",
 ];
