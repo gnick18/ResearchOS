@@ -17,8 +17,14 @@
 //
 // No em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import {
+  extractDirectoryHandleFromDrop,
+  describeDropExtractionError,
+  type DropExtractionResult,
+} from "@/lib/file-system/drop-folder";
 import LightOnly from "@/components/LightOnly";
 import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
 import { buildEntryGreetingLines } from "@/lib/beakerbot/entry-lines";
@@ -61,6 +67,53 @@ export function WelcomeBackSignIn({
   onOpenFolder,
 }: WelcomeBackSignInProps) {
   const [showAll, setShowAll] = useState(false);
+
+  // Folder drag-and-drop, so a solo user can drop their data folder straight
+  // onto this gate instead of clicking through the OS picker. Mirrors the
+  // FolderConnectGate drop pattern and reuses the same extraction primitive. The
+  // handlers stopPropagation so the window-level GlobalDropGuard never steals the
+  // drop with its "files go inside a task or note" toast (a dragged folder still
+  // reports as "Files", which is why the guard would otherwise fire here).
+  const { connectWithHandle } = useFileSystem();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+    setDropError(null);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+    const result: DropExtractionResult =
+      await extractDirectoryHandleFromDrop(items);
+    if (result.kind === "ok") {
+      setDropError(null);
+      await connectWithHandle(result.handle);
+      return;
+    }
+    setDropError(describeDropExtractionError(result.kind));
+  };
 
   // Current hour, computed after mount (client-only, avoids hydration mismatch).
   const [hour, setHour] = useState(0);
@@ -145,7 +198,21 @@ export function WelcomeBackSignIn({
           <span aria-hidden>&larr;</span> Back
         </button>
 
-        <div className="relative z-[1] flex w-full max-w-xs flex-col items-center">
+        <div
+          className={`relative z-[1] flex w-full max-w-xs flex-col items-center rounded-2xl transition-shadow ${
+            isDragOver && !hideSoloEscape
+              ? "ring-2 ring-brand-action ring-offset-4 ring-offset-transparent"
+              : ""
+          }`}
+          {...(!hideSoloEscape
+            ? {
+                onDragEnter: handleDragEnter,
+                onDragOver: handleDragOver,
+                onDragLeave: handleDragLeave,
+                onDrop: handleDrop,
+              }
+            : {})}
+        >
           {/* Same beaker size + center placement as the landing hero, so he
               never shrinks or jumps between the welcome and the sign-in screen.
               The speech bubble floats to the right of the beaker into the open
@@ -239,6 +306,14 @@ export function WelcomeBackSignIn({
               >
                 Open a folder, no account
               </button>
+              <p className="mt-1.5 text-[11px] text-foreground-muted">
+                {isDragOver ? "Drop to open this folder" : "or drag your folder here"}
+              </p>
+              {dropError ? (
+                <p className="mt-1 text-[11px] text-red-500" role="alert">
+                  {dropError}
+                </p>
+              ) : null}
             </>
           )}
 
