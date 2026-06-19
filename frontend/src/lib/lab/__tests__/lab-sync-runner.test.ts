@@ -63,6 +63,14 @@ function makeEmptySource(): LabWorkSource {
     listResultSheets: vi.fn(async (_owner: string) => []),
     listNotesSheets: vi.fn(async (_owner: string) => []),
     listDeposits: vi.fn(async (_owner: string) => []),
+    listOneOnOnes: vi.fn(async (_owner: string) => []),
+    listOneOnOneActionItems: vi.fn(async (_owner: string) => []),
+    listIdps: vi.fn(async (_owner: string) => []),
+    listWeeklyGoals: vi.fn(async (_owner: string) => []),
+    listCheckinCompacts: vi.fn(async (_owner: string) => []),
+    listCheckinOnboarding: vi.fn(async (_owner: string) => []),
+    listCheckinRotations: vi.fn(async (_owner: string) => []),
+    listAnnouncements: vi.fn(async (_owner: string) => []),
   };
 }
 
@@ -457,19 +465,8 @@ describe("runLabSyncForSession – error path", () => {
     const session = makeLiveSession();
     const boom = new Error("enumerate failed");
     const source: LabWorkSource = {
+      ...makeEmptySource(),
       listTasks: vi.fn(async (_owner: string) => { throw boom; }),
-      listNotes: vi.fn(async (_owner: string) => []),
-      listMethods: vi.fn(async (_owner: string) => []),
-      listPurchases: vi.fn(async (_owner: string) => []),
-      listInventory: vi.fn(async (_owner: string) => []),
-      listInventoryStock: vi.fn(async (_owner: string) => []),
-      listSequences: vi.fn(async (_owner: string) => []),
-      listPhylo: vi.fn(async (_owner: string) => []),
-      listMolecules: vi.fn(async (_owner: string) => []),
-      listDatahub: vi.fn(async (_owner: string) => []),
-      listResultSheets: vi.fn(async (_owner: string) => []),
-      listNotesSheets: vi.fn(async (_owner: string) => []),
-      listDeposits: vi.fn(async (_owner: string) => []),
     };
     const syncImpl = vi.fn(async () => makeSyncResult());
     const { store, saveMock } = makeManifestStore();

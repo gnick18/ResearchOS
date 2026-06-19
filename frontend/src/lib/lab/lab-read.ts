@@ -18,6 +18,14 @@
 // The shared_with check requires parsed JSON; without it the sharing intent
 // cannot be read, so the record is conservatively hidden from non-owners.
 //
+// ANNOUNCEMENTS (lab-wide-public exception): the `announcement` record type is
+// the one type that is NOT per-user owner+shared_with. Announcements are PI-
+// written and all-members-readable by design (the on-disk shape has no
+// shared_with). pullLabView therefore surfaces every `announcement` record to
+// every lab member regardless of shared_with, matching the on-disk semantics.
+// This exception is scoped strictly to recordType === "announcement"; the
+// per-record shared_with gate is unchanged for all other types.
+//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { isTombstone } from "./lab-sync";
@@ -192,10 +200,18 @@ export async function pullLabView(params: {
         ? recordSharedWith(parsed, params.viewer)
         : false;
 
+      // Announcements are lab-wide-public (PI-written, all-members-readable, no
+      // shared_with on the on-disk shape). Treat the `announcement` type as
+      // visible to every member regardless of shared_with. The exception is
+      // scoped strictly to this one type; every other type still passes the
+      // per-record shared_with gate below.
+      const isLabWidePublic = recordType === "announcement";
+
       // Visibility rule:
       //   - own records are always visible (even if unparseable).
-      //   - non-own records are visible iff shared_with names the viewer.
-      if (!isOwn && !sharedWithViewer) continue;
+      //   - lab-wide-public records (announcements) are visible to every member.
+      //   - other non-own records are visible iff shared_with names the viewer.
+      if (!isOwn && !isLabWidePublic && !sharedWithViewer) continue;
 
       results.push({
         key,

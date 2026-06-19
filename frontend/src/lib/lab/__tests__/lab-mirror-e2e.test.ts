@@ -31,6 +31,11 @@ import {
   type OwnedRecord,
 } from "../lab-work-enumerate";
 import { syncLabWorkToMirror, pullMemberLabRecords } from "../lab-sync";
+import { pullLabView } from "../lab-read";
+import {
+  materializeLabView,
+  type MaterializeFileWriter,
+} from "../lab-view-materialize";
 import { listLabRecords } from "../lab-data-client";
 import {
   splitBySize,
@@ -124,6 +129,14 @@ function emptySource(): LabWorkSource {
     listResultSheets: none,
     listNotesSheets: none,
     listDeposits: none,
+    listOneOnOnes: none,
+    listOneOnOneActionItems: none,
+    listIdps: none,
+    listWeeklyGoals: none,
+    listCheckinCompacts: none,
+    listCheckinOnboarding: none,
+    listCheckinRotations: none,
+    listAnnouncements: none,
   };
 }
 
@@ -310,6 +323,82 @@ describe("lab mirror end to end (member push -> PI read + search)", () => {
     const search = await searchLabIndex("x", {}, { ...searchDeps, getViewer: notHead as never });
     expect(read.ok).toBe(false);
     expect(search.ok).toBe(false);
+  });
+});
+
+describe("lab mirror end to end: announcements (PI push -> member pull + materialize)", () => {
+  const labId = "lab-ann-e2e";
+
+  // The PI's lab work is a single root-file announcement (no owner/shared_with),
+  // attributed to the PI author so it pushes under the PI's owner prefix.
+  const a1 = {
+    id: "ann-1",
+    author: "pi",
+    text: "Lab meeting moved to Friday 3pm",
+    created_at: "2026-06-18T00:00:00.000Z",
+    pinned: true,
+  };
+  const piSource: LabWorkSource = {
+    ...emptySource(),
+    // listAnnouncements yields only the entries authored by `owner`; the PI is
+    // the author so it returns the one announcement, members return none.
+    listAnnouncements: async (owner: string) => (owner === "pi" ? [a1] : []),
+  };
+
+  it("a member pulls the PI's announcement through the real encrypt -> R2 -> decrypt path", async () => {
+    const relay = makeInMemoryRelay();
+    const labKey = randomLabKey();
+    const pi = randomKeyPair();
+    const member = randomKeyPair();
+
+    // PI push: enumerate the announcement and sync it under the PI's prefix.
+    const piRecords = await enumerateLabWork({ owner: "pi", source: piSource });
+    await syncLabWorkToMirror({
+      labId,
+      owner: "pi",
+      records: piRecords,
+      labKey,
+      signerEd25519Priv: pi.priv,
+      signerEd25519Pub: pi.pub,
+      manifest: {},
+      tombstoneRemoved: true,
+      fetchImpl: relay.fetchImpl,
+    });
+
+    // It really reached the relay under the PI's announcement key.
+    expect([...relay.store.keys()]).toContain("lab-ann-e2e/pi/announcement/ann-1");
+
+    // Member pull: alex is NOT the author and NOT named in any shared_with, but
+    // announcements are lab-wide-public, so the pull surfaces it.
+    const view = await pullLabView({
+      labId,
+      viewer: "alex",
+      owners: ["pi", "alex"],
+      labKey,
+      signerEd25519Priv: member.priv,
+      signerEd25519Pub: member.pub,
+      fetchImpl: relay.fetchImpl,
+    });
+
+    const ann = view.find((r) => r.recordType === "announcement");
+    expect(ann).toBeTruthy();
+    expect(ann!.isOwn).toBe(false);
+    // The decrypted payload is the PI's real announcement text.
+    const decoded = JSON.parse(new TextDecoder().decode(ann!.plaintext));
+    expect(decoded).toEqual(a1);
+
+    // Materialize writes the member's root _announcements.json with the entry.
+    const writes: Array<{ path: string; text: string }> = [];
+    const writer: MaterializeFileWriter = {
+      ensureDir: async () => {},
+      writeText: async (path, text) => {
+        writes.push({ path, text });
+      },
+    };
+    const mat = await materializeLabView(view, writer);
+    expect(mat.written).toContain("_announcements.json");
+    const file = writes.find((w) => w.path === "_announcements.json")!;
+    expect(JSON.parse(file.text)).toEqual({ version: 1, announcements: [a1] });
   });
 });
 
