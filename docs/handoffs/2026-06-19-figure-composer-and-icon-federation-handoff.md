@@ -25,6 +25,17 @@ deploy (origin auto-deploys to research-os.app) and is GRANT'S CALL.** Everythin
 merged is gate-green (225 figure/library/icons tests, tsc clean) and the two new
 UI pieces were browser-verified on :3000.
 
+> UPDATE 2026-06-19 (Icon Lib session): section 1 is DONE + LIVE. The detached
+> ingest finished (`[check] MATCH true`, 20,734 -> 27,726). All 7 new SVG dirs +
+> manifest + embeddings were `rclone copy`d to R2 (checksum-verified) and Grant ran
+> the Cloudflare Hostname purge on `assets.research-os.com` (driven via Chrome).
+> Live-verified: manifest 27,726 with the exact `[final]` by-source tally
+> (servier 5080, togopic 1323, ebi 241, janosh 156, arcadia 142,
+> electricalsymbollib 74, swissbiopics 33, bioicons pruned to 2764), sample
+> new-source SVGs return 200 + CORS, embeddings meta count 27,726. NEXT step 2
+> (push) is moot, local main is already 0/0 with origin. Only the optional
+> follow-ups in NEXT step 3 remain.
+
 ## 1. THE ONE LIVE THREAD — the icon ingest is RUNNING DETACHED (resume this first)
 
 A `nohup` process is assembling the new-source bundle. It survives session/account
