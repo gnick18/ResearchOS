@@ -6,6 +6,7 @@ import Link from "next/link";
 import Wordmark from "@/components/Wordmark";
 import { Icon } from "@/components/icons";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
 /**
  * Sticky top nav for the public marketing pages (pricing, transparency,
@@ -30,7 +31,8 @@ const NAV_LINKS: { label: string; href: string }[] = [
   { label: "Library", href: "/library" },
   // Social layer (Phase A), behind NEXT_PUBLIC_SOCIAL_LAYER so flag-off is unchanged.
   ...(SOCIAL_LAYER_ENABLED ? [{ label: "Network", href: "/network" }] : []),
-  { label: "Pricing", href: "/pricing" },
+  // Hidden while public pricing is in its maintenance state (one shared flag).
+  ...(isPricingPublic() ? [{ label: "Pricing", href: "/pricing" }] : []),
   { label: "Transparency", href: "/transparency" },
   { label: "Docs", href: "/wiki" },
   { label: "About", href: "/about" },

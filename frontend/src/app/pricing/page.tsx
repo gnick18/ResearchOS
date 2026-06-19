@@ -12,6 +12,7 @@ import FeatureGrid, { type FeatureItem } from "@/components/pricing/FeatureGrid"
 import { Section, SectionHeading } from "@/components/pricing/Section";
 import PlanPriceCallout from "@/components/marketing/PlanPriceCallout";
 import { isAiBillingEnabled, isBillingEnabled } from "@/lib/billing/config";
+import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
 /**
  * Public `/pricing` route, rebuilt for Model A (2026-06-16): a local-first
@@ -133,14 +134,12 @@ const FAQ: { q: string; a: string }[] = [
 ];
 
 export default function PricingPage() {
-  // TEMP: hide the public pricing page on deployed builds while pricing is
-  // finalized (Grant + Emile sign-off). Shows a Beaker maintenance state on
-  // prod/preview; the real page renders in local `next dev`. Set PRICING_LIVE=true
-  // to expose it, or remove this block once pricing is locked.
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.PRICING_LIVE !== "true"
-  ) {
+  // Hide the public pricing page on deployed builds while pricing is finalized
+  // (Grant + Emile sign-off). Shows a Beaker maintenance state on prod/preview;
+  // the real page renders in local `next dev`. Gated on the SHARED isPricingPublic
+  // helper (NEXT_PUBLIC_PRICING_LIVE) so the welcome-page pricing links flip in
+  // lockstep with this page. Set NEXT_PUBLIC_PRICING_LIVE=true to expose both.
+  if (!isPricingPublic()) {
     return (
       <div className="min-h-screen bg-surface-sunken">
         <MarketingNav />

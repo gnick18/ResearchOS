@@ -74,6 +74,7 @@ import { markLandingSeen } from "@/lib/landing/landing-gate";
 import Link from "next/link";
 import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
 import { isMobileDevice } from "@/lib/file-system/file-system-context";
+import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
 /** The rainbow ramps, pulled from the brand tokens in globals.css so the
  *  welcome page never drifts from the footer / avatars / banner. RAINBOW is the
@@ -695,6 +696,12 @@ export default function WelcomePage({
 } = {}) {
   const router = useRouter();
 
+  // Pricing links flip in lockstep with the public pricing page (one shared
+  // flag, NEXT_PUBLIC_PRICING_LIVE). While pricing is in its maintenance state
+  // we hide these links so we never send a visitor to a "getting an update"
+  // page. Always shown in local dev for development.
+  const showPricing = isPricingPublic();
+
   // Phone vs desktop, resolved after mount (navigator is client-only). null
   // until then so SSR + first client render match (no banner), avoiding a
   // hydration mismatch and any mobile flash of the desktop-required banner.
@@ -926,13 +933,17 @@ export default function WelcomePage({
                 The local notebook and every feature on your own machine are
                 free, forever. The cloud services that send, co-edit, and sync
                 are paid, on a small base fee plus what you actually use.{" "}
-                <Link
-                  href="/pricing"
-                  className="font-bold text-brand-action transition-colors hover:text-brand-ink"
-                >
-                  See the full pricing and the cost calculator{" "}
-                  <span aria-hidden>&rarr;</span>
-                </Link>{" "}
+                {showPricing && (
+                  <>
+                    <Link
+                      href="/pricing"
+                      className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+                    >
+                      See the full pricing and the cost calculator{" "}
+                      <span aria-hidden>&rarr;</span>
+                    </Link>{" "}
+                  </>
+                )}
                 The companion app is free to download and paired on every paid
                 plan.{" "}
                 <Link
@@ -1034,12 +1045,14 @@ export default function WelcomePage({
             The point tools go deeper in their one lane. ResearchOS wins by
             folding the notebook, the sequence tool, chemistry, and inventory
             into one free suite with your data on your own disk.{" "}
-            <Link
-              href="/pricing"
-              className="font-bold text-brand-action transition-colors hover:text-brand-ink"
-            >
-              See the full four-way <span aria-hidden>&rarr;</span>
-            </Link>
+            {showPricing && (
+              <Link
+                href="/pricing"
+                className="font-bold text-brand-action transition-colors hover:text-brand-ink"
+              >
+                See the full four-way <span aria-hidden>&rarr;</span>
+              </Link>
+            )}
           </p>
         </section>
 
@@ -1533,14 +1546,18 @@ export default function WelcomePage({
             <div className="mt-6 flex flex-col items-center gap-3">
               <p className="text-meta text-[#94a3b8]">
                 The local app is free and open source. It grew out of a
-                UW-Madison Distinguished Research Fellowship. Curious how the
-                cloud services are priced?{" "}
-                <Link
-                  href="/pricing"
-                  className="font-semibold text-brand-action hover:text-brand-ink"
-                >
-                  See the pricing <span aria-hidden>&rarr;</span>
-                </Link>
+                UW-Madison Distinguished Research Fellowship.{" "}
+                {showPricing && (
+                  <>
+                    Curious how the cloud services are priced?{" "}
+                    <Link
+                      href="/pricing"
+                      className="font-semibold text-brand-action hover:text-brand-ink"
+                    >
+                      See the pricing <span aria-hidden>&rarr;</span>
+                    </Link>
+                  </>
+                )}
               </p>
             </div>
           </Reveal>

@@ -5,6 +5,7 @@ import Link from "next/link";
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
 /**
  * Rich marketing footer for the public pages (welcome, pricing, transparency,
@@ -46,7 +47,8 @@ const COLUMNS: FooterColumn[] = [
     links: [
       { label: "Features", href: "/#stack" },
       { label: "BeakerBot AI", href: "/ai" },
-      { label: "Pricing", href: "/pricing" },
+      // Hidden while public pricing is in its maintenance state (one shared flag).
+      ...(isPricingPublic() ? [{ label: "Pricing", href: "/pricing" }] : []),
       { label: "Live demo", href: "/demo" },
       { label: "Icon library", href: "/library" },
       // Social layer (Phase A), behind NEXT_PUBLIC_SOCIAL_LAYER so flag-off is unchanged.
