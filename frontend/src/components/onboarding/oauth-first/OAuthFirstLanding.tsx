@@ -23,6 +23,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 
 import LightOnly from "@/components/LightOnly";
 import MadeInMadison from "@/components/MadeInMadison";
@@ -189,15 +190,15 @@ export function OAuthFirstLanding({
                 <Icon name="map" className="h-3.5 w-3.5 text-brand-action" />
                 See the tour
               </button>
-              <a
+              <Link
                 href="/demo"
                 className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
                 <Icon name="eye" className="h-3.5 w-3.5 text-brand-action" />
                 Open the live demo
                 <code className="font-mono text-[10px] text-brand-action">/demo</code>
-              </a>
-              <a
+              </Link>
+              <Link
                 href="/transparency"
                 className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
@@ -206,7 +207,7 @@ export function OAuthFirstLanding({
                 <code className="font-mono text-[10px] text-brand-action">
                   /transparency
                 </code>
-              </a>
+              </Link>
             </div>
 
             {/* Pillars strip (brand refresh change 1). States the positioning

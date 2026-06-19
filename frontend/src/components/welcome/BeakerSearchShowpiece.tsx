@@ -27,6 +27,7 @@
  */
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import BeakerBot from "@/components/BeakerBot";
 import { Icon } from "@/components/icons";
 
@@ -258,23 +259,23 @@ export default function BeakerSearchShowpiece({
             >
               Start your notebook
             </button>
-            <a
+            <Link
               href="/ai"
               className="cursor-pointer rounded-xl border border-white/40 bg-white/[0.08] px-[18px] py-[11px] text-body font-extrabold text-white transition-colors hover:bg-white/[0.16]"
             >
               See what BeakerBot can do
-            </a>
+            </Link>
           </div>
 
           <p className="mt-3.5 text-meta text-[#cfe9fb]">
             Priced near cost because your data stays on your own machine.{" "}
-            <a
+            <Link
               href="/pricing"
               className="font-bold text-white underline underline-offset-2 hover:text-[#eaf6ff]"
             >
               See how the tokens are priced{" "}
               <span aria-hidden>&rarr;</span>
-            </a>
+            </Link>
           </p>
         </div>
 

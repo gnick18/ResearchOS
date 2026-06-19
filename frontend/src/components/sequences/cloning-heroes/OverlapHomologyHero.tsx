@@ -59,9 +59,9 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
             <div key={i} className="rounded-md border border-border bg-surface-raised p-2.5">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <span className="min-w-0 truncate text-meta font-medium text-foreground">
-                  {aName} <span className="text-foreground-muted">3'</span>
+                  {aName} <span className="text-foreground-muted">3&apos;</span>
                   <span className="mx-1 text-foreground-muted">|</span>
-                  <span className="text-foreground-muted">5'</span> {bName}
+                  <span className="text-foreground-muted">5&apos;</span> {bName}
                 </span>
                 <span
                   className={`shrink-0 rounded px-1.5 py-0.5 text-meta font-medium ring-1 ${GRADE_CHIP[grade]}`}
@@ -81,7 +81,7 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
                 <div className="overflow-x-auto rounded bg-surface-sunken px-2 py-1.5 font-mono text-[11px] leading-relaxed">
                   {/* Fragment A 3' end. Body trails left (…), overlap at the 3' terminus. */}
                   <div className="whitespace-nowrap">
-                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">3'</span>
+                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">3&apos;</span>
                     <span className="inline-block w-3 shrink-0 text-right text-foreground-muted">…</span>
                     <span className="bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{jn.overlapSeq}</span>
                   </div>
@@ -93,7 +93,7 @@ export default function OverlapHomologyHero({ junctions, primers, annealTargetTm
                   </div>
                   {/* Fragment B 5' end. Overlap at the 5' terminus, body trails right (…). */}
                   <div className="whitespace-nowrap">
-                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">5'</span>
+                    <span className="inline-block w-6 shrink-0 pr-1 text-right text-foreground-muted">5&apos;</span>
                     <span className="inline-block w-3 shrink-0" />
                     <span className="bg-sky-100 text-sky-800 dark:bg-sky-500/15 dark:text-sky-300">{jn.overlapSeq}</span>
                     <span className="inline-block w-3 shrink-0 text-foreground-muted">…</span>

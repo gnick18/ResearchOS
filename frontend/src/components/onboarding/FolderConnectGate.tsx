@@ -25,6 +25,7 @@
 // No em-dashes, no emojis, no mid-sentence colons.
 
 import { useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 import {
   useFileSystem,
@@ -562,13 +563,13 @@ export default function FolderConnectGate({
         {ONBOARDING_WIZARD_ENABLED && (
           <p className="mt-6 text-center text-meta text-foreground-muted">
             Not ready to pick a folder?{" "}
-            <a
+            <Link
               href="/demo"
               data-testid="gate-try-demo"
               className="font-semibold text-[#1283c9] hover:underline"
             >
               Try the demo instead
-            </a>
+            </Link>
           </p>
         )}
 
@@ -694,12 +695,12 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
 function GateFooter({ onBugReport }: { onBugReport: () => void }) {
   return (
     <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
-      <a
+      <Link
         href="/wiki/getting-started/connecting-your-folder"
         className="text-foreground-muted hover:text-foreground text-meta transition-colors"
       >
         New here? Read the setup guide
-      </a>
+      </Link>
       <button
         onClick={onBugReport}
         className="text-foreground-muted hover:text-foreground text-meta transition-colors"

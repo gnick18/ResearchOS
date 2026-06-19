@@ -60,6 +60,7 @@ import FeedbackModal from "@/components/FeedbackModal";
 import UserAvatar from "@/components/UserAvatar";
 import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
+import Link from "next/link";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import VersionBadge from "@/components/VersionBadge";
@@ -2603,7 +2604,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
           </button>
         )}
         <div className="flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
-        <a
+        <Link
           href="/wiki/getting-started/creating-a-user"
           className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
@@ -2613,8 +2614,8 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           User & account help
-        </a>
-        <a
+        </Link>
+        <Link
           href="/wiki/shared-lab-accounts"
           className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
         >
@@ -2622,7 +2623,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
           Setting up a shared lab account?
-        </a>
+        </Link>
         <button
           type="button"
           onClick={() => setRoadmapOpen(true)}

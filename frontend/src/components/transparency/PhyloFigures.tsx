@@ -92,7 +92,7 @@ export default function PhyloFigures({
             />
             <p className="text-meta text-foreground-muted">
               {matchedTips} of {ourTips} tips matched by label. A value near 1.0
-              means our tree and ggtree's draw the tips in the same order and put
+              means our tree and ggtree&apos;s draw the tips in the same order and put
               every node at the same relative branch-length depth. This is shape
               and ordering agreement, not pixel parity.
             </p>

@@ -487,7 +487,7 @@ export default function TransformDialog({
                   ariaLabel="Transpose title column"
                 />
                 <p className="mt-1 text-meta text-foreground-muted">
-                  Each new column is one of this table's rows. Pick a column whose
+                  Each new column is one of this table&apos;s rows. Pick a column whose
                   values should name them, or number them.
                 </p>
               </div>

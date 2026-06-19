@@ -77,10 +77,10 @@ export default function WelcomeTakeover({
         </div>
 
         <h1 className="mt-1 text-3xl font-extrabold tracking-tight text-[var(--fg,#1f2421)] sm:text-4xl">
-          Hi, I'm Beaker.
+          Hi, I&apos;m Beaker.
         </h1>
         <p className="mt-3 max-w-md text-[15px] leading-relaxed text-[var(--muted,#6b716a)]">
-          Give me five minutes and I'll show you what this place can do for your
+          Give me five minutes and I&apos;ll show you what this place can do for your
           research. No setup, just watch.
         </p>
 
@@ -91,7 +91,7 @@ export default function WelcomeTakeover({
           onClick={onSkip}
           className="mt-3 px-3 py-1 text-[13px] font-medium text-[var(--muted,#6b716a)] hover:text-[var(--fg,#1f2421)]"
         >
-          I'll explore on my own
+          I&apos;ll explore on my own
         </button>
       </div>
     </div>

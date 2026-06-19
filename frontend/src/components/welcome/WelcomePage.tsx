@@ -71,6 +71,7 @@ import { isRequireAccountEnabled } from "@/lib/account/require-account";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
+import Link from "next/link";
 import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
 import { isMobileDevice } from "@/lib/file-system/file-system-context";
 
@@ -764,12 +765,12 @@ export default function WelcomePage({
               You can read everything here and on the rest of the site; to start
               your own notebook, open ResearchOS on a desktop browser.
             </p>
-            <a
+            <Link
               href="/wiki/getting-started/browser-requirements"
               className="shrink-0 text-meta font-semibold text-amber-900 underline underline-offset-2 hover:text-amber-700"
             >
               Why desktop only?
-            </a>
+            </Link>
           </div>
         </div>
       )}
@@ -894,7 +895,7 @@ export default function WelcomePage({
         >
           <div className="mx-auto max-w-[1080px]">
             <Reveal>
-              <Kicker>// what your lab pays for now</Kicker>
+              <Kicker>{`// what your lab pays for now`}</Kicker>
               <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
                 One free app replaces a shelf of expensive software
               </h2>
@@ -925,21 +926,21 @@ export default function WelcomePage({
                 The local notebook and every feature on your own machine are
                 free, forever. The cloud services that send, co-edit, and sync
                 are paid, on a small base fee plus what you actually use.{" "}
-                <a
+                <Link
                   href="/pricing"
                   className="font-bold text-brand-action transition-colors hover:text-brand-ink"
                 >
                   See the full pricing and the cost calculator{" "}
                   <span aria-hidden>&rarr;</span>
-                </a>{" "}
+                </Link>{" "}
                 The companion app is free to download and paired on every paid
                 plan.{" "}
-                <a
+                <Link
                   href="/app"
                   className="font-bold text-brand-action transition-colors hover:text-brand-ink"
                 >
                   Learn more about the app <span aria-hidden>&rarr;</span>
-                </a>
+                </Link>
               </p>
             </Reveal>
           </div>
@@ -957,7 +958,7 @@ export default function WelcomePage({
             column. The natural companion to the cost lead. */}
         <section className="px-6 py-16 sm:px-12">
           <Reveal className="mx-auto mb-8 max-w-[1320px]">
-            <Kicker>// a full lab suite vs the point tools</Kicker>
+            <Kicker>{`// a full lab suite vs the point tools`}</Kicker>
             <h2 className="mt-2.5 max-w-[26ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
               Honest about where each one wins
             </h2>
@@ -1033,12 +1034,12 @@ export default function WelcomePage({
             The point tools go deeper in their one lane. ResearchOS wins by
             folding the notebook, the sequence tool, chemistry, and inventory
             into one free suite with your data on your own disk.{" "}
-            <a
+            <Link
               href="/pricing"
               className="font-bold text-brand-action transition-colors hover:text-brand-ink"
             >
               See the full four-way <span aria-hidden>&rarr;</span>
-            </a>
+            </Link>
           </p>
         </section>
 
@@ -1145,7 +1146,7 @@ export default function WelcomePage({
                   className="brand-rainbow-bg h-[3px] w-6 flex-none rounded-full"
                 />
                 <span className="font-mono text-meta font-semibold uppercase tracking-[0.12em] text-[#7fc4ff]">
-                  // your lab, in your pocket
+                  {`// your lab, in your pocket`}
                 </span>
               </div>
               <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-white md:text-[36px]">
@@ -1248,12 +1249,12 @@ export default function WelcomePage({
               <p className="max-w-[64ch] text-body leading-relaxed text-[#b9cde6]">
                 The app is free to download, and pairing it to your real lab is
                 part of every paid plan.{" "}
-                <a
+                <Link
                   href="/app"
                   className="font-semibold text-[#7fc4ff] underline-offset-2 transition-colors hover:text-white hover:underline"
                 >
                   Learn more about the app <span aria-hidden>&rarr;</span>
-                </a>
+                </Link>
               </p>
             </Reveal>
 
@@ -1272,7 +1273,7 @@ export default function WelcomePage({
         <section className="px-6 py-16 sm:px-12">
           <div className="mx-auto max-w-[1080px]">
             <Reveal>
-              <Kicker>// how it works</Kicker>
+              <Kicker>{`// how it works`}</Kicker>
               <h2 className="mt-2.5 max-w-[30ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
                 Three steps, your data never leaves unless you say so
               </h2>
@@ -1313,7 +1314,7 @@ export default function WelcomePage({
         {/* ── 11. MISSION ──────────────────────────────────────────────── */}
         <section className="border-y border-[#d8e3f1] bg-[#f4f8fd] px-6 py-20 sm:px-12">
           <Reveal className="mx-auto max-w-[1080px]">
-            <Kicker>// why we built this</Kicker>
+            <Kicker>{`// why we built this`}</Kicker>
             <h2 className="mt-2.5 max-w-[26ch] text-3xl font-extrabold leading-[1.1] tracking-tight text-brand-ink md:text-[36px]">
               Accessible and better, not expensive and locked
             </h2>
@@ -1327,12 +1328,12 @@ export default function WelcomePage({
               </span>{" "}
               (AGPLv3) out of a fellowship at UW-Madison, with a real business
               behind it.{" "}
-              <a
+              <Link
                 href="/about"
                 className="font-bold text-brand-action transition-colors hover:text-brand-ink"
               >
                 Read the story <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
             <div className="mt-5 text-body text-[#64748b]">
               Dr. Grant Nickles, founder &middot;{" "}
@@ -1356,7 +1357,7 @@ export default function WelcomePage({
         <section className="px-6 py-16 sm:px-12">
           <Reveal className="mx-auto max-w-[1080px]">
             <div className="overflow-hidden rounded-2xl border border-[#e3eaf3] bg-white p-6 shadow-[0_1px_2px_rgba(15,40,80,0.04)] sm:p-8">
-              <Kicker>// free for everyone, not just our users</Kicker>
+              <Kicker>{`// free for everyone, not just our users`}</Kicker>
               <h2 className="mt-2.5 max-w-[24ch] text-2xl font-extrabold leading-tight tracking-tight text-brand-ink sm:text-3xl">
                 An open icon library for science
               </h2>
@@ -1366,13 +1367,13 @@ export default function WelcomePage({
                 license, and the credits are added for you. Browse them, drop them
                 into your figures, or contribute your own.
               </p>
-              <a
+              <Link
                 href="/library"
                 data-testid="welcome-icon-library"
                 className="mt-5 inline-flex min-h-[44px] items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
               >
                 Browse the icon library <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
           </Reveal>
         </section>
@@ -1384,21 +1385,21 @@ export default function WelcomePage({
           body="Records you own, real version history, clean exports, and a one-click Zenodo deposit carrying your ORCID and grant metadata. That covers an NIH Data Management and Sharing Plan, with no enterprise license to buy."
           pills={["Records you own", "Version history", "Zenodo deposit"]}
         >
-          <a
+          <Link
             href="/wiki/compliance/nih-data-management"
             data-testid="welcome-hero-nih-compliance"
             className="mt-4 inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
           >
             Read the NIH compliance guide
             <span aria-hidden>&rarr;</span>
-          </a>
+          </Link>
         </FeatureRow>
 
         {/* ── 13. TRUST BAND ───────────────────────────────────────────── */}
         <section className="border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-16 sm:px-12">
           <div className="mx-auto max-w-[1080px]">
             <Reveal>
-              <Kicker>// why you can trust a free tool</Kicker>
+              <Kicker>{`// why you can trust a free tool`}</Kicker>
               <h2 className="mt-2.5 max-w-[20ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[34px]">
                 Free, but accountable
               </h2>
@@ -1456,7 +1457,7 @@ export default function WelcomePage({
               </p>
               <div className="mt-8 grid gap-4 sm:grid-cols-2">
                 {DEPT_TIER_ENABLED && (
-                  <a
+                  <Link
                     href="/department"
                     className="flex flex-col gap-1 rounded-2xl border border-[#cfdcec] bg-white p-5 text-left shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
                   >
@@ -1467,10 +1468,10 @@ export default function WelcomePage({
                       Sponsor your labs on one invoice. Plan, roster, and billing
                       in one portal.
                     </span>
-                  </a>
+                  </Link>
                 )}
                 {INSTITUTION_TIER_ENABLED && (
-                  <a
+                  <Link
                     href="/institution"
                     className="flex flex-col gap-1 rounded-2xl border border-[#cfdcec] bg-white p-5 text-left shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
                   >
@@ -1481,7 +1482,7 @@ export default function WelcomePage({
                       One tier up. Cover your departments and roll up usage and
                       cost.
                     </span>
-                  </a>
+                  </Link>
                 )}
               </div>
             </Reveal>
@@ -1519,14 +1520,14 @@ export default function WelcomePage({
               >
                 Start your notebook
               </button>
-              <a
+              <Link
                 href="/demo"
                 data-testid="welcome-cta-demo"
                 className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 Explore the live demo
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
             {/* Pricing handoff, the mockup's CTA footnote. */}
             <div className="mt-6 flex flex-col items-center gap-3">
@@ -1534,12 +1535,12 @@ export default function WelcomePage({
                 The local app is free and open source. It grew out of a
                 UW-Madison Distinguished Research Fellowship. Curious how the
                 cloud services are priced?{" "}
-                <a
+                <Link
                   href="/pricing"
                   className="font-semibold text-brand-action hover:text-brand-ink"
                 >
                   See the pricing <span aria-hidden>&rarr;</span>
-                </a>
+                </Link>
               </p>
             </div>
           </Reveal>

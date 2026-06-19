@@ -15,6 +15,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import {
   useFileSystem,
   isFileSystemAccessSupported,
@@ -222,13 +223,13 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
       */}
       <p className="mt-6 text-xs text-foreground-muted">
         Not ready to pick a folder?{" "}
-        <a
+        <Link
           href="/demo"
           data-testid="wizard-folder-try-demo"
           className="font-semibold text-[#1283c9] hover:underline"
         >
           Try the demo instead
-        </a>
+        </Link>
       </p>
     </div>
   );

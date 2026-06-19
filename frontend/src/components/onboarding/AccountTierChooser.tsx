@@ -851,7 +851,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
               <p className="text-xs text-foreground-muted mt-1">
                 For a lab head. You are the PI, so you create the lab and invite
                 your team. Real-time collaboration, the companion app, and your
-                lab's web home.
+                lab&apos;s web home.
               </p>
               <ul className="mt-3 pl-4 text-xs text-foreground-muted space-y-1 list-disc">
                 <li>You pay; your members join free</li>

@@ -208,7 +208,7 @@ function SignInChoiceCards({
       {/* Path A: keep using locally. Nothing changes for the existing user. */}
       <div className="flex flex-col rounded-2xl border border-[#d3deec] bg-surface-raised p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
         <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
-          // free
+          {`// free`}
         </div>
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
           Use it locally
@@ -240,7 +240,7 @@ function SignInChoiceCards({
       {/* Path B: sign in to add sharing. Existing user, so signIn directly. */}
       <div className="flex flex-col rounded-2xl border border-[#cfe0f2] bg-[#f5faff] p-5 shadow-[0_2px_12px_rgba(15,40,80,0.06)]">
         <div className="font-mono text-meta font-semibold uppercase tracking-[0.1em] text-brand-action">
-          // also free
+          {`// also free`}
         </div>
         <h3 className="mt-1.5 text-heading font-extrabold tracking-tight text-brand-ink">
           Sign in to share
