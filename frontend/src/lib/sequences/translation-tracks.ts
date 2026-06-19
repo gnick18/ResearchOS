@@ -124,3 +124,25 @@ export function selectTranslationFeatures<T extends TranslatableFeature>(
   const keep = new Set(accepted);
   return features.filter((f) => keep.has(f));
 }
+
+/**
+ * The feature annotation bars to draw, given which features are translated and
+ * whether a CIRCULAR viewer is on screen.
+ *
+ * In the LINEAR viewer a translated feature renders as its own feature-colored
+ * translation HANDLE (the amino-acid row sits on it), so we drop the duplicate
+ * annotation bar to avoid painting the same feature twice. But the CIRCULAR map
+ * has NO translation layer, so dropping the bar there makes the feature vanish
+ * entirely the moment "Show translation" is enabled (the reported arc-hiding
+ * bug). So we only suppress translated bars when NO circular viewer is present;
+ * whenever a ring is showing (the standalone Map or the side-by-side "both"
+ * view) we keep every feature arc, and translation simply ADDS its layer on top.
+ */
+export function annotationBarsToDraw<T>(
+  annotations: readonly T[],
+  isTranslated: (a: T) => boolean,
+  hasCircularViewer: boolean,
+): T[] {
+  if (hasCircularViewer) return [...annotations];
+  return annotations.filter((a) => !isTranslated(a));
+}

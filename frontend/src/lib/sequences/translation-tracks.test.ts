@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  annotationBarsToDraw,
   selectTranslationFeatures,
   translationRank,
   isTranslatableType,
@@ -140,5 +141,30 @@ describe("selectTranslationFeatures — central-dogma dedup", () => {
     const b = f("CDS", 15, 309, 1, "b"); // frame 0, same frame + heavy overlap
     const out = selectTranslationFeatures([a, b], { globalOn: true });
     expect(out).toHaveLength(1);
+  });
+});
+
+describe("annotationBarsToDraw", () => {
+  // The reported bug: enabling translation must NOT erase feature arcs from the
+  // circular map (the ring has no translation layer to replace the bar).
+  const gene = { name: "gene of interest", start: 100, end: 400 };
+  const misc = { name: "Untitled Feature", start: 600, end: 700 };
+  const all = [gene, misc];
+  const isTranslated = (a: { name: string }) => a.name === "gene of interest";
+
+  it("KEEPS every arc when a circular viewer is on screen, even when translated", () => {
+    const out = annotationBarsToDraw(all, isTranslated, true);
+    expect(out.map((o) => o.name)).toEqual(["gene of interest", "Untitled Feature"]);
+  });
+
+  it("drops the translated bar only in a pure linear view (handle replaces it)", () => {
+    const out = annotationBarsToDraw(all, isTranslated, false);
+    expect(out.map((o) => o.name)).toEqual(["Untitled Feature"]);
+  });
+
+  it("is a no-op when nothing is translated, in either viewer", () => {
+    const none = () => false;
+    expect(annotationBarsToDraw(all, none, true)).toHaveLength(2);
+    expect(annotationBarsToDraw(all, none, false)).toHaveLength(2);
   });
 });
