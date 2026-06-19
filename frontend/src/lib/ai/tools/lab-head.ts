@@ -2159,16 +2159,604 @@ export const inventoryAuditTool = makeInventoryAuditTool({
   readWork: readLabMembersWork,
 });
 
+// ===========================================================================
+// Phase 5: Quality + synthesis tools
+// ===========================================================================
+//
+// Three tools support the PI's quality-review and manuscript-prep work.
+// reproduce_member_result and lab_figure are DEFERRED (blocked on
+// cross-member compute / figure infra) and are NOT built here.
+//
+// method_drift
+//   Finds experiments where a protocol was run with per-task overrides
+//   (pcr_gradient, body_override, variation_notes, etc.) and groups them by
+//   base method so the PI can see where the same protocol was executed
+//   differently across the lab. The tool LISTS the differences and NEVER
+//   judges which variant is correct or better.
+//
+// protocol_gaps
+//   Finds experiments where no protocol is attached at all, or where an
+//   attachment references a (method_id, owner) pair that does not exist in
+//   the lab's method library. Surfaces what is missing; the PI decides what
+//   to do about it.
+//
+// methods_section
+//   Assembles a roster of real method records filtered by tag, date, and/or
+//   member. Returns the protocol facts (name, type, tags, source URL, excerpt
+//   when present). The model condenses these into a methods-section draft;
+//   the tool supplies facts only and never claims significance or completeness.
+//
+// Audit path: all three call readLabMembersWork (readWork), which writes an
+// audit entry to each member's log. No additional reads are made.
+//
+// Per-owner isolation: method ids are per-user-folder and may collide across
+// users. The method library index is keyed by `${id}:${owner}` so ids that
+// coincide across different members do not false-positive against each other.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Dep types -- Phase 5
+// ---------------------------------------------------------------------------
+
+export interface MethodDriftDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+export interface ProtocolGapsDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+export interface MethodsSectionDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+// ---------------------------------------------------------------------------
+// method_drift (factory)
+// ---------------------------------------------------------------------------
+
+// Override field names on TaskMethodAttachment that signal a per-task variant.
+const OVERRIDE_FIELDS = [
+  "pcr_gradient",
+  "pcr_ingredients",
+  "lc_gradient",
+  "body_override",
+  "plate_annotation",
+  "cell_culture_schedule",
+  "variation_notes",
+  "qpcr_analysis",
+] as const;
+
+export function makeMethodDriftTool(deps: MethodDriftDeps): AiTool {
+  return {
+    name: "method_drift",
+    description:
+      "Find experiments where the same protocol was run with per-task overrides (gradient changes, body edits, variation notes, etc.) and group them by base method so the PI can see where the same protocol was executed differently across the lab. The tool LISTS the differences; it NEVER judges which variant is correct or better. Returns groups of (base method, members, variants). Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        methodNamePattern: {
+          type: "string",
+          description:
+            "Optional substring filter on the method name (case-insensitive). When given, only groups whose base-method name contains this substring are returned.",
+        },
+        sinceDays: {
+          type: "number",
+          description:
+            "When given, only consider experiments whose updated_at or created_at falls within the last N days. When omitted, all experiments are included.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const methodNamePattern =
+        typeof args.methodNamePattern === "string"
+          ? args.methodNamePattern.toLowerCase()
+          : null;
+      const sinceDays =
+        typeof args.sinceDays === "number" ? args.sinceDays : null;
+
+      const result = await deps.readWork({ recordTypes: ["method", "experiment"] });
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+
+      // Build method index keyed by `${id}:${owner}` across all members.
+      // Value: { name, methodType, parentMethodId, owner }.
+      const methodIndex = new Map<
+        string,
+        {
+          name: string;
+          methodType: string | null;
+          parentMethodId: number | null;
+          owner: string;
+        }
+      >();
+
+      for (const member of result.members) {
+        for (const r of member.records) {
+          if (r.recordType !== "method") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+          const id = parsed.id as number | undefined;
+          if (typeof id !== "number") continue;
+          const key = `${id}:${member.owner}`;
+          methodIndex.set(key, {
+            name: (parsed.name as string | undefined) ?? `method ${id}`,
+            methodType:
+              (parsed.method_type as string | null | undefined) ?? null,
+            parentMethodId:
+              typeof parsed.parent_method_id === "number"
+                ? (parsed.parent_method_id as number)
+                : null,
+            owner: member.owner,
+          });
+        }
+      }
+
+      // Collect drift entries: one per (experiment, attachment) that has at
+      // least one non-null override field.
+      interface DriftEntry {
+        referencedMethodId: number;
+        methodOwner: string;
+        methodName: string;
+        member: string;
+        experimentId: string;
+        experimentName: string;
+        overridesApplied: string[];
+        baseKey: string; // grouping key (internal)
+      }
+
+      const driftEntries: DriftEntry[] = [];
+
+      for (const member of result.members) {
+        for (const r of member.records) {
+          if (r.recordType !== "experiment" && r.recordType !== "task_experiment") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          // Date filter when sinceDays is set.
+          if (sinceDays !== null && !isWithinDays(parsed, sinceDays, now)) {
+            continue;
+          }
+
+          const attachments = parsed.method_attachments as
+            | Array<Record<string, unknown>>
+            | null
+            | undefined;
+          if (!Array.isArray(attachments) || attachments.length === 0) continue;
+
+          const experimentId = r.recordId;
+          const experimentName =
+            (parsed.name as string | undefined) ??
+            (parsed.title as string | undefined) ??
+            `experiment ${experimentId}`;
+
+          for (const att of attachments) {
+            const methodId = att.method_id as number | undefined;
+            if (typeof methodId !== "number") continue;
+
+            // Resolve the method owner. null means same owner as the experiment.
+            const methodOwner =
+              typeof att.owner === "string" ? att.owner : member.owner;
+            const methodKey = `${methodId}:${methodOwner}`;
+
+            // Collect non-null override fields.
+            const overridesApplied: string[] = [];
+            for (const field of OVERRIDE_FIELDS) {
+              const val = att[field];
+              if (val !== null && val !== undefined) {
+                overridesApplied.push(field);
+              }
+            }
+            if (overridesApplied.length === 0) continue;
+
+            // Resolve method metadata.
+            const methodMeta = methodIndex.get(methodKey);
+            const methodName = methodMeta?.name ?? `method ${methodId}`;
+
+            // Base-method grouping key. Prefer the parent_method_id of the
+            // referenced method (when present) so that variants of a parent
+            // protocol land in the same group. Fall back to the method name,
+            // then the method id.
+            let baseKey: string;
+            if (methodMeta?.parentMethodId !== null && methodMeta?.parentMethodId !== undefined) {
+              baseKey = `parent:${methodMeta.parentMethodId}:${methodOwner}`;
+            } else {
+              baseKey = methodName;
+            }
+
+            driftEntries.push({
+              referencedMethodId: methodId,
+              methodOwner,
+              methodName,
+              member: member.owner,
+              experimentId,
+              experimentName,
+              overridesApplied,
+              baseKey,
+            });
+          }
+        }
+      }
+
+      // Group by baseKey into drift groups.
+      const groupMap = new Map<
+        string,
+        {
+          baseMethod: string;
+          members: string[];
+          variants: Array<{
+            member: string;
+            experimentId: string;
+            experimentName: string;
+            methodName: string;
+            overridesApplied: string[];
+          }>;
+        }
+      >();
+
+      for (const entry of driftEntries) {
+        // Apply methodNamePattern filter on the base-method name.
+        if (
+          methodNamePattern !== null &&
+          !entry.methodName.toLowerCase().includes(methodNamePattern)
+        ) {
+          continue;
+        }
+
+        const existing = groupMap.get(entry.baseKey);
+        if (existing) {
+          existing.variants.push({
+            member: entry.member,
+            experimentId: entry.experimentId,
+            experimentName: entry.experimentName,
+            methodName: entry.methodName,
+            overridesApplied: entry.overridesApplied,
+          });
+          if (!existing.members.includes(entry.member)) {
+            existing.members.push(entry.member);
+          }
+        } else {
+          groupMap.set(entry.baseKey, {
+            baseMethod: entry.methodName,
+            members: [entry.member],
+            variants: [
+              {
+                member: entry.member,
+                experimentId: entry.experimentId,
+                experimentName: entry.experimentName,
+                methodName: entry.methodName,
+                overridesApplied: entry.overridesApplied,
+              },
+            ],
+          });
+        }
+      }
+
+      const groups = Array.from(groupMap.values()).map((g) => ({
+        baseMethod: g.baseMethod,
+        members: g.members,
+        variants: g.variants,
+      }));
+
+      return {
+        hasLab: true,
+        sinceDays,
+        groups,
+        groupCount: groups.length,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// protocol_gaps (factory)
+// ---------------------------------------------------------------------------
+
+export function makeProtocolGapsTool(deps: ProtocolGapsDeps): AiTool {
+  return {
+    name: "protocol_gaps",
+    description:
+      "Find experiments that are missing a written-up protocol: either no protocol is attached at all, or an attachment references a (method_id, owner) pair that does not exist in the lab's method library. Returns a flat gaps list and a per-member grouping. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        sinceDays: {
+          type: "number",
+          description:
+            "When given, only consider experiments whose updated_at or created_at falls within the last N days. When omitted, all experiments are included.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const sinceDays =
+        typeof args.sinceDays === "number" ? args.sinceDays : null;
+
+      const result = await deps.readWork({ recordTypes: ["method", "experiment"] });
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+
+      // Build method library index: `${method_id}:${owner}` -> true.
+      // Keyed per-owner so method id=2 for alice is not confused with id=2
+      // for bob. resolvedOwner = attachment.owner ?? experiment member owner.
+      const methodLibrary = new Set<string>();
+
+      for (const member of result.members) {
+        for (const r of member.records) {
+          if (r.recordType !== "method") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+          const id = parsed.id as number | undefined;
+          if (typeof id !== "number") continue;
+          methodLibrary.add(`${id}:${member.owner}`);
+        }
+      }
+
+      // Walk experiments and collect gaps.
+      interface Gap {
+        owner: string;
+        experimentId: string;
+        experimentName: string;
+        kind: "no_protocol_attached" | "protocol_not_in_library";
+        referencedMethodId?: number;
+        referencedMethodOwner?: string;
+      }
+
+      const gaps: Gap[] = [];
+
+      for (const member of result.members) {
+        for (const r of member.records) {
+          if (r.recordType !== "experiment" && r.recordType !== "task_experiment") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          // Date filter when sinceDays is set.
+          if (sinceDays !== null && !isWithinDays(parsed, sinceDays, now)) {
+            continue;
+          }
+
+          const experimentId = r.recordId;
+          const experimentName =
+            (parsed.name as string | undefined) ??
+            (parsed.title as string | undefined) ??
+            `experiment ${experimentId}`;
+
+          const attachments = parsed.method_attachments as
+            | Array<Record<string, unknown>>
+            | null
+            | undefined;
+
+          if (!Array.isArray(attachments) || attachments.length === 0) {
+            gaps.push({
+              owner: member.owner,
+              experimentId,
+              experimentName,
+              kind: "no_protocol_attached",
+            });
+            continue;
+          }
+
+          for (const att of attachments) {
+            const methodId = att.method_id as number | undefined;
+            if (typeof methodId !== "number") continue;
+            // resolvedOwner: explicit owner on the attachment, or the
+            // experiment's member owner when the attachment owner is null.
+            const resolvedOwner =
+              typeof att.owner === "string" ? att.owner : member.owner;
+            const libraryKey = `${methodId}:${resolvedOwner}`;
+            if (!methodLibrary.has(libraryKey)) {
+              gaps.push({
+                owner: member.owner,
+                experimentId,
+                experimentName,
+                kind: "protocol_not_in_library",
+                referencedMethodId: methodId,
+                referencedMethodOwner: resolvedOwner,
+              });
+            }
+          }
+        }
+      }
+
+      // Group gaps by member.
+      const gapsByMember: Record<string, Gap[]> = {};
+      for (const gap of gaps) {
+        const bucket = gapsByMember[gap.owner] ?? [];
+        bucket.push(gap);
+        gapsByMember[gap.owner] = bucket;
+      }
+
+      return {
+        hasLab: true,
+        sinceDays,
+        gapCount: gaps.length,
+        gaps,
+        gapsByMember,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// methods_section (factory)
+// ---------------------------------------------------------------------------
+
+export function makeMethodsSectionTool(deps: MethodsSectionDeps): AiTool {
+  return {
+    name: "methods_section",
+    description:
+      "Assemble a roster of real method records for a manuscript methods section. Filters by member, date window, and/or tag. Returns the protocol facts (name, type, tags, source URL, excerpt when present). The model condenses these into a narrative methods section. The tool supplies facts only and never claims significance or completeness. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        filterTag: {
+          type: "string",
+          description:
+            "Optional tag to filter methods by. Only methods whose tags array includes this exact string are returned.",
+        },
+        sinceDays: {
+          type: "number",
+          description:
+            "When given, only return methods whose updated_at or created_at falls within the last N days.",
+        },
+        memberFilter: {
+          type: "string",
+          description:
+            "When given, only return methods owned by this member (username).",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const filterTag =
+        typeof args.filterTag === "string" && args.filterTag.trim()
+          ? args.filterTag.trim()
+          : null;
+      const sinceDays =
+        typeof args.sinceDays === "number" ? args.sinceDays : null;
+      const memberFilter =
+        typeof args.memberFilter === "string" && args.memberFilter.trim()
+          ? args.memberFilter.trim()
+          : null;
+
+      const result = await deps.readWork({ recordTypes: ["method"] });
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+
+      interface MethodEntry {
+        owner: string;
+        id: number;
+        name: string;
+        methodType: string | null;
+        tags: string[] | null;
+        sourceUrl: string | null;
+        createdBy: string | null;
+        updatedAt: string | null;
+        excerpt?: string;
+      }
+
+      const methods: MethodEntry[] = [];
+
+      for (const member of result.members) {
+        // memberFilter: skip this member if they are not the one requested.
+        if (memberFilter !== null && member.owner !== memberFilter) continue;
+
+        for (const r of member.records) {
+          if (r.recordType !== "method") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          // Date filter.
+          if (sinceDays !== null && !isWithinDays(parsed, sinceDays, now)) {
+            continue;
+          }
+
+          // Tag filter.
+          const tags = Array.isArray(parsed.tags)
+            ? (parsed.tags as string[])
+            : null;
+          if (filterTag !== null) {
+            if (!Array.isArray(tags) || !tags.includes(filterTag)) continue;
+          }
+
+          const id = parsed.id as number | undefined;
+          if (typeof id !== "number") continue;
+
+          const updatedAt =
+            (parsed.updated_at as string | undefined) ??
+            (parsed.updatedAt as string | undefined) ??
+            (parsed.last_edited_at as string | undefined) ??
+            (parsed.created_at as string | undefined) ??
+            null;
+
+          const entry: MethodEntry = {
+            owner: member.owner,
+            id,
+            name: (parsed.name as string | undefined) ?? `method ${id}`,
+            methodType:
+              (parsed.method_type as string | null | undefined) ?? null,
+            tags: tags ?? null,
+            sourceUrl: (parsed.source_path as string | null | undefined) ?? null,
+            createdBy: (parsed.created_by as string | null | undefined) ?? null,
+            updatedAt,
+          };
+
+          // excerpt is optional on the Method record. Surface it when present.
+          if (typeof parsed.excerpt === "string" && parsed.excerpt.trim()) {
+            entry.excerpt = parsed.excerpt;
+          }
+
+          methods.push(entry);
+        }
+      }
+
+      return {
+        hasLab: true,
+        filterTag,
+        sinceDays,
+        memberFilter,
+        methodCount: methods.length,
+        methods,
+        note: "The model condenses these into a narrative methods section. The tool supplies facts only and never claims significance or completeness.",
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instances (real deps) -- Phase 5
+// ---------------------------------------------------------------------------
+
+export const methodDriftTool = makeMethodDriftTool({
+  readWork: readLabMembersWork,
+});
+
+export const protocolGapsTool = makeProtocolGapsTool({
+  readWork: readLabMembersWork,
+});
+
+export const methodsSectionTool = makeMethodsSectionTool({
+  readWork: readLabMembersWork,
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 /**
  * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship + Phase 3
- * grants + Phase 4 operations). All read-only tools go through the audited
- * lab-scoped read / index-search engines. onboard_member is the one consented
- * action (non-destructive). Surfaced on the /lab-overview BeakerBot mount,
- * not in the global research-shell tool set.
+ * grants + Phase 4 operations + Phase 5 quality + synthesis). All read-only
+ * tools go through the audited lab-scoped read / index-search engines.
+ * onboard_member is the one consented action (non-destructive). Surfaced on
+ * the /lab-overview BeakerBot mount, not in the global research-shell tool set.
+ *
+ * Phase 5 deferred: reproduce_member_result and lab_figure are NOT built
+ * (blocked on cross-member compute / figure infra).
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
@@ -2182,6 +2770,9 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   reorderDigestTool,
   spendSummaryTool,
   inventoryAuditTool,
+  methodDriftTool,
+  protocolGapsTool,
+  methodsSectionTool,
 ];
 
 /**
@@ -2215,7 +2806,7 @@ How you answer:
 
 You surface facts, you never interpret:
 - NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts, item counts, spend totals, expiration dates. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit) and answer only from what it returned. The tool owns every number; you relay it.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
 
 Grants and reporting:
@@ -2238,5 +2829,10 @@ Reads are audited:
 - If a user asks why a read was logged, explain this plainly.
 
 Actions are consented:
-- onboard_member creates a one-on-one mentorship space and seeds a starter onboarding checklist for an EXISTING lab member. It runs only after the PI confirms, it is non-destructive, and it never provisions or invites a new account automatically. Member invites use the separate invite flow.`;
+- onboard_member creates a one-on-one mentorship space and seeds a starter onboarding checklist for an EXISTING lab member. It runs only after the PI confirms, it is non-destructive, and it never provisions or invites a new account automatically. Member invites use the separate invite flow.
+
+Quality and synthesis:
+- method_drift finds experiments where the same protocol was run with per-task overrides (gradient changes, markdown body edits, variation notes, plate annotations, etc.) and groups them by base method. It surfaces WHERE the same protocol was run differently across the lab. It LISTS the variants and NEVER judges which variant is correct or better. You relay the groups and variants; you do not say which version is right.
+- protocol_gaps finds experiments with no protocol attached at all, or where an attachment references a (method_id, owner) pair that does not exist in the lab's method library. It surfaces missing documentation; the PI decides what to document.
+- methods_section assembles a roster of real method records filtered by tag, date, and/or member. It returns the protocol facts (name, type, tags, source URL, excerpt when present). You use these facts to draft a methods-section scaffold. The tool supplies the protocols; the PI writes the final prose. You never claim significance or completeness about the methods returned.`;
 

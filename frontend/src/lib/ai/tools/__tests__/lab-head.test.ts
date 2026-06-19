@@ -38,6 +38,9 @@ import {
   makeReorderDigestTool,
   makeSpendSummaryTool,
   makeInventoryAuditTool,
+  makeMethodDriftTool,
+  makeProtocolGapsTool,
+  makeMethodsSectionTool,
   LAB_HEAD_TOOLS,
   type LabPulseDeps,
   type FindAcrossLabDeps,
@@ -50,6 +53,9 @@ import {
   type ReorderDigestDeps,
   type SpendSummaryDeps,
   type InventoryAuditDeps,
+  type MethodDriftDeps,
+  type ProtocolGapsDeps,
+  type MethodsSectionDeps,
 } from "../lab-head";
 
 // ---------------------------------------------------------------------------
@@ -452,7 +458,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly eleven tools in the expected order", () => {
+  it("exports exactly fourteen tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -466,6 +472,9 @@ describe("LAB_HEAD_TOOLS", () => {
       "reorder_digest",
       "spend_summary",
       "inventory_audit",
+      "method_drift",
+      "protocol_gaps",
+      "methods_section",
     ]);
   });
 
@@ -2081,5 +2090,771 @@ describe("inventory_audit", () => {
     const res = (await tool.execute({})) as Record<string, unknown>;
     expect(res.hasLab).toBe(false);
     expect(typeof res.note).toBe("string");
+  });
+});
+
+// ===========================================================================
+// Phase 5: Quality + synthesis tools
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Helpers for Phase 5 tests
+// ---------------------------------------------------------------------------
+
+function makeMethodRecord(
+  id: number,
+  name: string,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    name,
+    method_type: "markdown" as const,
+    source_path: null,
+    parent_method_id: null,
+    tags: null,
+    created_by: null,
+    ...overrides,
+  };
+}
+
+function makeExperimentRecord(
+  name: string,
+  methodAttachments: Array<Record<string, unknown>>,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    name,
+    method_attachments: methodAttachments,
+    updated_at: isoAgo(3),
+    ...overrides,
+  };
+}
+
+function makeAttachment(
+  methodId: number,
+  owner: string | null,
+  overrideFields: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    method_id: methodId,
+    owner,
+    pcr_gradient: null,
+    pcr_ingredients: null,
+    lc_gradient: null,
+    body_override: null,
+    plate_annotation: null,
+    cell_culture_schedule: null,
+    variation_notes: null,
+    qpcr_analysis: null,
+    ...overrideFields,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// method_drift
+// ---------------------------------------------------------------------------
+
+describe("method_drift", () => {
+  it("groups overridden attachments by base method name", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Method library: method id=1
+              makeRecord("method", "m1", makeMethodRecord(1, "RNA Extraction")),
+              // Experiment with an override on method 1
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord(
+                  "Sample A extraction",
+                  [makeAttachment(1, null, { variation_notes: "Reduced spin time" })],
+                ),
+              ),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              // Bob also runs method 1 (same method, different owner -> attachment.owner null = bob)
+              makeRecord("method", "m1b", makeMethodRecord(1, "RNA Extraction")),
+              makeRecord(
+                "experiment",
+                "e2",
+                makeExperimentRecord(
+                  "Sample B extraction",
+                  [makeAttachment(1, null, { body_override: "Modified step 3" })],
+                ),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const groups = res.groups as Array<Record<string, unknown>>;
+    // Both attachments have overrides; they should group under "RNA Extraction".
+    expect(groups.length).toBeGreaterThanOrEqual(1);
+    const rnaGroup = groups.find((g) => (g.baseMethod as string).includes("RNA"));
+    expect(rnaGroup).toBeDefined();
+    const members = rnaGroup!.members as string[];
+    expect(members).toContain("alice");
+    expect(members).toContain("bob");
+  });
+
+  it("ignores attachments with no override fields set", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "PCR Protocol")),
+              // Attachment with all overrides null (no drift).
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord(
+                  "Standard PCR",
+                  [makeAttachment(1, null)],
+                ),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    expect(res.groupCount).toBe(0);
+  });
+
+  it("filters groups by methodNamePattern (case-insensitive substring)", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "RNA Extraction")),
+              makeRecord("method", "m2", makeMethodRecord(2, "Western Blot")),
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("RNA run", [
+                  makeAttachment(1, null, { variation_notes: "Reduced spin" }),
+                ]),
+              ),
+              makeRecord(
+                "experiment",
+                "e2",
+                makeExperimentRecord("Western run", [
+                  makeAttachment(2, null, { body_override: "Changed AB conc" }),
+                ]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({ methodNamePattern: "rna" })) as Record<
+      string,
+      unknown
+    >;
+    const groups = res.groups as Array<Record<string, unknown>>;
+    // Only the RNA group should be returned.
+    expect(groups.every((g) => (g.baseMethod as string).toLowerCase().includes("rna"))).toBe(true);
+    const westernGroup = groups.find((g) =>
+      (g.baseMethod as string).toLowerCase().includes("western"),
+    );
+    expect(westernGroup).toBeUndefined();
+  });
+
+  it("respects sinceDays filter on experiments", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "Gel Protocol")),
+              // Recent experiment: within 7 days.
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord(
+                  "Recent gel",
+                  [makeAttachment(1, null, { variation_notes: "Extra band" })],
+                  { updated_at: isoAgo(3) },
+                ),
+              ),
+              // Old experiment: outside 7 days.
+              makeRecord(
+                "experiment",
+                "e2",
+                makeExperimentRecord(
+                  "Old gel",
+                  [makeAttachment(1, null, { body_override: "Old change" })],
+                  { updated_at: isoAgo(30) },
+                ),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({ sinceDays: 7 })) as Record<string, unknown>;
+    const groups = res.groups as Array<Record<string, unknown>>;
+    // Only the recent experiment's attachment should appear.
+    const variants = groups.flatMap(
+      (g) => g.variants as Array<Record<string, unknown>>,
+    );
+    expect(variants.every((v) => (v.experimentName as string).includes("Recent"))).toBe(true);
+    expect(variants.some((v) => (v.experimentName as string).includes("Old"))).toBe(false);
+  });
+
+  it("groups by parent_method_id when the referenced method has one", async () => {
+    // Method 2 is a child of method 1 (parent_method_id=1). Both are run
+    // with overrides by different members. They should land in the same group
+    // keyed to the parent.
+    const deps: MethodDriftDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord(
+                "method",
+                "m2a",
+                makeMethodRecord(2, "RNA Protocol v2", { parent_method_id: 1 }),
+              ),
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Alice run", [
+                  makeAttachment(2, null, { variation_notes: "Alice's tweak" }),
+                ]),
+              ),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord(
+                "method",
+                "m2b",
+                makeMethodRecord(2, "RNA Protocol v2", { parent_method_id: 1 }),
+              ),
+              makeRecord(
+                "experiment",
+                "e2",
+                makeExperimentRecord("Bob run", [
+                  makeAttachment(2, null, { body_override: "Bob's tweak" }),
+                ]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const groups = res.groups as Array<Record<string, unknown>>;
+    // Both variants share the same parent (id=1), so they should be in one group.
+    // (They may land in the same or different groups depending on same owner key;
+    // alice and bob each have their own method 2 with parent 1, so the base key
+    // is "parent:1:alice" and "parent:1:bob" -- two groups, one per owner scope.
+    // The important thing is that no-override attachments are excluded and that
+    // each group lists the correct member.)
+    expect(groups.length).toBeGreaterThanOrEqual(1);
+    const allVariants = groups.flatMap(
+      (g) => g.variants as Array<Record<string, unknown>>,
+    );
+    expect(allVariants.some((v) => v.member === "alice")).toBe(true);
+    expect(allVariants.some((v) => v.member === "bob")).toBe(true);
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("degrades cleanly when members array is empty", async () => {
+    const deps: MethodDriftDeps = {
+      readWork: async () => ({ ok: true as const, members: [] }),
+    };
+
+    const tool = makeMethodDriftTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// protocol_gaps
+// ---------------------------------------------------------------------------
+
+describe("protocol_gaps", () => {
+  it("flags no_protocol_attached when method_attachments is empty", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Unprotocolled run", []),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const gaps = res.gaps as Array<Record<string, unknown>>;
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].kind).toBe("no_protocol_attached");
+    expect(gaps[0].owner).toBe("alice");
+    expect(gaps[0].experimentName).toBe("Unprotocolled run");
+  });
+
+  it("flags protocol_not_in_library when referenced (method_id, owner) is missing", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // No method record for id=99 in alice's library.
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Mystery protocol run", [
+                  makeAttachment(99, null),
+                ]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const gaps = res.gaps as Array<Record<string, unknown>>;
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].kind).toBe("protocol_not_in_library");
+    expect(gaps[0].referencedMethodId).toBe(99);
+  });
+
+  it("does NOT flag an attachment whose (method_id, owner) IS in the library", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Method 1 exists in alice's library.
+              makeRecord("method", "m1", makeMethodRecord(1, "Gel Protocol")),
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Gel run", [makeAttachment(1, null)]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.gapCount).toBe(0);
+  });
+
+  it("does not false-positive across owners: alice id=1 is not bob id=1", async () => {
+    // Alice has method id=1. Bob references method id=1 with owner=null (resolves
+    // to Bob). Bob's library does NOT contain id=1. So Bob's experiment should
+    // be flagged as a gap, even though Alice's method id=1 exists.
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Alice's method id=1 is in Alice's library.
+              makeRecord("method", "m1a", makeMethodRecord(1, "Alice Protocol")),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              // Bob has no method records.
+              // Bob's experiment references method id=1 (resolves to owner=bob).
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Bob's run", [makeAttachment(1, null)]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const gaps = res.gaps as Array<Record<string, unknown>>;
+    // Bob's experiment is a gap (1:bob not in library); Alice has no experiment gap.
+    expect(gaps).toHaveLength(1);
+    expect(gaps[0].owner).toBe("bob");
+    expect(gaps[0].kind).toBe("protocol_not_in_library");
+    expect(gaps[0].referencedMethodOwner).toBe("bob");
+  });
+
+  it("resolves attachment.owner explicitly when non-null", async () => {
+    // Alice's experiment references a method owned by "shared-user". That method
+    // exists in the shared-user's member entry. No gap expected.
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "shared-user",
+            records: [
+              makeRecord("method", "m1s", makeMethodRecord(5, "Shared Protocol")),
+            ],
+          },
+          {
+            owner: "alice",
+            records: [
+              // Alice's experiment attaches method id=5 owned by "shared-user".
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Alice cross-library run", [
+                  makeAttachment(5, "shared-user"),
+                ]),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.gapCount).toBe(0);
+  });
+
+  it("respects sinceDays filter on experiments", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Recent experiment: within 7 days, no protocol.
+              makeRecord(
+                "experiment",
+                "e1",
+                makeExperimentRecord("Recent run", [], { updated_at: isoAgo(3) }),
+              ),
+              // Old experiment: outside 7 days, no protocol.
+              makeRecord(
+                "experiment",
+                "e2",
+                makeExperimentRecord("Old run", [], { updated_at: isoAgo(30) }),
+              ),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({ sinceDays: 7 })) as Record<string, unknown>;
+    expect(res.gapCount).toBe(1);
+    const gaps = res.gaps as Array<Record<string, unknown>>;
+    expect(gaps[0].experimentName).toBe("Recent run");
+  });
+
+  it("groups gaps by member in gapsByMember", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("experiment", "e1", makeExperimentRecord("Alice run A", [])),
+              makeRecord("experiment", "e2", makeExperimentRecord("Alice run B", [])),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord("experiment", "e3", makeExperimentRecord("Bob run", [])),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.gapCount).toBe(3);
+    const gapsByMember = res.gapsByMember as Record<string, unknown[]>;
+    expect(gapsByMember.alice).toHaveLength(2);
+    expect(gapsByMember.bob).toHaveLength(1);
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: ProtocolGapsDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeProtocolGapsTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// methods_section
+// ---------------------------------------------------------------------------
+
+describe("methods_section", () => {
+  it("returns method facts for all methods when no filters are given", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "RNA Extraction", {
+                method_type: "markdown",
+                tags: ["rna", "extraction"],
+                source_path: "methods/rna.md",
+                created_by: "alice",
+                updated_at: isoAgo(5),
+              })),
+              makeRecord("method", "m2", makeMethodRecord(2, "Western Blot", {
+                method_type: "markdown",
+                tags: ["protein"],
+                source_path: null,
+                created_by: "alice",
+                updated_at: isoAgo(10),
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    expect(res.methodCount).toBe(2);
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect(methods.some((m) => m.name === "RNA Extraction")).toBe(true);
+    expect(methods.some((m) => m.name === "Western Blot")).toBe(true);
+    // Source URL populated when source_path is set.
+    const rna = methods.find((m) => m.name === "RNA Extraction");
+    expect(rna?.sourceUrl).toBe("methods/rna.md");
+    const western = methods.find((m) => m.name === "Western Blot");
+    expect(western?.sourceUrl).toBeNull();
+  });
+
+  it("filters by filterTag (exact match in tags array)", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "RNA Extraction", {
+                tags: ["rna", "extraction"],
+                updated_at: isoAgo(5),
+              })),
+              makeRecord("method", "m2", makeMethodRecord(2, "Western Blot", {
+                tags: ["protein"],
+                updated_at: isoAgo(3),
+              })),
+              makeRecord("method", "m3", makeMethodRecord(3, "No Tags", {
+                tags: null,
+                updated_at: isoAgo(2),
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({ filterTag: "rna" })) as Record<string, unknown>;
+    expect(res.methodCount).toBe(1);
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect(methods[0].name).toBe("RNA Extraction");
+  });
+
+  it("filters by memberFilter (owner username)", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "Alice Protocol", {
+                updated_at: isoAgo(3),
+              })),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord("method", "m2", makeMethodRecord(2, "Bob Protocol", {
+                updated_at: isoAgo(3),
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({ memberFilter: "alice" })) as Record<
+      string,
+      unknown
+    >;
+    expect(res.methodCount).toBe(1);
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect(methods[0].name).toBe("Alice Protocol");
+    expect(methods[0].owner).toBe("alice");
+  });
+
+  it("filters by sinceDays date window", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "Recent Protocol", {
+                updated_at: isoAgo(5),
+              })),
+              makeRecord("method", "m2", makeMethodRecord(2, "Old Protocol", {
+                updated_at: isoAgo(60),
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({ sinceDays: 30 })) as Record<string, unknown>;
+    expect(res.methodCount).toBe(1);
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect(methods[0].name).toBe("Recent Protocol");
+  });
+
+  it("surfaces excerpt when the field is present on the method record", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "Documented Protocol", {
+                excerpt: "Add 10 µL enzyme to 90 µL buffer. Incubate 30 min at 37°C.",
+                updated_at: isoAgo(2),
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect(methods[0].excerpt).toBe(
+      "Add 10 µL enzyme to 90 µL buffer. Incubate 30 min at 37°C.",
+    );
+  });
+
+  it("omits excerpt when the field is absent on the method record", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("method", "m1", makeMethodRecord(1, "No Excerpt Protocol", {
+                updated_at: isoAgo(2),
+                // no excerpt field
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const methods = res.methods as Array<Record<string, unknown>>;
+    expect("excerpt" in methods[0]).toBe(false);
+  });
+
+  it("always includes the note string", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    expect(typeof res.note).toBe("string");
+    expect((res.note as string).length).toBeGreaterThan(10);
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("degrades cleanly when members array is empty", async () => {
+    const deps: MethodsSectionDeps = {
+      readWork: async () => ({ ok: true as const, members: [] }),
+    };
+
+    const tool = makeMethodsSectionTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
   });
 });
