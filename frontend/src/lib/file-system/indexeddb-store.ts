@@ -1378,36 +1378,6 @@ export async function rememberManagedFolder(
   return activeId;
 }
 
-/**
- * Update the cached lab identity (role, labId, labName) on an already-remembered
- * folder so the switcher can relabel it without opening the folder. Used when a
- * folder's lab identity is discovered or changes after it was first remembered.
- * Pure meta update, no handle or active-pointer change. No-op in a demo tab or
- * when the id is not in the current scope.
- */
-export async function setRememberedFolderLabMeta(
-  id: string,
-  labMeta: RememberedFolderLabMeta,
-): Promise<void> {
-  if (isDemoTab()) return;
-  const scope = await getFolderRegistryScope();
-  const metas = await readFolderMetas(scope);
-  if (!metas.some((m) => m.id === id)) return;
-  await writeFolderMetas(
-    scope,
-    metas.map((m) =>
-      m.id === id
-        ? {
-            ...m,
-            labRole: labMeta.labRole,
-            labId: labMeta.labId,
-            labName: labMeta.labName,
-          }
-        : m,
-    ),
-  );
-}
-
 /** Make an already-remembered folder the active one and bump its lastOpenedAt.
  *  Does NOT touch permissions (the caller re-grants); pure pointer update. */
 export async function setActiveFolderId(id: string): Promise<void> {

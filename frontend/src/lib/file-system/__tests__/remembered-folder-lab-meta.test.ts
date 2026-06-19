@@ -7,7 +7,8 @@
 //     label without opening each folder;
 //   - a re-join (same labId) refreshes the existing managed row instead of
 //     duplicating it;
-//   - setRememberedFolderLabMeta updates the cached lab identity in place;
+//   - a head folder and a member folder coexist in one remembered set with
+//     distinct labRole AND distinct labId;
 //   - a plain rememberFolder row carries NO lab fields (flag-off-safe default).
 //
 // Reuses the same in-memory idb-keyval mock + raw-IndexedDB shim as
@@ -141,7 +142,6 @@ import {
   getActiveFolderId,
   rememberFolder,
   rememberManagedFolder,
-  setRememberedFolderLabMeta,
 } from "../indexeddb-store";
 
 function makeHandle(name: string): FileSystemDirectoryHandle {
@@ -207,32 +207,33 @@ describe("rememberManagedFolder", () => {
     expect(solo.labId).toBeUndefined();
     expect(solo.labName).toBeUndefined();
   });
-});
 
-describe("setRememberedFolderLabMeta", () => {
-  it("updates the cached lab identity on an existing row in place", async () => {
-    const id = await rememberFolder(makeHandle("my-lab-home"));
-    // The folder was just discovered to be a head lab.
-    await setRememberedFolderLabMeta(id, {
+  it("lets a head folder and a member folder coexist with distinct labRole and labId", async () => {
+    // A lab head who heads their own lab AND has joined another lab as a member
+    // ends up with two managed rows. The Emile-bug fix means joining the member
+    // lab provisions a fresh member folder rather than overwriting the head
+    // folder, so both identities coexist with distinct role AND distinct labId.
+    const headId = await rememberManagedFolder(makeHandle("my-own-lab"), {
       labRole: "head",
-      labId: "LABH",
-      labName: "My Lab",
+      labId: "LAB_HEAD",
+      labName: "Nickles Lab",
+    });
+    const memberId = await rememberManagedFolder(makeHandle("joined-lab"), {
+      labRole: "member",
+      labId: "LAB_MEMBER",
+      labName: "Gluck Lab",
     });
 
     const folders = await listRememberedFolders();
-    const row = folders.find((f) => f.id === id)!;
-    expect(row.labRole).toBe("head");
-    expect(row.labId).toBe("LABH");
-    expect(row.labName).toBe("My Lab");
-  });
-
-  it("is a no-op for an unknown id", async () => {
-    await rememberFolder(makeHandle("my-lab-home"));
-    await setRememberedFolderLabMeta("does-not-exist", {
-      labRole: "head",
-      labId: "X",
-    });
-    const folders = await listRememberedFolders();
-    expect(folders[0].labRole).toBeUndefined();
+    expect(folders).toHaveLength(2);
+    const head = folders.find((f) => f.id === headId)!;
+    const member = folders.find((f) => f.id === memberId)!;
+    expect(head.labRole).toBe("head");
+    expect(head.labId).toBe("LAB_HEAD");
+    expect(member.labRole).toBe("member");
+    expect(member.labId).toBe("LAB_MEMBER");
+    // Distinct role AND distinct labId, simultaneously, in one remembered set.
+    expect(head.labRole).not.toBe(member.labRole);
+    expect(head.labId).not.toBe(member.labId);
   });
 });
