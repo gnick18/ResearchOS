@@ -117,6 +117,24 @@ export interface OwnedRecord {
  * listCheckinOnboarding: every CheckinOnboarding record for `owner`.
  * listCheckinRotations: every CheckinRotation record for `owner`.
  *
+ * ANNOUNCEMENTS (P2 multi-lab relay-pull, lab-wide-public exception). Unlike
+ *   every other lab-work type, announcements are NOT per-user owner+shared_with
+ *   records. They live in the lab-ROOT `_announcements.json` file (sibling to
+ *   users/), are PI-WRITTEN, and are ALL-MEMBERS-READABLE by design (no owner,
+ *   no shared_with on the on-disk shape {id, author, text, created_at, pinned}).
+ *   To carry them through the per-owner mirror without re-architecting the key
+ *   schema, the source attributes each announcement to its `author` (the PI is
+ *   an owner in the roster) and yields it only for that author. The push key
+ *   therefore becomes `labId/<pi-owner>/announcement/<id>`. The PULL side treats
+ *   the `announcement` type as a lab-wide-public exception in pullLabView (every
+ *   member sees it regardless of shared_with, matching the on-disk all-members
+ *   semantics) and materializeLabView aggregates the pulled entries back into the
+ *   member's root `_announcements.json`. This is the one type that does NOT pass
+ *   the per-record shared_with gate, because by design it has no shared_with.
+ *
+ * listAnnouncements: every announcement authored BY `owner`. Returns [] for any
+ *   owner who is not the announcement author, so only the PI's own sync pushes
+ *   them (members author none). RAW persisted form, no volatile fields.
  * OWNERSHIP: each method is called once per sync run for a single owner string.
  *   The adapter is responsible for mapping `owner` to the correct data scope.
  */
@@ -141,6 +159,7 @@ export interface LabWorkSource {
   listCheckinCompacts(owner: string): Promise<OwnedRecord[]>;
   listCheckinOnboarding(owner: string): Promise<OwnedRecord[]>;
   listCheckinRotations(owner: string): Promise<OwnedRecord[]>;
+  listAnnouncements(owner: string): Promise<OwnedRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -177,7 +196,8 @@ export type LabWorkType =
   | "weekly_goal"
   | "checkin_compact"
   | "checkin_onboarding"
-  | "checkin_rotation";
+  | "checkin_rotation"
+  | "announcement";
 
 /**
  * Ordered array of all twelve lab-work types. Iteration order determines the
@@ -207,6 +227,7 @@ export const LAB_WORK_TYPES: LabWorkType[] = [
   "checkin_compact",
   "checkin_onboarding",
   "checkin_rotation",
+  "announcement",
 ];
 
 // ---------------------------------------------------------------------------
@@ -305,6 +326,7 @@ export async function enumerateLabWork(params: {
     checkinCompacts,
     checkinOnboarding,
     checkinRotations,
+    announcements,
   ] = await Promise.all([
     source.listTasks(owner),
     source.listNotes(owner),
@@ -326,6 +348,7 @@ export async function enumerateLabWork(params: {
     source.listCheckinCompacts(owner),
     source.listCheckinOnboarding(owner),
     source.listCheckinRotations(owner),
+    source.listAnnouncements(owner),
   ]);
 
   // Separate tasks from experiments by task_type.
@@ -362,6 +385,7 @@ export async function enumerateLabWork(params: {
     { type: "checkin_compact", records: checkinCompacts },
     { type: "checkin_onboarding", records: checkinOnboarding },
     { type: "checkin_rotation", records: checkinRotations },
+    { type: "announcement", records: announcements },
   ];
 
   const result: LabWorkRecord[] = [];

@@ -57,6 +57,7 @@ function fakeSource(overrides: Partial<LabWorkSource> = {}): LabWorkSource {
     listCheckinCompacts: overrides.listCheckinCompacts ?? (async () => []),
     listCheckinOnboarding: overrides.listCheckinOnboarding ?? (async () => []),
     listCheckinRotations: overrides.listCheckinRotations ?? (async () => []),
+    listAnnouncements: overrides.listAnnouncements ?? (async () => []),
   };
 }
 
@@ -394,6 +395,7 @@ describe("enumerateLabWork", () => {
       "checkin_compact",
       "checkin_onboarding",
       "checkin_rotation",
+      "announcement",
     ]);
   });
 

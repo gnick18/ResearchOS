@@ -45,6 +45,9 @@ import type { LabViewRecord } from "./lab-read";
  *     markdown mirrors under `users/<owner>/results/task-<id>/{results,notes}.md`
  *     and are handled separately (see materializeLabView).
  *   - datahub is a sidecar document under `users/<owner>/datahub/<id>.json`.
+ *   - announcement is NOT a per-user record. It is aggregated into the lab-ROOT
+ *     `_announcements.json` file (sibling to users/) and is handled separately
+ *     (see materializeLabView); it is intentionally ABSENT from this map.
  */
 const RECORD_TYPE_TO_DIR: Record<string, string> = {
   task: "tasks",
@@ -130,6 +133,12 @@ export async function materializeLabView(
 
   const decoder = new TextDecoder();
 
+  // ANNOUNCEMENTS are lab-wide-public and live in the root _announcements.json
+  // (not a per-user dir). We collect the shared (non-own) announcement entries
+  // here and write them as one merged root file after the per-record loop, since
+  // a single file aggregates many announcement records.
+  const announcementEntries: unknown[] = [];
+
   for (const rec of records) {
     // RESIDENCY: never write the viewer's own records back from R2.
     if (rec.isOwn) {
@@ -138,6 +147,18 @@ export async function materializeLabView(
     }
 
     const text = decoder.decode(rec.plaintext);
+
+    // ANNOUNCEMENTS: collect now, write the merged root file after the loop.
+    if (rec.recordType === "announcement") {
+      try {
+        announcementEntries.push(JSON.parse(text));
+      } catch {
+        // A malformed announcement payload is skipped rather than poisoning the
+        // whole _announcements.json write. listAnnouncements() is itself
+        // defensive against a malformed file, but a clean write is preferable.
+      }
+      continue;
+    }
 
     // result_sheet / notes_sheet are markdown mirrors, not JSON records.
     if (rec.recordType === "result_sheet" || rec.recordType === "notes_sheet") {
@@ -161,6 +182,18 @@ export async function materializeLabView(
     const path = `${dir}/${rec.recordId}.json`;
     await writer.ensureDir(dir);
     await writer.writeText(path, text);
+    written.push(path);
+  }
+
+  // ANNOUNCEMENTS: write the aggregated lab-wide-public entries to the root
+  // _announcements.json. The member authors none of its own, so the pulled set
+  // (all PI-authored, all-members-readable) IS the member's announcement view.
+  // We only write when there is at least one entry so an empty pull does not
+  // clobber a file the member may already hold (e.g. before the first pull).
+  if (announcementEntries.length > 0) {
+    const path = "_announcements.json";
+    const fileBody = { version: 1 as const, announcements: announcementEntries };
+    await writer.writeText(path, JSON.stringify(fileBody));
     written.push(path);
   }
 

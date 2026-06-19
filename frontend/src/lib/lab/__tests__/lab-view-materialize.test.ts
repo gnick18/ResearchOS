@@ -9,9 +9,11 @@
 import { describe, it, expect, vi } from "vitest";
 import {
   materializeLabView,
+  _RECORD_TYPE_TO_DIR_FOR_TEST,
   type MaterializeFileWriter,
 } from "../lab-view-materialize";
 import type { LabViewRecord } from "../lab-read";
+import { LAB_WORK_TYPES } from "../lab-work-enumerate";
 
 function enc(obj: unknown): Uint8Array {
   return new TextEncoder().encode(JSON.stringify(obj));
@@ -153,5 +155,63 @@ describe("materializeLabView — paths + types", () => {
     const result = await materializeLabView(records, writer);
     expect(result.skippedUnknownType).toEqual(["lab1/morgan/mystery/x"]);
     expect(writes).toEqual([]);
+  });
+});
+
+describe("materializeLabView — announcements (lab-wide-public)", () => {
+  it("aggregates announcement records into the root _announcements.json", async () => {
+    const { writer, writes } = fakeWriter();
+    const a1 = { id: "ann-1", author: "morgan", text: "Lab meeting Friday", created_at: "2026-06-18T00:00:00.000Z" };
+    const a2 = { id: "ann-2", author: "morgan", text: "Freezer cleanout", created_at: "2026-06-18T01:00:00.000Z" };
+    const records = [
+      rec({ owner: "morgan", recordType: "announcement", recordId: "ann-1", plaintext: enc(a1), isOwn: false }),
+      rec({ owner: "morgan", recordType: "announcement", recordId: "ann-2", plaintext: enc(a2), isOwn: false }),
+    ];
+    const result = await materializeLabView(records, writer);
+    // Exactly one root-file write, no per-record files.
+    expect(result.written).toEqual(["_announcements.json"]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].path).toBe("_announcements.json");
+    expect(JSON.parse(writes[0].text)).toEqual({
+      version: 1,
+      announcements: [a1, a2],
+    });
+  });
+
+  it("does NOT write _announcements.json when there are no announcement records", async () => {
+    const { writer, writes } = fakeWriter();
+    const records = [rec({ owner: "morgan", recordType: "note", recordId: "10", isOwn: false })];
+    await materializeLabView(records, writer);
+    expect(writes.map((w) => w.path)).not.toContain("_announcements.json");
+  });
+
+  it("skips an own announcement (residency) and never writes it back", async () => {
+    const { writer, writes } = fakeWriter();
+    const a1 = { id: "ann-1", author: "morgan", text: "x", created_at: "2026-06-18T00:00:00.000Z" };
+    const records = [
+      // morgan IS the viewer here, so their own announcement is the source of
+      // truth in the local root file and must NOT be rewritten from R2.
+      rec({ owner: "morgan", recordType: "announcement", recordId: "ann-1", plaintext: enc(a1), isOwn: true }),
+    ];
+    const result = await materializeLabView(records, writer);
+    expect(result.skippedOwn).toBe(1);
+    expect(writes).toEqual([]);
+  });
+});
+
+describe("materializeLabView — exhaustive type coverage (drift guard)", () => {
+  // Every LAB_WORK_TYPES entry must have a materialization path so no pulled
+  // record type silently falls through to skippedUnknownType. Three types are
+  // handled by dedicated code paths rather than the RECORD_TYPE_TO_DIR map:
+  //   - result_sheet / notes_sheet: markdown mirrors under results/task-<id>/.
+  //   - announcement: lab-wide-public, aggregated into the root _announcements.json.
+  // All other types MUST appear in RECORD_TYPE_TO_DIR.
+  const SPECIAL_CASED = new Set(["result_sheet", "notes_sheet", "announcement"]);
+
+  it("maps every LAB_WORK_TYPES entry to a directory or a known special case", () => {
+    const unmapped = LAB_WORK_TYPES.filter(
+      (t) => !SPECIAL_CASED.has(t) && !(t in _RECORD_TYPE_TO_DIR_FOR_TEST),
+    );
+    expect(unmapped).toEqual([]);
   });
 });

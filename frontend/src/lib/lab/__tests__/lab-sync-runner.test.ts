@@ -70,6 +70,7 @@ function makeEmptySource(): LabWorkSource {
     listCheckinCompacts: vi.fn(async (_owner: string) => []),
     listCheckinOnboarding: vi.fn(async (_owner: string) => []),
     listCheckinRotations: vi.fn(async (_owner: string) => []),
+    listAnnouncements: vi.fn(async (_owner: string) => []),
   };
 }
 

@@ -68,6 +68,7 @@ describe("createLocalApiLabWorkSource — flag OFF is byte-identical", () => {
     expect(await source.listCheckinCompacts("alex")).toEqual([]);
     expect(await source.listCheckinOnboarding("alex")).toEqual([]);
     expect(await source.listCheckinRotations("alex")).toEqual([]);
+    expect(await source.listAnnouncements("alex")).toEqual([]);
   });
 
   it("still serves the pre-P2 record types when the flag is off", async () => {

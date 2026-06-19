@@ -372,6 +372,55 @@ describe("pullLabView: 2-owner lab scenario (alice as viewer)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// pullLabView: announcements are lab-wide-public (no shared_with gate).
+//
+// Announcements are PI-written and all-members-readable by design; the on-disk
+// shape carries no shared_with. They are pushed under the author's (PI's) owner
+// prefix as recordType "announcement". A non-PI member must see them even though
+// shared_with does NOT name them. This test seeds a PI-owned announcement with
+// NO shared_with and asserts a different viewer still receives it, while a
+// regular non-own record with no shared_with stays hidden (the gate is intact
+// for every other type).
+// ---------------------------------------------------------------------------
+
+describe("pullLabView: announcements lab-wide-public exception", () => {
+  const labId = "lab-ann";
+  const labKey = randomLabKey();
+  const kp = randomKeyPair();
+
+  it("surfaces an announcement to a member NOT named in shared_with", async () => {
+    const relay = makeInMemoryRelay();
+    // PI (morgan) posts an announcement: no owner/shared_with on the shape.
+    const annPlain = enc.encode(
+      JSON.stringify({ id: "ann-1", author: "morgan", text: "Lab meeting Friday", created_at: "2026-06-18T00:00:00.000Z" }),
+    );
+    await seedRecord({ relay, labId, owner: "morgan", recordType: "announcement", recordId: "ann-1", plaintext: annPlain, labKey, kp });
+    // A regular non-own note with no shared_with must STAY hidden (gate intact).
+    const notePlain = enc.encode(JSON.stringify({ id: "n-1", shared_with: [] }));
+    await seedRecord({ relay, labId, owner: "morgan", recordType: "note", recordId: "n-1", plaintext: notePlain, labKey, kp });
+
+    const result = await pullLabView({
+      labId,
+      viewer: "alex", // a member, NOT the author, NOT named in any shared_with
+      owners: ["morgan", "alex"],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      fetchImpl: relay.fetchImpl,
+    });
+
+    const ann = result.find((r) => r.recordType === "announcement" && r.recordId === "ann-1");
+    expect(ann).toBeTruthy();
+    expect(ann!.isOwn).toBe(false);
+    expect(ann!.sharedWithViewer).toBe(false);
+
+    // The plain note is still gated out (no shared_with naming alex).
+    const note = result.find((r) => r.recordType === "note" && r.recordId === "n-1");
+    expect(note).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pullLabView: non-JSON plaintext edge cases.
 // ---------------------------------------------------------------------------
 

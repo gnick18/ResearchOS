@@ -149,6 +149,19 @@ vi.mock("@/lib/file-system/file-service", () => ({
       return Promise.resolve([]);
     }),
     readJson: vi.fn((path: string) => {
+      // The lab-root announcements file (sibling to users/). Two PI-authored
+      // entries plus one authored by a different PI, so the author filter is
+      // observable.
+      if (path === "_announcements.json") {
+        return Promise.resolve({
+          version: 1,
+          announcements: [
+            { id: "ann-1", author: "alex", text: "Lab meeting Friday", created_at: "2026-06-18T00:00:00.000Z" },
+            { id: "ann-2", author: "alex", text: "Freezer cleanout", created_at: "2026-06-18T01:00:00.000Z" },
+            { id: "ann-3", author: "morgan", text: "Other lab note", created_at: "2026-06-18T02:00:00.000Z" },
+          ],
+        });
+      }
       const parts = path.split("/");
       const fileName = parts[parts.length - 1];
       const id = fileName.endsWith(".json")
@@ -344,6 +357,23 @@ describe("createLocalApiLabWorkSource — unit", () => {
     expect(result).toEqual(CHECKIN_COMPACT_FIXTURES);
   });
 
+  // ANNOUNCEMENTS (lab-wide-public exception). The root _announcements.json holds
+  // entries from multiple authors; listAnnouncements(owner) yields only the ones
+  // authored by `owner`, so each entry is pushed exactly once under its author's
+  // (the PI's) owner prefix, and a non-author owner pushes none.
+
+  it("listAnnouncements returns only the entries authored by the owner", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listAnnouncements("alex");
+    expect(result.map((a) => (a as { id: string }).id)).toEqual(["ann-1", "ann-2"]);
+  });
+
+  it("listAnnouncements returns [] for an owner who authored none", async () => {
+    const source = createLocalApiLabWorkSource();
+    const result = await source.listAnnouncements("sam");
+    expect(result).toEqual([]);
+  });
+
   it("the new mentorship readers list the correct per-owner entity directories", async () => {
     const source = createLocalApiLabWorkSource();
     await source.listOneOnOnes("morgan");
@@ -447,9 +477,13 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
     expect(pairs).toContainEqual({ type: "idp", id: "idp-1" });
     expect(pairs).toContainEqual({ type: "checkin_compact", id: "cc-1" });
 
+    // announcement: two alex-authored entries (ann-3 is morgan's, filtered out).
+    expect(pairs).toContainEqual({ type: "announcement", id: "ann-1" });
+    expect(pairs).toContainEqual({ type: "announcement", id: "ann-2" });
+
     // Total count: 11 record stores + 1 result_sheet + 2 notes_sheet
-    // + 1 one_on_one + 1 idp + 1 checkin_compact = 17.
-    expect(records).toHaveLength(17);
+    // + 1 one_on_one + 1 idp + 1 checkin_compact + 2 announcement = 19.
+    expect(records).toHaveLength(19);
   });
 
   it("records have a non-empty plaintext Uint8Array (canonical bytes)", async () => {
@@ -487,6 +521,8 @@ describe("createLocalApiLabWorkSource + enumerateLabWork — integration", () =>
       "one_on_one",
       "idp",
       "checkin_compact",
+      "announcement",
+      "announcement",
     ]);
   });
 });

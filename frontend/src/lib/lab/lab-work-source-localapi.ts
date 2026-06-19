@@ -56,6 +56,7 @@ import { LAB_AS_FOLDER_ENABLED } from "./lab-as-folder-config";
 import { CheckinCompactStore } from "@/lib/checkins/compact-store";
 import { CheckinOnboardingStore } from "@/lib/checkins/onboarding-store";
 import { CheckinRotationStore } from "@/lib/checkins/rotation-store";
+import { listAnnouncements } from "./announcements";
 import type { LabWorkSource, OwnedRecord } from "./lab-work-enumerate";
 
 // ---------------------------------------------------------------------------
@@ -212,6 +213,19 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
     listCheckinRotations(owner: string): Promise<OwnedRecord[]> {
       if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
       return checkinRotationsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    // ANNOUNCEMENTS (lab-wide-public exception). Announcements live in the
+    // lab-ROOT _announcements.json file (NOT a per-user store), are PI-written,
+    // and carry an `author` but NO `owner`/`shared_with`. We attribute each entry
+    // to its author and yield it only for that author, so a single push under the
+    // PI's owner prefix (labId/<pi-owner>/announcement/<id>) covers them. Any
+    // non-author owner (every regular member) yields [], so members push none.
+    // listAnnouncements() reads the single root file regardless of `owner`, so the
+    // author filter is what scopes the result to the calling owner.
+    async listAnnouncements(owner: string): Promise<OwnedRecord[]> {
+      if (!LAB_AS_FOLDER_ENABLED) return [];
+      const all = await listAnnouncements();
+      return all.filter((a) => a.author === owner) as unknown as OwnedRecord[];
     },
   };
 }
