@@ -64,6 +64,7 @@ import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
 import RequireAccountGate from "@/components/account/RequireAccountGate";
+import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import {
   isRequireAccountEnabled,
@@ -107,6 +108,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // is on, an OAuth claim path actually exists, and not in demo/capture. The
   // identity hook is called unconditionally here to keep hook order stable.
   const identity = useSharingIdentity();
+  // Whether an OAuth session exists (null while the imperative check resolves).
+  // This is the gate's release signal: the requirement is "signed in", not a
+  // successful directory publish.
+  const hasCloudSession = useHasCloudSession();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
   // Onboarding v3 §10: feature_picks is the primary tab-visibility
@@ -487,6 +492,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       isDemoOrCapture: isDemoOrWikiCapture(),
       identityStatus: identity.status,
       published: identity.published,
+      hasCloudSession,
     });
   if (mustClaimAccount && currentUser) {
     return (

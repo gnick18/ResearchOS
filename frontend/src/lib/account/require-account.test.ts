@@ -105,14 +105,27 @@ describe("shouldGateForClaim (app-wide require-account gate)", () => {
     isDemoOrCapture: false,
     identityStatus: "ready" as const,
     published: false,
+    hasCloudSession: false as boolean | null,
   };
 
-  it("blocks a connected local-only (ready, unpublished) account when all conditions hold", () => {
+  it("blocks a connected local-only (ready, unpublished, signed-out) account when all conditions hold", () => {
     expect(shouldGateForClaim(blocking)).toBe(true);
   });
 
   it("does NOT block a published account (already claimed)", () => {
     expect(shouldGateForClaim({ ...blocking, published: true })).toBe(false);
+  });
+
+  it("does NOT block once the user is signed in, even if publish has not landed (no loop)", () => {
+    expect(shouldGateForClaim({ ...blocking, hasCloudSession: true })).toBe(
+      false,
+    );
+  });
+
+  it("does NOT block while the session check is still in flight (never soft-locks on a hung read)", () => {
+    expect(shouldGateForClaim({ ...blocking, hasCloudSession: null })).toBe(
+      false,
+    );
   });
 
   it("does NOT block while the identity read is unresolved or not ready", () => {

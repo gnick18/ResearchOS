@@ -85,8 +85,16 @@ export function isStandaloneLocalKeypairCreateVisible(opts: {
  *   - this is not a demo / wiki-capture session (those preview the app), AND
  *   - the identity has fully resolved to "ready" (a "loading" or stalled read
  *     falls back to a non-ready status, so the gate never fires prematurely), AND
- *   - the account is NOT yet published (it is a local-only keypair with no
- *     verified-email binding, the exact state the one sign-in resolves).
+ *   - the account is NOT yet published (no verified-email binding in the sidecar),
+ *     AND
+ *   - the user is NOT signed in (no OAuth session). This is the key release
+ *     signal: "logged in" is the requirement, NOT a successful directory publish.
+ *     Publishing can fail (no directory backend in dev, a transient error in
+ *     prod) and writes the sidecar email only on success, so gating on `published`
+ *     alone would loop a signed-in user forever. Once a session exists the gate
+ *     releases and the keypair publish completes or retries in the background.
+ *     `hasCloudSession` is null while the check is in flight; we gate only on a
+ *     definite `false` so an unresolved or hung session read never soft-locks.
  *
  * `identityStatus` mirrors useSharingIdentity's SharingIdentityStatus; it is a
  * plain string union here so this policy module stays dependency-light.
@@ -98,6 +106,7 @@ export function shouldGateForClaim(opts: {
   isDemoOrCapture: boolean;
   identityStatus: "loading" | "none" | "needs-restore" | "ready";
   published: boolean;
+  hasCloudSession: boolean | null;
 }): boolean {
   return (
     opts.requireAccount &&
@@ -105,6 +114,7 @@ export function shouldGateForClaim(opts: {
     opts.hasConnectedUser &&
     !opts.isDemoOrCapture &&
     opts.identityStatus === "ready" &&
-    !opts.published
+    !opts.published &&
+    opts.hasCloudSession === false
   );
 }
