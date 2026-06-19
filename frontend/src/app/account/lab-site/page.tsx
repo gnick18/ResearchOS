@@ -17,7 +17,7 @@ import { LAB_SITES_ENABLED } from "@/lib/social/config";
  * publish); the rich block editor is Phase 3b.
  */
 export const metadata: Metadata = {
-  title: "Lab site | ResearchOS",
+  title: "Lab site",
   description: "Author your lab's public companion site on ResearchOS.",
 };
 

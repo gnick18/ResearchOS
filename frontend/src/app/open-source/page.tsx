@@ -18,7 +18,7 @@ import OpenSourceCredits from "@/components/open-source/OpenSourceCredits";
  * read it.
  */
 export const metadata: Metadata = {
-  title: "Built on open source | ResearchOS",
+  title: "Built on open source",
   description:
     "ResearchOS is built on open-source software and on published science. A thank-you to the community, and the full attribution for the projects we depend on.",
 };

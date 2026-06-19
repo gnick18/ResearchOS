@@ -75,11 +75,11 @@ export async function generateMetadata({
   const { labSlug, path } = await params;
   const { decision, slug, page } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) {
-    return { title: "Not found | ResearchOS" };
+    return { title: "Not found" };
   }
   const title = page.title?.trim() || slug;
   return {
-    title: `${title} | ResearchOS`,
+    title: title,
     description: `${title}, a published page on the ${slug} lab site on ResearchOS.`,
   };
 }

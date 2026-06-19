@@ -19,7 +19,7 @@ import TransparencyView from "@/components/transparency/TransparencyView";
  * anyone can read it.
  */
 export const metadata: Metadata = {
-  title: "Method validation | ResearchOS",
+  title: "Method validation",
   description:
     "Bioinformatic and lab calculations in ResearchOS (melting temperature, alignment, digest, translation, protein parameters, lab calculators, cloning, statistics, phylogenetic tree layout) compared against peer-reviewed alternatives (Biopython, primer3, pydna, scipy, ggtree) and published references, recomputed on every commit.",
 };

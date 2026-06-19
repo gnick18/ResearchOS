@@ -14,7 +14,7 @@ import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
  * the route 404s like any non-existent page.
  */
 export const metadata: Metadata = {
-  title: "Researcher network | ResearchOS",
+  title: "Researcher network",
   description:
     "Send your work to any researcher, in one step. The shortest path from your data to a collaborator, share a method, sequence, dataset, or figure straight to them, in your department or across the world, with no files or email needed.",
 };

@@ -15,7 +15,7 @@ import ReviewQueue from "@/components/library/ReviewQueue";
  * resolves.
  */
 export const metadata: Metadata = {
-  title: "Help review submissions | ResearchOS open library",
+  title: "Help review submissions",
   description:
     "Review community-contributed scientific icons. Vouch for accurate, openly licensed icons or flag the ones that are not. An independent reviewer clears each unverified flag.",
 };

@@ -35,7 +35,7 @@ import { isOperator } from "@/lib/sharing/operator-access";
  * dark peek behind it.
  */
 export const metadata: Metadata = {
-  title: "Operator console | ResearchOS",
+  title: "Operator console",
   robots: { index: false, follow: false },
 };
 

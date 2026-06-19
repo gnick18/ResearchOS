@@ -33,7 +33,7 @@ const GITHUB_URL = "https://github.com/gnick18/ResearchOS";
 const RAINBOW_TEXT = "var(--brand-rainbow-vivid)";
 
 export const metadata: Metadata = {
-  title: "About | ResearchOS",
+  title: "About",
   description:
     "ResearchOS is an open-source, local-first set of tools for academic labs, built by two researchers on the same team. It started when one of us was setting a lab up on a clunky, expensive electronic lab notebook, so we built a better, cheaper one. A registered Wisconsin LLC stands behind it, and anything it earns goes back into our science.",
 };

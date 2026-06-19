@@ -25,7 +25,7 @@ import {
  * data folder and is intentionally excluded from the wiki-coverage map.
  */
 export const metadata: Metadata = {
-  title: "Terms of service | ResearchOS",
+  title: "Terms of service",
   description:
     "The terms for using the hosted ResearchOS app and its optional paid services. The software is free and open source under the AGPLv3, your everyday work stays on your own machine, and the optional cloud storage and AI assistant are available as paid services.",
 };
