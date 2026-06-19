@@ -21,6 +21,7 @@ import type { AiTool } from "./types";
 import { COORDINATION_TOOLS } from "./registry";
 import { readLabMembersWork } from "@/lib/lab/lab-scoped-read";
 import { searchLabIndex } from "@/lib/lab/lab-index-search";
+import { labPlotsTool, labFigureTool } from "./lab-figure";
 import { runAnalysis } from "@/lib/datahub/run-analysis";
 import type { DataHubDocContent, AnalysisSpec } from "@/lib/datahub/model/types";
 import {
@@ -3617,8 +3618,9 @@ export const reproduceMemberResultTool = makeReproduceMemberResultTool({
  * grants + Phase 4 operations + Phase 5 quality + synthesis + Phase 6 DMSP
  * compliance + Phase 7 reproduce member result). All read-only tools go
  * through the audited lab-scoped read / index-search engines.
- * onboard_member is the one consented action (non-destructive). Surfaced on
- * the /lab-overview BeakerBot mount, not in the global research-shell tool set.
+ * onboard_member and lab_figure are the two consented actions (both
+ * non-destructive). Surfaced on the /lab-overview BeakerBot mount, not in the
+ * global research-shell tool set.
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
@@ -3637,6 +3639,8 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   methodsSectionTool,
   dmspComplianceTool,
   reproduceMemberResultTool,
+  labPlotsTool,
+  labFigureTool,
 ];
 
 /**
@@ -3670,7 +3674,7 @@ How you answer:
 
 You surface facts, you never interpret:
 - NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts, item counts, spend totals, expiration dates. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section, dmsp_compliance, reproduce_member_result) and answer only from what it returned. The tool owns every number; you relay it.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section, dmsp_compliance, reproduce_member_result, lab_plots, lab_figure) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
 - To answer questions about the lab's data sharing and deposit record, call dmsp_compliance. It reports the deposit ledger, how many deposits have a DOI and version history recorded, and a coarse count of depositable outputs alongside total deposits. It never judges whether the lab deposits enough.
 
@@ -3700,5 +3704,9 @@ Quality and synthesis:
 - method_drift finds experiments where the same protocol was run with per-task overrides (gradient changes, markdown body edits, variation notes, plate annotations, etc.) and groups them by base method. It surfaces WHERE the same protocol was run differently across the lab. It LISTS the variants and NEVER judges which variant is correct or better. You relay the groups and variants; you do not say which version is right.
 - protocol_gaps finds experiments with no protocol attached at all, or where an attachment references a (method_id, owner) pair that does not exist in the lab's method library. It surfaces missing documentation; the PI decides what to document.
 - methods_section assembles a roster of real method records filtered by tag, date, and/or member. It returns the protocol facts (name, type, tags, source URL, excerpt when present). You use these facts to draft a methods-section scaffold. The tool supplies the protocols; the PI writes the final prose. You never claim significance or completeness about the methods returned.
-- reproduce_member_result reruns a named member's saved DataHub analyses on the same synced table data, using the same engine the Data Hub uses, and compares each recomputed result against the member's stored result within a numeric tolerance. It reports which analyses reproduce and which differ, with BOTH the reported and recomputed numbers. A mismatch is a numeric fact only. You relay which reproduced and which differed and the two numbers; you NEVER say a member's result is wrong or that they made an error, and you never speculate why a value differs. The PI judges what a difference means.`;
+- reproduce_member_result reruns a named member's saved DataHub analyses on the same synced table data, using the same engine the Data Hub uses, and compares each recomputed result against the member's stored result within a numeric tolerance. It reports which analyses reproduce and which differ, with BOTH the reported and recomputed numbers. A mismatch is a numeric fact only. You relay which reproduced and which differed and the two numbers; you NEVER say a member's result is wrong or that they made an error, and you never speculate why a value differs. The PI judges what a difference means.
+
+Synthesis (cross-member figures):
+- lab_plots lists every lab member's saved Data Hub plots across the lab so you can find a plot's id. It returns, per plot, the id (an owner::doc::plot string), the member, the table, the kind, and the title. Read-only and audited. Pass member to restrict to one person. Use it to discover which plots exist before composing a figure. It reports the plots only; it never judges any member's results.
+- lab_figure composes the plot ids you choose (from lab_plots) into a multi-panel figure page that the PI owns, laid out in a grid (columns defaults to 2), saves it, and returns a link to open it. The panels stay LIVE, each one references the member's plot and updates when their data changes. It is a non-destructive action and runs only after the PI confirms. It composes the chosen plots; it NEVER judges, ranks, or interprets the members' results.`;
 
