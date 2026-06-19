@@ -51,6 +51,13 @@ export async function ensureCloudLedgerSchema(sql: Sql = getSql()): Promise<void
       updated_at timestamptz default now()
     )
   `;
+  // Lab free-trial (Grant 2026-06-19). A new lab head starts with no card and a
+  // 90-day trial; this stamps when the trial ends. Additive and nullable, so
+  // every existing row reads as "no trial" (trial_ends_at IS NULL) and the engine
+  // behaves exactly as before for them. ADD COLUMN IF NOT EXISTS is idempotent.
+  await sql`
+    ALTER TABLE cloud_balance ADD COLUMN IF NOT EXISTS trial_ends_at timestamptz
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS cloud_usage_ledger (
       id bigserial primary key,

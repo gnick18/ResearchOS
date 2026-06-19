@@ -341,6 +341,30 @@ export async function setPlan(ownerKey: string, planId: string): Promise<void> {
 }
 
 /**
+ * Activate a lab on the Model-A "lab" tier directly (Grant 2026-06-19, no-card
+ * free trial). The flat-plan setPlan() cannot do this: "lab" is a Model-A plan id,
+ * not a flat-plan catalog id, so getPlan("lab") is null and setPlan would store
+ * free/inactive. The Model-A resolver (modelAPlanForSubscription) expects
+ * plan_id = "lab" + status = "active", so we write exactly that. No Stripe object
+ * is created (Model-A labs bill off a saved card + off-session PaymentIntents, not
+ * a Stripe subscription), so this records the plan without a card. The 90-day
+ * trial timestamp lives separately on cloud_balance via startLabTrial. Idempotent
+ * on the owner key; never overwrites a row that is already on a real paid plan.
+ */
+export async function activateLabTrialSubscription(ownerKey: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO billing_subscriptions (owner_key, plan_id, status, updated_at)
+    VALUES (${ownerKey}, 'lab', 'active', now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      plan_id = 'lab', status = 'active', updated_at = now()
+      WHERE billing_subscriptions.plan_id IS NULL
+         OR billing_subscriptions.plan_id = 'free'
+         OR billing_subscriptions.status <> 'active'
+  `;
+}
+
+/**
  * Ends a member's own paid subscription when their lab takes over paying, so
  * no one is double-billed. We mark the row inactive and drop the cap back to the
  * free tier; the member's effective ceiling then comes from the lab via

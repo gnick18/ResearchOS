@@ -17,11 +17,23 @@
 import React, { useEffect, useState } from "react";
 import { PLAN_PRICES, usd, type PaidPlanId } from "@/lib/billing/catalog";
 
+export type LabTrialPhase =
+  | "none"
+  | "trialing"
+  | "ended_with_card"
+  | "ended_no_card";
+
 export interface ModelAStatus {
   planId: "free" | "solo" | "lab" | "dept";
   accruedCents: number;
   capCents: number | null;
   hasCard: boolean;
+  /** ISO trial-end timestamp for a lab on a free trial, or null/undefined. */
+  trialEndsAt?: string | null;
+  /** The lab free-trial phase (Grant 2026-06-19), or "none" for non-trial owners. */
+  trialPhase?: LabTrialPhase;
+  /** True when an expired trial has no card, so the lab is paused. */
+  trialPaused?: boolean;
 }
 
 type Load =
@@ -176,6 +188,8 @@ function PaidPanel({
         </span>
       </div>
 
+      <TrialBanner status={status} onAddCard={addCard} busy={busyCard} />
+
       <div className="rounded-xl bg-surface-sunken p-4">
         <div className="text-xs font-semibold uppercase tracking-wide text-foreground-muted">
           This billing period
@@ -191,6 +205,74 @@ function PaidPanel({
       <CapRow status={status} onChange={onChange} />
     </div>
   );
+}
+
+/** Format an ISO trial-end timestamp as a readable date for the countdown line. */
+function formatTrialEnd(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "soon";
+  return d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+}
+
+/** Whole days from now until the trial ends (floored at 0). */
+function daysUntil(iso: string): number {
+  const ms = new Date(iso).getTime() - Date.now();
+  if (Number.isNaN(ms)) return 0;
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
+// Lab free-trial banner (Grant 2026-06-19). While the trial is open it shows a
+// countdown so the lab head knows the date and is nudged to add a card before it
+// ends. Once the trial has ended with no card the lab is PAUSED (cloud accrual
+// stops, the local app keeps working), so the banner becomes the add-a-card
+// escape. A lab that already has a card, or any non-trial owner, sees nothing.
+function TrialBanner({
+  status,
+  onAddCard,
+  busy,
+}: {
+  status: ModelAStatus;
+  onAddCard: () => void;
+  busy: boolean;
+}) {
+  if (status.trialPaused) {
+    return (
+      <div className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+        <div className="text-sm font-bold text-amber-900">
+          Your free trial has ended
+        </div>
+        <p className="mt-1 text-xs text-amber-800">
+          Add a payment method to keep your lab active. Your local app keeps
+          working and nothing is lost; cloud sync and sending resume the moment a
+          card is on file.
+        </p>
+        <button type="button" className={`${btn} mt-3`} onClick={onAddCard} disabled={busy}>
+          {busy ? "Opening..." : "Add a payment method"}
+        </button>
+      </div>
+    );
+  }
+  if (status.trialPhase === "trialing" && status.trialEndsAt) {
+    const days = daysUntil(status.trialEndsAt);
+    return (
+      <div className="rounded-xl border border-green-200 bg-green-50 p-4">
+        <div className="text-sm font-bold text-green-900">
+          Free trial, {days} {days === 1 ? "day" : "days"} left
+        </div>
+        <p className="mt-1 text-xs text-green-800">
+          Your free trial ends {formatTrialEnd(status.trialEndsAt)}. Add a payment
+          method to keep your lab active when it does. You are not charged during
+          the trial regardless of usage.
+        </p>
+        {!status.hasCard && (
+          <button type="button" className={`${btnGhost} mt-3`} onClick={onAddCard} disabled={busy}>
+            {busy ? "Opening..." : "Add a payment method"}
+          </button>
+        )}
+      </div>
+    );
+  }
+  return null;
 }
 
 function CardRow({ hasCard, busy, onAdd }: { hasCard: boolean; busy: boolean; onAdd: () => void }) {

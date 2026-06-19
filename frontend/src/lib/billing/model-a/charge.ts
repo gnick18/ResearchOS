@@ -18,6 +18,7 @@ import {
   recordCharge,
   type ChargeableOwner,
 } from "./ledger";
+import { labTrialDecision } from "./lab-trial";
 import type { Sql } from "./ledger-db";
 
 /** Creates and confirms an off-session payment for a payer. Returns the provider
@@ -34,6 +35,10 @@ export interface ChargeRunSummary {
   succeeded: number;
   failed: number;
   totalChargedCents: number;
+  /** Owners skipped because they are inside a lab free trial (now < trial_ends_at).
+   *  They have an accrued balance and a card, but the trial suppresses the charge,
+   *  so no money moves until the trial ends. */
+  trialSuppressed: number;
 }
 
 export interface ChargeRunOptions {
@@ -41,6 +46,8 @@ export interface ChargeRunOptions {
   owners?: ChargeableOwner[];
   /** Balance at or above which to charge. Defaults to the $5 threshold. */
   threshold?: number;
+  /** "Now" for the trial check. Defaults to the wall clock; injectable for tests. */
+  now?: Date;
   sql?: Sql;
 }
 
@@ -55,12 +62,28 @@ export async function runChargeRun(
 ): Promise<ChargeRunSummary> {
   const threshold = opts.threshold ?? ACCRUAL_CHARGE_THRESHOLD_CENTS;
   const owners = opts.owners ?? (await listChargeableOwners(threshold, opts.sql));
+  const now = opts.now ?? new Date();
 
   let succeeded = 0;
   let failed = 0;
   let totalChargedCents = 0;
+  let trialSuppressed = 0;
 
   for (const o of owners) {
+    // Lab free-trial gate (Grant 2026-06-19), the single charge decision point.
+    // A lab inside its trial has a card and an accrued balance, but we must NOT
+    // run the card until the trial ends, so there is no charge for the whole term
+    // regardless of usage. labTrialDecision is the one source of truth shared with
+    // the accrual cron. A non-trial owner (trialEndsAt null) always charges, so
+    // solo and existing labs are unaffected.
+    const decision = labTrialDecision(
+      { trialEndsAt: o.trialEndsAt, hasCard: true },
+      now,
+    );
+    if (!decision.shouldCharge) {
+      trialSuppressed += 1;
+      continue;
+    }
     const amountCents = o.accruedCents;
     let res: Awaited<ReturnType<OffSessionCharger>>;
     try {
@@ -86,5 +109,5 @@ export async function runChargeRun(
     }
   }
 
-  return { attempted: owners.length, succeeded, failed, totalChargedCents };
+  return { attempted: owners.length, succeeded, failed, totalChargedCents, trialSuppressed };
 }

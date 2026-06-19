@@ -69,7 +69,17 @@ lab.
 ## Billing mechanics
 
 - We SHOW a monthly price but BILL off an accrued ledger to dodge Stripe's $0.30
-  per-charge fee. Card on file at signup (so it stays collectible).
+  per-charge fee.
+- A new lab starts with a 90-day free trial and NO card or payment info at signup
+  (Grant 2026-06-19). We collect no card upfront because a lab adopts over a
+  semester, not a weekend, so a PI can bring the whole team on and feel the value
+  before any money is involved. The lab is not charged for the trial regardless
+  of usage. Before day 90 we prompt for a payment method (the settings billing
+  panel plus an in-app countdown). At day 90 a lab with a card on file resumes
+  normal charging; a lab with no card PAUSES (cloud accrual and sending stop, the
+  local app and data keep working) until a card is added, so we never silently
+  run up an uncharged bill and there is always an escape. Solo keeps the
+  save-a-card-at-signup flow; only the lab tier gets the no-card trial.
 - We only run the card once the owed balance crosses ~$5, or immediately at
   cancellation (final invoice for accrued usage). Practical cadence is 6 months.
 - No bill-shock: AI is prepaid packs, storage is prepaid blocks, and the ledger
