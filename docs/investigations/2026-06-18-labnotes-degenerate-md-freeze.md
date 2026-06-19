@@ -109,3 +109,67 @@ runs and a CPU profile can be captured.
   after the demo. An unverified freeze fix on prod pre-demo is worse than the
   current state plus the "no complex tables in Lab Notes during the demo"
   guardrail.
+
+## Update 2026-06-18 (visible Claude-in-Chrome session): measure hypothesis NOT supported; a separate confirmed render bug fixed
+
+Reproduced in a VISIBLE foreground Chrome tab (rAF actually running, confirmed by
+140+ visible polling ticks per run) on demo mode. All timings are the worst
+inter-frame gap over a multi-second rAF window, with a console.warn counter for
+CodeMirror "measure loop" restarts.
+
+Reliable results (every variant, no measure-loop warnings):
+
+- Baseline real note (32 lines): 17 ms.
+- The EXACT real degenerate doc (the `2. 2.` / heading + table absorbed into the
+  ordered list), measured fresh at cursor end / top / deep: 66 / 25 / 34 ms.
+- Live typing the repro while visible (real CDP keystrokes firing the real
+  auto-list-continuation): worst gap 551 ms, and that gap landed about 8 s AFTER
+  typing finished, so it is not the typing path.
+- Nested ordered list depth 10 -> 80: 9 -> 16 ms.
+- Flat-absorbed table 10 -> 160 rows: flat at ~9 ms.
+- Many standalone tables 1 -> 60: flat at ~9 ms. CM6 virtualizes block widgets to
+  the viewport, so only ONE table widget is ever in the DOM regardless of count;
+  table count does not multiply measure cost.
+
+Conclusion: the multi-second measure-frame hypothesis is NOT supported by reliable
+visible-tab measurements. The single "5.7 s" reading in the original pass was
+almost certainly one of the hidden-tab artifacts this doc already warned about.
+The cost does not scale super-linearly with list depth, absorption size, or table
+count, and the `2. 2.` continuation comes from CodeMirror's built-in
+`insertNewlineContinueMarkup` (lang-markdown), not our keymap (our keymap binds no
+Enter and has no list-renumber loop). The 90 s prod freeze therefore is NOT in the
+CM measure / render path. The remaining untested suspect is the real-folder Loro
+persist + version-control-on-commit path that demo lacks, which also matches the
+save-stuck symptom (Unsaved-changes never clearing, Cmd+S / Done not saving). NEXT:
+capture a CPU profile on prod where it reproduces, or reproduce locally against a
+real connected folder (Loro persist + autosave), and read the hot frame in the
+debounced commit / persist path rather than the decoration build.
+
+### Separate confirmed bug, fixed in this session: standalone tables render blank
+
+Found while reproducing: a STANDALONE GFM table (a real Table node, e.g. after a
+`## Results` heading, NOT the absorbed-into-a-list case) renders blank the moment
+the caret leaves it. Root cause: the `remark-gfm -> remark-rehype -> rehype-raw`
+round-trip in `render-html.ts` emits a run of leading newline text nodes before
+the `<table>` (about one per row). The block widget paints that string with
+`innerHTML` inside `.cm-inline-table`, which inherits `white-space: break-spaces`
+from `.cm-content`, so each stray newline rendered as a visible blank LINE. A
+two-row table became a 729 px-tall mostly-empty widget (the real `<table>` is
+116 px) that pushed the table below the popup fold, reading as "the table stopped
+rendering". This is view-only and byte-for-byte round-trip safe (no doc mutation).
+
+Fix (this branch):
+- `render-html.ts`: `renderMarkdownToHtml(...)` returns `.trim()` so the leading /
+  trailing whitespace is dropped. Newlines INSIDE a block (fenced code body) are
+  untouched, since they sit within `<pre><code>` and not at the string edges.
+- `theme.ts`: `.cm-inline-block { white-space: normal }` as defense in depth, so a
+  future stray newline between block elements collapses instead of inflating the
+  widget height.
+- `render-html.test.ts`: regression test asserting the rendered table HTML has no
+  leading / trailing whitespace and starts with `<table`, that fenced code keeps
+  its inner newline, and that the bound holds across row counts.
+
+Verified live: widget box went 729 px -> 116 px, first child is now `<table>` (was
+a 20-newline text node), table renders inline directly under the heading with the
+caret off it. `npx tsc --noEmit` clean; the 12 cm-inline-reveal test files (125
+tests) pass including the new ones.
