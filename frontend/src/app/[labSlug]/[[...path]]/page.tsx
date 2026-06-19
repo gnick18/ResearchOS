@@ -98,20 +98,18 @@ export default async function LabSitePublicPage({
   const { labSlug, path } = await params;
   const { decision, slug, path: normPath, page } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
-  // Origin cutover: when the research-os.com move is live, the canonical home is
-  // the per-lab subdomain. A hit on the app origin (an old research-os.app/<slug>
-  // link) 301s to the subdomain for citation continuity. We only redirect from the
-  // known app host, so local/preview hosts still render the path form in place, and
-  // a request already on the lab subdomain (host slug matches) renders normally.
+  // Origin cutover: when the research-os.com move is live (runtime flag), the
+  // canonical home is the per-lab subdomain. Any hit NOT already on the lab's own
+  // subdomain (an old research-os.app/<slug> link, a deployment URL, etc) 301s to
+  // the subdomain for citation continuity. This uses ONLY runtime state (the flag
+  // + the Host), no build-inlined NEXT_PUBLIC value, so it survives a cached
+  // rebuild. The flag is production-scoped, so local dev and preview (flag off)
+  // keep rendering the path form in place, and a request already on
+  // <slug>.research-os.com renders normally (onSubdomain true, no loop).
   if (isLabSitesComOriginEnabled()) {
     const host = (await headers()).get("host");
     const onSubdomain = labSlugFromHost(host) === slug;
-    const appHost = (process.env.NEXT_PUBLIC_APP_ORIGIN ?? "")
-      .replace(/^https?:\/\//, "")
-      .split("/")[0]
-      ?.toLowerCase();
-    const reqHost = host?.split(":")[0]?.toLowerCase();
-    if (!onSubdomain && appHost && reqHost === appHost) {
+    if (!onSubdomain) {
       const tail = normPath ? `/${normPath}` : "";
       permanentRedirect(`${labSiteOrigin(slug)}${tail}`);
     }
