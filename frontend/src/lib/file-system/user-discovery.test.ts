@@ -43,7 +43,7 @@ vi.mock("./file-service", () => ({
 }));
 
 // Imports after mock.
-import { discoverUsers } from "./user-discovery";
+import { discoverUsers, discoverRealLocalUsers } from "./user-discovery";
 
 const METADATA_PATH = "users/_user_metadata.json";
 
@@ -174,5 +174,64 @@ describe("discoverUsers — tombstone semantics", () => {
       },
     });
     expect(await discoverUsers()).toEqual([]);
+  });
+});
+
+describe("discoverRealLocalUsers — materialized-co-member semantics (Task C)", () => {
+  it("excludes materialized co-members so a lone member resolves to just themselves", async () => {
+    // A member of someone else's lab: their OWN dir + the materialized head +
+    // a materialized co-member. Only the viewer is a real local user.
+    userDirs = ["viewer", "pi", "labmate"];
+    setMetadata({
+      users: {
+        viewer: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        pi: {
+          color: "#ef4444",
+          created_at: "2026-01-01T00:00:00.000Z",
+          materialized_member: true,
+        },
+        labmate: {
+          color: "#10b981",
+          created_at: "2026-01-01T00:00:00.000Z",
+          materialized_member: true,
+        },
+      },
+    });
+    // discoverUsers still counts everyone (the over-count the gate saw).
+    expect(await discoverUsers()).toEqual(["labmate", "pi", "viewer"]);
+    // The membership-derived count is just the one real local user.
+    expect(await discoverRealLocalUsers()).toEqual(["viewer"]);
+  });
+
+  it("counts genuine co-located users (no materialized flag) as multi-user", async () => {
+    userDirs = ["alex", "morgan"];
+    setMetadata({
+      users: {
+        alex: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        morgan: { color: "#10b981", created_at: "2026-01-01T00:00:00.000Z" },
+      },
+    });
+    expect(await discoverRealLocalUsers()).toEqual(["alex", "morgan"]);
+  });
+
+  it("still excludes tombstoned users (same as discoverUsers)", async () => {
+    userDirs = ["alex", "ghost"];
+    setMetadata({
+      users: {
+        alex: { color: "#3b82f6", created_at: "2026-01-01T00:00:00.000Z" },
+        ghost: {
+          color: "#ef4444",
+          created_at: "2026-01-01T00:00:00.000Z",
+          deleted_at: "2026-05-01T00:00:00.000Z",
+        },
+      },
+    });
+    expect(await discoverRealLocalUsers()).toEqual(["alex"]);
+  });
+
+  it("a user with a directory but NO metadata entry counts as a real local user", async () => {
+    userDirs = ["legacyuser"];
+    setMetadata({ users: {} });
+    expect(await discoverRealLocalUsers()).toEqual(["legacyuser"]);
   });
 });

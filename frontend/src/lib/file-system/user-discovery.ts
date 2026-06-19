@@ -45,6 +45,47 @@ export async function discoverUsers(): Promise<string[]> {
   }
 }
 
+/**
+ * The genuine co-located human users of THIS folder, excluding both tombstoned
+ * users (same as discoverUsers) AND materialized co-members.
+ *
+ * WHY THIS EXISTS (multi-lab Task C):
+ *   When LAB_AS_FOLDER_ENABLED is on, the roster materialize writes the head +
+ *   every co-member of someone else's lab as `users/<owner>/` scaffolds into a
+ *   member's OWN folder so the identity consumers light up. Those dirs are CACHED
+ *   identities, not real co-located users this person shares a folder with.
+ *   discoverUsers counts them (it only filters tombstones + sentinels), so a lone
+ *   member of someone else's lab looked like a "multi-user folder" and the
+ *   migrate-to-solo gate (useIsMultiUserFolder) wrongly fired, offering to split
+ *   / package out cached co-members. This helper excludes any user whose metadata
+ *   entry carries `materialized_member: true`, so it returns only the genuine
+ *   co-located humans (a lone member resolves to just themselves).
+ *
+ *   useIsLabMode deliberately does NOT use this helper: a member of a lab IS in
+ *   lab mode (the materialized head's account_type drives the PI badge + lab
+ *   chrome), so lab mode must keep counting them. Only the multi-user / migrate
+ *   signal needs the narrower, membership-derived count.
+ */
+export async function discoverRealLocalUsers(): Promise<string[]> {
+  if (!fileService.isConnected()) return [];
+  try {
+    const [all, meta] = await Promise.all([
+      fileService.listDirectories("users"),
+      readAllUserMetadata(),
+    ]);
+    return all
+      .filter((name) => !SKIP_DIRECTORIES.has(name))
+      .filter((name) => !meta[name]?.deleted_at)
+      // Exclude materialized co-members (cached identity from another person's
+      // lab), so this is the genuine co-located human-user set.
+      .filter((name) => meta[name]?.materialized_member !== true)
+      .sort();
+  } catch (err) {
+    console.error("discoverRealLocalUsers error:", err);
+    return [];
+  }
+}
+
 export async function ensureFolderStructure(): Promise<boolean> {
   if (!fileService.isConnected()) return false;
 
