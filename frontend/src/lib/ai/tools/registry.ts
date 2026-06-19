@@ -182,6 +182,10 @@ import {
 } from "./inventory-tools";
 import { listCalculatorsTool, runCalculatorTool } from "./calculator-tools";
 import { createPurchaseTool } from "./purchase-tools";
+import {
+  findCollaboratorsTool,
+  shareWithResearcherTool,
+} from "./network-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -416,6 +420,12 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // can preview an extract / an assembly with no await. Neither writes or navigates.
   listSequencesTool,
   readSequenceFeaturesTool,
+  // find_collaborators searches the public researcher directory via the login-free
+  // GET /api/directory/public-search endpoint. Returns only public-card fields
+  // (name, institution, verified domain, ORCID, fingerprint). Email is never in
+  // the result. Returns [] cleanly when no one matches or the directory is dark.
+  // Used as the front door for share_with_researcher below.
+  findCollaboratorsTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
@@ -620,6 +630,14 @@ export const ACTION_TOOLS: AiTool[] = [
   deleteSequenceTool,
   deleteMoleculeTool,
   deletePurchaseTool,
+  // share_with_researcher (action: true, isDestructive false) navigates the user
+  // to the target object after they approve the action, so they complete the send
+  // through the existing share dialog. The tool checks the paid entitlement
+  // (GET /api/collab/external-entitlement) before navigating. The actual
+  // cryptographic send always stays in the UI dialog; the tool only provides
+  // the navigation assist and the consent preview. Recipient must be a
+  // find_collaborators fingerprint or an email the user themselves typed.
+  shareWithResearcherTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on
