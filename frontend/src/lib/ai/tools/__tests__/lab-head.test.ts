@@ -460,7 +460,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly fifteen tools in the expected order", () => {
+  it("exports exactly sixteen tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -478,6 +478,7 @@ describe("LAB_HEAD_TOOLS", () => {
       "protocol_gaps",
       "methods_section",
       "dmsp_compliance",
+      "reproduce_member_result",
     ]);
   });
 
@@ -3248,8 +3249,9 @@ describe("dmsp_compliance", () => {
     expect(res.hasLab).toBe(false);
   });
 
-  it("LAB_HEAD_TOOLS now has fifteen tools", () => {
-    expect(LAB_HEAD_TOOLS).toHaveLength(15);
+  it("LAB_HEAD_TOOLS now has sixteen tools", () => {
+    expect(LAB_HEAD_TOOLS).toHaveLength(16);
     expect(LAB_HEAD_TOOLS[14].name).toBe("dmsp_compliance");
+    expect(LAB_HEAD_TOOLS[15].name).toBe("reproduce_member_result");
   });
 });

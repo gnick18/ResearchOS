@@ -21,6 +21,8 @@ import type { AiTool } from "./types";
 import { COORDINATION_TOOLS } from "./registry";
 import { readLabMembersWork } from "@/lib/lab/lab-scoped-read";
 import { searchLabIndex } from "@/lib/lab/lab-index-search";
+import { runAnalysis } from "@/lib/datahub/run-analysis";
+import type { DataHubDocContent, AnalysisSpec } from "@/lib/datahub/model/types";
 import {
   oneOnOnesApi,
   labApi,
@@ -2162,8 +2164,10 @@ export const inventoryAuditTool = makeInventoryAuditTool({
 // ===========================================================================
 //
 // Three tools support the PI's quality-review and manuscript-prep work.
-// reproduce_member_result and lab_figure are DEFERRED (blocked on
-// cross-member compute / figure infra) and are NOT built here.
+// reproduce_member_result is built below (the lab mirror already carries each
+// member's full DataHub table content, so runAnalysis reruns on data the PI
+// already holds). lab_figure is built as a cross-member figure source plus an
+// auto-compose tool outside this file.
 //
 // method_drift
 //   Finds experiments where a protocol was run with per-task overrides
@@ -2997,6 +3001,613 @@ export const dmspComplianceTool = makeDmspComplianceTool({
   readWork: readLabMembersWork,
 });
 
+// ===========================================================================
+// Phase 7: Reproduce member result
+// ===========================================================================
+//
+// reproduce_member_result re-runs each AnalysisSpec in a member's synced
+// DataHub tables using the same pure runAnalysis function the Data Hub itself
+// uses, then compares the recomputed result against the stored resultCache.
+// The tool reports which analyses reproduce within the configured numeric
+// tolerance and which differ, along with both the reported and recomputed
+// scalar values. It never interprets why a result differs -- a mismatch is
+// a numeric fact; the PI judges what it means.
+//
+// The comparison is limited to the scalar fields that are directly comparable
+// across the NormalizedResult union variants. Each variant exposes different
+// fields; the comparator dispatches on kind and extracts only the fields that
+// carry a single numeric value (not arrays, not nested objects). The PI sees
+// both numbers and can form their own judgment.
+//
+// Audit path: readLabMembersWork writes an audit entry to each read member's
+// log. This tool triggers an audit on the targeted member only.
+//
+// Read-only: writes nothing. Uses the injected readWork dep for testability.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Dep type -- Phase 7
+// ---------------------------------------------------------------------------
+
+export interface ReproduceMemberResultDeps {
+  readWork: typeof readLabMembersWork;
+  runAnalysisFn?: typeof runAnalysis;
+}
+
+// ---------------------------------------------------------------------------
+// Scalar extractor
+// ---------------------------------------------------------------------------
+
+/**
+ * Extract comparable numeric scalars from a NormalizedResult. Returns a flat
+ * Record<string, number> of the named scalar fields. Array fields, nested
+ * objects, and non-numeric fields are skipped -- the comparison is
+ * deterministic and field-by-field so the model can narrate which specific
+ * values differ. The returned keys are stable across runs for the same
+ * analysis type.
+ *
+ * Fields included per kind (read from the NormalizedResult union):
+ *   ttest        statistic, df, pValue, effectSize, hedgesG, meanA, meanB, meanDiff,
+ *                effectSizeCI95_lo, effectSizeCI95_hi, ci95_lo, ci95_hi
+ *   anova        statistic, pValue, dfBetween, dfWithin
+ *   rmAnova      statistic, pValue, dfConditions, dfError, partialEtaSquared,
+ *                greenhouseGeisserEpsilon, pGreenhouseGeisser,
+ *                huynhFeldtEpsilon, pHuynhFeldt
+ *   mixedModel   groupVariance, residualVariance, remlLogLikelihood
+ *   correlation  coefficient, statistic, df, pValue, rSquared,
+ *                ci95_lo, ci95_hi
+ *   regression   slope, intercept, rSquared, slopeSE, interceptSE, residualSE,
+ *                slopeCI95_lo, slopeCI95_hi, interceptCI95_lo, interceptCI95_hi
+ *   logisticReg  oddsRatio, oddsRatioCI95_lo, oddsRatioCI95_hi,
+ *                logLikelihood, nullLogLikelihood, mcFaddenR2, xAtHalf, auc
+ *   rocCurve     auc, aucStandardError, aucCiLow, aucCiHigh,
+ *                youdenThreshold, youdenSensitivity, youdenSpecificity
+ *   multipleReg  rSquared, adjRSquared, residualSE, fStatistic,
+ *                fDfNum, fDfDen, fPValue, logLikelihood
+ *   doseResponse ec50, logEC50, rSquared, df,
+ *                hillSlope_value, top_value, bottom_value
+ *   modelComp    fTest_f, fTest_pValue (when nested), aicc_deltaAbs, aicc_evidenceRatio
+ *   globalFit    rSquared, df, ssrTotal
+ *   twoWayAnova  fA, pA, fB, pB, fInteraction, pInteraction
+ *   survival     logRank_chiSquare, logRank_df, logRank_pValue,
+ *                gehan_chiSquare, gehan_df, gehan_pValue
+ *   coxRegression lrChiSquare, lrDf, lrPValue, concordance,
+ *                  logLikelihood, nullLogLikelihood
+ *   grubbsOutlier totalOutliers (as a scalar count)
+ *   contingency  chiSquare, df, pValue, yatesChiSquare, yatesPValue,
+ *                fisherPValue, minExpected, n
+ *   nestedTTest  estimate, standardError, z, pValue, subgroupVariance,
+ *                residualVariance, remlLogLikelihood
+ *   nestedAnova  f, dfBetween, dfSubgroups, pValue, subgroupVariance,
+ *                residualVariance
+ */
+function extractScalars(result: unknown): Record<string, number> {
+  if (!result || typeof result !== "object") return {};
+  const r = result as Record<string, unknown>;
+  const out: Record<string, number> = {};
+
+  function take(key: string, val: unknown): void {
+    if (typeof val === "number" && isFinite(val)) out[key] = val;
+  }
+
+  const kind = r.kind as string | undefined;
+
+  switch (kind) {
+    case "ttest": {
+      take("statistic", r.statistic);
+      take("df", r.df);
+      take("pValue", r.pValue);
+      take("effectSize", r.effectSize);
+      if (typeof r.hedgesG === "number") take("hedgesG", r.hedgesG);
+      take("meanA", r.meanA);
+      take("meanB", r.meanB);
+      take("meanDiff", r.meanDiff);
+      if (Array.isArray(r.effectSizeCI95) && r.effectSizeCI95.length === 2) {
+        take("effectSizeCI95_lo", r.effectSizeCI95[0]);
+        take("effectSizeCI95_hi", r.effectSizeCI95[1]);
+      }
+      if (Array.isArray(r.ci95) && r.ci95.length === 2) {
+        take("ci95_lo", r.ci95[0]);
+        take("ci95_hi", r.ci95[1]);
+      }
+      break;
+    }
+    case "anova": {
+      take("statistic", r.statistic);
+      take("pValue", r.pValue);
+      take("dfBetween", r.dfBetween);
+      take("dfWithin", r.dfWithin);
+      break;
+    }
+    case "rmAnova": {
+      take("statistic", r.statistic);
+      take("pValue", r.pValue);
+      take("dfConditions", r.dfConditions);
+      take("dfError", r.dfError);
+      take("partialEtaSquared", r.partialEtaSquared);
+      take("greenhouseGeisserEpsilon", r.greenhouseGeisserEpsilon);
+      take("pGreenhouseGeisser", r.pGreenhouseGeisser);
+      take("huynhFeldtEpsilon", r.huynhFeldtEpsilon);
+      take("pHuynhFeldt", r.pHuynhFeldt);
+      break;
+    }
+    case "mixedModel": {
+      take("groupVariance", r.groupVariance);
+      take("residualVariance", r.residualVariance);
+      take("remlLogLikelihood", r.remlLogLikelihood);
+      break;
+    }
+    case "correlation": {
+      take("coefficient", r.coefficient);
+      take("statistic", r.statistic);
+      take("df", r.df);
+      take("pValue", r.pValue);
+      take("rSquared", r.rSquared);
+      if (Array.isArray(r.ci95) && r.ci95.length === 2) {
+        take("ci95_lo", r.ci95[0]);
+        take("ci95_hi", r.ci95[1]);
+      }
+      break;
+    }
+    case "regression": {
+      take("slope", r.slope);
+      take("intercept", r.intercept);
+      take("rSquared", r.rSquared);
+      take("slopeSE", r.slopeSE);
+      take("interceptSE", r.interceptSE);
+      take("residualSE", r.residualSE);
+      if (Array.isArray(r.slopeCI95) && r.slopeCI95.length === 2) {
+        take("slopeCI95_lo", r.slopeCI95[0]);
+        take("slopeCI95_hi", r.slopeCI95[1]);
+      }
+      if (Array.isArray(r.interceptCI95) && r.interceptCI95.length === 2) {
+        take("interceptCI95_lo", r.interceptCI95[0]);
+        take("interceptCI95_hi", r.interceptCI95[1]);
+      }
+      break;
+    }
+    case "logisticRegression": {
+      take("oddsRatio", r.oddsRatio);
+      if (Array.isArray(r.oddsRatioCI95) && r.oddsRatioCI95.length === 2) {
+        take("oddsRatioCI95_lo", r.oddsRatioCI95[0]);
+        take("oddsRatioCI95_hi", r.oddsRatioCI95[1]);
+      }
+      take("logLikelihood", r.logLikelihood);
+      take("nullLogLikelihood", r.nullLogLikelihood);
+      take("mcFaddenR2", r.mcFaddenR2);
+      take("xAtHalf", r.xAtHalf);
+      take("auc", r.auc);
+      break;
+    }
+    case "rocCurve": {
+      take("auc", r.auc);
+      take("aucStandardError", r.aucStandardError);
+      take("aucCiLow", r.aucCiLow);
+      take("aucCiHigh", r.aucCiHigh);
+      take("youdenThreshold", r.youdenThreshold);
+      take("youdenSensitivity", r.youdenSensitivity);
+      take("youdenSpecificity", r.youdenSpecificity);
+      break;
+    }
+    case "multipleRegression": {
+      take("rSquared", r.rSquared);
+      take("adjRSquared", r.adjRSquared);
+      take("residualSE", r.residualSE);
+      take("fStatistic", r.fStatistic);
+      take("fDfNum", r.fDfNum);
+      take("fDfDen", r.fDfDen);
+      take("fPValue", r.fPValue);
+      take("logLikelihood", r.logLikelihood);
+      break;
+    }
+    case "doseResponse": {
+      take("ec50", r.ec50);
+      take("logEC50", r.logEC50);
+      take("rSquared", r.rSquared);
+      take("df", r.df);
+      const hill = r.hillSlope as Record<string, unknown> | undefined;
+      if (hill) take("hillSlope_value", hill.value);
+      const top = r.top as Record<string, unknown> | undefined;
+      if (top) take("top_value", top.value);
+      const bot = r.bottom as Record<string, unknown> | undefined;
+      if (bot) take("bottom_value", bot.value);
+      break;
+    }
+    case "modelComparison": {
+      const ft = r.fTest as Record<string, unknown> | null | undefined;
+      if (ft) {
+        take("fTest_f", ft.f);
+        take("fTest_pValue", ft.pValue);
+      }
+      const aicc = r.aicc as Record<string, unknown> | undefined;
+      if (aicc) {
+        take("aicc_deltaAbs", aicc.deltaAbs);
+        take("aicc_evidenceRatio", aicc.evidenceRatio);
+      }
+      break;
+    }
+    case "globalFit": {
+      take("rSquared", r.rSquared);
+      take("df", r.df);
+      take("ssrTotal", r.ssrTotal);
+      break;
+    }
+    case "twoWayAnova": {
+      take("fA", r.fA);
+      take("pA", r.pA);
+      take("fB", r.fB);
+      take("pB", r.pB);
+      take("fInteraction", r.fInteraction);
+      take("pInteraction", r.pInteraction);
+      break;
+    }
+    case "survival": {
+      const lr = r.logRank as Record<string, unknown> | null | undefined;
+      if (lr) {
+        take("logRank_chiSquare", lr.chiSquare);
+        take("logRank_df", lr.df);
+        take("logRank_pValue", lr.pValue);
+      }
+      const gbw = r.gehanBreslowWilcoxon as
+        | Record<string, unknown>
+        | null
+        | undefined;
+      if (gbw) {
+        take("gehan_chiSquare", gbw.chiSquare);
+        take("gehan_df", gbw.df);
+        take("gehan_pValue", gbw.pValue);
+      }
+      break;
+    }
+    case "coxRegression": {
+      take("lrChiSquare", r.lrChiSquare);
+      take("lrDf", r.lrDf);
+      take("lrPValue", r.lrPValue);
+      take("concordance", r.concordance);
+      take("logLikelihood", r.logLikelihood);
+      take("nullLogLikelihood", r.nullLogLikelihood);
+      break;
+    }
+    case "grubbsOutlier": {
+      take("totalOutliers", r.totalOutliers);
+      break;
+    }
+    case "contingency": {
+      take("chiSquare", r.chiSquare);
+      take("df", r.df);
+      take("pValue", r.pValue);
+      if (typeof r.yatesChiSquare === "number")
+        take("yatesChiSquare", r.yatesChiSquare);
+      if (typeof r.yatesPValue === "number")
+        take("yatesPValue", r.yatesPValue);
+      if (typeof r.fisherPValue === "number")
+        take("fisherPValue", r.fisherPValue);
+      take("minExpected", r.minExpected);
+      take("n", r.n);
+      break;
+    }
+    case "nestedTTest": {
+      take("estimate", r.estimate);
+      take("standardError", r.standardError);
+      take("z", r.z);
+      take("pValue", r.pValue);
+      take("subgroupVariance", r.subgroupVariance);
+      take("residualVariance", r.residualVariance);
+      take("remlLogLikelihood", r.remlLogLikelihood);
+      break;
+    }
+    case "nestedOneWayAnova": {
+      take("f", r.f);
+      take("dfBetween", r.dfBetween);
+      take("dfSubgroups", r.dfSubgroups);
+      take("pValue", r.pValue);
+      take("subgroupVariance", r.subgroupVariance);
+      take("residualVariance", r.residualVariance);
+      break;
+    }
+    default:
+      break;
+  }
+
+  return out;
+}
+
+/**
+ * Compare two sets of extracted scalars. Returns the maximum relative
+ * difference across all fields that are present in BOTH sets, and a map
+ * of per-field relative differences. Fields present in only one set are not
+ * compared but are surfaced in the returned object for transparency.
+ *
+ * Relative difference for field f: |reported - recomputed| / max(|reported|, |recomputed|, epsilon)
+ * where epsilon = 1e-300 (avoids divide-by-zero when both values are zero).
+ */
+function compareScalars(
+  reported: Record<string, number>,
+  recomputed: Record<string, number>,
+): {
+  maxRelDiff: number;
+  perField: Record<string, number>;
+} {
+  const perField: Record<string, number> = {};
+  let maxRelDiff = 0;
+
+  const sharedKeys = Object.keys(reported).filter(
+    (k) => recomputed[k] !== undefined,
+  );
+
+  for (const key of sharedKeys) {
+    const a = reported[key];
+    const b = recomputed[key];
+    const denom = Math.max(Math.abs(a), Math.abs(b), 1e-300);
+    const relDiff = Math.abs(a - b) / denom;
+    perField[key] = relDiff;
+    if (relDiff > maxRelDiff) maxRelDiff = relDiff;
+  }
+
+  return { maxRelDiff, perField };
+}
+
+// ---------------------------------------------------------------------------
+// reproduce_member_result (factory)
+// ---------------------------------------------------------------------------
+
+export function makeReproduceMemberResultTool(
+  deps: ReproduceMemberResultDeps,
+): AiTool {
+  const runFn = deps.runAnalysisFn ?? runAnalysis;
+
+  return {
+    name: "reproduce_member_result",
+    description:
+      "Re-runs a lab member's saved DataHub analyses on the same data the PI already holds and reports which reproduce within tolerance and which differ, with both the reported and recomputed scalar values. The tool owns every number and the match/mismatch verdict. The model only narrates. A mismatch is a numeric fact; the tool NEVER judges why a result differs or whether the member made an error. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        member: {
+          type: "string",
+          description:
+            "The owner username of the lab member whose analyses to reproduce.",
+        },
+        analysisId: {
+          type: "string",
+          description:
+            "When given, reproduce only this single analysis id (matched by AnalysisSpec.id). When omitted, reproduce every analysis in every datahub table for the member.",
+        },
+        tableId: {
+          type: "string",
+          description:
+            "When given, reproduce only analyses in the datahub table whose meta.id matches this value. When omitted, covers all tables for the member.",
+        },
+        tolerance: {
+          type: "number",
+          description:
+            "Relative-difference threshold for a numeric match. A result is 'match' when the maximum relative difference across all comparable scalars is at or below this value. Default 1e-6.",
+        },
+      },
+      required: ["member"],
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const member =
+        typeof args.member === "string" ? args.member.trim() : "";
+      const analysisIdFilter =
+        typeof args.analysisId === "string" ? args.analysisId.trim() : null;
+      const tableIdFilter =
+        typeof args.tableId === "string" ? args.tableId.trim() : null;
+      const tolerance =
+        typeof args.tolerance === "number" && args.tolerance >= 0
+          ? args.tolerance
+          : 1e-6;
+
+      const workResult = await deps.readWork({ recordTypes: ["datahub"] });
+
+      if (!workResult.ok || workResult.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      // Locate the target member.
+      const memberData = workResult.members.find((m) => m.owner === member);
+      if (!memberData) {
+        return {
+          hasLab: true,
+          member,
+          found: false,
+          note: `No synced data found for member "${member}". Check that the username is correct and that the member has synced their lab workspace.`,
+        };
+      }
+
+      interface AnalysisEntry {
+        tableId: string;
+        tableTitle: string;
+        analysisId: string;
+        analysisType: string;
+        status: "match" | "mismatch" | "stale" | "uncomputable";
+        reported: Record<string, number> | null;
+        recomputed: Record<string, number> | null;
+        maxRelDiff: number | null;
+        error?: string;
+      }
+
+      const analyses: AnalysisEntry[] = [];
+      let totalMatch = 0;
+      let totalMismatch = 0;
+      let totalStale = 0;
+      let totalUncomputable = 0;
+
+      for (const rec of memberData.records) {
+        if (rec.recordType !== "datahub") continue;
+
+        // Parse the plaintext as DataHubDocContent.
+        let content: DataHubDocContent;
+        try {
+          const text = new TextDecoder().decode(rec.plaintext);
+          const parsed = JSON.parse(text);
+          if (!parsed || typeof parsed !== "object") {
+            // Not a valid content object; skip silently.
+            continue;
+          }
+          content = parsed as DataHubDocContent;
+        } catch {
+          // Unparseable record; skip silently.
+          continue;
+        }
+
+        // Apply tableId filter on meta.id.
+        const metaId = content.meta?.id;
+        if (tableIdFilter !== null && metaId !== tableIdFilter) continue;
+
+        const tableTitle = content.meta?.name || rec.recordId;
+
+        const specsRaw = Array.isArray(content.analyses)
+          ? content.analyses
+          : [];
+
+        for (const rawSpec of specsRaw) {
+          if (!rawSpec || typeof rawSpec !== "object") continue;
+          const spec = rawSpec as AnalysisSpec;
+
+          // Apply analysisId filter.
+          if (analysisIdFilter !== null && spec.id !== analysisIdFilter)
+            continue;
+
+          const tid = metaId ?? rec.recordId;
+          const aid = spec.id;
+          const atype = spec.type ?? "unknown";
+
+          // No resultCache means there is nothing to compare.
+          if (spec.resultCache === null || spec.resultCache === undefined) {
+            analyses.push({
+              tableId: tid,
+              tableTitle,
+              analysisId: aid,
+              analysisType: atype,
+              status: "uncomputable",
+              reported: null,
+              recomputed: null,
+              maxRelDiff: null,
+              error: "No resultCache stored; analysis has not been run yet.",
+            });
+            totalUncomputable += 1;
+            continue;
+          }
+
+          // Re-run the analysis.
+          let rerunOutcome: ReturnType<typeof runAnalysis>;
+          try {
+            rerunOutcome = runFn(spec, content);
+          } catch (err) {
+            const msg =
+              err instanceof Error ? err.message : String(err);
+            analyses.push({
+              tableId: tid,
+              tableTitle,
+              analysisId: aid,
+              analysisType: atype,
+              status: "uncomputable",
+              reported: null,
+              recomputed: null,
+              maxRelDiff: null,
+              error: `runAnalysis threw: ${msg}`,
+            });
+            totalUncomputable += 1;
+            continue;
+          }
+
+          if (!rerunOutcome.ok) {
+            analyses.push({
+              tableId: tid,
+              tableTitle,
+              analysisId: aid,
+              analysisType: atype,
+              status: "uncomputable",
+              reported: null,
+              recomputed: null,
+              maxRelDiff: null,
+              error: `runAnalysis failed: ${rerunOutcome.error}`,
+            });
+            totalUncomputable += 1;
+            continue;
+          }
+
+          // Extract scalars from both the cached and recomputed result.
+          const reportedScalars = extractScalars(spec.resultCache);
+          const recomputedScalars = extractScalars(rerunOutcome);
+
+          const { maxRelDiff } = compareScalars(
+            reportedScalars,
+            recomputedScalars,
+          );
+
+          // If the member's own cache is flagged stale the difference is
+          // expected, not a discrepancy. Label it "stale" and still report
+          // both values so the PI has the full picture.
+          if (spec.resultStale === true) {
+            analyses.push({
+              tableId: tid,
+              tableTitle,
+              analysisId: aid,
+              analysisType: atype,
+              status: "stale",
+              reported: reportedScalars,
+              recomputed: recomputedScalars,
+              maxRelDiff,
+            });
+            totalStale += 1;
+            continue;
+          }
+
+          const status = maxRelDiff <= tolerance ? "match" : "mismatch";
+          analyses.push({
+            tableId: tid,
+            tableTitle,
+            analysisId: aid,
+            analysisType: atype,
+            status,
+            reported: reportedScalars,
+            recomputed: recomputedScalars,
+            maxRelDiff,
+          });
+          if (status === "match") totalMatch += 1;
+          else totalMismatch += 1;
+        }
+      }
+
+      const total =
+        totalMatch + totalMismatch + totalStale + totalUncomputable;
+
+      return {
+        hasLab: true,
+        member,
+        found: true,
+        tolerance,
+        summary: {
+          total,
+          match: totalMatch,
+          mismatch: totalMismatch,
+          stale: totalStale,
+          uncomputable: totalUncomputable,
+        },
+        analyses,
+        note: "A 'mismatch' means the recomputed value differs from the stored cache by more than the tolerance. The tool reports both numbers; it never concludes why they differ or whether the member made an error. A 'stale' result means the member's own system flagged the cache as out of date relative to the current data, so a difference is expected. 'Uncomputable' means either no cache exists yet or the engine could not re-run the analysis on the current data.",
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instance (real deps) -- Phase 7
+// ---------------------------------------------------------------------------
+
+export const reproduceMemberResultTool = makeReproduceMemberResultTool({
+  readWork: readLabMembersWork,
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
@@ -3004,13 +3615,10 @@ export const dmspComplianceTool = makeDmspComplianceTool({
 /**
  * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship + Phase 3
  * grants + Phase 4 operations + Phase 5 quality + synthesis + Phase 6 DMSP
- * compliance). All read-only tools go through the audited lab-scoped read /
- * index-search engines. onboard_member is the one consented action
- * (non-destructive). Surfaced on the /lab-overview BeakerBot mount, not in
- * the global research-shell tool set.
- *
- * Phase 5 deferred: reproduce_member_result and lab_figure are NOT built
- * (blocked on cross-member compute / figure infra).
+ * compliance + Phase 7 reproduce member result). All read-only tools go
+ * through the audited lab-scoped read / index-search engines.
+ * onboard_member is the one consented action (non-destructive). Surfaced on
+ * the /lab-overview BeakerBot mount, not in the global research-shell tool set.
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
@@ -3028,6 +3636,7 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   protocolGapsTool,
   methodsSectionTool,
   dmspComplianceTool,
+  reproduceMemberResultTool,
 ];
 
 /**
@@ -3061,7 +3670,7 @@ How you answer:
 
 You surface facts, you never interpret:
 - NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts, item counts, spend totals, expiration dates. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section, dmsp_compliance) and answer only from what it returned. The tool owns every number; you relay it.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit, method_drift, protocol_gaps, methods_section, dmsp_compliance, reproduce_member_result) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
 - To answer questions about the lab's data sharing and deposit record, call dmsp_compliance. It reports the deposit ledger, how many deposits have a DOI and version history recorded, and a coarse count of depositable outputs alongside total deposits. It never judges whether the lab deposits enough.
 
@@ -3090,5 +3699,6 @@ Actions are consented:
 Quality and synthesis:
 - method_drift finds experiments where the same protocol was run with per-task overrides (gradient changes, markdown body edits, variation notes, plate annotations, etc.) and groups them by base method. It surfaces WHERE the same protocol was run differently across the lab. It LISTS the variants and NEVER judges which variant is correct or better. You relay the groups and variants; you do not say which version is right.
 - protocol_gaps finds experiments with no protocol attached at all, or where an attachment references a (method_id, owner) pair that does not exist in the lab's method library. It surfaces missing documentation; the PI decides what to document.
-- methods_section assembles a roster of real method records filtered by tag, date, and/or member. It returns the protocol facts (name, type, tags, source URL, excerpt when present). You use these facts to draft a methods-section scaffold. The tool supplies the protocols; the PI writes the final prose. You never claim significance or completeness about the methods returned.`;
+- methods_section assembles a roster of real method records filtered by tag, date, and/or member. It returns the protocol facts (name, type, tags, source URL, excerpt when present). You use these facts to draft a methods-section scaffold. The tool supplies the protocols; the PI writes the final prose. You never claim significance or completeness about the methods returned.
+- reproduce_member_result reruns a named member's saved DataHub analyses on the same synced table data, using the same engine the Data Hub uses, and compares each recomputed result against the member's stored result within a numeric tolerance. It reports which analyses reproduce and which differ, with BOTH the reported and recomputed numbers. A mismatch is a numeric fact only. You relay which reproduced and which differed and the two numbers; you NEVER say a member's result is wrong or that they made an error, and you never speculate why a value differs. The PI judges what a difference means.`;
 
