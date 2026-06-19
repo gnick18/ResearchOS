@@ -32,8 +32,11 @@ import {
   buildLabShareDeepLink,
   buildPiProfileDeepLink,
   buildRequestDataDeepLink,
+  labLinkBase,
+  labSamePath,
   resolveLabRecipient,
 } from "@/lib/social/lab-collab";
+import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import type { DemoLabCard } from "@/lib/social/demo-lab";
 
 /** The app origin to use for deep links. Read from the environment at build time
@@ -65,7 +68,13 @@ export default function LabCollaborationActions({
   if (!recipient) return null;
 
   const piHandle = card.pi.handle;
-  const peopleHref = `/${card.slug}/people`;
+  // Same-origin People link: slug-less on the subdomain, slug-prefixed on the app
+  // origin (the proxy already prepends the slug on the subdomain, so /<slug>/people
+  // there would double it and 404).
+  const peopleHref = labSamePath(
+    labLinkBase(card.slug, LAB_SITES_COM_ORIGIN_ENABLED),
+    "people",
+  );
   const shareHref = buildLabShareDeepLink(APP_ORIGIN, card.slug);
   const reachOutHref = buildPiProfileDeepLink(APP_ORIGIN, piHandle);
   const requestHref = buildRequestDataDeepLink(APP_ORIGIN, piHandle);

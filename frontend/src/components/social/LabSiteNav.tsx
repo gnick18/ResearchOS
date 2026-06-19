@@ -17,6 +17,8 @@
 
 import Link from "next/link";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
+import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
+import { labLinkBase, labSamePath } from "@/lib/social/lab-collab";
 
 /** Human-readable label for a page path. "Home" for the root, otherwise title
  *  (with "Paper companion" shortened to "Papers" for top-level nav width). */
@@ -50,13 +52,18 @@ export default function LabSiteNav({
 }) {
   if (pages.length === 0) return null;
 
+  // Same-origin links must be slug-less on the cookie-isolated subdomain (the slug
+  // is already the host there) and slug-prefixed on the app origin. Without this
+  // the subdomain doubled the slug (<slug>.research-os.com/<slug>/people) and 404ed.
+  const linkBase = labLinkBase(slug, LAB_SITES_COM_ORIGIN_ENABLED);
+
   return (
     <nav
       aria-label="Lab site pages"
       className="mb-5 flex flex-wrap gap-1.5"
     >
       {pages.map((entry) => {
-        const href = entry.path === "" ? `/${slug}` : `/${slug}/${entry.path}`;
+        const href = labSamePath(linkBase, entry.path);
         const isActive = entry.path === currentPath;
         return (
           <Link

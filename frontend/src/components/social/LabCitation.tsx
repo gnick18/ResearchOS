@@ -17,6 +17,7 @@ import { useCallback, useState } from "react";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import { labSiteOrigin } from "@/lib/social/lab-byo";
 import type { DemoLabCard } from "@/lib/social/demo-lab";
 
 export default function LabCitation({
@@ -36,14 +37,13 @@ export default function LabCitation({
 }) {
   const [copied, setCopied] = useState(false);
 
-  // Build the URL from the current window location so the citation always
-  // reflects the actual serving origin (app-origin before the .com cutover,
-  // subdomain after). SSR-safe: the copy button is client-only.
+  // Cite the lab's canonical permanent address, the cookie-isolated subdomain
+  // (labSiteOrigin = https://<slug>.research-os.com), regardless of which origin
+  // currently serves the page. Using window.location.origin + "/" + slug doubled
+  // the slug on the subdomain (.../fakeyeast-lab.research-os.com/fakeyeast-lab) and
+  // produced a wrong citation. The subdomain is the address we promise stays stable.
   const buildCitation = useCallback((): string => {
-    const labUrl =
-      typeof window !== "undefined"
-        ? `${window.location.origin}/${card.slug}`
-        : `https://research-os.app/${card.slug}`;
+    const labUrl = labSiteOrigin(card.slug);
 
     const isCompanion =
       pagePath === "papers" || pagePath.startsWith("papers/");
