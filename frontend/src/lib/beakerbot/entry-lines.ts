@@ -189,3 +189,46 @@ export function buildReturningLines(ctx: {
 
   return lines;
 }
+
+// ─── Splash headline: the short, contextual top line ─────────────────────────
+
+/** Activity count above which the splash headline calls the day "busy". A small
+ *  threshold so it only fires when there is genuinely a lot on the bench, not for
+ *  a folder with one or two open items. */
+const BUSY_THRESHOLD = 3;
+
+/**
+ * The short, contextual headline shown in the splash's top "Welcome back" slot
+ * for a RETURNING user. Varies by time of day AND by how much the user has on
+ * (open tasks + active experiments), so the line feels alive rather than static.
+ * Pure + deterministic given the hour + stats, so it is unit-testable.
+ *
+ * Tasteful, deliberately small set (caller uppercases it, so it stays a short
+ * label, never a sentence). House voice: no em-dashes, no emojis, no
+ * mid-sentence colons. No trailing period (it is a label, like "Welcome back").
+ *
+ *   late night            -> "Midnight oil?"
+ *   busy morning / midday  -> "Busy day ahead"
+ *   otherwise              -> time-of-day greeting
+ *
+ * The new-user (no name) case is handled by the splash itself, not here.
+ */
+export function buildSplashHeadline(ctx: {
+  hour: number;
+  stats: UserStatsSummary | null;
+}): string {
+  const { hour, stats } = ctx;
+
+  // Late night gets a gentle, knowing nod regardless of load.
+  if (hour >= 23 || hour < 5) return "Midnight oil?";
+
+  // A busy morning / midday acknowledges the load. Gated to the first half of the
+  // day so "ahead" reads right (a heavy evening is not a day still ahead).
+  const load = (stats?.tasks ?? 0) + (stats?.experiments ?? 0);
+  if (hour < 14 && load >= BUSY_THRESHOLD) return "Busy day ahead";
+
+  // Otherwise a plain time-of-day greeting.
+  if (hour < 12) return "Good morning";
+  if (hour < 18) return "Good afternoon";
+  return "Good evening";
+}
