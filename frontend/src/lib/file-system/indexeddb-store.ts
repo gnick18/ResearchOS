@@ -923,21 +923,44 @@ function activeFolderKey(scope: string | null): string {
   return scope ? ACTIVE_FOLDER_KEY + "::" + scope : ACTIVE_FOLDER_KEY;
 }
 
+/** The kind of folder a remembered entry represents, cached so the switcher can
+ *  label it without opening each folder. Mirrors the per-folder user-settings
+ *  identity: a SOLO folder has no lab, a LAB-HEAD folder is the head's own lab
+ *  home, a LAB-MEMBER folder is the app-managed OPFS cache for a lab the account
+ *  joined. Absent on legacy rows (treated as "solo" by the UI). */
+export type RememberedFolderLabRole = "solo" | "head" | "member";
+
 /** A folder the app remembers, as surfaced to the UI. The `handle` is hydrated
  *  from the `handles` object store on read; the rest is metadata persisted in
- *  idb-keyval. */
+ *  idb-keyval.
+ *
+ *  Lab-as-folder (P1) caches the folder's per-folder lab identity (role, labId,
+ *  labName) on the meta row so the folder switcher can render Solo / "X - head" /
+ *  "Y - member" labels without opening each folder to read its settings.json.
+ *  All three lab fields are optional and additive: a row written before this
+ *  feature has none of them and the switcher treats it as solo. */
 export interface RememberedFolder {
   id: string;
   name: string;
   lastOpenedAt: number;
   handle: FileSystemDirectoryHandle;
+  /** Cached lab role for labeling. Absent on legacy rows (treat as "solo"). */
+  labRole?: RememberedFolderLabRole;
+  /** Cached lab id this folder belongs to (head or member). Absent for solo. */
+  labId?: string;
+  /** Cached cosmetic lab name for the switcher label. Absent when unknown. */
+  labName?: string;
 }
 
-/** Persisted metadata row (no handle — the handle lives in the object store). */
+/** Persisted metadata row (no handle, the handle lives in the object store). The
+ *  lab fields are optional + additive so legacy rows deserialize unchanged. */
 interface RememberedFolderMeta {
   id: string;
   name: string;
   lastOpenedAt: number;
+  labRole?: RememberedFolderLabRole;
+  labId?: string;
+  labName?: string;
 }
 
 /** Generate a stable, collision-resistant folder id. We cannot derive a sync
@@ -1162,7 +1185,17 @@ export async function listRememberedFolders(): Promise<RememberedFolder[]> {
     const handle = await getFolderHandle(m.id);
     if (!handle) continue;
     if (handle.name === FIXTURE_HANDLE_SENTINEL) continue;
-    out.push({ id: m.id, name: m.name, lastOpenedAt: m.lastOpenedAt, handle });
+    out.push({
+      id: m.id,
+      name: m.name,
+      lastOpenedAt: m.lastOpenedAt,
+      handle,
+      // Surface the cached lab identity for switcher labeling. Spread only the
+      // keys that are present so a legacy row stays shape-identical to before.
+      ...(m.labRole !== undefined ? { labRole: m.labRole } : {}),
+      ...(m.labId !== undefined ? { labId: m.labId } : {}),
+      ...(m.labName !== undefined ? { labName: m.labName } : {}),
+    });
   }
   out.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
   return out;
@@ -1265,6 +1298,114 @@ export async function rememberFolder(
     // best-effort
   }
   return activeId;
+}
+
+/** Lab identity to cache on a remembered-folder row for switcher labeling. */
+export interface RememberedFolderLabMeta {
+  labRole: RememberedFolderLabRole;
+  labId?: string;
+  labName?: string;
+}
+
+/**
+ * Lab-as-folder (P1). Remember an app-MANAGED (OPFS) folder that the join flow
+ * just provisioned for a lab, cache its lab identity for the switcher, and make
+ * it active. This is the managed-folder analog of rememberFolder: it does NOT run
+ * the isSameEntry dedupe (a managed OPFS folder is minted fresh by the caller and
+ * keyed by labId, so there is nothing to dedupe against), and it writes the lab
+ * meta fields onto the new row.
+ *
+ * If a managed row for the SAME labId already exists in this scope (a re-join, or
+ * the OPFS folder was minted again), its handle is refreshed and its lab meta is
+ * updated in place instead of adding a duplicate. Returns the active folder id.
+ *
+ * No-op (returns "") in a demo tab, mirroring rememberFolder.
+ */
+export async function rememberManagedFolder(
+  handle: FileSystemDirectoryHandle,
+  labMeta: RememberedFolderLabMeta,
+): Promise<string> {
+  if (isDemoTab()) return "";
+  if (handle.name === FIXTURE_HANDLE_SENTINEL) return "";
+  const scope = await getFolderRegistryScope();
+  await migrateLegacyFolderIfNeeded(scope);
+
+  const metas = await readFolderMetas(scope);
+  const now = Date.now();
+
+  // Dedupe by labId so a re-join refreshes the existing managed row rather than
+  // stacking duplicates. Only managed (member/head) rows carry a labId.
+  const matchId = labMeta.labId
+    ? (metas.find((m) => m.labId === labMeta.labId)?.id ?? null)
+    : null;
+
+  let activeId: string;
+  if (matchId) {
+    activeId = matchId;
+    await putFolderHandle(matchId, handle);
+    const next = metas.map((m) =>
+      m.id === matchId
+        ? {
+            ...m,
+            name: handle.name,
+            lastOpenedAt: now,
+            labRole: labMeta.labRole,
+            labId: labMeta.labId,
+            labName: labMeta.labName,
+          }
+        : m,
+    );
+    await writeFolderMetas(scope, next);
+  } else {
+    activeId = makeFolderId();
+    await putFolderHandle(activeId, handle);
+    const row: RememberedFolderMeta = {
+      id: activeId,
+      name: handle.name,
+      lastOpenedAt: now,
+      labRole: labMeta.labRole,
+      labId: labMeta.labId,
+      labName: labMeta.labName,
+    };
+    await writeFolderMetas(scope, [row, ...metas]);
+  }
+
+  try {
+    await set(activeFolderKey(scope), activeId);
+  } catch {
+    // best-effort
+  }
+  return activeId;
+}
+
+/**
+ * Update the cached lab identity (role, labId, labName) on an already-remembered
+ * folder so the switcher can relabel it without opening the folder. Used when a
+ * folder's lab identity is discovered or changes after it was first remembered.
+ * Pure meta update, no handle or active-pointer change. No-op in a demo tab or
+ * when the id is not in the current scope.
+ */
+export async function setRememberedFolderLabMeta(
+  id: string,
+  labMeta: RememberedFolderLabMeta,
+): Promise<void> {
+  if (isDemoTab()) return;
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
+  if (!metas.some((m) => m.id === id)) return;
+  await writeFolderMetas(
+    scope,
+    metas.map((m) =>
+      m.id === id
+        ? {
+            ...m,
+            labRole: labMeta.labRole,
+            labId: labMeta.labId,
+            labName: labMeta.labName,
+          }
+        : m,
+    ),
+  );
 }
 
 /** Make an already-remembered folder the active one and bump its lastOpenedAt.

@@ -21,6 +21,7 @@ import { Icon } from "@/components/icons/Icon";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
+import { folderLabLabel } from "@/lib/file-system/folder-lab-label";
 
 /** Format a lastOpenedAt timestamp as a short, calm relative string. */
 function relativeOpened(ts: number): string {
@@ -277,7 +278,13 @@ export default function FolderSwitcher({
                     )}
                   </span>
                   <span className="block truncate text-meta text-foreground-muted">
-                    {isActive ? "Active folder" : relativeOpened(f.lastOpenedAt)}
+                    {/* Lab-as-folder (P1): show the cached lab identity (Solo /
+                        "X - head" / "Y - member") so the switcher reads as a lab
+                        switcher, followed by the active / last-opened status. A
+                        legacy row with no cached lab role labels as "Solo", so a
+                        pre-feature folder set is unchanged. */}
+                    {folderLabLabel(f)} &middot;{" "}
+                    {isActive ? "Active" : relativeOpened(f.lastOpenedAt)}
                   </span>
                 </span>
               </button>
