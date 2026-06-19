@@ -21,6 +21,20 @@ import type { AiTool } from "./types";
 import { COORDINATION_TOOLS } from "./registry";
 import { readLabMembersWork } from "@/lib/lab/lab-scoped-read";
 import { searchLabIndex } from "@/lib/lab/lab-index-search";
+import {
+  oneOnOnesApi,
+  labApi,
+  checkinRotationsApi,
+  checkinOnboardingApi,
+  idpsApi,
+} from "@/lib/local-api";
+import type {
+  OneOnOne,
+  OneOnOneActionItem,
+  Note,
+  CheckinRotation,
+  CheckinOnboarding,
+} from "@/lib/types";
 
 // ---------------------------------------------------------------------------
 // Dep types for each tool factory
@@ -396,7 +410,7 @@ export function makeLabThroughputTool(deps: LabThroughputDeps): AiTool {
 }
 
 // ---------------------------------------------------------------------------
-// Default instances (real deps)
+// Default instances (real deps) -- Phase 1
 // ---------------------------------------------------------------------------
 
 export const labPulseTool = makeLabPulseTool({ readWork: readLabMembersWork });
@@ -407,19 +421,541 @@ export const labThroughputTool = makeLabThroughputTool({
   readWork: readLabMembersWork,
 });
 
+// ===========================================================================
+// Phase 2: Mentorship tools
+// ===========================================================================
+//
+// These three tools support the PI's mentoring work: preparing for a one-on-one
+// meeting, preparing the lab's group meeting (resolving the presenter rotation),
+// and setting up the mentorship space + onboarding checklist for a new member.
+//
+// Audit path: only reads that go through readLabMembersWork (readWork) write
+// audit entries. The 1:1, IDP-status, and rotation reads are shared-space or
+// existence-only reads (the PI is already a member of those spaces, or they are
+// reading an existence flag with no content), so they do not produce separate
+// audit entries.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Dep types -- Phase 2
+// ---------------------------------------------------------------------------
+
+export interface PrepOneOnOneDeps {
+  readWork: typeof readLabMembersWork;
+  listOneOnOnes: () => Promise<OneOnOne[]>;
+  getActionItems: (spaceId: string) => Promise<OneOnOneActionItem[]>;
+  getMeetingNotes: (spaceId: string) => Promise<Note[]>;
+  getIdpStatus: (
+    username: string,
+  ) => Promise<{ exists: boolean; updated_at: string | null }>;
+}
+
+export interface LabMeetingPrepDeps {
+  readWork: typeof readLabMembersWork;
+  listOneOnOnes: () => Promise<OneOnOne[]>;
+  getRotation: (spaceId: string) => Promise<CheckinRotation | null>;
+}
+
+export interface OnboardMemberDeps {
+  createOneOnOne: (params: {
+    members: string[];
+    mentor?: string | null;
+    title?: string | null;
+  }) => Promise<OneOnOne>;
+  createOnboardingForSpace: (spaceId: string) => Promise<CheckinOnboarding>;
+}
+
+// ---------------------------------------------------------------------------
+// prep_one_on_one (factory)
+// ---------------------------------------------------------------------------
+
+export function makePrepOneOnOneTool(deps: PrepOneOnOneDeps): AiTool {
+  return {
+    name: "prep_one_on_one",
+    description:
+      "Assemble a structured one-on-one meeting prep for a specific trainee. Returns the trainee's recent shared work (counts by type and record titles), their open action items from the 1:1 space, the last check-in date, what has changed since that check-in, their next scheduled meeting date, and whether an IDP exists and when it was last updated (never its contents). The model uses these facts to draft an agenda; the tool supplies only facts. Lab-head only. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        trainee: {
+          type: "string",
+          description: "The trainee's username (required).",
+        },
+        sinceDays: {
+          type: "number",
+          description:
+            "How many days back to look for recent work. Default 30 (one month).",
+        },
+      },
+      required: ["trainee"],
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const trainee =
+        typeof args.trainee === "string" ? args.trainee.trim() : "";
+      const sinceDays =
+        typeof args.sinceDays === "number" ? args.sinceDays : 30;
+
+      if (!trainee) {
+        return {
+          hasLab: false,
+          note: "trainee is required.",
+        };
+      }
+
+      // 1. Audited lab-scoped read. The audit entry is written per member by
+      //    readLabMembersWork; we then filter to the trainee in memory (no
+      //    single-member param exists on the API).
+      const workResult = await deps.readWork({});
+      if (!workResult.ok) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "Lab data is not available. Either this account is not a lab head or the lab is not reachable.",
+        };
+      }
+
+      const memberEntry = workResult.members.find((m) => m.owner === trainee);
+      if (!memberEntry) {
+        return {
+          hasLab: false,
+          note: `Trainee "${trainee}" was not found in the lab's synced membership. Confirm the username and that they have synced at least once.`,
+        };
+      }
+
+      const now = new Date();
+
+      // Collect recent records within the window.
+      const recentRecords = memberEntry.records.filter((r) => {
+        const parsed = parseRecord(r.plaintext);
+        return parsed !== null && isWithinDays(parsed, sinceDays, now);
+      });
+
+      // Count by type.
+      let experiments = 0;
+      let notes = 0;
+      let results = 0;
+      let tasksDone = 0;
+      let tasksOverdue = 0;
+      const recentTitles: string[] = [];
+
+      for (const r of recentRecords) {
+        const parsed = parseRecord(r.plaintext);
+        if (!parsed) continue;
+        const type = r.recordType;
+        if (type === "experiment" || type === "task_experiment") {
+          experiments += 1;
+        } else if (type === "notes_sheet" || type === "note") {
+          notes += 1;
+        } else if (type === "result_sheet" || type === "result") {
+          results += 1;
+        } else if (type === "task" || type === "list_task") {
+          const status = (parsed.status as string | undefined) ?? "";
+          const dueDate = (parsed.due_date as string | undefined) ?? "";
+          if (status === "done" || status === "completed") {
+            tasksDone += 1;
+          } else if (dueDate) {
+            const due = new Date(dueDate);
+            if (!isNaN(due.getTime()) && due < now) {
+              tasksOverdue += 1;
+            }
+          }
+        }
+        // Collect title when present.
+        const title =
+          (parsed.title as string | undefined) ??
+          (parsed.name as string | undefined);
+        if (title) recentTitles.push(title);
+      }
+
+      // 2. 1:1 space: list all spaces the viewer participates in and find the
+      //    pair space with the trainee. Not a new audited read; oneOnOnesApi.list
+      //    returns only spaces the current user is already a member of.
+      const spaces = await deps.listOneOnOnes();
+      // Prefer a "pair" space containing the trainee. If multiple exist take the
+      // one with a next_meeting_date, otherwise the first.
+      const traineeSpaces = spaces.filter(
+        (s) => Array.isArray(s.members) && s.members.includes(trainee),
+      );
+      const pairSpaces = traineeSpaces.filter((s) => s.kind === "pair");
+      const candidates = pairSpaces.length > 0 ? pairSpaces : traineeSpaces;
+      const space =
+        candidates.find((s) => s.next_meeting_date) ?? candidates[0] ?? null;
+
+      let lastMeetingDate: string | null = null;
+      let nextMeetingDate: string | null = null;
+      let openActionItems: Array<{
+        text: string;
+        assignee?: string | null;
+        due_date?: string | null;
+      }> = [];
+      let changedSinceLastMeetingCount = 0;
+
+      if (space) {
+        nextMeetingDate = space.next_meeting_date ?? null;
+
+        // 3. Open action items from the 1:1 space. This is a shared-space read;
+        //    the PI is already a member so no additional audit entry is written.
+        const allItems = await deps.getActionItems(space.id);
+        openActionItems = allItems
+          .filter((item) => !item.is_done)
+          .map((item) => ({
+            text: item.text,
+            assignee: item.assignee ?? null,
+            due_date: item.due_date ?? null,
+          }));
+
+        // 4. Last check-in: meeting notes sorted newest-first.
+        const allNotes = await deps.getMeetingNotes(space.id);
+        const meetingNotes = allNotes
+          .filter((n) => n.note_kind === "meeting")
+          .sort((a, b) => (a.updated_at < b.updated_at ? 1 : -1));
+        lastMeetingDate = meetingNotes[0]?.updated_at ?? null;
+
+        // What changed since last check-in: records updated after that date.
+        if (lastMeetingDate) {
+          const lastMeetingMs = new Date(lastMeetingDate).getTime();
+          changedSinceLastMeetingCount = memberEntry.records.filter((r) => {
+            const parsed = parseRecord(r.plaintext);
+            if (!parsed) return false;
+            const stamp =
+              (parsed.updated_at as string | undefined) ??
+              (parsed.updatedAt as string | undefined) ??
+              (parsed.created_at as string | undefined);
+            if (!stamp) return false;
+            const d = new Date(stamp);
+            return !isNaN(d.getTime()) && d.getTime() > lastMeetingMs;
+          }).length;
+        }
+      }
+
+      // 5. IDP status: existence + updated_at only (never contents). NSF
+      //    compliance: the PI sees only that a plan exists. This is an
+      //    existence-only read on the trainee's shared data -- not an audited
+      //    lab-scoped record pull.
+      const idpStatus = await deps.getIdpStatus(trainee);
+
+      return {
+        hasLab: true,
+        trainee,
+        sinceDays,
+        lastMeetingDate,
+        nextMeetingDate,
+        openActionItems,
+        recentWork: {
+          experiments,
+          notes,
+          results,
+          tasksDone,
+          tasksOverdue,
+          recentTitles: recentTitles.slice(0, 10),
+        },
+        changedSinceLastMeeting: { count: changedSinceLastMeetingCount },
+        idp: {
+          exists: idpStatus.exists,
+          updatedAt: idpStatus.updated_at,
+        },
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// lab_meeting_prep (factory)
+// ---------------------------------------------------------------------------
+
+export function makeLabMeetingPrepTool(deps: LabMeetingPrepDeps): AiTool {
+  return {
+    name: "lab_meeting_prep",
+    description:
+      "Assemble a lab meeting prep brief. Resolves the current presenter from the group check-in space's rotation (or uses an explicit presenter override), then surfaces that person's recent shared work (counts + titles). Pass spaceId to target a specific group space; otherwise the first group space (3+ members) is used. Pass track to select a named rotation track (defaults to the first). The model drafts the meeting outline from the returned facts. Lab-head only. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        spaceId: {
+          type: "string",
+          description:
+            "The group check-in space id. Omit to use the first group space found.",
+        },
+        presenter: {
+          type: "string",
+          description:
+            "Override the rotation and use this username as the presenter.",
+        },
+        track: {
+          type: "string",
+          description:
+            "The rotation track name to use (e.g. 'Data presentation'). Defaults to the first track.",
+        },
+        sinceDays: {
+          type: "number",
+          description:
+            "How many days back to look for recent presenter work. Default 30.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const spaceIdArg =
+        typeof args.spaceId === "string" ? args.spaceId.trim() : "";
+      const presenterOverride =
+        typeof args.presenter === "string" ? args.presenter.trim() : "";
+      const trackArg =
+        typeof args.track === "string" ? args.track.trim() : "";
+      const sinceDays =
+        typeof args.sinceDays === "number" ? args.sinceDays : 30;
+
+      // 1. Audited lab-scoped read first (preserves audit ordering).
+      const workResult = await deps.readWork({});
+      if (!workResult.ok) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "Lab data is not available. Either this account is not a lab head or the lab is not reachable.",
+        };
+      }
+
+      // 2. Resolve the group space. Not a new audited read; list only returns
+      //    spaces the PI is already a member of.
+      let resolvedSpaceId = spaceIdArg;
+      if (!resolvedSpaceId) {
+        const spaces = await deps.listOneOnOnes();
+        const groupSpace = spaces.find(
+          (s) => s.kind === "group" || (Array.isArray(s.members) && s.members.length >= 3),
+        );
+        if (!groupSpace) {
+          return {
+            hasLab: true,
+            note: "No group check-in space was found. Create a group check-in space to enable lab meeting prep.",
+            presenter: null,
+            rotation: null,
+            recentWork: null,
+          };
+        }
+        resolvedSpaceId = groupSpace.id;
+      }
+
+      // 3. Presenter and rotation.
+      let presenter = presenterOverride || null;
+      let rotationContext: {
+        track: string;
+        order: string[];
+        currentIndex: number;
+      } | null = null;
+
+      if (!presenter) {
+        const rotation = await deps.getRotation(resolvedSpaceId);
+        if (!rotation || rotation.tracks.length === 0) {
+          return {
+            hasLab: true,
+            note: "No rotation found for this group space. Start a rotation to enable automatic presenter resolution.",
+            presenter: null,
+            rotation: null,
+            recentWork: null,
+          };
+        }
+        const track = trackArg
+          ? (rotation.tracks.find((t) => t.name === trackArg) ?? rotation.tracks[0])
+          : rotation.tracks[0];
+        if (track.order.length === 0) {
+          return {
+            hasLab: true,
+            note: "The rotation track has no members in its order list.",
+            presenter: null,
+            rotation: null,
+            recentWork: null,
+          };
+        }
+        presenter = track.order[track.current_index] ?? track.order[0];
+        rotationContext = {
+          track: track.name,
+          order: track.order,
+          currentIndex: track.current_index,
+        };
+      }
+
+      // 4. Presenter's recent work: filter from the already-read lab data.
+      const memberEntry = workResult.members.find((m) => m.owner === presenter);
+      const now = new Date();
+      let experiments = 0;
+      let notes = 0;
+      let results = 0;
+      const recentTitles: string[] = [];
+
+      if (memberEntry) {
+        for (const r of memberEntry.records) {
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed || !isWithinDays(parsed, sinceDays, now)) continue;
+          const type = r.recordType;
+          if (type === "experiment" || type === "task_experiment") {
+            experiments += 1;
+          } else if (type === "notes_sheet" || type === "note") {
+            notes += 1;
+          } else if (type === "result_sheet" || type === "result") {
+            results += 1;
+          }
+          const title =
+            (parsed.title as string | undefined) ??
+            (parsed.name as string | undefined);
+          if (title) recentTitles.push(title);
+        }
+      }
+
+      return {
+        hasLab: true,
+        presenter,
+        spaceId: resolvedSpaceId,
+        sinceDays,
+        rotation: rotationContext,
+        recentWork: {
+          experiments,
+          notes,
+          results,
+          recentTitles: recentTitles.slice(0, 10),
+        },
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// onboard_member (factory)
+// ---------------------------------------------------------------------------
+
+export function makeOnboardMemberTool(deps: OnboardMemberDeps): AiTool {
+  return {
+    name: "onboard_member",
+    description:
+      "Set up onboarding for an EXISTING lab member: create a one-on-one mentorship space (the PI is auto-included as the creator) and seed a starter onboarding checklist (~5 items). The member must already be in the lab; member provisioning and invite links use a separate flow. This is an ACTION that runs only after the PI confirms. Non-destructive.",
+    parameters: {
+      type: "object",
+      properties: {
+        member: {
+          type: "string",
+          description: "The existing lab member's username (required).",
+        },
+        title: {
+          type: "string",
+          description:
+            "Optional title for the mentorship space. Defaults to 'Onboarding <member>'.",
+        },
+      },
+      required: ["member"],
+      additionalProperties: false,
+    },
+    action: true,
+    isDestructive: () => false,
+    describeAction: (args) => {
+      const member =
+        typeof args.member === "string" ? args.member.trim() : "(unknown)";
+      return {
+        summary: `Set up onboarding for ${member}: create a one-on-one mentorship space and seed a starter onboarding checklist.`,
+      };
+    },
+    execute: async (args) => {
+      const member =
+        typeof args.member === "string" ? args.member.trim() : "";
+      const title =
+        typeof args.title === "string" && args.title.trim()
+          ? args.title.trim()
+          : null;
+
+      if (!member) {
+        return { ok: false, error: "member is required." };
+      }
+
+      // Create the 1:1 space. oneOnOnesApi.create auto-inserts the current user
+      // (the PI) as members[0], so passing [member] is correct -- the PI is
+      // force-included by the API and becomes the creator + owner. The PI is set
+      // as the mentor because they are auto-inserted into members[].
+      //
+      // NOTE: protocol assignment and inventory provisioning are DEFERRED.
+      // No method-assignment or blank-member-create API exists; members join
+      // via invite. This tool only sets up the mentorship space + checklist.
+      // Protocol assignment is a future enhancement once an assignment API ships.
+      let space: OneOnOne;
+      try {
+        space = await deps.createOneOnOne({
+          members: [member],
+          // mentor is resolved to null here because we cannot call the PI's
+          // username synchronously; the create impl auto-includes the PI in
+          // members[] so the caller's UI can set mentor after creation if needed.
+          mentor: null,
+          title: title ?? `Onboarding ${member}`,
+        });
+      } catch (err) {
+        return {
+          ok: false,
+          error: err instanceof Error ? err.message : String(err),
+        };
+      }
+
+      // Seed the onboarding checklist. Idempotent: returns the existing one if
+      // already present.
+      let checklistSeeded = false;
+      try {
+        await deps.createOnboardingForSpace(space.id);
+        checklistSeeded = true;
+      } catch (err) {
+        // The space was created successfully; log the checklist failure but do
+        // not surface it as a fatal error so the PI still gets the space id.
+        console.warn("[onboard_member] checklist seed failed:", err);
+      }
+
+      return {
+        ok: true,
+        spaceId: space.id,
+        member,
+        checklistSeeded,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instances (real deps) -- Phase 2
+// ---------------------------------------------------------------------------
+
+export const prepOneOnOneTool = makePrepOneOnOneTool({
+  readWork: readLabMembersWork,
+  listOneOnOnes: () => oneOnOnesApi.list(),
+  getActionItems: (spaceId) => labApi.getOneOnOneActionItems(spaceId),
+  getMeetingNotes: (spaceId) => labApi.getOneOnOneNotes(spaceId),
+  getIdpStatus: (username) => idpsApi.getStatusForMember(username),
+});
+
+export const labMeetingPrepTool = makeLabMeetingPrepTool({
+  readWork: readLabMembersWork,
+  listOneOnOnes: () => oneOnOnesApi.list(),
+  getRotation: (spaceId) => checkinRotationsApi.getForSpace(spaceId),
+});
+
+export const onboardMemberTool = makeOnboardMemberTool({
+  createOneOnOne: (params) => oneOnOnesApi.create(params),
+  createOnboardingForSpace: (spaceId) =>
+    checkinOnboardingApi.createForSpace(spaceId),
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 /**
- * The lab-head Phase 1 tool set (oversight). All three are read-only and go
- * through the audited lab-scoped read / index-search engines. Surfaced on the
+ * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship). All read-only
+ * tools go through the audited lab-scoped read / index-search engines.
+ * onboard_member is the one consented action (non-destructive). Surfaced on the
  * /lab-overview BeakerBot mount, not in the global research-shell tool set.
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
   findAcrossLabTool,
   labThroughputTool,
+  prepOneOnOneTool,
+  labMeetingPrepTool,
+  onboardMemberTool,
 ];
 
 /**
@@ -442,21 +978,28 @@ export const LAB_HEAD_SCOPE_TOOLS: AiTool[] = [
  */
 export const LAB_HEAD_SYSTEM_PROMPT = `You are BeakerBot, the assistant built into the ResearchOS lab-overview surface.
 
-You help a LAB HEAD (PI) with lab oversight. Your job is to surface what is happening across the lab: who is active, what is new, what is stalled, how productive the lab has been, and what members are working on. You do NOT see, read, or discuss anything except what the audited lab-scoped read and search tools return. You do NOT reach into any member's private (unsynced) work. You only surface the lab's SYNCED shared workspace.
+You help a LAB HEAD (PI) with lab oversight and mentorship. Your job is to surface what is happening across the lab: who is active, what is new, what is stalled, how productive the lab has been, what members are working on, and to help prepare for individual and group mentoring meetings.
+
+You do NOT see, read, or discuss anything except what the audited lab-scoped read and search tools return. You do NOT reach into any member's private (unsynced) work. You only surface the lab's SYNCED shared workspace.
 
 How you answer:
 - Calm, concrete, concise. State counts and dates plainly; explain what a metric means before you report it. Do not pad.
 - Do not use em-dashes. Do not use emojis. Do not drop a colon mid-sentence to introduce a clause or a list. Recast with a comma or a period. A label at the start of a line is fine.
 
 You surface facts, you never interpret:
-- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput) and answer only from what it returned. The tool owns every number; you relay it.
+- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status. You do not know any of it from memory.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
 
 The no-interpretation rule is absolute:
 - "Stalled" means a record has seen no update in the configured window (deterministic, a calendar fact). You report the count and the threshold; the PI judges what it means for each person.
-- You never say a member is behind, underperforming, or struggling. You never rank members by worth. You state the figures and stop.
+- For mentorship: the tools surface a trainee's OWN shared work, their open action items, and what changed since the last check-in. You relay these facts. You NEVER say a member is behind, underperforming, struggling, or ahead. You never rank members by worth. You state the figures and stop.
 - You never add a verdict or a recommendation about a person's work ethic, productivity, or capability.
 
 Reads are audited:
-- Every lab-scoped read writes an audit entry to each member's own audit log so they can see what the PI's tools surfaced about them. This is by design; transparency is part of the trust contract. If a user asks why a read was logged, explain this plainly.`;
+- Every lab-scoped read (readWork) writes an audit entry to each member's own audit log so they can see what the PI's tools surfaced about them. This is by design; transparency is part of the trust contract. The 1:1 space, IDP-status, and rotation reads are shared-space or existence-only reads and do not produce separate audit entries.
+- If a user asks why a read was logged, explain this plainly.
+
+Actions are consented:
+- onboard_member creates a one-on-one mentorship space and seeds a starter onboarding checklist for an EXISTING lab member. It runs only after the PI confirms, it is non-destructive, and it never provisions or invites a new account automatically. Member invites use the separate invite flow.`;
+
