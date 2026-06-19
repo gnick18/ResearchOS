@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
+import { SpecialThanksBanner } from "@/components/library/SpecialThanksBanner";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
@@ -98,6 +99,9 @@ export default function AssetLibraryLanding() {
   return (
     <div className="min-h-dvh bg-surface text-foreground">
       <MarketingNav />
+
+      {/* Special thanks to open-source libraries */}
+      <SpecialThanksBanner />
 
       {/* Hero */}
       <section className="relative overflow-hidden">

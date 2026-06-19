@@ -1,0 +1,87 @@
+/* Special Thanks banner for the asset library landing page.
+   Mascot bobs gently toward the heart (slow lean + lift) and the heart
+   thumps with a double-beat cardiac rhythm. Both animations respect
+   prefers-reduced-motion.
+
+   No em-dashes, no emojis, no mid-sentence colons. */
+
+.banner {
+  position: relative;
+  overflow: hidden;
+}
+
+/* ── Mascot wrapper ──────────────────────────────────────────────────────── */
+
+.mascotWrap {
+  position: relative;
+  display: inline-block;
+  /* Slow lean toward the heart: a gentle forward tilt + subtle lift.
+     Period is deliberately mismatched from the heartbeat so they feel
+     independent, not locked together. */
+  animation: mascotLean 3.2s ease-in-out infinite;
+  transform-origin: bottom center;
+}
+
+@keyframes mascotLean {
+  0%,
+  100% {
+    transform: rotate(0deg) translateY(0px);
+  }
+  40% {
+    transform: rotate(3deg) translateY(-4px);
+  }
+  65% {
+    transform: rotate(1.5deg) translateY(-2px);
+  }
+}
+
+/* ── Heart wrapper ───────────────────────────────────────────────────────── */
+
+.heartWrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  /* Double-thump cardiac rhythm: quick double-beat then a long rest.
+     Total period ~1.6s. */
+  animation: heartbeat 1.6s ease-in-out infinite;
+}
+
+@keyframes heartbeat {
+  0% {
+    transform: scale(1);
+  }
+  10% {
+    transform: scale(1.22);
+  }
+  20% {
+    transform: scale(1);
+  }
+  30% {
+    transform: scale(1.18);
+  }
+  40% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ── Heart glyph fill ────────────────────────────────────────────────────── */
+/* Override the Icon wrapper's default fill="none" / stroke="currentColor"
+   so the heart reads as solid warm pink (same #ff5b8a as IntroBubbleBot). */
+.heartGlyph {
+  fill: #ff5b8a;
+  stroke: #ff5b8a;
+}
+
+/* ── Reduced-motion override ─────────────────────────────────────────────── */
+
+@media (prefers-reduced-motion: reduce) {
+  .mascotWrap {
+    animation: none;
+  }
+  .heartWrap {
+    animation: none;
+  }
+}
