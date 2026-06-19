@@ -150,6 +150,8 @@ export interface PlacedAsset {
   locked?: boolean;
   /** Hidden elements are not rendered on the canvas and excluded from export. */
   hidden?: boolean;
+  /** Brand/trademark logo: render keeps original colors and the inspector hides recolor. */
+  isLogo?: boolean;
 }
 
 // ── Smart connectors (Phase 2) ────────────────────────────────────────────────
@@ -644,6 +646,7 @@ export function makePlacedAsset(
     svgPath: string;
     credit: string;
     requiresAttribution: boolean;
+    isLogo?: boolean;
   },
   xIn: number,
   yIn: number,
@@ -659,6 +662,7 @@ export function makePlacedAsset(
     hIn: sizeIn,
     credit: fields.credit,
     requiresAttribution: fields.requiresAttribution,
+    ...(fields.isLogo ? { isLogo: true } : {}),
   };
 }
 

@@ -58,6 +58,8 @@ export interface LibraryAsset {
   /** Distinct fill colors in the SVG (1 = monochrome, drives single-tint vs per-fill). */
   fills: number;
   hasViewBox: boolean;
+  /** Brand/trademark logo (Devicon). Keeps its original colors; the UI must not offer recolor. */
+  isLogo?: boolean;
   /** Contributor @handle for a community submission; null/absent for the curated seed. */
   submittedBy?: string | null;
   /** Wiki-style verification state. Absent on the curated seed (treated as "curated"). */
