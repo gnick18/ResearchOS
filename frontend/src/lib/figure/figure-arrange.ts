@@ -143,16 +143,64 @@ export function setElementTopLeft(
 
 export type AlignEdge = "left" | "centerX" | "right" | "top" | "centerY" | "bottom";
 
-/** Align a multi-selection to the selection bounding box (BioRender semantics). */
+/**
+ * Align target controls which bounding box is used as the reference for align
+ * and distribute operations.
+ *
+ * - "selection" (default): the union bounding box of the selected elements.
+ * - "page": the artboard bounding box (top-left = 0,0; size from pageWIn/pageHIn).
+ * - "key": the bounding box of the key object (the designated reference element).
+ *   The key object itself does not move.
+ */
+export type AlignTarget = "selection" | "page" | "key";
+
+/**
+ * Options for align / distribute operations that support multi-target alignment.
+ *
+ * pageWIn and pageHIn are required when target is "page".
+ * keyRef is required when target is "key" (the element others align to; it stays fixed).
+ */
+export interface AlignOptions {
+  target?: AlignTarget;
+  pageWIn?: number;
+  pageHIn?: number;
+  keyRef?: ElementRef;
+}
+
+/** Align a multi-selection to the selection bounding box (default), the page,
+ *  or a key object. */
 export function alignElements(
   page: FigurePage,
   refs: ElementRef[],
   edge: AlignEdge,
+  opts?: AlignOptions,
 ): FigurePage {
-  const u = unionBox(page, refs);
-  if (!u || refs.length < 2) return page;
+  const target = opts?.target ?? "selection";
+
+  // Determine the reference box from which alignment coordinates are derived.
+  let ref: Box | null;
+  if (target === "page") {
+    const pw = opts?.pageWIn ?? 0;
+    const ph = opts?.pageHIn ?? 0;
+    if (pw <= 0 || ph <= 0) return page;
+    ref = { xIn: 0, yIn: 0, wIn: pw, hIn: ph };
+  } else if (target === "key" && opts?.keyRef) {
+    ref = elementBox(page, opts.keyRef);
+    if (!ref) return page;
+  } else {
+    // "selection" target: use the union bounding box.
+    if (refs.length < 2) return page;
+    ref = unionBox(page, refs);
+    if (!ref) return page;
+  }
+
+  const u = ref;
+  // When aligning to the page or a key object, a single element is valid.
+  // When aligning to selection, 2+ elements are required (guarded above).
   let out = page;
   for (const r of refs) {
+    // Key object stays fixed.
+    if (target === "key" && opts?.keyRef && sameRef(r, opts.keyRef)) continue;
     const b = elementBox(out, r);
     if (!b) continue;
     let dx = 0;
@@ -168,36 +216,106 @@ export function alignElements(
   return out;
 }
 
-/** Distribute 3+ elements so the gaps between them are equal along one axis. */
+// ── Distribute axis anchors ───────────────────────────────────────────────────
+
+/**
+ * Six-way distribute axis. Each value names the edge or center anchor that is
+ * spread evenly across the selection extent:
+ *
+ * - "left" / "centerX" / "right": horizontal axis anchors.
+ * - "top"  / "centerY" / "bottom": vertical axis anchors.
+ *
+ * Illustrator calls these "Distribute Objects". The anchor positions are spaced
+ * so the chosen edge/center of element i equals firstAnchor + i * step.
+ * Requires at least 3 elements; returns the page unchanged for fewer.
+ */
+export type DistributeAnchor = "left" | "centerX" | "right" | "top" | "centerY" | "bottom";
+
+/** Sort accessor: position of an element's chosen anchor. */
+function anchorPos(b: Box, anchor: DistributeAnchor): number {
+  switch (anchor) {
+    case "left":    return b.xIn;
+    case "centerX": return b.xIn + b.wIn / 2;
+    case "right":   return b.xIn + b.wIn;
+    case "top":     return b.yIn;
+    case "centerY": return b.yIn + b.hIn / 2;
+    case "bottom":  return b.yIn + b.hIn;
+  }
+}
+
+/**
+ * Distribute 3+ elements so the chosen anchor (left/centerX/right/top/centerY/
+ * bottom) is evenly spaced across the extent defined by the outermost anchors.
+ * The two outermost elements (sorted by anchor) stay fixed; only the elements
+ * in between move. Returns the page unchanged for fewer than 3 elements.
+ */
 export function distributeElements(
   page: FigurePage,
   refs: ElementRef[],
-  axis: "horizontal" | "vertical",
+  anchor: DistributeAnchor,
 ): FigurePage {
   const withBox = refs
     .map((r) => ({ r, b: elementBox(page, r) }))
     .filter((x): x is { r: ElementRef; b: Box } => x.b !== null);
   if (withBox.length < 3) return page;
 
-  const horiz = axis === "horizontal";
-  const start = (b: Box) => (horiz ? b.xIn : b.yIn);
-  const size = (b: Box) => (horiz ? b.wIn : b.hIn);
-  const sorted = [...withBox].sort((a, b) => start(a.b) - start(b.b));
+  const sorted = [...withBox].sort((a, b) => anchorPos(a.b, anchor) - anchorPos(b.b, anchor));
+  const firstAnchor = anchorPos(sorted[0].b, anchor);
+  const lastAnchor  = anchorPos(sorted[sorted.length - 1].b, anchor);
+  const step = (lastAnchor - firstAnchor) / (sorted.length - 1);
 
-  const first = sorted[0].b;
-  const last = sorted[sorted.length - 1].b;
-  const span = start(last) + size(last) - start(first);
-  const totalSize = sorted.reduce((s, x) => s + size(x.b), 0);
-  const gap = (span - totalSize) / (sorted.length - 1);
+  const isHoriz = anchor === "left" || anchor === "centerX" || anchor === "right";
+  let out = page;
+  for (let i = 1; i < sorted.length - 1; i++) {
+    const { r, b } = sorted[i];
+    const targetAnchor = firstAnchor + i * step;
+    const currentAnchor = anchorPos(b, anchor);
+    const delta = targetAnchor - currentAnchor;
+    if (delta === 0) continue;
+    const dx = isHoriz ? delta : 0;
+    const dy = isHoriz ? 0 : delta;
+    out = translateElement(out, r, dx, dy);
+  }
+  return out;
+}
+
+/**
+ * Distribute spacing: lay out elements so the GAP between adjacent elements
+ * equals exactly gapIn inches along the given axis. The first element (by
+ * position) is fixed; each subsequent element is placed edge-to-edge from the
+ * previous one with the given gap. Requires at least 2 elements.
+ *
+ * axis "horizontal" spaces by x (left/right edges).
+ * axis "vertical"   spaces by y (top/bottom edges).
+ */
+export function distributeSpacing(
+  page: FigurePage,
+  refs: ElementRef[],
+  axis: "horizontal" | "vertical",
+  gapIn: number,
+): FigurePage {
+  const withBox = refs
+    .map((r) => ({ r, b: elementBox(page, r) }))
+    .filter((x): x is { r: ElementRef; b: Box } => x.b !== null);
+  if (withBox.length < 2) return page;
+
+  const horiz = axis === "horizontal";
+  const startOf = (b: Box) => (horiz ? b.xIn : b.yIn);
+  const sizeOf  = (b: Box) => (horiz ? b.wIn : b.hIn);
+
+  const sorted = [...withBox].sort((a, b) => startOf(a.b) - startOf(b.b));
 
   let out = page;
-  let cursor = start(first);
-  for (const { r, b } of sorted) {
-    const target = cursor;
-    const dx = horiz ? target - b.xIn : 0;
-    const dy = horiz ? 0 : target - b.yIn;
-    if (dx !== 0 || dy !== 0) out = translateElement(out, r, dx, dy);
-    cursor += size(b) + gap;
+  let cursor = startOf(sorted[0].b) + sizeOf(sorted[0].b);
+  for (let i = 1; i < sorted.length; i++) {
+    const { r, b } = sorted[i];
+    const target = cursor + gapIn;
+    const delta = target - startOf(b);
+    const dx = horiz ? delta : 0;
+    const dy = horiz ? 0 : delta;
+    if (delta !== 0) out = translateElement(out, r, dx, dy);
+    // Advance cursor using the ORIGINAL size (the element's size did not change).
+    cursor = target + sizeOf(b);
   }
   return out;
 }

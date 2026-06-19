@@ -11,7 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Icon } from "@/components/icons";
+import { Icon, type IconName } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import {
   type FigurePage,
@@ -67,11 +67,14 @@ import {
   type Box,
   type SnapGuide,
   type AlignEdge,
+  type AlignTarget,
+  type DistributeAnchor,
   sameRef,
   elementBox,
   unionBox,
   alignElements,
   distributeElements,
+  distributeSpacing,
   computeSnap,
   translateElement,
   elementsInRect,
@@ -127,9 +130,13 @@ import { CompositionPanelAdvisor } from "@/components/figure/CompositionPanelAdv
 
 const SCREEN_DPI = 96;
 
-/** Compact button used in the contextual arrange bar (align / distribute / order). */
-const ARRANGE_BTN =
-  "rounded border border-border-strong px-2 py-0.5 font-medium text-foreground hover:border-brand-action disabled:cursor-not-allowed disabled:opacity-40";
+/** Icon-only button for the Illustrator-style arrange bar. */
+const ARRANGE_ICON_BTN =
+  "flex h-7 w-7 items-center justify-center rounded border border-border-strong text-foreground hover:border-brand-action hover:text-brand-action disabled:cursor-not-allowed disabled:opacity-40 transition-colors";
+
+/** Active/selected state for the align-to toggle buttons. */
+const ARRANGE_ICON_BTN_ACTIVE =
+  "flex h-7 w-7 items-center justify-center rounded border bg-brand-action/10 border-brand-action text-brand-action transition-colors";
 
 /** Coerce a fill value to a #rrggbb hex for an <input type="color"> (fallback grey). */
 function toHex6(c: string): string {
@@ -165,20 +172,36 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const selectedAnn = single?.kind === "annotation" ? single.id : null;
   const selectedShape = single?.kind === "shape" ? single.id : null;
   const isSelectedRef = (ref: ElementRef) => selection.some((r) => sameRef(r, ref));
-  const selectRef = (ref: ElementRef, additive: boolean) =>
-    setSelection((prev) =>
-      additive
-        ? prev.some((r) => sameRef(r, ref))
-          ? prev.filter((r) => !sameRef(r, ref))
-          : [...prev, ref]
-        : [ref],
-    );
+  const selectRef = (ref: ElementRef, additive: boolean) => {
+    setSelection((prev) => {
+      if (additive) {
+        if (prev.some((r) => sameRef(r, ref))) {
+          // Removing from selection: if removed item was the key object, clear it.
+          setKeyRef((k) => (k && sameRef(k, ref) ? null : k));
+          return prev.filter((r) => !sameRef(r, ref));
+        }
+        // Adding to selection: the newly added element becomes the key object.
+        setKeyRef(ref);
+        return [...prev, ref];
+      }
+      // Plain (non-additive) click: single element; it is its own key object.
+      setKeyRef(ref);
+      return [ref];
+    });
+  };
   const clearSel = () => {
     setSelection([]);
     setSelectedConn(null);
   };
   const [undo, setUndo] = useState<FigurePage[]>([]);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Arrange bar: align-to-target toggle (persists for the session).
+  const [alignTarget, setAlignTarget] = useState<AlignTarget>("selection");
+  // Arrange bar: gap value (in inches) for the distribute-spacing controls.
+  const [spacingGapIn, setSpacingGapIn] = useState<number>(0.1);
+  // Key object: the last element clicked into the selection. Used when
+  // alignTarget = "key" (others align to this element, which stays fixed).
+  const [keyRef, setKeyRef] = useState<ElementRef | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket" | "connect">(null);
   // Smart-connector state (Phase 2). selectedConn is kept separate from the element
@@ -1161,101 +1184,235 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         />
       )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
-        {/* Contextual arrange bar: appears on selection. Align/distribute act on
-            the multi-selection; arrange (z-order) acts on each selected element. */}
+        {/* Contextual arrange bar: icon buttons matching the Illustrator Align panel.
+            Groups (separated by thin dividers):
+              [align 6] | [distribute 6] | [spacing 2 + gap input] | [align-to 3-way toggle] | [flip 2] | [arrange 4] | [group/ungroup 2] */}
         {selection.length >= 1 && (
-          <div className="flex flex-wrap items-center gap-1.5 border-b border-border bg-surface px-3 py-1.5 text-meta">
-            <span className="font-semibold text-foreground-muted">
+          <div className="flex flex-wrap items-center gap-1 border-b border-border bg-surface px-2.5 py-1.5 text-meta">
+            <span className="mr-0.5 min-w-[4.5rem] text-right font-semibold text-foreground-muted">
               {selection.length} selected
             </span>
-            <span className="mx-1 h-4 w-px bg-border" />
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Align Objects (6 buttons) */}
             {(
               [
-                ["left", "Left"],
-                ["centerX", "Center"],
-                ["right", "Right"],
-                ["top", "Top"],
-                ["centerY", "Middle"],
-                ["bottom", "Bottom"],
-              ] as [AlignEdge, string][]
-            ).map(([edge, label]) => (
+                ["left",    "alignLeft",    "Align left edges"],
+                ["centerX", "alignCenterH", "Align horizontal centers"],
+                ["right",   "alignRight",   "Align right edges"],
+                ["top",     "alignTop",     "Align top edges"],
+                ["centerY", "alignMiddle",  "Align vertical centers"],
+                ["bottom",  "alignBottom",  "Align bottom edges"],
+              ] as [AlignEdge, string, string][]
+            ).map(([edge, icon, tip]) => {
+              // Align is enabled for 2+ elements when target=selection,
+              // and for 1+ elements when targeting the page or a key object.
+              const canAlign =
+                alignTarget === "selection"
+                  ? selection.length >= 2
+                  : alignTarget === "key"
+                    ? selection.length >= 2 && keyRef !== null
+                    : selection.length >= 1;
+              return (
+                <Tooltip key={edge} label={tip}>
+                  <button
+                    type="button"
+                    disabled={!canAlign}
+                    onClick={() =>
+                      mutate(
+                        (p) =>
+                          alignElements(p, selection, edge, {
+                            target: alignTarget,
+                            pageWIn: wIn,
+                            pageHIn: hIn,
+                            keyRef: keyRef ?? undefined,
+                          }),
+                        true,
+                      )
+                    }
+                    className={ARRANGE_ICON_BTN}
+                  >
+                    <Icon name={icon as IconName} className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              );
+            })}
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Distribute Objects (6 buttons) */}
+            {(
+              [
+                ["left",    "distributeLeft",    "Distribute left edges"],
+                ["centerX", "distributeCenterH", "Distribute horizontal centers"],
+                ["right",   "distributeRight",   "Distribute right edges"],
+                ["top",     "distributeTop",     "Distribute top edges"],
+                ["centerY", "distributeCenterV", "Distribute vertical centers"],
+                ["bottom",  "distributeBottom",  "Distribute bottom edges"],
+              ] as [DistributeAnchor, string, string][]
+            ).map(([anchor, icon, tip]) => (
+              <Tooltip key={anchor} label={tip}>
+                <button
+                  type="button"
+                  disabled={selection.length < 3}
+                  onClick={() =>
+                    mutate((p) => distributeElements(p, selection, anchor), true)
+                  }
+                  className={ARRANGE_ICON_BTN}
+                >
+                  <Icon name={icon as IconName} className="h-4 w-4" />
+                </button>
+              </Tooltip>
+            ))}
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Distribute Spacing (2 buttons + gap input) */}
+            <Tooltip label="Distribute horizontal spacing">
               <button
-                key={edge}
                 type="button"
                 disabled={selection.length < 2}
-                onClick={() => mutate((p) => alignElements(p, selection, edge), true)}
-                className={ARRANGE_BTN}
+                onClick={() =>
+                  mutate((p) => distributeSpacing(p, selection, "horizontal", spacingGapIn), true)
+                }
+                className={ARRANGE_ICON_BTN}
               >
-                {label}
+                <Icon name="distributeSpaceH" className="h-4 w-4" />
               </button>
-            ))}
-            <span className="mx-1 h-4 w-px bg-border" />
-            <button
-              type="button"
-              disabled={selection.length < 3}
-              onClick={() => mutate((p) => distributeElements(p, selection, "horizontal"), true)}
-              className={ARRANGE_BTN}
-            >
-              Distribute H
-            </button>
-            <button
-              type="button"
-              disabled={selection.length < 3}
-              onClick={() => mutate((p) => distributeElements(p, selection, "vertical"), true)}
-              className={ARRANGE_BTN}
-            >
-              Distribute V
-            </button>
-            <span className="mx-1 h-4 w-px bg-border" />
-            <button
-              type="button"
-              onClick={() => mutate((p) => selection.reduce((a, r) => bringToFront(a, r), p), true)}
-              className={ARRANGE_BTN}
-            >
-              Front
-            </button>
-            <button
-              type="button"
-              onClick={() => mutate((p) => selection.reduce((a, r) => bringForward(a, r), p), true)}
-              className={ARRANGE_BTN}
-            >
-              Forward
-            </button>
-            <button
-              type="button"
-              onClick={() => mutate((p) => selection.reduce((a, r) => sendBackward(a, r), p), true)}
-              className={ARRANGE_BTN}
-            >
-              Backward
-            </button>
-            <button
-              type="button"
-              onClick={() => mutate((p) => selection.reduce((a, r) => sendToBack(a, r), p), true)}
-              className={ARRANGE_BTN}
-            >
-              Back
-            </button>
-            <span className="mx-1 h-4 w-px bg-border" />
-            <Tooltip label="Flip horizontal (mirror across vertical axis)">
+            </Tooltip>
+            <Tooltip label="Distribute vertical spacing">
+              <button
+                type="button"
+                disabled={selection.length < 2}
+                onClick={() =>
+                  mutate((p) => distributeSpacing(p, selection, "vertical", spacingGapIn), true)
+                }
+                className={ARRANGE_ICON_BTN}
+              >
+                <Icon name="distributeSpaceV" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            {/* Gap value input (inches) */}
+            <Tooltip label="Gap between elements (inches)">
+              <input
+                type="number"
+                min={0}
+                step={0.05}
+                value={spacingGapIn}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (!Number.isNaN(v) && v >= 0) setSpacingGapIn(v);
+                }}
+                className="h-7 w-14 rounded border border-border-strong px-1.5 text-meta text-foreground focus:border-brand-action focus:outline-none"
+                aria-label="Gap (in)"
+              />
+            </Tooltip>
+            <span className="text-meta text-foreground-faint">in</span>
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Align-to toggle (selection / page / key object) */}
+            <Tooltip label="Align relative to selection">
+              <button
+                type="button"
+                onClick={() => setAlignTarget("selection")}
+                className={alignTarget === "selection" ? ARRANGE_ICON_BTN_ACTIVE : ARRANGE_ICON_BTN}
+              >
+                <Icon name="alignToSelection" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align relative to page">
+              <button
+                type="button"
+                onClick={() => setAlignTarget("page")}
+                className={alignTarget === "page" ? ARRANGE_ICON_BTN_ACTIVE : ARRANGE_ICON_BTN}
+              >
+                <Icon name="alignToPage" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Align relative to key object (last element added to selection)">
+              <button
+                type="button"
+                onClick={() => setAlignTarget("key")}
+                className={alignTarget === "key" ? ARRANGE_ICON_BTN_ACTIVE : ARRANGE_ICON_BTN}
+              >
+                <Icon name="alignToKey" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Flip (2 buttons) */}
+            <Tooltip label="Flip horizontal">
               <button
                 type="button"
                 onClick={() => mutate((p) => flipElements(p, selection, "horizontal"), true)}
-                className={ARRANGE_BTN}
+                className={ARRANGE_ICON_BTN}
               >
-                Flip H
+                <Icon name="flipH" className="h-4 w-4" />
               </button>
             </Tooltip>
-            <Tooltip label="Flip vertical (mirror across horizontal axis)">
+            <Tooltip label="Flip vertical">
               <button
                 type="button"
                 onClick={() => mutate((p) => flipElements(p, selection, "vertical"), true)}
-                className={ARRANGE_BTN}
+                className={ARRANGE_ICON_BTN}
               >
-                Flip V
+                <Icon name="flipV" className="h-4 w-4" />
               </button>
             </Tooltip>
-            <span className="mx-1 h-4 w-px bg-border" />
-            <Tooltip label="Group selected elements (Cmd+G). Clicking any group member selects all.">
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Arrange / z-order (4 buttons) */}
+            <Tooltip label="Bring to front">
+              <button
+                type="button"
+                onClick={() => mutate((p) => selection.reduce((a, r) => bringToFront(a, r), p), true)}
+                className={ARRANGE_ICON_BTN}
+              >
+                <Icon name="arrangeFront" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Bring forward">
+              <button
+                type="button"
+                onClick={() => mutate((p) => selection.reduce((a, r) => bringForward(a, r), p), true)}
+                className={ARRANGE_ICON_BTN}
+              >
+                <Icon name="arrangeForward" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Send backward">
+              <button
+                type="button"
+                onClick={() => mutate((p) => selection.reduce((a, r) => sendBackward(a, r), p), true)}
+                className={ARRANGE_ICON_BTN}
+              >
+                <Icon name="arrangeBackward" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+            <Tooltip label="Send to back">
+              <button
+                type="button"
+                onClick={() => mutate((p) => selection.reduce((a, r) => sendToBack(a, r), p), true)}
+                className={ARRANGE_ICON_BTN}
+              >
+                <Icon name="arrangeBack" className="h-4 w-4" />
+              </button>
+            </Tooltip>
+
+            {/* Divider */}
+            <span className="mx-1 h-4 w-px shrink-0 bg-border" />
+
+            {/* Group / Ungroup (2 buttons) */}
+            <Tooltip label="Group selected elements (Cmd+G)">
               <button
                 type="button"
                 disabled={selection.length < 2}
@@ -1263,18 +1420,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   const gid = `g${Date.now().toString(36)}`;
                   mutate((p) => setGroupId(p, selection, gid), true);
                 }}
-                className={ARRANGE_BTN}
+                className={ARRANGE_ICON_BTN}
               >
-                Group
+                <Icon name="groupElements" className="h-4 w-4" />
               </button>
             </Tooltip>
             <Tooltip label="Ungroup selected elements (Cmd+Shift+G)">
               <button
                 type="button"
                 onClick={() => mutate((p) => setGroupId(p, selection, null), true)}
-                className={ARRANGE_BTN}
+                className={ARRANGE_ICON_BTN}
               >
-                Ungroup
+                <Icon name="ungroupElements" className="h-4 w-4" />
               </button>
             </Tooltip>
           </div>

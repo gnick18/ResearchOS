@@ -1123,6 +1123,309 @@ const ICONS_RAW = {
       <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
     ),
   },
+
+  // ── Figure Composer: Illustrator-style Align panel glyphs ──────────────────
+  // All 24x24, currentColor, outline style. The motif is a reference bar/line
+  // plus 2-3 small rectangles showing the intended alignment, matching the
+  // visual language of Illustrator's Align panel. Grant sign-off: arrange-bar
+  // redesign task (feat/figure-arrange-illustrator).
+  //
+  // Align Objects group (6 glyphs):
+  alignLeft: {
+    concept: "Align left edges of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="4" y1="3" x2="4" y2="21" strokeWidth={2} />
+        <rect x="6" y="5" width="6" height="5" rx="1" />
+        <rect x="6" y="14" width="10" height="5" rx="1" />
+      </>
+    ),
+  },
+  alignCenterH: {
+    concept: "Align horizontal centers of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="12" y1="3" x2="12" y2="21" strokeWidth={2} />
+        <rect x="6" y="5" width="12" height="4" rx="1" />
+        <rect x="8" y="15" width="8" height="4" rx="1" />
+      </>
+    ),
+  },
+  alignRight: {
+    concept: "Align right edges of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="20" y1="3" x2="20" y2="21" strokeWidth={2} />
+        <rect x="8" y="5" width="10" height="5" rx="1" />
+        <rect x="12" y="14" width="6" height="5" rx="1" />
+      </>
+    ),
+  },
+  alignTop: {
+    concept: "Align top edges of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="4" x2="21" y2="4" strokeWidth={2} />
+        <rect x="5" y="6" width="5" height="6" rx="1" />
+        <rect x="14" y="6" width="5" height="10" rx="1" />
+      </>
+    ),
+  },
+  alignMiddle: {
+    concept: "Align vertical centers of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="12" x2="21" y2="12" strokeWidth={2} />
+        <rect x="5" y="6" width="4" height="12" rx="1" />
+        <rect x="15" y="8" width="4" height="8" rx="1" />
+      </>
+    ),
+  },
+  alignBottom: {
+    concept: "Align bottom edges of selected elements (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="20" x2="21" y2="20" strokeWidth={2} />
+        <rect x="5" y="9" width="5" height="9" rx="1" />
+        <rect x="14" y="13" width="5" height="5" rx="1" />
+      </>
+    ),
+  },
+  //
+  // Distribute Objects group (6 glyphs + 2 spacing glyphs):
+  distributeLeft: {
+    concept: "Distribute by left edges (equal spacing between left edges) (Figure Composer)",
+    body: (
+      <>
+        <line x1="4" y1="3" x2="4" y2="21" strokeDasharray="2 2" />
+        <line x1="12" y1="3" x2="12" y2="21" strokeDasharray="2 2" />
+        <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2 2" />
+        <rect x="4" y="8" width="4" height="8" rx="1" />
+        <rect x="12" y="8" width="5" height="8" rx="1" />
+        <rect x="20" y="8" width="3" height="8" rx="1" />
+      </>
+    ),
+  },
+  distributeCenterH: {
+    concept: "Distribute by horizontal centers (Figure Composer)",
+    body: (
+      <>
+        <line x1="6" y1="3" x2="6" y2="21" strokeDasharray="2 2" />
+        <line x1="12" y1="3" x2="12" y2="21" strokeDasharray="2 2" />
+        <line x1="18" y1="3" x2="18" y2="21" strokeDasharray="2 2" />
+        <rect x="3" y="8" width="6" height="8" rx="1" />
+        <rect x="9" y="8" width="6" height="8" rx="1" />
+        <rect x="15" y="8" width="6" height="8" rx="1" />
+      </>
+    ),
+  },
+  distributeRight: {
+    concept: "Distribute by right edges (Figure Composer)",
+    body: (
+      <>
+        <line x1="4" y1="3" x2="4" y2="21" strokeDasharray="2 2" />
+        <line x1="12" y1="3" x2="12" y2="21" strokeDasharray="2 2" />
+        <line x1="20" y1="3" x2="20" y2="21" strokeDasharray="2 2" />
+        <rect x="1" y="8" width="3" height="8" rx="1" />
+        <rect x="7" y="8" width="5" height="8" rx="1" />
+        <rect x="14" y="8" width="6" height="8" rx="1" />
+      </>
+    ),
+  },
+  distributeTop: {
+    concept: "Distribute by top edges (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="4" x2="21" y2="4" strokeDasharray="2 2" />
+        <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 2" />
+        <line x1="3" y1="20" x2="21" y2="20" strokeDasharray="2 2" />
+        <rect x="5" y="4" width="4" height="5" rx="1" />
+        <rect x="11" y="4" width="4" height="8" rx="1" />
+        <rect x="17" y="4" width="4" height="3" rx="1" />
+      </>
+    ),
+  },
+  distributeCenterV: {
+    concept: "Distribute by vertical centers (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="5" x2="21" y2="5" strokeDasharray="2 2" />
+        <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 2" />
+        <line x1="3" y1="19" x2="21" y2="19" strokeDasharray="2 2" />
+        <rect x="5" y="2" width="4" height="6" rx="1" />
+        <rect x="11" y="6" width="4" height="12" rx="1" />
+        <rect x="17" y="9" width="4" height="6" rx="1" />
+      </>
+    ),
+  },
+  distributeBottom: {
+    concept: "Distribute by bottom edges (Figure Composer)",
+    body: (
+      <>
+        <line x1="3" y1="4" x2="21" y2="4" strokeDasharray="2 2" />
+        <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 2" />
+        <line x1="3" y1="20" x2="21" y2="20" strokeDasharray="2 2" />
+        <rect x="5" y="15" width="4" height="5" rx="1" />
+        <rect x="11" y="4" width="4" height="8" rx="1" />
+        <rect x="17" y="17" width="4" height="3" rx="1" />
+      </>
+    ),
+  },
+  // Distribute Spacing: equal gap between elements (bars + gap arrow).
+  distributeSpaceH: {
+    concept: "Distribute horizontal spacing (equal gap between elements, horizontal axis) (Figure Composer)",
+    body: (
+      <>
+        <rect x="2" y="7" width="4" height="10" rx="1" />
+        <rect x="18" y="7" width="4" height="10" rx="1" />
+        <rect x="9" y="8" width="6" height="8" rx="1" />
+        <line x1="6" y1="12" x2="9" y2="12" />
+        <path d="M6.5 10.5 5.5 12l1 1.5" />
+        <path d="M8.5 10.5 9.5 12l-1 1.5" />
+        <line x1="15" y1="12" x2="18" y2="12" />
+        <path d="M15.5 10.5 14.5 12l1 1.5" />
+        <path d="M17.5 10.5 18.5 12l-1 1.5" />
+      </>
+    ),
+  },
+  distributeSpaceV: {
+    concept: "Distribute vertical spacing (equal gap between elements, vertical axis) (Figure Composer)",
+    body: (
+      <>
+        <rect x="7" y="2" width="10" height="4" rx="1" />
+        <rect x="7" y="18" width="10" height="4" rx="1" />
+        <rect x="8" y="9" width="8" height="6" rx="1" />
+        <line x1="12" y1="6" x2="12" y2="9" />
+        <path d="M10.5 6.5 12 5.5l1.5 1" />
+        <path d="M10.5 8.5 12 9.5l1.5-1" />
+        <line x1="12" y1="15" x2="12" y2="18" />
+        <path d="M10.5 15.5 12 14.5l1.5 1" />
+        <path d="M10.5 17.5 12 18.5l1.5-1" />
+      </>
+    ),
+  },
+  //
+  // Align-to-target toggle (3 glyphs):
+  alignToSelection: {
+    concept: "Align and distribute relative to the selection bounding box (Figure Composer)",
+    body: (
+      <>
+        <rect x="4" y="6" width="7" height="5" rx="1" />
+        <rect x="13" y="10" width="7" height="7" rx="1" />
+        <rect x="4" y="4" width="16" height="16" rx="2" strokeDasharray="3 2" />
+      </>
+    ),
+  },
+  alignToPage: {
+    concept: "Align and distribute relative to the page (artboard) (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <line x1="12" y1="3" x2="12" y2="21" strokeDasharray="2 2" />
+        <line x1="3" y1="12" x2="21" y2="12" strokeDasharray="2 2" />
+        <rect x="7" y="7" width="5" height="4" rx="0.8" />
+      </>
+    ),
+  },
+  alignToKey: {
+    concept: "Align and distribute relative to a key object (the last-clicked element in the selection) (Figure Composer)",
+    body: (
+      <>
+        <rect x="4" y="7" width="7" height="10" rx="1" />
+        <rect x="13" y="9" width="7" height="7" rx="1" />
+        <circle cx="16.5" cy="8" r="2.5" fill="currentColor" stroke="none" />
+        <path d="M15 8h3M16.5 6.5v3" stroke="white" strokeWidth="1.2" />
+      </>
+    ),
+  },
+  //
+  // Flip glyphs:
+  flipH: {
+    concept: "Flip horizontal (mirror across vertical axis) (Figure Composer)",
+    body: (
+      <>
+        <line x1="12" y1="4" x2="12" y2="20" strokeDasharray="2 2" />
+        <path d="M12 7 7 12 12 17" />
+        <path d="M12 7l5 5-5 5" />
+      </>
+    ),
+  },
+  flipV: {
+    concept: "Flip vertical (mirror across horizontal axis) (Figure Composer)",
+    body: (
+      <>
+        <line x1="4" y1="12" x2="20" y2="12" strokeDasharray="2 2" />
+        <path d="M7 12 12 7 17 12" />
+        <path d="M7 12l5 5 5-5" />
+      </>
+    ),
+  },
+  //
+  // Arrange (z-order) glyphs:
+  arrangeFront: {
+    concept: "Bring to front (topmost z-order) (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="9" width="10" height="10" rx="1.5" fill="currentColor" fillOpacity={0.12} />
+        <rect x="8" y="5" width="10" height="10" rx="1.5" />
+        <line x1="15" y1="2" x2="15" y2="4" />
+        <path d="M13 3.5l2-2 2 2" />
+      </>
+    ),
+  },
+  arrangeForward: {
+    concept: "Bring forward one z-level (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="10" width="9" height="9" rx="1.5" fill="currentColor" fillOpacity={0.12} />
+        <rect x="8" y="6" width="9" height="9" rx="1.5" />
+        <path d="M14 4l2-2 2 2M16 2v4" />
+      </>
+    ),
+  },
+  arrangeBackward: {
+    concept: "Send backward one z-level (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="5" width="9" height="9" rx="1.5" />
+        <rect x="8" y="10" width="9" height="9" rx="1.5" fill="currentColor" fillOpacity={0.12} />
+        <path d="M14 20l2 2 2-2M16 22v-4" />
+      </>
+    ),
+  },
+  arrangeBack: {
+    concept: "Send to back (bottommost z-order) (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="5" width="10" height="10" rx="1.5" />
+        <rect x="8" y="10" width="10" height="10" rx="1.5" fill="currentColor" fillOpacity={0.12} />
+        <line x1="15" y1="20" x2="15" y2="22" />
+        <path d="M13 20.5l2 2 2-2" />
+      </>
+    ),
+  },
+  //
+  // Group / Ungroup glyphs:
+  groupElements: {
+    concept: "Group selected elements into a single unit (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="7" width="7" height="7" rx="1" />
+        <rect x="14" y="10" width="7" height="7" rx="1" />
+        <rect x="2" y="4" width="20" height="16" rx="2" strokeDasharray="3 2" />
+      </>
+    ),
+  },
+  ungroupElements: {
+    concept: "Ungroup selected elements (Figure Composer)",
+    body: (
+      <>
+        <rect x="3" y="7" width="7" height="7" rx="1" />
+        <rect x="14" y="10" width="7" height="7" rx="1" />
+        <path d="M2 6V4h2M6 4h2M20 4h2v2M22 8v2M22 18v2h-2M18 20h-2M4 20h-2v-2M2 14v-2" strokeDasharray="0" />
+      </>
+    ),
+  },
 } satisfies Record<string, IconEntry>;
 
 export type IconName = keyof typeof ICONS_RAW;
