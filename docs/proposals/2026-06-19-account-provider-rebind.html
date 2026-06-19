@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Account provider rebind (Phase 4) spec</title>
+<style>
+  :root {
+    --foreground: #171717;
+    --foreground-muted: #6b7080;
+    --surface: #f8fafc;
+    --surface-raised: #ffffff;
+    --surface-overlay: #ffffff;
+    --border-subtle: #e5e7eb;
+    --brand-sky: #1AA0E6;
+    --brand-action: #1283C9;
+    --brand-ink: #111827;
+    --brand-purple: #5B47D6;
+    --ok: #16a34a;
+    --pin: #d6336c;
+    --warn: #b45309;
+    --warn-bg: #fef3c7;
+    --ok-bg: #dcfce7;
+    --bad-bg: #fee2e2;
+    --bad: #dc2626;
+  }
+  [data-theme="dark"] {
+    --foreground: #f1f5f9;
+    --foreground-muted: #b4bfd0;
+    --surface: #0a0e1a;
+    --surface-raised: #1c2638;
+    --surface-overlay: #28344c;
+    --border-subtle: rgba(255,255,255,0.16);
+    --warn-bg: rgba(180,83,9,0.18);
+    --ok-bg: rgba(22,163,74,0.18);
+    --bad-bg: rgba(220,38,38,0.18);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--surface);
+    color: var(--foreground);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--brand-action); }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.86em; background: color-mix(in srgb, var(--foreground) 8%, transparent); padding: 1px 5px; border-radius: 4px; }
+  .wrap { max-width: 1040px; margin: 0 auto; padding: 0 22px 120px; }
+
+  /* top bar */
+  .bar {
+    position: sticky; top: 0; z-index: 40;
+    background: color-mix(in srgb, var(--surface) 88%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border-subtle);
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    padding: 12px 22px;
+  }
+  .bar .title { font-weight: 800; letter-spacing: -0.01em; }
+  .bar .sub { color: var(--foreground-muted); font-size: 13px; }
+  .bar .spacer { flex: 1; }
+  .btn {
+    border: 1px solid var(--border-subtle); background: var(--surface-raised);
+    color: var(--foreground); border-radius: 8px; padding: 7px 12px; font-size: 13px;
+    font-weight: 600; cursor: pointer;
+  }
+  .btn:hover { border-color: var(--brand-action); }
+  .btn.primary { background: var(--brand-action); color: #fff; border-color: var(--brand-action); }
+  .btn.on { background: var(--brand-purple); color: #fff; border-color: var(--brand-purple); }
+
+  header.hero { padding: 30px 0 8px; }
+  header.hero h1 { font-size: 30px; letter-spacing: -0.02em; margin: 0 0 6px; }
+  header.hero p { color: var(--foreground-muted); margin: 6px 0; max-width: 760px; }
+
+  .verdict-banner {
+    margin: 18px 0; padding: 14px 16px; border-radius: 12px;
+    background: var(--warn-bg); border: 1px solid color-mix(in srgb, var(--warn) 40%, transparent);
+  }
+  .verdict-banner b { color: var(--warn); }
+
+  section { margin: 34px 0; }
+  h2 { font-size: 20px; letter-spacing: -0.01em; margin: 0 0 4px; }
+  h2 .n { color: var(--brand-action); }
+  .lede { color: var(--foreground-muted); margin: 2px 0 16px; max-width: 800px; }
+
+  /* before / after columns */
+  .ba { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .ba { grid-template-columns: 1fr; } }
+  .col {
+    background: var(--surface-raised); border: 1px solid var(--border-subtle);
+    border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .col h3 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .col.before h3 { color: var(--bad); }
+  .col.after h3 { color: var(--ok); }
+  .col.before { border-color: color-mix(in srgb, var(--bad) 30%, var(--border-subtle)); }
+  .col.after { border-color: color-mix(in srgb, var(--ok) 30%, var(--border-subtle)); }
+
+  /* binding rows */
+  .bind { display: flex; align-items: flex-start; gap: 10px; padding: 9px 0; border-top: 1px solid var(--border-subtle); }
+  .bind:first-of-type { border-top: 0; }
+  .bind .ico { flex: none; width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; color: #fff; }
+  .bind .ico.bad { background: var(--bad); }
+  .bind .ico.ok { background: var(--ok); }
+  .bind .ico.key { background: var(--brand-purple); }
+  .bind .b-name { font-weight: 700; }
+  .bind .b-meta { color: var(--foreground-muted); font-size: 13px; }
+
+  /* flow steps */
+  ol.flow { counter-reset: step; list-style: none; padding: 0; margin: 0; }
+  ol.flow li { position: relative; padding: 8px 0 8px 34px; border-top: 1px solid var(--border-subtle); }
+  ol.flow li:first-child { border-top: 0; }
+  ol.flow li::before {
+    counter-increment: step; content: counter(step);
+    position: absolute; left: 0; top: 8px; width: 22px; height: 22px;
+    background: var(--brand-action); color: #fff; border-radius: 50%;
+    display: grid; place-items: center; font-size: 12px; font-weight: 800;
+  }
+  ol.flow li b { display: block; }
+  ol.flow li span { color: var(--foreground-muted); font-size: 13px; }
+  .deadend { color: var(--bad); font-weight: 700; }
+
+  /* decision change cards */
+  .change {
+    display: flex; gap: 14px; align-items: flex-start;
+    background: var(--surface-raised); border: 1px solid var(--border-subtle);
+    border-left: 4px solid var(--border-subtle);
+    border-radius: 12px; padding: 14px 16px; margin: 12px 0;
+  }
+  .change.approved { border-left-color: var(--ok); }
+  .change.disapproved { border-left-color: var(--pin); }
+  .change .body { flex: 1; min-width: 0; }
+  .change .tag { font-size: 11px; font-weight: 800; letter-spacing: 0.05em; color: var(--brand-purple); text-transform: uppercase; }
+  .change h4 { margin: 3px 0 6px; font-size: 16px; }
+  .change p { margin: 5px 0; }
+  .change .alt { color: var(--foreground-muted); font-size: 13px; border-left: 2px solid var(--border-subtle); padding-left: 10px; margin-top: 8px; }
+  .change .rec { font-size: 13px; margin-top: 8px; }
+  .change .rec b { color: var(--ok); }
+  .change .verdict { flex: none; display: flex; flex-direction: column; gap: 6px; width: 120px; }
+  .vbtn { border: 1px solid var(--border-subtle); background: var(--surface); color: var(--foreground); border-radius: 8px; padding: 6px 8px; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .vbtn.app.on { background: var(--ok); color: #fff; border-color: var(--ok); }
+  .vbtn.dis.on { background: var(--pin); color: #fff; border-color: var(--pin); }
+  .change textarea { width: 100%; margin-top: 8px; border: 1px solid var(--border-subtle); background: var(--surface); color: var(--foreground); border-radius: 8px; padding: 7px 9px; font: inherit; font-size: 13px; resize: vertical; min-height: 34px; }
+
+  /* comment mode */
+  body.commenting .pinnable:hover { outline: 2px dashed var(--pin); outline-offset: 3px; cursor: crosshair; }
+  .pin { position: absolute; transform: translate(-50%, -50%); width: 22px; height: 22px; background: var(--pin); color: #fff; border-radius: 50%; display: grid; place-items: center; font-size: 11px; font-weight: 800; z-index: 30; box-shadow: 0 1px 4px rgba(0,0,0,0.3); cursor: pointer; }
+  .note-pop { position: fixed; z-index: 60; background: var(--surface-overlay); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 12px; width: 300px; box-shadow: 0 12px 40px rgba(0,0,0,0.25); }
+  .note-pop textarea { width: 100%; min-height: 70px; border: 1px solid var(--border-subtle); background: var(--surface); color: var(--foreground); border-radius: 8px; padding: 8px; font: inherit; font-size: 13px; }
+  .note-pop .row { display: flex; gap: 8px; margin-top: 8px; }
+  .hint { color: var(--foreground-muted); font-size: 12px; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; color: var(--foreground-muted); font-size: 13px; margin: 8px 0 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+</style>
+</head>
+<body>
+
+<div class="bar">
+  <div>
+    <div class="title">Account provider rebind</div>
+    <div class="sub">Phase 4, researcher social layer. Spec for review, not built.</div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="themeBtn">Dark</button>
+  <button class="btn" id="commentBtn">Comment mode</button>
+  <button class="btn primary" id="exportBtn">Export decisions</button>
+</div>
+
+<div class="wrap">
+  <header class="hero pinnable" data-target="Intro">
+    <h1>Change my third-party login, keep everything else</h1>
+    <p>A researcher signs in today with a Google or ORCID account. They change institutions, lose that login, or simply want a different one. Everything about their account should stay the same (the keypair identity, username, display name, all data, lab memberships, billing) and only the linked third-party login changes.</p>
+    <p>This doc shows what breaks today, the one architectural decision that makes rebind clean, and the user-facing flow. Mark each decision Approve or Disapprove, drop comment pins anywhere, then Export.</p>
+  </header>
+
+  <div class="verdict-banner pinnable" data-target="Verdict">
+    <b>Verdict from the code trace.</b> No rebind flow exists today, and a naive login change orphans four of the five bindings. The local keypair is the only thing that survives, because the server keys everything by a peppered hash of the OAuth email. That single keying choice is the root cause and the thing to fix.
+  </div>
+
+  <section class="pinnable" data-target="Binding chain before/after">
+    <h2><span class="n">1.</span> The binding chain</h2>
+    <p class="lede">What a user account is actually made of, and what each piece is keyed by. The fix is to cross-key the server records to the stable keypair fingerprint so the email becomes a swappable pointer.</p>
+    <div class="ba">
+      <div class="col before">
+        <h3>Today: everything keyed by email hash</h3>
+        <div class="bind"><span class="ico key">K</span><div><div class="b-name">Local identity (keypair)</div><div class="b-meta">Ed25519 + X25519 in the sidecar. The real, durable identity. Username, name, all data hang off this.</div></div></div>
+        <div class="bind"><span class="ico bad">x</span><div><div class="b-name">Directory (email to pubkey)</div><div class="b-meta">Primary key is <code>email_hash</code>. New email is a new hash, so a second orphaned entry, identity split in two.</div></div></div>
+        <div class="bind"><span class="ico bad">x</span><div><div class="b-name">Lab membership</div><div class="b-meta">The OAuth email is sealed under the lab key as <code>emailHashEnc</code>. <code>verifyMemberEmailBinding</code> rejects the lab login on any mismatch.</div></div></div>
+        <div class="bind"><span class="ico bad">x</span><div><div class="b-name">Account settings + profile</div><div class="b-meta">Keyed by <code>ownerKey</code> = email hash. The @handle, avatar, E2E settings blob all point at the old hash.</div></div></div>
+        <div class="bind"><span class="ico bad">x</span><div><div class="b-name">Billing / Stripe</div><div class="b-meta"><code>owner_key</code> primary key = email hash. New login looks like a brand-new unpaid account, plan and Stripe customer orphaned.</div></div></div>
+      </div>
+      <div class="col after">
+        <h3>Proposed: cross-keyed to the keypair fingerprint</h3>
+        <div class="bind"><span class="ico key">K</span><div><div class="b-name">Local identity (keypair)</div><div class="b-meta">Unchanged. Already the stable anchor. The fingerprint derived from it becomes the join key the server trusts.</div></div></div>
+        <div class="bind"><span class="ico ok">ok</span><div><div class="b-name">Directory</div><div class="b-meta">Keep an index by <code>fingerprint</code> (one already exists, <code>getBindingByFingerprint</code>). Rebind repoints the email pointer, the keypair entry stays put.</div></div></div>
+        <div class="bind"><span class="ico ok">ok</span><div><div class="b-name">Lab membership</div><div class="b-meta">Member marks a rebind, the head re-seals the new email hash on next lab open. Reuses the deferred-seal reconcile that already exists.</div></div></div>
+        <div class="bind"><span class="ico ok">ok</span><div><div class="b-name">Account settings + profile</div><div class="b-meta">Resolve owner records by fingerprint, with the email hash as a secondary lookup. Rebind updates the pointer, records stay.</div></div></div>
+        <div class="bind"><span class="ico ok">ok</span><div><div class="b-name">Billing / Stripe</div><div class="b-meta">Carry the Stripe customer + subscription to the new owner key (or key billing by fingerprint too). No re-subscribe, no lost plan.</div></div></div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:var(--brand-purple)"></span> stable anchor</span>
+      <span><span class="dot" style="background:var(--bad)"></span> breaks on a naive login change</span>
+      <span><span class="dot" style="background:var(--ok)"></span> survives the rebind</span>
+    </div>
+  </section>
+
+  <section class="pinnable" data-target="Rebind flow before/after">
+    <h2><span class="n">2.</span> The user flow</h2>
+    <p class="lede">Two real cases. The common one (still have the old login) and the hard one (the old login is already dead, the graduating-student problem).</p>
+    <div class="ba">
+      <div class="col before">
+        <h3>Today</h3>
+        <ol class="flow">
+          <li><b>Settings has no such option</b><span>There is no change-login control anywhere in the app.</span></li>
+          <li><b>User signs in with the new account instead</b><span>It mints or resolves a different keypair, or binds a different hash.</span></li>
+          <li><b class="deadend">Dead end</b><span>The lab login is rejected (email mismatch), billing shows unpaid, the directory profile is gone. The account looks lost.</span></li>
+        </ol>
+      </div>
+      <div class="col after">
+        <h3>Proposed rebind, old login still available</h3>
+        <ol class="flow">
+          <li><b>Settings to Account to Change linked login</b><span>Clear entry point, explains what stays the same and what changes.</span></li>
+          <li><b>Sign in with the new provider to prove control</b><span>OAuth round trip captures the verified new email. Old session already proves the current login.</span></li>
+          <li><b>Confirm the keypair fingerprint</b><span>Show the safety-check fingerprint so the user confirms it is the same identity moving, not a merge of two accounts.</span></li>
+          <li><b>Atomic repoint</b><span>Directory + settings + profile + billing pointer move to the new email hash under the same fingerprint, in one staged step with a compensating log.</span></li>
+          <li><b>Lab memberships re-seal</b><span>Each lab is marked rebind-pending. The head re-seals on next open, the member sees an honest waiting state, never a lockout.</span></li>
+        </ol>
+      </div>
+    </div>
+    <div class="ba" style="margin-top:16px">
+      <div class="col after" style="grid-column: 1 / -1">
+        <h3>Proposed rebind, old login is gone (graduating student)</h3>
+        <ol class="flow">
+          <li><b>Recovery code is the proof of control</b><span>The keypair, unlocked by the recovery code, is the real identity. Holding it proves the account, even with the old email dead.</span></li>
+          <li><b>Sign in with the new provider</b><span>Captures the new verified email to bind.</span></li>
+          <li><b>Same atomic repoint + lab re-seal as above</b><span>The keypair fingerprint is the through-line, so nothing about the migration depends on the dead old login.</span></li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="pinnable" data-target="Decisions">
+    <h2><span class="n">3.</span> Decisions to ratify</h2>
+    <p class="lede">Each is a real fork. The recommendation is stated, but they are yours to set before any code. Approve or Disapprove, add a note inline.</p>
+    <div id="changes"></div>
+  </section>
+
+  <section class="pinnable" data-target="Scope and risk">
+    <h2><span class="n">4.</span> Scope, risk, and what to verify</h2>
+    <p class="lede">For sizing once the decisions are set.</p>
+    <div class="col">
+      <p><b>Crypto and security review required.</b> Rebind changes who can act as an account. The proof-of-control gate (two logins, or recovery code) is the security boundary and needs an independent pass before it ships, same bar as the directory/relay work.</p>
+      <p><b>No soft-locks, ever.</b> Every state in the flow (proof pending, repoint in progress, lab re-seal pending) must have a visible way out. A half-migrated account must be recoverable, not stranded.</p>
+      <p><b>Atomicity is the hard part.</b> Five systems, two of them external (Stripe, the relay). A staged migration with a compensating log and a clear in-progress marker beats trying to make it one transaction. The lab dimension is naturally async already, so lean on that.</p>
+      <p><b>Land before broad PI launch.</b> Institution changes are routine for the exact audience. This is not an edge case, it is table stakes for trusting the platform with a career-long record.</p>
+    </div>
+  </section>
+
+  <p class="hint">House note for the spec, not the UI copy. Final product copy avoids em-dashes, emojis, and mid-sentence colons.</p>
+</div>
+
+<script>
+(function () {
+  var DECISIONS = [
+    {
+      id: "d1-fingerprint-keying",
+      tag: "Architecture, the big one",
+      title: "Cross-key server records by the keypair fingerprint, not the email hash",
+      body: "Make the stable Ed25519 fingerprint the join key the server trusts (directory, settings, profile, and ideally billing), with the email hash demoted to a swappable pointer. Rebind then repoints the pointer instead of migrating five tables.",
+      alt: "Alternative, keep email-hash keying and run a full five-table copy-migration on every rebind. More moving parts, more partial-failure surface, and it fights the data model every time.",
+      rec: "Recommend Approve. It turns rebind from a migration into a pointer update and removes the orphaning root cause."
+    },
+    {
+      id: "d2-proof-of-control",
+      tag: "Security gate",
+      title: "Require proof of control of both old and new login, with recovery code as the fallback",
+      body: "Normal path proves the old login (live session) and the new login (fresh OAuth). If the old login is dead, the recovery code that unlocks the keypair is the proof instead, since the keypair is the real identity.",
+      alt: "Alternative, allow rebind on the new login alone. Rejected, that would let anyone who creates a new OAuth account claim a fingerprint they do not hold.",
+      rec: "Recommend Approve. Two-sided proof plus recovery-code fallback covers both the common and the graduating-student case without a weak path."
+    },
+    {
+      id: "d3-lab-reseal-via-reconcile",
+      tag: "Lab dimension",
+      title: "Re-seal lab memberships via the existing head-side reconcile, member sees an honest wait",
+      body: "On rebind, mark the member rebind-pending in each lab. The lab head re-seals the new email hash on next lab open, reusing the deferred-seal reconcile machinery. The member sees a clear waiting state, never a lockout.",
+      alt: "Alternative, block the rebind until every lab head re-seals first. Rejected, it makes the member wait on people they do not control and risks a soft-lock.",
+      rec: "Recommend Approve. It reuses code that already exists and just got the eager-seal fix, and it keeps the member unblocked."
+    },
+    {
+      id: "d4-billing-carry",
+      tag: "Billing",
+      title: "Carry the Stripe customer and subscription across the rebind",
+      body: "Move (or re-point) the billing owner record so the plan, Stripe customer, and subscription survive. The user keeps their entitlements and history with no re-subscribe.",
+      alt: "Alternative, make the user re-subscribe on the new login. Rejected, it loses history, double-charges risk, and reads as broken.",
+      rec: "Recommend Approve. If billing is keyed by fingerprint per D1 this is nearly free, otherwise it is a guarded copy."
+    },
+    {
+      id: "d5-staged-atomic",
+      tag: "Reliability",
+      title: "Staged migration with a compensating log and an in-progress marker",
+      body: "Treat rebind as a short-lived in-progress state with a log that can roll forward or back, rather than one impossible cross-system transaction. The account is always in a known, recoverable state.",
+      alt: "Alternative, best-effort fire-and-forget across the five systems. Rejected, a partial failure strands the account with the keypair on one key and billing on another.",
+      rec: "Recommend Approve. It is the only safe way to touch Stripe plus the relay plus three local server stores together."
+    },
+    {
+      id: "d6-entry-point",
+      tag: "UX placement",
+      title: "Put the entry point in Settings to Account, framed as Change linked login",
+      body: "One clear control that states plainly what stays the same (everything) and what changes (only the third-party login), with the fingerprint shown for reassurance.",
+      alt: "Alternative, bury it in a recovery or advanced flow. Rejected, this is a normal life event for researchers and should be a first-class, findable action.",
+      rec: "Recommend Approve. Discoverable and honest beats hidden and scary for a trust-critical action."
+    }
+  ];
+
+  var VSTORE = "rebind-spec-verdicts-v1";
+  var NSTORE = "rebind-spec-notes-v1";
+  var CSTORE = "rebind-spec-comments-v1";
+  var verdicts = read(VSTORE, {});
+  var notes = read(NSTORE, {});
+  var comments = read(CSTORE, []);
+
+  function read(k, d) { try { return JSON.parse(localStorage.getItem(k)) || d; } catch (e) { return d; } }
+  function write(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+  function esc(s) { return (s || "").replace(/[&<>]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]; }); }
+
+  // ---- decision cards ----
+  var host = document.getElementById("changes");
+  function renderChanges() {
+    host.innerHTML = DECISIONS.map(function (d) {
+      var v = verdicts[d.id] || "";
+      var cls = v === "approve" ? "approved" : v === "disapprove" ? "disapproved" : "";
+      return '<div class="change ' + cls + '" data-id="' + d.id + '">' +
+        '<div class="body">' +
+          '<div class="tag">' + esc(d.tag) + '</div>' +
+          '<h4>' + esc(d.title) + '</h4>' +
+          '<p>' + esc(d.body) + '</p>' +
+          '<div class="alt">' + esc(d.alt) + '</div>' +
+          '<div class="rec">' + esc(d.rec) + '</div>' +
+          '<textarea placeholder="Your note on this decision" data-note="' + d.id + '">' + esc(notes[d.id] || "") + '</textarea>' +
+        '</div>' +
+        '<div class="verdict">' +
+          '<button class="vbtn app ' + (v === "approve" ? "on" : "") + '" data-v="approve">Approve</button>' +
+          '<button class="vbtn dis ' + (v === "disapprove" ? "on" : "") + '" data-v="disapprove">Disapprove</button>' +
+        '</div>' +
+      '</div>';
+    }).join("");
+  }
+  renderChanges();
+
+  host.addEventListener("click", function (e) {
+    var btn = e.target.closest(".vbtn");
+    if (!btn) return;
+    var card = e.target.closest(".change");
+    var id = card.getAttribute("data-id");
+    var v = btn.getAttribute("data-v");
+    verdicts[id] = verdicts[id] === v ? undefined : v;
+    if (!verdicts[id]) delete verdicts[id];
+    write(VSTORE, verdicts);
+    renderChanges();
+  });
+  host.addEventListener("input", function (e) {
+    var ta = e.target.closest("textarea[data-note]");
+    if (!ta) return;
+    notes[ta.getAttribute("data-note")] = ta.value;
+    write(NSTORE, notes);
+  });
+
+  // ---- theme toggle ----
+  var themeBtn = document.getElementById("themeBtn");
+  function applyTheme(t) {
+    document.documentElement.setAttribute("data-theme", t);
+    themeBtn.textContent = t === "dark" ? "Light" : "Dark";
+    write("rebind-spec-theme", t);
+  }
+  applyTheme(read("rebind-spec-theme", "light"));
+  themeBtn.addEventListener("click", function () {
+    applyTheme(document.documentElement.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+
+  // ---- comment pins ----
+  var commenting = false;
+  var commentBtn = document.getElementById("commentBtn");
+  commentBtn.addEventListener("click", function () {
+    commenting = !commenting;
+    document.body.classList.toggle("commenting", commenting);
+    commentBtn.classList.toggle("on", commenting);
+    commentBtn.textContent = commenting ? "Comment mode on" : "Comment mode";
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!commenting) return;
+    if (e.target.closest(".note-pop") || e.target.closest(".pin") || e.target.closest(".bar")) return;
+    var host = e.target.closest(".pinnable");
+    if (!host) return;
+    e.preventDefault();
+    openNote(host.getAttribute("data-target") || "section", e.clientX, e.clientY);
+  });
+
+  function openNote(target, x, y) {
+    closeNote();
+    var pop = document.createElement("div");
+    pop.className = "note-pop";
+    pop.style.left = Math.min(x, window.innerWidth - 320) + "px";
+    pop.style.top = Math.min(y, window.innerHeight - 180) + "px";
+    pop.innerHTML =
+      '<div class="hint" style="margin-bottom:6px">Comment on: <b>' + esc(target) + '</b></div>' +
+      '<textarea placeholder="Type your comment"></textarea>' +
+      '<div class="row"><button class="btn primary" data-save>Save pin</button><button class="btn" data-cancel>Cancel</button></div>';
+    document.body.appendChild(pop);
+    var ta = pop.querySelector("textarea");
+    ta.focus();
+    pop.querySelector("[data-save]").addEventListener("click", function () {
+      var text = ta.value.trim();
+      if (text) { comments.push({ target: target, text: text }); write(CSTORE, comments); renderPins(); }
+      closeNote();
+    });
+    pop.querySelector("[data-cancel]").addEventListener("click", closeNote);
+  }
+  function closeNote() { var p = document.querySelector(".note-pop"); if (p) p.remove(); }
+
+  function renderPins() {
+    document.querySelectorAll(".pin").forEach(function (p) { p.remove(); });
+    // group by target, place a single pin at the top-right of each section
+    var byTarget = {};
+    comments.forEach(function (c, i) { (byTarget[c.target] = byTarget[c.target] || []).push(i + 1); });
+    Object.keys(byTarget).forEach(function (t) {
+      var host = document.querySelector('.pinnable[data-target="' + cssEsc(t) + '"]');
+      if (!host) return;
+      host.style.position = host.style.position || "relative";
+      var pin = document.createElement("div");
+      pin.className = "pin";
+      pin.textContent = byTarget[t].length;
+      pin.title = byTarget[t].length + " comment(s) on " + t;
+      var r = host.getBoundingClientRect();
+      pin.style.left = (host.offsetLeft + host.offsetWidth - 6) + "px";
+      pin.style.top = (host.offsetTop + 6) + "px";
+      pin.addEventListener("click", function () { alert(comments.filter(function (c) { return c.target === t; }).map(function (c, i) { return (i + 1) + ". " + c.text; }).join("\n\n")); });
+      host.parentNode.appendChild(pin);
+    });
+  }
+  function cssEsc(s) { return s.replace(/"/g, '\\"'); }
+  renderPins();
+
+  // ---- export ----
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    var lines = ["# Account provider rebind, decisions", "", "Date reviewed: (fill in)", ""];
+    DECISIONS.forEach(function (d) {
+      var v = verdicts[d.id];
+      var mark = v === "approve" ? "APPROVE" : v === "disapprove" ? "DISAPPROVE" : "(no verdict)";
+      lines.push("## " + d.title);
+      lines.push("- Verdict: " + mark);
+      if (notes[d.id]) lines.push("- Note: " + notes[d.id]);
+      lines.push("");
+    });
+    if (comments.length) {
+      lines.push("## Comments");
+      comments.forEach(function (c, i) { lines.push((i + 1) + ". [" + c.target + "] " + c.text); });
+      lines.push("");
+    }
+    var md = lines.join("\n");
+    navigator.clipboard && navigator.clipboard.writeText(md).then(function () {}, function () {});
+    var blob = new Blob([md], { type: "text/markdown" });
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "rebind-decisions.md";
+    a.click();
+    alert("Decisions copied to clipboard and downloaded as rebind-decisions.md");
+  });
+
+  window.addEventListener("resize", renderPins);
+})();
+</script>
+</body>
+</html>
