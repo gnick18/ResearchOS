@@ -10,6 +10,27 @@ Coordination boundary (require-account collision): the require-account RequireAc
 
 ---
 
+## DESIGN REVISION (Grant 2026-06-18): a lab IS a folder. This SUPERSEDES the account-store P1 below.
+
+The synthesized P1 proposed a NEW account-scoped membership store (labs[] + activeLabId). That is over-engineering, because the model already exists in the FOLDER layer:
+- account_type (solo / lab_head / member) AND lab_id are ALREADY per-folder (folder-local user-settings.ts). So "this folder is solo vs a lab I head vs a lab I joined, and which lab" is already representable.
+- The remembered-folders registry is ALREADY account-scoped (folder-account-scope.ts keys it by the account signing pubkey). So "the set of folders this account has" IS the account-scoped membership set.
+- The folder switcher already exists (getActiveFolderId = the active lab).
+
+So "account-scoped membership" already equals "the account-scoped folder set + each folder's per-folder lab identity." Do NOT build a parallel labs[]/activeLabId store or a lab_id->account migration. This also resolves the head-vs-member contradiction (role is per-folder, so one folder you head and another you are a member of coexist) and reconciles the "move lab_id to account scope" debate (the account scope is the folder REGISTRY, lab identity stays per-folder). The relay/directory remains membership-of-record so a NEW device can rehydrate the folder set.
+
+A lab = a folder, of one kind: SOLO (real disk, FSA picker, source of truth local), LAB-HEAD (the head's real disk folder, the lab home, synced to relay), or LAB-MEMBER (an app-managed OPFS folder, auto-created on join, no picker, the local cache where relay-assembled shared data + the member's own lab work live; relay/R2 is the durable copy). The folder switcher IS the lab switcher.
+
+REVISED P1 (much smaller, replaces P1 below):
+1. Joining auto-creates a managed OPFS member folder for that lab (account_type=member, lab_id set), adds it to the account remembered-folders set, and sets it active, INSTEAD of overwriting the current folder's lab_id (the exact Emile-test bug). checkAndEnterLab (lab-member-activation.ts:84) + enterLabViaToken (:169) + lab/join stop calling patchUserSettings(lab_id) on the current folder and instead provision-and-switch-to a member folder. No-picker (OPFS via navigator.storage.getDirectory, the path the dev/ephemeral sessions already use).
+2. Folder switcher surfaces lab identity (label each remembered folder Solo / "X Lab - head" / "Y Lab - member" + lab name) so it reads as a lab switcher. RememberedFolderMeta likely caches the folder's account_type + lab_id + labName for labeling without opening each folder.
+3. Flag-gate the member-folder-on-join behavior; flag OFF stays byte-identical (today's single-lab_id behavior).
+4. NO consumer changes (the consumers are already folder-bound, which is now CORRECT; switching to the member folder gives them the right context). The unbuilt part (member folder's shared data assembling from the relay via pullLabView + the push-side mirroring the critic flagged) stays P2/P3.
+
+The phased plan, consumer audit, and critic addendum below remain valid for P2+ (the relay-assembly wiring), but P1 is the folder-based version above, not the account-store version.
+
+---
+
 ## Synthesized spec
 
 # Multi-Lab Membership + Residency Wiring Build Spec
