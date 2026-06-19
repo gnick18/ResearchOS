@@ -1,7 +1,7 @@
 // Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory, janoshDiagramsCategory, electricalSymbolCategory, servierCategory, swissbiopicsCategory, ebiCategory } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory, janoshDiagramsCategory, electricalSymbolCategory, servierCategory, swissbiopicsCategory, ebiCategory, arcadiaCategory, togopicCategory } from "./lib.mjs";
 
 test("classifyLicense: allowed set", () => {
   for (const [s, id] of [
@@ -400,4 +400,198 @@ test("classifyLicense: CC-BY-SA 4.0 is allowed with attribution and share-alike 
   assert.equal(lic.id, "CC-BY-SA");
   assert.equal(lic.allowed, true);
   assert.equal(lic.attribution, true);
+});
+
+// Arcadia category mapper
+
+test("arcadiaCategory: exact taxon matches land on valid curated leaves", () => {
+  // Verify a representative sample from each leaf type.
+  assert.equal(arcadiaCategory("Mus musculus"), "Mammals");
+  assert.equal(arcadiaCategory("Rattus norvegicus"), "Mammals");
+  assert.equal(arcadiaCategory("Gallus gallus"), "Birds");
+  assert.equal(arcadiaCategory("Taeniopygia guttata"), "Birds");
+  assert.equal(arcadiaCategory("Danio rerio"), "Fishes");
+  assert.equal(arcadiaCategory("Petromyzon marinus"), "Fishes");
+  assert.equal(arcadiaCategory("Xenopus tropicalis"), "Amphibians");
+  assert.equal(arcadiaCategory("Anolis carolinensis"), "Reptiles");
+  assert.equal(arcadiaCategory("Drosophila melanogaster"), "Insects");
+  assert.equal(arcadiaCategory("Aedes aegypti"), "Insects");
+  assert.equal(arcadiaCategory("Caenorhabditis elegans"), "Worms");
+  assert.equal(arcadiaCategory("Schmidtea mediterranea"), "Worms");
+  assert.equal(arcadiaCategory("Pristionchus pacificus"), "Worms");
+  assert.equal(arcadiaCategory("Hofstenia miamia"), "Worms");
+  assert.equal(arcadiaCategory("Hydra vulgaris"), "Cnidarians");
+  assert.equal(arcadiaCategory("Clytia hemisphaerica"), "Cnidarians");
+  assert.equal(arcadiaCategory("Nematostella vectensis"), "Cnidarians");
+  assert.equal(arcadiaCategory("Ciona intestinalis"), "Other invertebrates");
+  assert.equal(arcadiaCategory("Hypsibius dujardini"), "Other invertebrates");
+  assert.equal(arcadiaCategory("Arabidopsis thaliana"), "Plants & algae");
+  assert.equal(arcadiaCategory("Chlamydomonas reinhardtii"), "Plants & algae");
+  assert.equal(arcadiaCategory("Saccharomyces cerevisiae"), "Fungi");
+  assert.equal(arcadiaCategory("Aspergillus nidulans"), "Fungi");
+  assert.equal(arcadiaCategory("Candida albicans"), "Fungi");
+  assert.equal(arcadiaCategory("Escherichia coli"), "Bacteria & archaea");
+  assert.equal(arcadiaCategory("Entamoeba histolytica"), "Protists");
+  assert.equal(arcadiaCategory("Paramecium tetraurelia"), "Protists");
+  assert.equal(arcadiaCategory("Dictyostelium discoideum"), "Protists");
+  assert.equal(arcadiaCategory("Human immunodeficiency virus"), "Viruses");
+  assert.equal(arcadiaCategory("Influenza virus"), "Viruses");
+  assert.equal(arcadiaCategory("SARS-CoV-2"), "Viruses");
+  assert.equal(arcadiaCategory("Plasmodium falciparum"), "Parasites");
+  assert.equal(arcadiaCategory("Schistosoma mansoni"), "Parasites");
+});
+
+test("arcadiaCategory: keyword fallback handles novel organisms, unknown -> Other organisms", () => {
+  // Future library additions not in the exact table fall through to keywords.
+  assert.equal(arcadiaCategory("Some new virus XYZ"), "Viruses");
+  assert.equal(arcadiaCategory("Novel fungi sp."), "Fungi");
+  assert.equal(arcadiaCategory("A completely new algae"), "Plants & algae");
+  // Totally unknown -> Other organisms (never lands in Other = never loses an asset).
+  assert.equal(arcadiaCategory("Completely unrecognized thing"), "Other organisms");
+});
+
+test("arcadiaCategory: all 71 v1.0 organisms map to valid CATEGORY_SECTIONS leaves", () => {
+  // This is a completeness gate: if any organism in the v1.0 set is unmapped,
+  // it will show up as "Other organisms" which IS a valid leaf; the test checks
+  // it matches one of the leaves in the Organisms section (never "General" or
+  // another section -- those would indicate an incorrect keyword-fallback hit).
+  const ORGANISMS_LEAVES = new Set([
+    "Mammals","Birds","Reptiles","Amphibians","Fishes","Insects","Arachnids",
+    "Crustaceans","Myriapods","Molluscs","Cnidarians","Echinoderms","Worms",
+    "Other invertebrates","Plants & algae","Fungi","Bacteria & archaea","Protists",
+    "Other organisms","Animals",
+    // Microbes & pathogens is also a valid home for single-celled organisms.
+    "Microbiology","Viruses","Parasites",
+  ]);
+  const allOrganisms = [
+    "Abeoforma whisleri","Aedes aegypti","Agaricus bisporus","Amorphochlora amoebiformis",
+    "Anolis carolinensis","Arabidopsis thaliana","Aspergillus nidulans","Bathycoccus prasinos",
+    "Bodo saltans","Caenorhabditis elegans","Callithrix jacchus","Callorhinchus milii",
+    "Candida albicans","Carlito syrichta","Chlamydomonas reinhardtii","Chlorella vulgaris",
+    "Ciona intestinalis","Clytia hemisphaerica","Danio rerio","Dictyostelium discoideum",
+    "Diplonema papillatum","Drosophila melanogaster","Entamoeba histolytica","Escherichia coli",
+    "Euglena gracilis","Exaiptasia diaphana","Gallus gallus","Giardia intestinalis",
+    "Hofstenia miamia","Human immunodeficiency virus","Hydra vulgaris","Hypsibius dujardini",
+    "Influenza virus","Isochrysis galbana","Macaca mulatta","Microcebus murinus",
+    "Micromonas commoda","Mnemiopsis leidyi","Monosiga brevicollis","Mus musculus",
+    "Naegleria gruberi","Nannochloropsis sp.","Nematostella vectensis","Neurospora crassa",
+    "Ostreococcus tauri","Pan troglodytes","Paramecium tetraurelia","Penicillium chrysogenum",
+    "Perkinsus marinus","Petromyzon marinus","Phaeodactylum tricornutum","Plasmodium falciparum",
+    "Porphyra yezoensis","Pristionchus pacificus","Rattus norvegicus","SARS-CoV-2",
+    "Saccharomyces cerevisiae","Salpingoeca rosetta","Schistosoma mansoni",
+    "Schizosaccharomyces pombe","Schmidtea mediterranea","Sphaeroforma arctica",
+    "Sus scrofa domestica","Symbiodinium sp.","Taeniopygia guttata","Tetrahymena thermophila",
+    "Tetraselmis striata","Ustilago maydis","Volvox carteri","Xenopus tropicalis",
+    "Yarrowia lipolytica",
+  ];
+  for (const org of allOrganisms) {
+    const leaf = arcadiaCategory(org);
+    assert.ok(
+      ORGANISMS_LEAVES.has(leaf),
+      `${org} -> "${leaf}" is not in valid organism/microbe leaves`,
+    );
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Togopic (DBCLS Togo Picture Gallery) category mapper
+
+test("togopicCategory: life-science filenames -> correct curated leaves", () => {
+  // Lab apparatus filenames.
+  assert.equal(togopicCategory("beaker1"), "Lab apparatus");
+  assert.equal(togopicCategory("flask1"), "Lab apparatus");
+  assert.equal(togopicCategory("thermalcycler_1"), "Lab apparatus");
+  assert.equal(togopicCategory("GenomeSequencer_1"), "Lab apparatus");
+  assert.equal(togopicCategory("centrifuge"), "Lab apparatus");
+  // Cell lines (stripped YYYYMM_ prefix by the adapter before this call).
+  assert.equal(togopicCategory("CHOcells"), "Cell lines");
+  assert.equal(togopicCategory("HeLa"), "Cell lines");
+  assert.equal(togopicCategory("HEK293"), "Cell lines");
+  // Human physiology.
+  assert.equal(togopicCategory("anterior_view_of_the_elbow_joint"), "Human physiology");
+  assert.equal(togopicCategory("trachea_and_bronchial_tree"), "Human physiology");
+  // Blood & immunology.
+  assert.equal(togopicCategory("IgG"), "Blood & immunology");
+  // Nucleic acids / molecular biology.
+  assert.equal(togopicCategory("DNA"), "Nucleic acids");
+  assert.equal(togopicCategory("RNA_polymerase"), "Nucleic acids");
+  assert.equal(togopicCategory("western_blot"), "Molecular biology");
+  // Organisms.
+  assert.equal(togopicCategory("Zebrafish"), "Fishes");
+  assert.equal(togopicCategory("mouse"), "Mammals");
+  assert.equal(togopicCategory("budding_yeast"), "Fungi");
+  assert.equal(togopicCategory("cyanobacteria"), "Bacteria & archaea");
+  assert.equal(togopicCategory("virus"), "Viruses");
+  // Neuroscience.
+  assert.equal(togopicCategory("brain"), "Neuroscience");
+  assert.equal(togopicCategory("neuron"), "Neuroscience");
+  // Imaging.
+  assert.equal(togopicCategory("confocal_scanning_laser_microscope"), "Imaging");
+  // Unknown -> General (not lost in Other = never gated out).
+  assert.equal(togopicCategory("some_random_item"), "General");
+});
+
+test("togopicCategory: returned leaves are all valid CATEGORY_SECTIONS members", () => {
+  // All valid leaf names from asset-library.ts CATEGORY_SECTIONS.
+  const ALL_LEAVES = new Set([
+    "Mammals","Birds","Reptiles","Amphibians","Fishes","Insects","Arachnids",
+    "Crustaceans","Myriapods","Molluscs","Cnidarians","Echinoderms","Worms",
+    "Other invertebrates","Plants & algae","Fungi","Bacteria & archaea","Protists",
+    "Other organisms","Animals","Microbiology","Viruses","Parasites",
+    "Cell types","Cell lines","Cell culture","Cell membrane","Intracellular components",
+    "Tissues","Extracellular matrix",
+    "Nucleic acids","Amino acids","Peptides","Receptors & channels","Molecular modelling",
+    "Molecular biology","Genetics","Genomics","Epigenetics",
+    "Human physiology","Blood & immunology","Oncology","Neuroscience",
+    "Lab apparatus","Procedures","Imaging","Safety symbols",
+    "Chemistry",
+    "Physics","Math",
+    "Scientific graphs","Bioinformatics","Machine learning","Computer hardware","Nanotechnology",
+    "People","General",
+  ]);
+  // Drive the mapper with a variety of real DBCLS filename patterns.
+  const probes = [
+    "beaker1","flask2","thermalcycler_1","confocal_scanning_laser_microscope",
+    "brain","neuron","heart","lung","bone","blood","IgG","cancer","skin",
+    "HeLa","HEK293","CHOcells","mitochondria","membrane","stem_cell",
+    "DNA","RNA","western_blot","PCR","microarray","gene","RNAI",
+    "bacteria","virus","yeast","fungi","plant","algae",
+    "mouse","zebrafish","frog","bird","insect","spider","worm",
+    "bioinformatics","graph","chart","safety","warning",
+    "some_random_item",
+  ];
+  for (const p of probes) {
+    const leaf = togopicCategory(p);
+    assert.ok(ALL_LEAVES.has(leaf), `togopicCategory("${p}") -> "${leaf}" not in valid leaves`);
+  }
+});
+
+// ---------------------------------------------------------------------------
+// formatCredit: new sources
+
+test("formatCredit: arcadia and togopic format correctly", () => {
+  // Arcadia is CC0; credit includes "Arcadia Science" and the DOI URL.
+  const a = formatCredit({
+    source: "arcadia",
+    title: "Mus musculus (silhouette)",
+    creator: "Arcadia Science",
+    license: "CC0",
+    sourceUrl: "https://zenodo.org/records/17203578",
+  });
+  assert.match(a, /Mus musculus/);
+  assert.match(a, /Arcadia Science/);
+  assert.match(a, /zenodo\.org/);
+  assert.match(a, /\(CC0\)/);
+
+  // Togopic is CC-BY 4.0; credit names DBCLS TogoTV.
+  const t = formatCredit({
+    source: "togopic",
+    title: "Beaker 1",
+    creator: "DBCLS TogoTV",
+    license: "CC-BY",
+    sourceUrl: "https://dbarchive.biosciencedbc.jp/data/togo-pic/image/beaker1.svg",
+  });
+  assert.match(t, /Beaker 1/);
+  assert.match(t, /DBCLS TogoTV/);
+  assert.match(t, /\(CC-BY\)/);
 });

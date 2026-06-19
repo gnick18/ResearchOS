@@ -112,6 +112,16 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // EMBL-EBI Icon Fonts SVGs are CC BY-SA 4.0; credit EMBL-EBI and note the SA term.
     return `${title}. EMBL-EBI Icon Fonts by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "arcadia") {
+    // Arcadia Science "Drawing Open" is CC0; no attribution required, but a
+    // courtesy credit helps others find the resource (their own request).
+    return `${title} by ${who}. Arcadia Science organism illustration library. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "togopic") {
+    // DBCLS Togo Picture Gallery is CC-BY 4.0; the required attribution form
+    // specified by DBCLS is "DBCLS TogoTV / CC-BY-4.0".
+    return `${title} by ${who}. DBCLS Togo Picture Gallery. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
@@ -368,6 +378,176 @@ export function ebiCategory(dir, name) {
     if (/database|data/.test(name)) return "Bioinformatics";
     return "General";
   }
+  return "General";
+}
+
+/**
+ * Arcadia Science organism name -> curated taxonomy leaf.
+ *
+ * The Arcadia "Drawing Open" library contains 71 organisms from model-organism
+ * research (CC0). Each is mapped to the most specific leaf in CATEGORY_SECTIONS.
+ * The exact-match table covers the full v1.0 set; the keyword fallback handles
+ * any organisms added in future Zenodo releases.
+ */
+export function arcadiaCategory(taxon) {
+  const EXACT = {
+    "Abeoforma whisleri":           "Protists",
+    "Aedes aegypti":                "Insects",
+    "Agaricus bisporus":            "Fungi",
+    "Amorphochlora amoebiformis":   "Protists",
+    "Anolis carolinensis":          "Reptiles",
+    "Arabidopsis thaliana":         "Plants & algae",
+    "Aspergillus nidulans":         "Fungi",
+    "Bathycoccus prasinos":         "Plants & algae",
+    "Bodo saltans":                 "Protists",
+    "Caenorhabditis elegans":       "Worms",
+    "Callithrix jacchus":           "Mammals",
+    "Callorhinchus milii":          "Fishes",
+    "Candida albicans":             "Fungi",
+    "Carlito syrichta":             "Mammals",
+    "Chlamydomonas reinhardtii":    "Plants & algae",
+    "Chlorella vulgaris":           "Plants & algae",
+    "Ciona intestinalis":           "Other invertebrates",
+    "Clytia hemisphaerica":         "Cnidarians",
+    "Danio rerio":                  "Fishes",
+    "Dictyostelium discoideum":     "Protists",
+    "Diplonema papillatum":         "Protists",
+    "Drosophila melanogaster":      "Insects",
+    "Entamoeba histolytica":        "Protists",
+    "Escherichia coli":             "Bacteria & archaea",
+    "Euglena gracilis":             "Protists",
+    "Exaiptasia diaphana":          "Cnidarians",
+    "Gallus gallus":                "Birds",
+    "Giardia intestinalis":         "Protists",
+    "Hofstenia miamia":             "Worms",
+    "Human immunodeficiency virus": "Viruses",
+    "Hydra vulgaris":               "Cnidarians",
+    "Hypsibius dujardini":          "Other invertebrates",
+    "Influenza virus":              "Viruses",
+    "Isochrysis galbana":           "Protists",
+    "Macaca mulatta":               "Mammals",
+    "Microcebus murinus":           "Mammals",
+    "Micromonas commoda":           "Plants & algae",
+    "Mnemiopsis leidyi":            "Other invertebrates",
+    "Monosiga brevicollis":         "Protists",
+    "Mus musculus":                 "Mammals",
+    "Naegleria gruberi":            "Protists",
+    "Nannochloropsis sp.":          "Plants & algae",
+    "Nematostella vectensis":       "Cnidarians",
+    "Neurospora crassa":            "Fungi",
+    "Ostreococcus tauri":           "Plants & algae",
+    "Pan troglodytes":              "Mammals",
+    "Paramecium tetraurelia":       "Protists",
+    "Penicillium chrysogenum":      "Fungi",
+    "Perkinsus marinus":            "Protists",
+    "Petromyzon marinus":           "Fishes",
+    "Phaeodactylum tricornutum":    "Plants & algae",
+    "Plasmodium falciparum":        "Parasites",
+    "Porphyra yezoensis":           "Plants & algae",
+    "Pristionchus pacificus":       "Worms",
+    "Rattus norvegicus":            "Mammals",
+    "SARS-CoV-2":                   "Viruses",
+    "Saccharomyces cerevisiae":     "Fungi",
+    "Salpingoeca rosetta":          "Protists",
+    "Schistosoma mansoni":          "Parasites",
+    "Schizosaccharomyces pombe":    "Fungi",
+    "Schmidtea mediterranea":       "Worms",
+    "Sphaeroforma arctica":         "Protists",
+    "Sus scrofa domestica":         "Mammals",
+    "Symbiodinium sp.":             "Protists",
+    "Taeniopygia guttata":          "Birds",
+    "Tetrahymena thermophila":      "Protists",
+    "Tetraselmis striata":          "Plants & algae",
+    "Ustilago maydis":              "Fungi",
+    "Volvox carteri":               "Plants & algae",
+    "Xenopus tropicalis":           "Amphibians",
+    "Yarrowia lipolytica":          "Fungi",
+  };
+  if (EXACT[taxon]) return EXACT[taxon];
+  // Keyword fallback for organisms added in future library releases.
+  const t = taxon.toLowerCase();
+  if (/virus|phage/.test(t)) return "Viruses";
+  if (/bacteri|archaea/.test(t)) return "Bacteria & archaea";
+  if (/plasmodium|leishmania|trypanosoma|schistosoma/.test(t)) return "Parasites";
+  if (/fungi|yeast|mushroom|mold/.test(t)) return "Fungi";
+  if (/algae|alga|plant|volvox|chlamydomonas/.test(t)) return "Plants & algae";
+  if (/protist|amoeba|paramecium|euglena/.test(t)) return "Protists";
+  if (/worm|nematode|planarian/.test(t)) return "Worms";
+  if (/hydra|cnidarian|coral/.test(t)) return "Cnidarians";
+  if (/insect|fly|mosquito|bee|moth|beetle/.test(t)) return "Insects";
+  if (/fish|zebrafish|lamprey/.test(t)) return "Fishes";
+  if (/frog|xenopus|salamander/.test(t)) return "Amphibians";
+  if (/lizard|snake|reptile/.test(t)) return "Reptiles";
+  if (/bird|finch|chicken/.test(t)) return "Birds";
+  if (/mouse|rat|human|primate|monkey/.test(t)) return "Mammals";
+  return "Other organisms";
+}
+
+/**
+ * DBCLS Togo Picture Gallery filename (YYYYMM_ prefix stripped, underscores as
+ * word separators) -> curated taxonomy leaf. The naming convention encodes the
+ * subject in plain English so keyword matching is reliable. The raw filename
+ * words are also kept as search tags so queries still hit unmapped assets.
+ */
+export function togopicCategory(rawBase) {
+  const t = (rawBase || "").toLowerCase();
+  // Lab apparatus is checked first: many DBCLS filenames (GenomeSequencer_1,
+  // thermalcycler_1) contain substrings like "er_" that would otherwise match
+  // "endoplasmic reticulum" in the cell-biology block below. Instrument names
+  // are unambiguous so this block is safe to front-load.
+  if (/microscope|confocal|electron.micros|fluoresc.micros/.test(t)) return "Imaging";
+  if (/beaker|flask|pipet|tube|centrifuge|mortar|cylinder|vial|bottle|rack|autoclave|sonicator|evapor|rotary|thermocycler|thermalcycler|pcr.machine|genome.sequencer|genomesequencer|chromatog|spectrometer|spectrophotom|electrophor/.test(t)) return "Lab apparatus";
+  if (/sequencer/.test(t)) return "Lab apparatus";
+  // Human anatomy and physiology.
+  if (/brain|cortex|synap|spinal/.test(t)) return "Neuroscience";
+  if (/neuron|nerve/.test(t)) return "Neuroscience";
+  if (/heart|lung|liver|kidney|pancrea|intestin|stomach|colon|bowel|spleen|uterus|ovary|trachea|bronch/.test(t)) return "Human physiology";
+  if (/bone|skeleto|joint|elbow|knee|femur|tibia|skull|vertebra|spine/.test(t)) return "Human physiology";
+  if (/blood|immune|igg|antibody|antigen|lymph|macrophage|neutrophil/.test(t)) return "Blood & immunology";
+  if (/cancer|tumor|tumour|carcinoma|oncolog/.test(t)) return "Oncology";
+  if (/skin|hair|nail|wound|epithelial|dermis|epidermis/.test(t)) return "Human physiology";
+  if (/human|person|people|researcher|scientist|worker/.test(t)) return "People";
+  // Cell biology.
+  if (/hela|hek|cho_cells|chocells|vero|mdck|sf9|s2_cell|cell.line|cho.cell/.test(t)) return "Cell lines";
+  if (/cell.culture|culture.dish|culture.plate|incubat/.test(t)) return "Cell culture";
+  // Avoid short substrings: "er_" is matched by instrument names; use full terms.
+  if (/mitochond|lysosom|endosom|golgi|nucleolus|endoplasmic/.test(t)) return "Intracellular components";
+  if (/nucleus/.test(t)) return "Intracellular components";
+  if (/membrane|lipid.bilayer|vesicle/.test(t)) return "Cell membrane";
+  if (/chondrocyte|osteoblast|stem.cell|mammary|oligodend|glia/.test(t)) return "Cell types";
+  if (/tissue|organ/.test(t)) return "Tissues";
+  // Molecular biology.
+  if (/dna|rna|genome|chromosom|nucleic|chromatin|histone/.test(t)) return "Nucleic acids";
+  if (/western.blot|microarray|southern|northern|chip.seq/.test(t)) return "Molecular biology";
+  if (/protein|enzyme|kinase/.test(t)) return "Molecular biology";
+  if (/gene|geneti|allele|mutation|snp|variant|rnai|sirna/.test(t)) return "Genetics";
+  // Organisms.
+  if (/bacteri|cyanobacteri|archaea|prokaryot/.test(t)) return "Bacteria & archaea";
+  if (/coli/.test(t)) return "Bacteria & archaea";
+  if (/virus|influenza|covid|sars|phage|bacteriophage|retrovirus|hiv/.test(t)) return "Viruses";
+  if (/parasite|plasmodium|leishmania|trypanosoma|malaria/.test(t)) return "Parasites";
+  if (/yeast|fungi|fungus|mushroom|spore/.test(t)) return "Fungi";
+  if (/algae|alga|plant|leaf|flower|root|tree|moss|fern|seaweed/.test(t)) return "Plants & algae";
+  if (/mouse|rat|mice|rodent|rabbit|hamster|guinea/.test(t)) return "Mammals";
+  if (/primate|monkey|chimpanzee|ape|macaque/.test(t)) return "Mammals";
+  if (/fish|zebrafish|medaka|salmon|tuna|shark|ray/.test(t)) return "Fishes";
+  if (/frog|amphibian|salamander|xenopus/.test(t)) return "Amphibians";
+  if (/lizard|snake|turtle|reptile/.test(t)) return "Reptiles";
+  if (/bird|chicken|quail|eagle|sparrow/.test(t)) return "Birds";
+  if (/insect|mosquito|bee|ant|beetle|moth|butterfly|larva|drosophila/.test(t)) return "Insects";
+  if (/fly/.test(t)) return "Insects";
+  if (/spider|tick|scorpion|arachnid/.test(t)) return "Arachnids";
+  if (/shrimp|crab|lobster|crustacean/.test(t)) return "Crustaceans";
+  if (/snail|squid|clam|oyster|mollu/.test(t)) return "Molluscs";
+  if (/worm|nematode|earthworm|caenorhabditis/.test(t)) return "Worms";
+  if (/starfish|echinoderm|sea.urchin|sea.cucumber/.test(t)) return "Echinoderms";
+  if (/pig|cow|sheep|horse|dog|cat|cattle|livestock/.test(t)) return "Mammals";
+  // Lab procedures and safety.
+  if (/procedure|protocol|extraction|injection|transplant|surgery|biopsy|stain|fixat|embed/.test(t)) return "Procedures";
+  if (/biohazard|radioactive|safety|warning|protective|ppe/.test(t)) return "Safety symbols";
+  // Bioinformatics / data.
+  if (/alignment|blast|phylogen|bioinformat|pipeline|workflow/.test(t)) return "Bioinformatics";
+  if (/graph|chart|plot|network/.test(t)) return "Scientific graphs";
   return "General";
 }
 
