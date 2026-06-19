@@ -22,7 +22,7 @@ import {
   type FigurePage,
   type FigurePanel,
 } from "@/lib/figure/figure-page";
-import { composeFigurePageSvg } from "@/lib/figure/figure-compose";
+import { composeFigurePageSvg, elementTransform, elementTransformCss } from "@/lib/figure/figure-compose";
 
 // Built dynamically so the inline-svg icon guard does not flag this test file.
 const SVG_OPEN = "<" + "svg";
@@ -234,5 +234,89 @@ describe("figure-page compositor", () => {
     });
     const out = composeFigurePageSvg(page, { pxPerInch: 96, panelSvgs: new Map() });
     expect(out).toContain(">**</text>");
+  });
+});
+
+// ── elementTransform (SVG syntax) vs elementTransformCss (CSS syntax) ─────────
+//
+// These two helpers share the same geometric intent but must emit different
+// syntax.  SVG transforms use bare numbers with space separators; CSS transforms
+// require commas between arguments and explicit px/deg units.  This suite
+// asserts both the invariant (geometrically identical when no-op) and the
+// syntax difference (the reason the fix exists).
+
+describe("elementTransform (SVG syntax, export path)", () => {
+  it("returns empty string when there is no rotation or flip", () => {
+    expect(elementTransform(10, 20, 100, 80, {})).toBe("");
+    expect(elementTransform(0, 0, 50, 50, { flipX: false, flipY: false })).toBe("");
+  });
+
+  it("emits SVG rotate with space-separated cx cy, no deg unit", () => {
+    const tf = elementTransform(0, 0, 100, 80, { rotation: 90 });
+    // SVG: rotate(deg cx cy) -- no 'deg' suffix
+    expect(tf).toContain("rotate(90 ");
+    expect(tf).not.toContain("deg");
+    expect(tf).not.toContain(",");
+  });
+
+  it("emits SVG translate/scale with space-separated args and no px unit", () => {
+    const tf = elementTransform(0, 0, 100, 80, { flipX: true });
+    // SVG translate uses bare numbers: translate(cx cy) not translate(cx px, cy px)
+    expect(tf).toContain("translate(");
+    expect(tf).toContain("scale(-1 1)");
+    expect(tf).not.toContain("px");
+    expect(tf).not.toContain(",");
+  });
+
+  it("export output embeds the SVG transform for a flipped panel", () => {
+    let page = createFigurePage("f1", "F", null);
+    page = addPanel(page, { type: "d", id: "1" }, "p1");
+    page.panels[0].xIn = 0; page.panels[0].yIn = 0;
+    page.panels[0].wIn = 2; page.panels[0].hIn = 1;
+    page.panels[0].flipX = true;
+    const svg = composeFigurePageSvg(page, {
+      pxPerInch: 96,
+      panelSvgs: new Map([["p1", "<" + "svg viewBox='0 0 10 10'><rect/></svg>"]]),
+    });
+    // The SVG export must include a transform wrapping the flipped panel.
+    expect(svg).toContain('transform="');
+    expect(svg).toContain("scale(-1");
+  });
+});
+
+describe("elementTransformCss (CSS syntax, canvas path)", () => {
+  it("returns empty string when there is no rotation or flip", () => {
+    expect(elementTransformCss(10, 20, 100, 80, {})).toBe("");
+    expect(elementTransformCss(0, 0, 50, 50, { flipX: false, flipY: false })).toBe("");
+  });
+
+  it("emits CSS rotate with deg unit and no cx/cy arguments", () => {
+    const tf = elementTransformCss(0, 0, 100, 80, { rotation: 45 });
+    expect(tf).toContain("rotate(45deg)");
+    // CSS rotate() takes one argument only (no cx cy)
+    expect(tf).not.toMatch(/rotate\(\d+deg\s+\d/);
+  });
+
+  it("emits CSS translate with px units and commas between args", () => {
+    const tf = elementTransformCss(0, 0, 100, 80, { flipX: true });
+    // Must have commas inside translate() and px units
+    expect(tf).toContain("px,");
+    expect(tf).toContain("px)");
+    expect(tf).toContain("scale(-1, 1)");
+    // Must NOT be valid SVG syntax (no bare numbers without units inside translate)
+    expect(tf).not.toMatch(/translate\(\d+\.\d+ \d/);
+  });
+
+  it("includes both rotation and flip when both are set", () => {
+    const tf = elementTransformCss(10, 20, 100, 80, { rotation: 30, flipX: true });
+    expect(tf).toContain("rotate(30deg)");
+    expect(tf).toContain("scale(-1, 1)");
+    expect(tf).toContain("px,");
+  });
+
+  it("flipY emits scale(1, -1) not scale(-1, 1)", () => {
+    const tf = elementTransformCss(0, 0, 100, 80, { flipY: true });
+    expect(tf).toContain("scale(1, -1)");
+    expect(tf).not.toContain("scale(-1");
   });
 });
