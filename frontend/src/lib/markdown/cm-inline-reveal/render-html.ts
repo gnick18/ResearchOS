@@ -57,7 +57,18 @@ function renderMarkdownToHtml(source: string, highlight: boolean): string {
     .use(rehypeSanitize, markdownSanitizeSchema)
     .use(rehypeStringify)
     .processSync(source);
-  return String(file);
+  // Trim leading / trailing whitespace. The remark-gfm -> remark-rehype ->
+  // rehype-raw round-trip emits a run of newline text nodes BEFORE the rendered
+  // block (a GFM table picks up roughly one newline per row). Those newlines are
+  // harmless in normal HTML flow, but a CM6 block widget renders this string with
+  // innerHTML inside a wrapper that inherits `white-space: break-spaces` from
+  // `.cm-content`, so each stray newline became a visible blank LINE. The result
+  // was a one-row table rendered as a ~700px-tall mostly-empty widget that pushed
+  // the actual <table> below the fold, reading to the user as "the table stopped
+  // rendering" the moment the caret left it. Trimming the outer whitespace fixes
+  // that without touching newlines INSIDE the block (e.g. a fenced code body),
+  // which sit within <pre><code> and are unaffected by an outer trim.
+  return String(file).trim();
 }
 
 /** Render a GFM table source block to a sanitized <table> HTML string. */

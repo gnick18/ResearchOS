@@ -51,6 +51,13 @@ export const inlineRevealTheme = EditorView.baseTheme({
   // sanitized markdown HTML, so we style by element under the wrapper class.
   ".cm-inline-block": {
     margin: "0.5em 0",
+    // The wrapper inherits `white-space: break-spaces` from `.cm-content`, which
+    // would render any stray newline in the widget's HTML as a visible blank
+    // line. The render pipeline already trims the outer whitespace (render-html),
+    // so this is defense in depth: normal white-space means even an unexpected
+    // newline between block elements collapses instead of inflating the widget
+    // height. Keeps the rendered table / code block at its true size.
+    whiteSpace: "normal",
   },
   ".cm-inline-table table": {
     borderCollapse: "collapse",
