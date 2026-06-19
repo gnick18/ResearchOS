@@ -3,6 +3,15 @@
 Lane: INJEST (social layer). Status: proposal / design. Not built.
 Origin: Grant + his business partner/professor, 2026-06-16.
 
+> SUPERSEDED on the URL form (2026-06-19, Grant): the locked decision is now that
+> NO public lab surface shares the authed app's cookie origin. Every native lab
+> companion site lives at the per-lab SUBDOMAIN `<labslug>.research-os.com` (the
+> cookie-isolated public lab origin, same registrable domain as the untrusted BYO
+> bundle, which is carved under `/_site/` on that subdomain). Old
+> `research-os.app/<labslug>` links 301 to the subdomain. The "researchos.app/<labslug>"
+> path form described below is the original draft and is retained for history only.
+> See AGENTS.md (lab-sites .com lane) and `[[project_demo_lab_on_network]]`.
+
 Every paying Lab gets a vanity URL `researchos.app/<labslug>` and can publish
 website pages under it (nested paths) — companion sites for papers, lab sites, or
 anything else. The killer use case: turn a paper's supplemental dataset (e.g. a

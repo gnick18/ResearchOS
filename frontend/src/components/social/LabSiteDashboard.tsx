@@ -18,6 +18,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import FileDropzone from "@/components/ui/FileDropzone";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
@@ -100,8 +101,8 @@ function ByoUploadSection({ slug }: { slug: string }) {
       <p className="mt-1 text-sm text-muted-foreground">
         Already have your own static site (HTML, CSS, JS)? Upload a zip with an
         index.html at its root and we will host it. It is served from a separate,
-        sandboxed domain ({slug}.research-os.com) so your site&apos;s code stays
-        isolated from your account.
+        sandboxed path ({slug}.research-os.com/_site/) so your site&apos;s code
+        stays isolated from your account.
       </p>
       <div className="mt-4">
         <FileDropzone
@@ -614,13 +615,18 @@ export default function LabSiteDashboard({
               Claim your lab slug
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Your site will live at research-os.app/&lt;slug&gt;. Letters,
-              numbers, and dashes, 3 to 30 characters.
+              Your site will live at{" "}
+              {LAB_SITES_COM_ORIGIN_ENABLED
+                ? "<slug>.research-os.com"
+                : "research-os.app/<slug>"}
+              . Letters, numbers, and dashes, 3 to 30 characters.
             </p>
             <div className="mt-4 flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">
-                research-os.app/
-              </span>
+              {!LAB_SITES_COM_ORIGIN_ENABLED && (
+                <span className="text-sm text-muted-foreground">
+                  research-os.app/
+                </span>
+              )}
               <input
                 type="text"
                 value={slugInput}
@@ -629,6 +635,11 @@ export default function LabSiteDashboard({
                 className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
                 aria-label="Lab slug"
               />
+              {LAB_SITES_COM_ORIGIN_ENABLED && (
+                <span className="text-sm text-muted-foreground">
+                  .research-os.com
+                </span>
+              )}
               <button
                 type="button"
                 disabled={claimBusy || slugInput.trim().length === 0}
@@ -664,7 +675,9 @@ export default function LabSiteDashboard({
               <div>
                 <p className="text-sm text-muted-foreground">Your site</p>
                 <p className="text-base font-medium text-foreground">
-                  research-os.app/{site.slug}
+                  {LAB_SITES_COM_ORIGIN_ENABLED
+                    ? `${site.slug}.research-os.com`
+                    : `research-os.app/${site.slug}`}
                 </p>
               </div>
               <button

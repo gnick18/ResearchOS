@@ -226,11 +226,18 @@ export function resolveByoServePath(requestPath: string): string | null {
 // Host -> lab slug
 // ---------------------------------------------------------------------------
 
-/** The registrable assets domain that hosts BYO sites. A DIFFERENT registrable
- *  domain from the app's research-os.app, so BYO JS is cookie-isolated. Overridable
- *  via env for preview deployments. */
-export const BYO_ASSETS_DOMAIN =
+/** The registrable domain that hosts every PUBLIC lab surface (native companion
+ *  sites AND the untrusted BYO bundle). A DIFFERENT registrable domain from the
+ *  app's research-os.app, so a lab's public surface is cookie-isolated from the
+ *  authed app. One source for both the native subdomain home and the BYO carve.
+ *  Overridable via env for preview deployments. The env name keeps its original
+ *  LAB_BYO_ASSETS_DOMAIN spelling for back-compat with the already-set deploy env. */
+export const LAB_SITES_PUBLIC_DOMAIN =
   process.env.LAB_BYO_ASSETS_DOMAIN ?? "research-os.com";
+
+/** Back-compat alias. The domain was originally introduced for BYO only; it now
+ *  hosts native lab sites too, hence the clearer LAB_SITES_PUBLIC_DOMAIN name. */
+export const BYO_ASSETS_DOMAIN = LAB_SITES_PUBLIC_DOMAIN;
 
 /**
  * Parse the lab slug from a Host header of the form `<labSlug>.research-os.com`
@@ -253,6 +260,76 @@ export function labSlugFromHost(host: string | null | undefined): string | null 
   if (label.length === 0 || label.includes(".")) return null;
   if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(label)) return null;
   return label;
+}
+
+// ---------------------------------------------------------------------------
+// Lab subdomain request routing (research-os.com origin cutover)
+// ---------------------------------------------------------------------------
+
+/** Reserved single-label subdomains of the public lab domain that are NEVER a lab
+ *  slug (they front other infra, e.g. the R2 asset CDN). labSlugFromHost accepts
+ *  any slug-charset label, so these are excluded explicitly. In practice these
+ *  point at other origins in DNS and never reach the app, but the guard keeps the
+ *  router correct under any misconfiguration. */
+const RESERVED_LAB_SUBDOMAINS = new Set(["assets", "www", "api", "app"]);
+
+/** The reserved path prefix on a lab subdomain that serves the untrusted BYO
+ *  bundle. The native page-path normalizer (normalizePagePath) can never emit a
+ *  leading-underscore segment, so a native page can never collide with this. */
+export const LAB_SITE_BYO_PREFIX = "/_site";
+
+/** The single app API route reachable on the cookie-isolated lab origin. It is the
+ *  public live-dataset stream (login-free, cookie-free) that a native lab page
+ *  fetches same-origin. Everything else under /api is blocked on the lab origin. */
+const PUBLIC_LAB_API_PATHS = new Set(["/api/social/lab-site/asset/read"]);
+
+/** What middleware should do with a request whose Host is (or is not) a lab
+ *  subdomain of the public lab domain. */
+export type LabHostAction =
+  | { kind: "passthrough" }
+  | { kind: "rewrite-native"; slug: string; path: string }
+  | { kind: "rewrite-byo"; slug: string; path: string }
+  | { kind: "allow-api" }
+  | { kind: "block" };
+
+/**
+ * Pure routing decision for the research-os.com origin. Given the request Host,
+ * pathname, and whether the cutover is enabled, decide how middleware should route
+ * it. Kept pure (no NextRequest / NextResponse) so the whole decision table is
+ * unit-testable.
+ *
+ *   - Not a lab subdomain (app host, apex, reserved, or disabled) => passthrough,
+ *     so the app origin behaves exactly as before.
+ *   - <slug>.<domain>/_site[/...]                 => serve the BYO bundle.
+ *   - <slug>.<domain>/api/social/lab-site/asset/read => allow (the one public API).
+ *   - <slug>.<domain>/api/...  (anything else)    => block (404), so no cookie-
+ *     setting auth/app route is ever reachable on the cookie-isolated origin.
+ *   - <slug>.<domain>/<path>                       => serve the native page via the
+ *     existing /<slug>/<path> route (rewrite, the public URL stays the subdomain).
+ */
+export function resolveLabHostRequest(args: {
+  host: string | null | undefined;
+  pathname: string;
+  enabled: boolean;
+}): LabHostAction {
+  if (!args.enabled) return { kind: "passthrough" };
+  const slug = labSlugFromHost(args.host);
+  if (slug === null || RESERVED_LAB_SUBDOMAINS.has(slug)) {
+    return { kind: "passthrough" };
+  }
+  const { pathname } = args;
+  if (pathname === LAB_SITE_BYO_PREFIX || pathname.startsWith(`${LAB_SITE_BYO_PREFIX}/`)) {
+    const tail = pathname.slice(LAB_SITE_BYO_PREFIX.length).replace(/^\/+/, "");
+    return { kind: "rewrite-byo", slug, path: tail };
+  }
+  if (PUBLIC_LAB_API_PATHS.has(pathname)) return { kind: "allow-api" };
+  if (pathname === "/api" || pathname.startsWith("/api/")) return { kind: "block" };
+  return { kind: "rewrite-native", slug, path: pathname };
+}
+
+/** The canonical public origin for a lab, e.g. https://smithlab.research-os.com. */
+export function labSiteOrigin(slug: string): string {
+  return `https://${slug}.${LAB_SITES_PUBLIC_DOMAIN}`;
 }
 
 // ---------------------------------------------------------------------------

@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { headers } from "next/headers";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
-import { isLabSitesEnabled } from "@/lib/social/config";
+import { isLabSitesComOriginEnabled, isLabSitesEnabled } from "@/lib/social/config";
 import { getPage, getSiteBySlug } from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
+import { labSiteOrigin, labSlugFromHost } from "@/lib/social/lab-byo";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
 import { normalizeSlug } from "@/lib/social/slug-registry";
@@ -13,8 +15,12 @@ import { getSlug } from "@/lib/social/slug-registry-db";
 /**
  * Public lab companion-site route (lab-domains Phase 2, social lane).
  *
- *   research-os.app/<labSlug>            -> the lab site home page
- *   research-os.app/<labSlug>/<...path>  -> a nested published page
+ * Canonical public home (research-os.com origin cutover):
+ *   <labSlug>.research-os.com/           -> the lab site home page
+ *   <labSlug>.research-os.com/<...path>  -> a nested published page
+ * Middleware (proxy.ts) rewrites the lab subdomain to the internal /<labSlug>/<path>
+ * this route serves, so the route itself is unchanged. When the cutover flag is on,
+ * an old research-os.app/<labSlug> link 301s to the subdomain (below).
  *
  * This is a TOP-LEVEL optional-catch-all dynamic segment. Routing safety: Next.js
  * App Router always prefers a STATIC segment over a dynamic one, so every existing
@@ -90,8 +96,26 @@ export default async function LabSitePublicPage({
   params: Promise<RouteParams>;
 }) {
   const { labSlug, path } = await params;
-  const { decision, slug, page } = await resolve(labSlug, path);
+  const { decision, slug, path: normPath, page } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
+  // Origin cutover: when the research-os.com move is live, the canonical home is
+  // the per-lab subdomain. A hit on the app origin (an old research-os.app/<slug>
+  // link) 301s to the subdomain for citation continuity. We only redirect from the
+  // known app host, so local/preview hosts still render the path form in place, and
+  // a request already on the lab subdomain (host slug matches) renders normally.
+  if (isLabSitesComOriginEnabled()) {
+    const host = (await headers()).get("host");
+    const onSubdomain = labSlugFromHost(host) === slug;
+    const appHost = (process.env.NEXT_PUBLIC_APP_ORIGIN ?? "")
+      .replace(/^https?:\/\//, "")
+      .split("/")[0]
+      ?.toLowerCase();
+    const reqHost = host?.split(":")[0]?.toLowerCase();
+    if (!onSubdomain && appHost && reqHost === appHost) {
+      const tail = normPath ? `/${normPath}` : "";
+      permanentRedirect(`${labSiteOrigin(slug)}${tail}`);
+    }
+  }
   // Resolve the frozen baked-block snapshots (Phase 3b). The public reader has no
   // local workspace, so the page renders these FROZEN snapshots instead of live
   // embeds. parseSnapshotBundle is defensive, a null / malformed column yields an

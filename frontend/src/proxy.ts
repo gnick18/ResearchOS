@@ -1,20 +1,32 @@
 import { NextRequest, NextResponse } from "next/server";
 
+import { isLabSitesComOriginEnabled, isLabSitesEnabled } from "@/lib/social/config";
+import { resolveLabHostRequest } from "@/lib/social/lab-byo";
+
 /**
- * Maintenance-mode gate (Next.js "proxy" file convention, formerly middleware).
+ * Maintenance-mode gate (Next.js "proxy" file convention, formerly middleware)
+ * plus the lab-site public-origin router.
  *
- * When MAINTENANCE_MODE is "true", every page request is rewritten to the
- * /maintenance holding page so a half-finished app never reaches users during
+ * Lab origin: when the research-os.com cutover is enabled, a request whose Host is
+ * a per-lab subdomain `<slug>.research-os.com` is routed to the lab's PUBLIC
+ * surface only (native pages, the BYO bundle under /_site, and the one public
+ * dataset-stream API), and every other route (auth, the app, all other APIs) is
+ * 404ed there, so no app cookie is ever set on the cookie-isolated origin. The
+ * decision is the pure resolveLabHostRequest() so it is unit tested. On the app
+ * origin this is a complete no-op.
+ *
+ * Maintenance: when MAINTENANCE_MODE is "true", every page request is rewritten to
+ * the /maintenance holding page so a half-finished app never reaches users during
  * heavy backend migration work. A bypass cookie (set by visiting
  * /?unlock=<MAINTENANCE_BYPASS_SECRET>) lets the operator through to test the
  * real site. With the flag unset or not "true", this is a no-op, so committing
  * it does not change normal behavior until the flag is flipped in the deploy
  * env.
  *
- * Scope: page navigations only. The matcher excludes Next internals, static
- * assets, /_vercel, and /api (API routes have their own env gating, and the UI
- * that would call them is blocked anyway). The data is not sensitive; this is a
- * soft "the site is down" gate, not an auth boundary.
+ * Scope: page navigations PLUS /api (the matcher now includes /api so the lab
+ * origin can gate API routes). On the app origin the /api short-circuit below
+ * preserves the prior zero-middleware-on-API behavior exactly. The matcher still
+ * excludes Next internals, /_vercel, and static assets.
  *
  * No em-dashes, no emojis, no mid-sentence colons.
  */
@@ -23,6 +35,49 @@ const UNLOCK_COOKIE = "ros_maint_unlock";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 export function proxy(req: NextRequest): NextResponse {
+  const { pathname } = req.nextUrl;
+
+  // Lab public-origin routing. Fires ONLY for a real lab subdomain of the public
+  // lab domain when the cutover flag is on, so it is a no-op on the app origin and
+  // while the flag is off. Runs before everything else so the lab origin never
+  // falls through to the dev gate or the maintenance rewrite.
+  const labAction = resolveLabHostRequest({
+    host: req.headers.get("host"),
+    pathname,
+    enabled: isLabSitesEnabled() && isLabSitesComOriginEnabled(),
+  });
+  if (labAction.kind !== "passthrough") {
+    switch (labAction.kind) {
+      case "allow-api":
+        return NextResponse.next();
+      case "block":
+        return new NextResponse(null, { status: 404 });
+      case "rewrite-byo": {
+        const url = req.nextUrl.clone();
+        url.pathname = "/api/social/lab-site/byo/serve";
+        url.search = "";
+        url.searchParams.set("slug", labAction.slug);
+        if (labAction.path) url.searchParams.set("path", labAction.path);
+        return NextResponse.rewrite(url);
+      }
+      case "rewrite-native": {
+        // Host carries the slug; map <slug>.<domain>/<path> to the internal
+        // /<slug>/<path> the existing [labSlug] route serves. Rewrite (not
+        // redirect) so the public URL stays the subdomain. Query is preserved.
+        const url = req.nextUrl.clone();
+        url.pathname = `/${labAction.slug}${labAction.path === "/" ? "" : labAction.path}`;
+        return NextResponse.rewrite(url);
+      }
+    }
+  }
+
+  // App origin from here. The matcher now also runs on /api so the lab origin can
+  // gate it above; on the app origin, preserve the prior behavior where API routes
+  // do NO middleware work (never dev-gated, never maintenance-rewritten).
+  if (pathname === "/api" || pathname.startsWith("/api/")) {
+    return NextResponse.next();
+  }
+
   // Hard-gate the internal /dev/* tree in any DEPLOYED build. NODE_ENV is
   // "production" for every Vercel deployment (preview AND prod); only a local
   // `next dev` is "development". This runs in middleware, BEFORE routing, on
@@ -32,8 +87,7 @@ export function proxy(req: NextRequest): NextResponse {
   // cannot be bypassed by routing, so a 404 here closes the whole tree.
   if (
     process.env.NODE_ENV === "production" &&
-    (req.nextUrl.pathname === "/dev" ||
-      req.nextUrl.pathname.startsWith("/dev/"))
+    (pathname === "/dev" || pathname.startsWith("/dev/"))
   ) {
     return new NextResponse(null, { status: 404 });
   }
@@ -43,7 +97,7 @@ export function proxy(req: NextRequest): NextResponse {
     return NextResponse.next();
   }
 
-  const { pathname, searchParams } = req.nextUrl;
+  const { searchParams } = req.nextUrl;
   const secret = process.env.MAINTENANCE_BYPASS_SECRET;
 
   // Let the holding page itself through (avoids a rewrite loop).
@@ -79,10 +133,13 @@ export function proxy(req: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Run on page navigations only. Exclude Next internals, the Vercel insight
-  // endpoints, API routes, and common static file extensions so the holding
-  // page and its assets always load.
+  // Run on page navigations AND /api. The first entry is page navigations
+  // (excluding Next internals, the Vercel insight endpoints, /api, and common
+  // static file extensions). The second entry adds /api so the lab-origin router
+  // can gate API routes on the cookie-isolated lab subdomain; on the app origin
+  // the /api short-circuit in proxy() preserves the prior no-middleware behavior.
   matcher: [
     "/((?!api|_next/static|_next/image|_vercel|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|mp4|webm|woff|woff2|ttf|otf)$).*)",
+    "/api/:path*",
   ],
 };

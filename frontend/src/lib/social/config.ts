@@ -44,6 +44,30 @@ export const LAB_SITES_ENABLED =
   process.env.NEXT_PUBLIC_LAB_SITES === "1" ||
   process.env.NEXT_PUBLIC_LAB_SITES === "true";
 
+// Lab companion-site CUTOVER to the research-os.com origin (lab-domains, .com move).
+//
+// Locked decision (2026-06): no public lab surface may share the authed app's cookie
+// origin (research-os.app). Native lab sites move to a per-lab subdomain
+// <slug>.research-os.com (the untrusted BYO bundle is carved under /_site/ there). This
+// is a SEPARATE flag from LAB_SITES_ENABLED on purpose: that flag is already ON in prod
+// (the demo lab is live on the app origin today), so the cutover (subdomain serving + a
+// 301 from the app origin + .com directory links) is gated HERE and stays OFF until the
+// *.research-os.com wildcard DNS is wired. Flipping it then moves every native lab site
+// to the .com origin atomically, without breaking the live demo in the meantime.
+
+/** SERVER gate for the research-os.com origin cutover. Read lazily at request time.
+ *  Layered on the lab-sites gate, fail-closed. */
+export function isLabSitesComOriginEnabled(): boolean {
+  return isLabSitesEnabled() && process.env.LAB_SITES_COM_ORIGIN === "true";
+}
+
+/** CLIENT gate for .com-origin links (directory cards, dashboard copy). Inlined at
+ *  build time, default OFF. Layered on the lab-sites client gate. */
+export const LAB_SITES_COM_ORIGIN_ENABLED =
+  LAB_SITES_ENABLED &&
+  (process.env.NEXT_PUBLIC_LAB_SITES_COM_ORIGIN === "1" ||
+    process.env.NEXT_PUBLIC_LAB_SITES_COM_ORIGIN === "true");
+
 // BYO ("bring your own") static-site hosting SUB-FLAG (lab-domains BYO Slice 1).
 //
 // BYO lets a paid lab upload its OWN static website (raw HTML/CSS/JS, e.g. a

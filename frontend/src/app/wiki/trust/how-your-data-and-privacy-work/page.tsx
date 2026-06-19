@@ -373,7 +373,7 @@ export default function HowYourDataAndPrivacyWorkPage() {
           <div className="flex items-center gap-2 border-b border-slate-100 px-3 py-2 text-meta text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
             <span className="h-1.5 w-1.5 rounded-full bg-slate-300" />
-            research-os.app/your-lab
+            your-lab.research-os.com
           </div>
           <div className="dgm-pub p-4">
             <div className="mb-2 flex items-center gap-2 text-sky-700">
@@ -399,7 +399,7 @@ export default function HowYourDataAndPrivacyWorkPage() {
         Your lab&apos;s own web home <ComingTag>coming with lab sites</ComingTag>
       </h2>
       <p>
-        A lab is getting a public page at research-os.app/your-lab, with a
+        A lab is getting a public page at your-lab.research-os.com, with a
         custom domain as a later add-on. The headline use is a companion page
         for a paper, a citable landing page that can carry the paper&apos;s
         figures and a live, interactive dataset viewer, frozen on publish so the

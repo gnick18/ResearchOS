@@ -21,6 +21,8 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
+import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
+import { LAB_SITE_BYO_PREFIX } from "@/lib/social/lab-byo";
 import {
   DEMO_BYO_HOST,
   type DemoLabCard,
@@ -72,6 +74,16 @@ function Avatar({
 
 export default function LabDirectoryCard({ card }: { card: DemoLabCard }) {
   const piColor = AVATAR_COLORS[0];
+  // After the research-os.com origin cutover, the lab's public home is its
+  // subdomain root and the BYO bundle lives under /_site there. Before the cutover
+  // (flag off), the native site is still the app-origin path and BYO is the bare
+  // subdomain host. The card is demo-only, so DEMO_BYO_HOST is this lab's subdomain.
+  const onComOrigin = LAB_SITES_COM_ORIGIN_ENABLED;
+  const nativeHref = onComOrigin ? `https://${DEMO_BYO_HOST}` : `/${card.slug}`;
+  const nativeLabel = onComOrigin ? DEMO_BYO_HOST : `research-os.app/${card.slug}`;
+  const byoHref = onComOrigin
+    ? `https://${DEMO_BYO_HOST}${LAB_SITE_BYO_PREFIX}/`
+    : `https://${DEMO_BYO_HOST}`;
   return (
     <article className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
       {/* Header: avatar, name, handle, sample-lab badge */}
@@ -86,17 +98,17 @@ export default function LabDirectoryCard({ card }: { card: DemoLabCard }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-body font-semibold text-foreground">
-              <Link href={`/${card.slug}`} className="hover:underline">
+              <Link href={nativeHref} className="hover:underline">
                 {card.name}
               </Link>
             </h3>
             <DemoSampleLabRibbon tone="card" />
           </div>
           <Link
-            href={`/${card.slug}`}
+            href={nativeHref}
             className="text-meta text-brand-action underline-offset-2 hover:underline"
           >
-            research-os.app/{card.slug}
+            {nativeLabel}
           </Link>
 
           {/* Trust badges */}
@@ -153,13 +165,13 @@ export default function LabDirectoryCard({ card }: { card: DemoLabCard }) {
       {/* Site chips: one lab can host both a native site and a BYO companion */}
       <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
         <Link
-          href={`/${card.slug}`}
+          href={nativeHref}
           className="inline-flex items-center gap-1.5 rounded-full bg-brand-action px-3.5 py-1.5 text-xs font-semibold text-white transition hover:opacity-90"
         >
           <Icon name="labTree" className="h-3.5 w-3.5" /> Visit lab site
         </Link>
         <a
-          href={`https://${DEMO_BYO_HOST}`}
+          href={byoHref}
           className="inline-flex items-center gap-1.5 rounded-full border border-border-strong px-3.5 py-1.5 text-xs font-semibold text-foreground transition hover:border-brand-action"
         >
           <Icon name="file" className="h-3.5 w-3.5" /> Paper companion
