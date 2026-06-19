@@ -33,13 +33,21 @@
 //      fill colors and custGeom paths and convert to a single composed SVG.
 //   4. Sanitize + classify CC-BY + map to the curated taxonomy leaf by PPTX filename.
 //
-// DrawingML coordinate model: each <a:path> has w and h attributes defining a local
-// (0..w, 0..h) coordinate space. The shape's actual size in EMU is given by
-// <a:xfrm> / <a:ext cx="..." cy="...">. We normalize all paths to a 0..1000 unit
-// coordinate space by scaling: x_svg = (x_dml / w) * 1000, y_svg = (y_dml / h) * 1000.
-// Within a group, each sub-shape is offset by its <a:xfrm> off x/y in EMU, and sized
-// by cx/cy in EMU; we compute a bounding box across the group and compose the paths
-// with appropriate translate transforms so the assembled SVG is self-consistent.
+// DrawingML coordinate model (important - two-level coordinate space):
+//   Each <a:path> has w and h attributes defining a local (0..w, 0..h) coordinate space.
+//   The shape's custGeom path coordinates are in this local space.
+//
+//   Group-level (<p:grpSp>) transform in <p:grpSpPr> / <a:xfrm>:
+//     <a:off x y>   -- group position on slide in EMU
+//     <a:ext cx cy> -- group size on slide in EMU
+//     <a:chOff x y>  -- child coordinate space origin (child units, NOT EMU)
+//     <a:chExt cx cy> -- child coordinate space size (child units, NOT EMU)
+//   Child shapes' <a:xfrm> off/ext are in the CHILD coordinate space, not EMU.
+//   To convert child units to EMU: emu_x = (child_x - chOff.x) * (ext.cx / chExt.cx)
+//   The rendered shape size in EMU: cx_emu = child_cx * (ext.cx / chExt.cx).
+//   This EMU size is then divided by 914400 and scaled to 0..1000 for path normalization.
+//   Within a group, we compute a bounding box in EMU and compose the paths with
+//   translate transforms so the assembled SVG is self-consistent.
 //
 // Run:  node scripts/asset-ingest/ingest-servier.mjs [MAX_ICONS_PER_PPTX] [MAX_PPTX]
 //   MAX_ICONS_PER_PPTX = max icon groups per PPTX (default 50)
@@ -229,58 +237,102 @@ function extractFill(spXml) {
 /**
  * Convert a DrawingML group (<p:grpSp> inner XML) to an SVG string.
  * Returns null if no renderable paths are found.
+ *
+ * DrawingML coordinate model for groups:
+ *   <p:grpSpPr> carries <a:xfrm> with four key values:
+ *     <a:off cx cy>   -- group position on the slide in EMU
+ *     <a:ext cx cy>   -- group size on the slide in EMU
+ *     <a:chOff x y>  -- child coordinate space origin (in child units)
+ *     <a:chExt cx cy> -- child coordinate space size (in child units)
+ *   Child shape <a:xfrm> offsets and extents are in child units, NOT EMU.
+ *   To convert child units to EMU: emu = (childVal - chOff) * (ext / chExt) + off
+ *   The custGeom path w/h is in shape local space; the shape's rendered size in
+ *   EMU is cx_emu = childCx * (ext.cx / chExt.cx).
  */
 function groupToSvg(grpXml, slideTitle) {
+  // Parse the group-level transform to obtain the child-to-EMU scale factors.
+  // grpXml is the inner content of <p:grpSp>; grpSpPr is the first child.
+  let chOffX = 0, chOffY = 0, chExtCx = 0, chExtCy = 0;
+  let grpExtCx = 0, grpExtCy = 0;
+  const grpSpPrMatch = grpXml.match(/<p:grpSpPr[^>]*>([\s\S]*?)<\/p:grpSpPr>/);
+  if (grpSpPrMatch) {
+    const gXfrm = grpSpPrMatch[0];
+    const chOff = gXfrm.match(/<a:chOff[^>]*x="([^"]+)"[^>]*y="([^"]+)"/);
+    const chExt = gXfrm.match(/<a:chExt[^>]*cx="([^"]+)"[^>]*cy="([^"]+)"/);
+    const grpExt = gXfrm.match(/<a:ext[^>]*cx="([^"]+)"[^>]*cy="([^"]+)"/);
+    if (chOff) { chOffX = parseFloat(chOff[1]); chOffY = parseFloat(chOff[2]); }
+    if (chExt) { chExtCx = parseFloat(chExt[1]); chExtCy = parseFloat(chExt[2]); }
+    if (grpExt) { grpExtCx = parseFloat(grpExt[1]); grpExtCy = parseFloat(grpExt[2]); }
+  }
+  // Scale factors: child_unit * scale = EMU.
+  // If chExt is 0 (degenerate group, e.g. a title placeholder wrapper), skip.
+  const scaleX = chExtCx > 0 ? grpExtCx / chExtCx : 0;
+  const scaleY = chExtCy > 0 ? grpExtCy / chExtCy : 0;
+  if (scaleX === 0 || scaleY === 0) return null;
+
   // Each <p:sp> within the group is one shape.
   const shapes = [...grpXml.matchAll(/<p:sp\b[^>]*>([\s\S]*?)<\/p:sp>/g)];
   if (shapes.length === 0) return null;
 
-  const paths = [];
+  // Pass 1: collect shape metadata in EMU, compute bounding box.
+  // We defer path rendering until we know the total bounding box so both
+  // shape positions and path coordinate scales use the same output unit.
+  const shapeData = [];
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
 
   for (const [, spBody] of shapes) {
     const fill = extractFill(spBody);
-    // Get the shape transform (position and size in EMU).
     const xfrm = spBody.match(/<a:xfrm[^>]*>([\s\S]*?)<\/a:xfrm>/);
-    let offX = 0, offY = 0, cx = 1e5, cy = 1e5;
+    let childOffX = chOffX, childOffY = chOffY, childCx = chExtCx, childCy = chExtCy;
     if (xfrm) {
       const off = xfrm[0].match(/<a:off[^>]*x="([^"]+)"[^>]*y="([^"]+)"/);
       const ext = xfrm[0].match(/<a:ext[^>]*cx="([^"]+)"[^>]*cy="([^"]+)"/);
-      if (off) { offX = parseFloat(off[1]); offY = parseFloat(off[2]); }
-      if (ext) { cx = parseFloat(ext[1]); cy = parseFloat(ext[2]); }
+      if (off) { childOffX = parseFloat(off[1]); childOffY = parseFloat(off[2]); }
+      if (ext) { childCx = parseFloat(ext[1]); childCy = parseFloat(ext[2]); }
     }
+    // Convert child-space to EMU.
+    const offX_emu = (childOffX - chOffX) * scaleX;
+    const offY_emu = (childOffY - chOffY) * scaleY;
+    const cx_emu = childCx * scaleX;
+    const cy_emu = childCy * scaleY;
 
-    // Get custGeom paths.
     const pathListMatch = spBody.match(/<a:pathLst>([\s\S]*?)<\/a:pathLst>/);
     if (!pathListMatch) continue;
 
-    for (const [, pathInner, pathW, pathH] of pathListMatch[1].matchAll(/<a:path\b[^>]*w="([^"]+)"[^>]*h="([^"]+)"[^>]*>([\s\S]*?)<\/a:path>/g).map((m) => [m[0], m[1], m[2], m[3]])) {
-      const dmlW = parseFloat(pathW);
-      const dmlH = parseFloat(pathH);
-      const svgD = dmlPathToSvg(pathInner || "", cx / 914400 * 1000, cy / 914400 * 1000, dmlW, dmlH);
-      if (!svgD) continue;
-      // Transform offset from EMU to a 0..1000 normalized space later.
-      paths.push({ d: svgD, fill, offX, offY, cx, cy });
-      minX = Math.min(minX, offX);
-      minY = Math.min(minY, offY);
-      maxX = Math.max(maxX, offX + cx);
-      maxY = Math.max(maxY, offY + cy);
+    for (const [, pathW, pathH, pathInner] of pathListMatch[1].matchAll(/<a:path\b[^>]*w="([^"]+)"[^>]*h="([^"]+)"[^>]*>([\s\S]*?)<\/a:path>/g).map((m) => [m[0], m[1], m[2], m[3]])) {
+      if (!pathInner?.trim()) continue;
+      shapeData.push({ fill, offX: offX_emu, offY: offY_emu, cx: cx_emu, cy: cy_emu, pathW: parseFloat(pathW), pathH: parseFloat(pathH), pathInner });
+      minX = Math.min(minX, offX_emu);
+      minY = Math.min(minY, offY_emu);
+      maxX = Math.max(maxX, offX_emu + cx_emu);
+      maxY = Math.max(maxY, offY_emu + cy_emu);
     }
   }
 
-  if (paths.length === 0) return null;
+  if (shapeData.length === 0) return null;
 
-  // Normalize bounding box to a 0..1000 unit viewport.
+  // Normalize the entire bounding box to a 0..1000 unit viewport.
+  // This single scale factor applies to BOTH shape positions AND path coordinates,
+  // ensuring consistent sizing throughout the composed SVG.
   const totalW = maxX - minX || 1;
   const totalH = maxY - minY || 1;
-  const scale = 1000 / Math.max(totalW, totalH);
+  const scale = 1000 / Math.max(totalW, totalH); // EMU -> SVG units
 
-  const svgPaths = paths.map(({ d, fill, offX, offY }) => {
+  // Pass 2: render each path using the same unified scale.
+  const svgPaths = [];
+  for (const { fill, offX, offY, cx, cy, pathW, pathH, pathInner } of shapeData) {
+    // normW/normH: the shape's rendered width/height in SVG units (same scale as positions).
+    const normW = cx * scale;
+    const normH = cy * scale;
+    const svgD = dmlPathToSvg(pathInner, normW, normH, pathW, pathH);
+    if (!svgD) continue;
     const tx = ((offX - minX) * scale).toFixed(2);
     const ty = ((offY - minY) * scale).toFixed(2);
     const fillAttr = fill === "none" ? 'fill="none"' : `fill="${fill}"`;
-    return `<g transform="translate(${tx},${ty})"><path d="${d}" ${fillAttr}/></g>`;
-  });
+    svgPaths.push(`<g transform="translate(${tx},${ty})"><path d="${svgD}" ${fillAttr}/></g>`);
+  }
+
+  if (svgPaths.length === 0) return null;
 
   const vw = (totalW * scale).toFixed(2);
   const vh = (totalH * scale).toFixed(2);
