@@ -58,6 +58,7 @@ import {
 } from "@/lib/deposit/repositories";
 import type { ExportFormat } from "@/lib/export/types";
 import { depositsApi } from "@/lib/local-api";
+import ExistingDepositsPanel from "@/components/deposit/ExistingDepositsPanel";
 
 type Step = "curation" | "metadata" | "handoff";
 
@@ -430,14 +431,17 @@ export default function DepositDialog({
               {loadError}
             </div>
           ) : step === "curation" && menu && selection ? (
-            <CurationStep
-              menu={menu}
-              selection={selection}
-              setSelection={setSelection}
-              toggleAttachment={toggleAttachment}
-              bundleFormat={bundleFormat}
-              setBundleFormat={setBundleFormat}
-            />
+            <>
+              <ExistingDepositsPanel taskId={task.id} />
+              <CurationStep
+                menu={menu}
+                selection={selection}
+                setSelection={setSelection}
+                toggleAttachment={toggleAttachment}
+                bundleFormat={bundleFormat}
+                setBundleFormat={setBundleFormat}
+              />
+            </>
           ) : step === "metadata" && prefill && metadata && issues ? (
             <MetadataStep
               prefill={prefill}

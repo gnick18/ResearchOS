@@ -61,6 +61,7 @@ import {
 } from "@/lib/deposit/repositories";
 import { buildExperimentPayload } from "@/lib/export/extract";
 import { projectsApi, methodsApi, filesApi, depositsApi } from "@/lib/local-api";
+import ExistingDepositsPanel from "@/components/deposit/ExistingDepositsPanel";
 import type { ExportFormat } from "@/lib/export/types";
 
 type Step = "select" | "metadata" | "handoff";
@@ -460,15 +461,18 @@ export default function ProjectDepositDialog({
               {loadError}
             </div>
           ) : step === "select" && prefill ? (
-            <SelectStep
-              prefill={prefill}
-              selectedExpIds={selectedExpIds}
-              selectedNoteIds={selectedNoteIds}
-              toggleExp={toggleExp}
-              toggleNote={toggleNote}
-              bundleFormat={bundleFormat}
-              setBundleFormat={setBundleFormat}
-            />
+            <>
+              <ExistingDepositsPanel projectId={project.id} />
+              <SelectStep
+                prefill={prefill}
+                selectedExpIds={selectedExpIds}
+                selectedNoteIds={selectedNoteIds}
+                toggleExp={toggleExp}
+                toggleNote={toggleNote}
+                bundleFormat={bundleFormat}
+                setBundleFormat={setBundleFormat}
+              />
+            </>
           ) : step === "metadata" && prefill && metadata && issues ? (
             <MetadataStep
               prefill={prefill}
