@@ -4,7 +4,7 @@
 // denied entirely.
 
 import { describe, expect, it } from "vitest";
-import { normalizeIdpForViewer } from "./visibility";
+import { normalizeIdpForViewer, stripIdpForMirror } from "./visibility";
 import type { IDP } from "../types";
 import type { Viewer } from "../sharing/unified";
 
@@ -113,6 +113,62 @@ describe("normalizeIdpForViewer", () => {
   it("does not mutate the input record when filtering", () => {
     const idp = makeIdp();
     normalizeIdpForViewer(idp, alex);
+    expect(idp.values_reflection).toEqual({ note: "Work-life balance over prestige." });
+    expect(idp.self_assessment.responsibilities).toContain("cloning");
+  });
+});
+
+// Multi-lab P3: the PUSH-time strip. The mirror copy must never carry content
+// the trainee did not share, so the private bytes never leave the device.
+describe("stripIdpForMirror — push-time privacy", () => {
+  it("ALWAYS drops the values reflection before the mirror", () => {
+    const out = stripIdpForMirror(makeIdp());
+    expect(out.values_reflection).toBeNull();
+  });
+
+  it("keeps the SHARED sections but blanks the UNshared ones", () => {
+    // makeIdp shares goals + action_plan, withholds self_assessment +
+    // career_exploration.
+    const out = stripIdpForMirror(makeIdp());
+    expect(out.goals).toHaveLength(1);
+    expect(out.action_plan).toHaveLength(1);
+    // Withheld content is blanked, so the raw bytes never reach R2.
+    expect(out.self_assessment.responsibilities).toBe("");
+    expect(out.self_assessment.ratings).toEqual({});
+    expect(out.career_exploration.aspirations).toBe("");
+    expect(out.career_exploration.target_path).toBe("");
+  });
+
+  it("blanks EVERY section when the IDP is shared with no one", () => {
+    // A not-yet-shared IDP (shared_with empty) exposes nothing, even sections
+    // flagged shared, so the mirror copy carries zero private content.
+    const idp = makeIdp({
+      shared_with: [],
+      shared_sections: {
+        self_assessment: true,
+        career_exploration: true,
+        goals: true,
+        action_plan: true,
+      },
+    });
+    const out = stripIdpForMirror(idp);
+    expect(out.goals).toEqual([]);
+    expect(out.action_plan).toEqual([]);
+    expect(out.self_assessment.responsibilities).toBe("");
+    expect(out.career_exploration.aspirations).toBe("");
+    expect(out.values_reflection).toBeNull();
+  });
+
+  it("PRESERVES the shared_with gate so pullLabView still surfaces only to named recipients", () => {
+    const out = stripIdpForMirror(makeIdp());
+    expect(out.shared_with).toEqual([{ username: "alex", level: "read" }]);
+    expect(out.owner).toBe("mira");
+    expect(out.shared_sections.goals).toBe(true);
+  });
+
+  it("does not mutate the input record", () => {
+    const idp = makeIdp();
+    stripIdpForMirror(idp);
     expect(idp.values_reflection).toEqual({ note: "Work-life balance over prestige." });
     expect(idp.self_assessment.responsibilities).toContain("cloning");
   });

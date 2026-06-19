@@ -345,10 +345,23 @@ describe("createLocalApiLabWorkSource — unit", () => {
     expect(result).toEqual(ONE_ON_ONE_FIXTURES);
   });
 
-  it("listIdps returns the owner's idps records (raw, unblanked)", async () => {
+  it("listIdps STRIPS the IDP before the mirror (P3 push-time privacy)", async () => {
+    // P3: the raw IDP carries private content (values reflection + unshared
+    // sections). listIdps must strip it at PUSH so that content never reaches R2.
+    // The IDP_FIXTURES record is shared with no one, so EVERY section is blanked
+    // and values_reflection is null; the id / owner / shared_with gate survive.
     const source = createLocalApiLabWorkSource();
-    const result = await source.listIdps("alex");
-    expect(result).toEqual(IDP_FIXTURES);
+    const result = (await source.listIdps("alex")) as unknown as Array<
+      Record<string, unknown>
+    >;
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe("idp-1");
+    expect(result[0].owner).toBe("alex");
+    expect(result[0].shared_with).toEqual([]);
+    // Private content never leaves the device.
+    expect(result[0].values_reflection).toBeNull();
+    expect(result[0].goals).toEqual([]);
+    expect(result[0].action_plan).toEqual([]);
   });
 
   it("listCheckinCompacts returns the owner's checkin_compacts records", async () => {

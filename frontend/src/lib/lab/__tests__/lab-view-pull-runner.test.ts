@@ -10,6 +10,11 @@
 //     materializes ONLY the shared-with-me half, leaving own records local.
 //   - per-record sharing is enforced by pullLabView (not re-derived here): the
 //     runner forwards the roster owners verbatim and adds no role-based read.
+//   - P3 hardening: verifyMembershipLog is called over the relay record BEFORE
+//     the roster owners are trusted; a forged roster (verify fails) is refused
+//     and nothing is pulled or materialized.
+//   - P3 roster: after the record pull, the ROSTER is materialized (presence +
+//     settings + colors) over the VERIFIED record.
 //
 // All effects are injected; no real relay, crypto, or OPFS is touched.
 //
@@ -60,6 +65,18 @@ function remoteWith(owners: string[]) {
   } as never;
 }
 
+// The runner now verifies the membership log and materializes the roster. The
+// record stubs above are NOT real signed records, so the happy-path tests inject
+// a passing verify + a no-op roster materialize. Dedicated tests below exercise
+// the real verify gate and the roster wiring separately.
+const okVerify = vi.fn(() => ({ ok: true, reason: "" })) as never;
+const noopRoster = vi.fn(async () => ({
+  presenceWritten: [],
+  settingsWritten: [],
+  metadataAdded: [],
+  viewer: "morgan",
+})) as never;
+
 describe("runLabViewPullForSession — early exits", () => {
   it("does nothing when the session is not live", async () => {
     const getRemoteImpl = vi.fn();
@@ -106,6 +123,8 @@ describe("runLabViewPullForSession — happy path + crypto", () => {
       getRemoteImpl: getRemoteImpl as never,
       pullImpl: pullImpl as never,
       materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: noopRoster,
     });
 
     expect(pullImpl).toHaveBeenCalledTimes(1);
@@ -134,6 +153,8 @@ describe("runLabViewPullForSession — happy path + crypto", () => {
       getRemoteImpl: getRemoteImpl as never,
       pullImpl: pullImpl as never,
       materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: noopRoster,
     });
     // The runner does not filter the roster by role; pullLabView enforces each
     // record's shared_with gate. owners are passed through unchanged.
@@ -165,6 +186,8 @@ describe("runLabViewPullForSession — residency union", () => {
       getRemoteImpl: getRemoteImpl as never,
       pullImpl: pullImpl as never,
       materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: noopRoster,
     });
 
     expect(result.ran).toBe(true);
@@ -174,5 +197,91 @@ describe("runLabViewPullForSession — residency union", () => {
     // The whole pulled set reached materialize (own filtering happens there).
     const passed = (materializeImpl as ReturnType<typeof vi.fn>).mock.calls[0][0];
     expect(passed).toEqual([own, shared]);
+  });
+});
+
+describe("runLabViewPullForSession — P3 verify gate", () => {
+  it("refuses to pull when verifyMembershipLog fails (forged roster)", async () => {
+    const getRemoteImpl = vi.fn(async () => remoteWith(["morgan", "mallory"]));
+    const pullImpl = vi.fn();
+    const materializeImpl = vi.fn();
+    const materializeRosterImpl = vi.fn();
+    // A forged roster fails the signed-log check.
+    const verifyImpl = vi.fn(() => ({ ok: false, reason: "bad signature" }));
+
+    const result = await runLabViewPullForSession(makeLiveSession(), {
+      getRemoteImpl: getRemoteImpl as never,
+      pullImpl: pullImpl as never,
+      materializeImpl,
+      verifyImpl: verifyImpl as never,
+      materializeRosterImpl: materializeRosterImpl as never,
+    });
+
+    expect(result.ran).toBe(false);
+    expect(result.reason).toContain("membership log invalid");
+    // A forged roster must NOT expand the enumerate set: no pull, no write.
+    expect(pullImpl).not.toHaveBeenCalled();
+    expect(materializeImpl).not.toHaveBeenCalled();
+    expect(materializeRosterImpl).not.toHaveBeenCalled();
+  });
+
+  it("verifies the record BEFORE building the owners list", async () => {
+    const remote = remoteWith(["morgan", "alex"]);
+    const getRemoteImpl = vi.fn(async () => remote);
+    const pullImpl = vi.fn(async () => [] as LabViewRecord[]);
+    const materializeImpl = vi.fn(async () => ({
+      written: [],
+      skippedOwn: 0,
+      skippedUnknownType: [],
+    }));
+    const verifyImpl = vi.fn(() => ({ ok: true, reason: "" }));
+
+    await runLabViewPullForSession(makeLiveSession(), {
+      getRemoteImpl: getRemoteImpl as never,
+      pullImpl: pullImpl as never,
+      materializeImpl,
+      verifyImpl: verifyImpl as never,
+      materializeRosterImpl: noopRoster,
+    });
+
+    // verify ran over the SAME record whose members became the owners list.
+    expect(verifyImpl).toHaveBeenCalledTimes(1);
+    expect(verifyImpl).toHaveBeenCalledWith((remote as never as { record: unknown }).record);
+  });
+});
+
+describe("runLabViewPullForSession — P3 roster materialize", () => {
+  it("materializes the roster over the VERIFIED record after the record pull", async () => {
+    const remote = remoteWith(["morgan", "alex"]);
+    const getRemoteImpl = vi.fn(async () => remote);
+    const pullImpl = vi.fn(async () => [] as LabViewRecord[]);
+    const materializeImpl = vi.fn(async () => ({
+      written: [],
+      skippedOwn: 0,
+      skippedUnknownType: [],
+    }));
+    const materializeRosterImpl = vi.fn(async () => ({
+      presenceWritten: ["alex"],
+      settingsWritten: ["alex"],
+      metadataAdded: ["alex"],
+      viewer: "morgan",
+    }));
+
+    const result = await runLabViewPullForSession(makeLiveSession(), {
+      getRemoteImpl: getRemoteImpl as never,
+      pullImpl: pullImpl as never,
+      materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: materializeRosterImpl as never,
+    });
+
+    expect(materializeRosterImpl).toHaveBeenCalledTimes(1);
+    const [recArg, viewerArg] = (
+      materializeRosterImpl as ReturnType<typeof vi.fn>
+    ).mock.calls[0];
+    // The roster materialize receives the VERIFIED record + the viewer.
+    expect(recArg).toBe((remote as never as { record: unknown }).record);
+    expect(viewerArg).toBe("morgan");
+    expect(result.roster?.presenceWritten).toEqual(["alex"]);
   });
 });
