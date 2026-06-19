@@ -58,14 +58,17 @@ export function elementTransform(
  * Returns "" when no transform is needed (no rotation, no flip).
  */
 export function elementTransformCss(
-  px: number,
-  py: number,
-  pw: number,
-  ph: number,
+  _px: number,
+  _py: number,
+  _pw: number,
+  _ph: number,
   opts: { rotation?: number; flipX?: boolean; flipY?: boolean },
 ): string {
-  const cx = px + pw / 2;
-  const cy = py + ph / 2;
+  // CSS transforms pivot around the element's own center by default
+  // (transform-origin 50% 50%), so unlike the SVG path we do NOT translate to an
+  // absolute center first -- a plain rotate + scale mirrors/rotates the element in
+  // place. Reusing the SVG translate(cx)...translate(-cx) dance here would reflect
+  // about an absolute canvas coordinate and shove the element off its position.
   const parts: string[] = [];
   if (opts.rotation) {
     parts.push(`rotate(${opts.rotation}deg)`);
@@ -73,12 +76,7 @@ export function elementTransformCss(
   const sx = opts.flipX ? -1 : 1;
   const sy = opts.flipY ? -1 : 1;
   if (sx !== 1 || sy !== 1) {
-    // Translate to center, scale, translate back -- using px units and commas.
-    parts.push(
-      `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)` +
-      ` scale(${sx}, ${sy})` +
-      ` translate(${(-cx).toFixed(2)}px, ${(-cy).toFixed(2)}px)`,
-    );
+    parts.push(`scale(${sx}, ${sy})`);
   }
   return parts.join(" ");
 }

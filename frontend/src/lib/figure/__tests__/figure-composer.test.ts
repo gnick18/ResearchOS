@@ -297,21 +297,20 @@ describe("elementTransformCss (CSS syntax, canvas path)", () => {
     expect(tf).not.toMatch(/rotate\(\d+deg\s+\d/);
   });
 
-  it("emits CSS translate with px units and commas between args", () => {
+  it("emits a plain centered scale for flip, with no absolute translate", () => {
     const tf = elementTransformCss(0, 0, 100, 80, { flipX: true });
-    // Must have commas inside translate() and px units
-    expect(tf).toContain("px,");
-    expect(tf).toContain("px)");
     expect(tf).toContain("scale(-1, 1)");
-    // Must NOT be valid SVG syntax (no bare numbers without units inside translate)
-    expect(tf).not.toMatch(/translate\(\d+\.\d+ \d/);
+    // CSS pivots around the element center already, so there must be NO translate
+    // (an absolute-coordinate translate would shove the element off position).
+    expect(tf).not.toContain("translate");
+    expect(tf).not.toContain("px");
   });
 
-  it("includes both rotation and flip when both are set", () => {
+  it("includes both rotation and flip when both are set, no translate", () => {
     const tf = elementTransformCss(10, 20, 100, 80, { rotation: 30, flipX: true });
     expect(tf).toContain("rotate(30deg)");
     expect(tf).toContain("scale(-1, 1)");
-    expect(tf).toContain("px,");
+    expect(tf).not.toContain("translate");
   });
 
   it("flipY emits scale(1, -1) not scale(-1, 1)", () => {
