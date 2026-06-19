@@ -36,6 +36,7 @@ import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
+import MarketingFooter from "@/components/MarketingFooter";
 import BeakerBot from "@/components/BeakerBot";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
@@ -687,27 +688,21 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
   );
 }
 
-/** Lean footer for the gate surfaces. The full footer-link set (setup guide,
- *  sharing, support) lives on the start screen; here we keep just the setup
- *  guide and a bug-report affordance, since this is a fallback surface.
- *
- *  Sign out is always shown so a signed-in user is never soft-locked here. */
+/** Footer for the gate surfaces. The auth-context action (Sign out) is its own
+ *  row so a signed-in user is never soft-locked on this fallback surface; below
+ *  it sits the shared compact MarketingFooter, so the help / legal links match
+ *  the marketing pages instead of a hand-rolled list. The gate-specific
+ *  "Read the setup guide" link points at the folder-connecting guide. Report
+ *  Bug + Support this project are threaded into the shared footer. */
 function GateFooter({ onBugReport }: { onBugReport: () => void }) {
   return (
-    <div className="text-center mt-6 flex items-center justify-center gap-4 flex-wrap">
+    <div className="mt-6 flex flex-col items-center gap-2">
       <Link
         href="/wiki/getting-started/connecting-your-folder"
         className="text-foreground-muted hover:text-foreground text-meta transition-colors"
       >
         New here? Read the setup guide
       </Link>
-      <button
-        onClick={onBugReport}
-        className="text-foreground-muted hover:text-foreground text-meta transition-colors"
-      >
-        Report Bug
-      </button>
-      <BetaDonationButton variant="link" />
       <button
         type="button"
         onClick={() => void signOut({ callbackUrl: "/" })}
@@ -716,6 +711,12 @@ function GateFooter({ onBugReport }: { onBugReport: () => void }) {
       >
         Sign out
       </button>
+      <MarketingFooter
+        compact
+        className="mt-1"
+        onReportBug={onBugReport}
+        supportSlot={<BetaDonationButton variant="link" />}
+      />
     </div>
   );
 }

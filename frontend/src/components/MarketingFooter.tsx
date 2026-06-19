@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+
 import Link from "next/link";
 
 import MadeInMadison from "@/components/MadeInMadison";
@@ -108,11 +110,81 @@ function FooterLinkItem({ link }: { link: FooterLink }) {
   );
 }
 
-export default function MarketingFooter({
+/**
+ * Slim one-row footer for the focused gate screens (login / folder-connect /
+ * welcome-back), so those surfaces stop hand-rolling their own footers that
+ * drift out of sync. It is NOT the full product nav, just the lean help +
+ * legal links a person needs while they are still at the door.
+ *
+ * Report Bug and Support this project are actions wired by the host gate (a
+ * modal trigger and a self-contained component), so they are threaded in as
+ * `onReportBug` and `supportSlot` rather than baked in here. The footer stays
+ * free of those modal/component dependencies.
+ *
+ * "What we're building" / the roadmap is deliberately absent (the roadmap went
+ * stale), per Grant 2026-06-19.
+ */
+function CompactFooter({
   className = "",
+  onReportBug,
+  supportSlot,
 }: {
   className?: string;
+  onReportBug?: () => void;
+  supportSlot?: ReactNode;
 }) {
+  const linkClass =
+    "text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline";
+  return (
+    <div
+      data-testid="marketing-footer-compact"
+      className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-meta text-foreground-muted ${className}`}
+    >
+      <Link href="/terms" className={linkClass}>
+        Terms
+      </Link>
+      <Link href="/privacy" className={linkClass}>
+        Privacy
+      </Link>
+      <Link href="/wiki/getting-started/creating-a-user" className={linkClass}>
+        User &amp; account help
+      </Link>
+      <Link href="/wiki/shared-lab-accounts" className={linkClass}>
+        Setting up a shared lab account?
+      </Link>
+      {onReportBug ? (
+        <button type="button" onClick={onReportBug} className={linkClass}>
+          Report Bug
+        </button>
+      ) : null}
+      {supportSlot}
+    </div>
+  );
+}
+
+export default function MarketingFooter({
+  className = "",
+  compact = false,
+  onReportBug,
+  supportSlot,
+}: {
+  className?: string;
+  /** Slim single-row variant for the focused login / connect / welcome gates. */
+  compact?: boolean;
+  /** Gate-supplied Report Bug handler (compact variant only). */
+  onReportBug?: () => void;
+  /** Gate-supplied support affordance, e.g. <BetaDonationButton variant="link" /> (compact only). */
+  supportSlot?: ReactNode;
+}) {
+  if (compact) {
+    return (
+      <CompactFooter
+        className={className}
+        onReportBug={onReportBug}
+        supportSlot={supportSlot}
+      />
+    );
+  }
   return (
     <footer
       data-testid="marketing-footer"

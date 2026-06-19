@@ -26,6 +26,7 @@ import {
   type DropExtractionResult,
 } from "@/lib/file-system/drop-folder";
 import LightOnly from "@/components/LightOnly";
+import MarketingFooter from "@/components/MarketingFooter";
 import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
 import { buildEntryGreetingLines } from "@/lib/beakerbot/entry-lines";
 import {
@@ -322,6 +323,15 @@ export function WelcomeBackSignIn({
               ? "The provider you used last floats to the top with the badge."
               : "The provider you used last floats to the top with the badge. Solo users who do not want an account skip login entirely with Open a folder."}
           </p>
+        </div>
+
+        {/* Shared compact footer, additive at the bottom so the welcome-back
+            gate carries the same help / legal links as the marketing pages and
+            the other gates. Pinned to the bottom so it does not shift the
+            centered sign-in card. Report Bug / Support are not wired on this
+            minimal surface, so the footer renders just the links. */}
+        <div className="absolute inset-x-0 bottom-6 z-[2] flex justify-center px-6">
+          <MarketingFooter compact className="max-w-[90vw]" />
         </div>
       </div>
     </LightOnly>

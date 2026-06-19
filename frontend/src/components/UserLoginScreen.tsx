@@ -59,6 +59,7 @@ import { USER_COLOR_QUERY_KEY } from "@/hooks/useUserColor";
 import type { UserMetadataEntry } from "@/lib/file-system/user-metadata";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
+import MarketingFooter from "@/components/MarketingFooter";
 import UserAvatar from "@/components/UserAvatar";
 import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
@@ -69,7 +70,6 @@ import VersionBadge from "@/components/VersionBadge";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import DevPairBypassButton from "@/components/DevPairBypassButton";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
-import RoadmapModal from "@/components/RoadmapModal";
 
 interface UserLoginScreenProps {
   onLogin: () => void;
@@ -333,9 +333,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
 
   // Bug report state
   const { showBugReport, currentError, openBugReport, closeBugReport } = useErrorReporting();
-
-  // Roadmap modal state
-  const [roadmapOpen, setRoadmapOpen] = useState(false);
 
   const refreshLockStatus = async (usernames: string[]) => {
     const next = new Set<string>();
@@ -1986,6 +1983,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                   </div>
 
                   {sessionStatus === "authenticated" && session?.user ? (
+                    // Just the status line here. The single Sign out lives in
+                    // the bottom action row (unconditional for any signed-in
+                    // session), so this section no longer duplicates it.
                     <div className="flex flex-col items-center gap-1.5 text-center">
                       <p className="text-meta text-foreground-muted">
                         Signed in as{" "}
@@ -1993,13 +1993,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                           {session.user.email ?? session.user.name ?? "unknown"}
                         </span>
                       </p>
-                      <button
-                        type="button"
-                        onClick={() => void signOut({ callbackUrl: "/" })}
-                        className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
-                      >
-                        Sign out
-                      </button>
                     </div>
                   ) : (
                     <div className="flex flex-col items-center gap-2.5">
@@ -2611,10 +2604,12 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         />
       )}
 
-      {/* Bottom chrome: the data-locality reassurance + help / shared-account /
-          roadmap / report / support links, consolidated into one fixed cluster
-          with a soft fade up from the page so it stays legible and never stacks
-          on top of the centered card the way the separate rows used to. */}
+      {/* Bottom chrome: the data-locality reassurance + the auth-context action
+          row (disconnect / sign out) sit on top, with the shared compact
+          MarketingFooter below them so the help / legal links match the
+          marketing pages instead of drifting in a hand-rolled list. The whole
+          cluster is one fixed band with a soft fade up from the page so it stays
+          legible and never stacks on top of the centered card. */}
       <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-1.5 px-4 pb-4 pt-12 bg-gradient-to-t from-surface via-surface/85 to-transparent">
         <p className="text-center text-meta text-foreground-muted">
           Your data is stored locally in the folder you picked
@@ -2634,9 +2629,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             Use a different folder
           </button>
         )}
-        {/* Always-visible sign-out for signed-in sessions. The sharing-section
-            sign-out (line ~1953) is gated behind isRealSharingEnabled; this
-            one is unconditional so a signed-in user is never soft-locked. */}
+        {/* The single sign-out for signed-in sessions. It is unconditional
+            (not gated behind isRealSharingEnabled like the old sharing-section
+            duplicate that was removed), so a signed-in user is never
+            soft-locked. */}
         {sessionStatus === "authenticated" && !isDemoOrWikiCapture() && (
           <button
             type="button"
@@ -2647,49 +2643,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             Sign out
           </button>
         )}
-        <div className="flex items-center gap-4 flex-wrap justify-center max-w-[90vw]">
-        <Link
-          href="/wiki/getting-started/creating-a-user"
-          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <circle cx="12" cy="12" r="10" />
-            <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" strokeLinecap="round" strokeLinejoin="round" />
-            <line x1="12" y1="17" x2="12.01" y2="17" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          User & account help
-        </Link>
-        <Link
-          href="/wiki/shared-lab-accounts"
-          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-5.13a4 4 0 11-8 0 4 4 0 018 0zm6 0a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-          Setting up a shared lab account?
-        </Link>
-        <button
-          type="button"
-          onClick={() => setRoadmapOpen(true)}
-          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 14 14" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round">
-            <path d="M2 11.5c1.5-3 3-5 5-6.5 2.5-1.8 5-1.5 5-1.5s.3 2.5-1.5 5c-1.5 2-3.5 3.5-6.5 5z" />
-            <circle cx="7.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
-          </svg>
-          What we&apos;re building
-        </button>
-        <button
-          onClick={openBugReport}
-          className="text-foreground-muted hover:text-foreground text-meta transition-colors flex items-center gap-1"
-        >
-          <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          Report Bug
-        </button>
-        <BetaDonationButton variant="link" />
-        </div>
+        {/* Shared compact footer: the help / legal links that used to be a
+            hand-rolled list here, now the single source so it matches the
+            marketing pages. "What we're building" (the stale roadmap) is
+            dropped on purpose. Report Bug + Support this project are threaded
+            in as the gate's own action + component. */}
+        <MarketingFooter
+          compact
+          className="mt-0.5 max-w-[90vw]"
+          onReportBug={openBugReport}
+          supportSlot={<BetaDonationButton variant="link" />}
+        />
       </div>
 
       {/* Bug Report Modal */}
@@ -2699,8 +2663,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         prefilledError={currentError}
       />
 
-      {/* Roadmap modal */}
-      <RoadmapModal open={roadmapOpen} onClose={() => setRoadmapOpen(false)} />
 
       {/* Dev-only floating button: preview the first-time landing ("sell")
           page via /welcome. Renders nothing in production. */}
