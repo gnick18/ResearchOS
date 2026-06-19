@@ -50,7 +50,10 @@ for (const e of manifest) {
   try {
     const r = await fetch(svgUrl(e), { headers: UA });
     if (!r.ok) { skipped++; await sleep(120); continue; }
-    const { svg, fills, hasViewBox } = sanitizeSvg(await r.text());
+    const { svg, fills, hasViewBox, hasVector } = sanitizeSvg(await r.text());
+    // Skip raster-photo wrappers (only <image>, no drawn shapes) - they render
+    // as broken-image boxes once the external/embedded href is neutralized.
+    if (!hasVector) { skipped++; continue; }
     const sourceId = slug(e);
     const title = e.name.replace(/[_-]+/g, " ").trim();
     const creator = (e.author || "").replace(/^[A-Z]--/, "").replace(/-/g, " ").trim() || null;

@@ -599,5 +599,10 @@ export function sanitizeSvg(input) {
     if (v !== "none") fills.add(v);
   }
   const hasViewBox = /\bviewBox\s*=/.test(svg);
-  return { svg, fills: fills.size, hasViewBox };
+  // Real vector geometry. Some contributors upload a raster PHOTO wrapped in an
+  // <svg> (only <image> elements, no drawn shapes); once we neutralize the
+  // external/embedded image href for safety it renders as a broken-image box.
+  // hasVector lets adapters reject those (they fail the true-vector bar anyway).
+  const hasVector = /<(path|rect|circle|ellipse|polygon|polyline|line)\b/i.test(svg);
+  return { svg, fills: fills.size, hasViewBox, hasVector };
 }
