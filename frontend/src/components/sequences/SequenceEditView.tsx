@@ -82,7 +82,7 @@ import {
   type ExtractTarget,
 } from "@/lib/sequences/extract-region";
 import type { ImportedSequence } from "@/lib/sequences/import";
-import { selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
+import { annotationBarsToDraw, selectTranslationFeatures } from "@/lib/sequences/translation-tracks";
 import {
   setMolecularClip,
   useMolecularClipboard,
@@ -1064,42 +1064,49 @@ export default function SequenceEditView({
   // VIEW CONTROLS are the lever for the calm default: SeqViz is prop-driven, so
   // a hidden layer is just a filtered prop. We filter the annotations by the
   // per-type / per-feature / master toggles before handing them to SeqViz.
-  const annotations: AnnotationProp[] = useMemo(
-    () =>
-      docAnnotations
-        // Drop the bar for a feature that is rendering as its translation handle.
-        .filter((a) => !translatedKeys.has(`${a.name}|${a.start}|${a.end}`))
-        .filter((a) =>
-          isFeatureVisible(view, {
-            name: a.name,
-            type: a.type,
-            start: a.start,
-            end: a.end,
-            strand: a.direction === -1 ? -1 : 1,
-          }),
-        )
-        .map((a) => {
-          // sequence editor master. Stamp a stable, index-encoding id onto each
-          // annotation. SeqViz preserves an `id` we pass (its parseAnnotations
-          // spreads our object AFTER its randomID default, so ours wins) and
-          // renders it as the element id + class in BOTH the linear and circular
-          // viewers. A right-click reads it back to know which feature was hit.
-          const idx = featureIndexByKey.get(`${a.name}|${a.start}|${a.end}`);
-          return {
-            name: a.name,
-            start: a.start,
-            end: a.end,
-            direction: a.direction,
-            color: a.color,
-            ...(idx != null ? { id: featureDomId(idx) } : {}),
-            // seq introns bot. Pass exon spans through to SeqViz so a multi-exon
-            // (join) feature draws exon boxes + a dashed intron connector. Absent
-            // for single-span features (unchanged rendering).
-            ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
-          };
+  const annotations: AnnotationProp[] = useMemo(() => {
+    // A translated feature's bar is replaced by its LINEAR translation handle, so
+    // we normally drop the duplicate bar. But the CIRCULAR map has no translation
+    // layer, so whenever a ring is on screen (the standalone Map or the
+    // side-by-side "both" view) we must KEEP every arc, or enabling translation
+    // silently erases the feature from the ring. annotationBarsToDraw encodes
+    // that rule; translation then simply ADDS its layer on top.
+    const hasCircularViewer = doc.circular && !view.forceLinear;
+    return annotationBarsToDraw(
+      docAnnotations,
+      (a) => translatedKeys.has(`${a.name}|${a.start}|${a.end}`),
+      hasCircularViewer,
+    )
+      .filter((a) =>
+        isFeatureVisible(view, {
+          name: a.name,
+          type: a.type,
+          start: a.start,
+          end: a.end,
+          strand: a.direction === -1 ? -1 : 1,
         }),
-    [docAnnotations, view, featureIndexByKey, translatedKeys],
-  );
+      )
+      .map((a) => {
+        // sequence editor master. Stamp a stable, index-encoding id onto each
+        // annotation. SeqViz preserves an `id` we pass (its parseAnnotations
+        // spreads our object AFTER its randomID default, so ours wins) and
+        // renders it as the element id + class in BOTH the linear and circular
+        // viewers. A right-click reads it back to know which feature was hit.
+        const idx = featureIndexByKey.get(`${a.name}|${a.start}|${a.end}`);
+        return {
+          name: a.name,
+          start: a.start,
+          end: a.end,
+          direction: a.direction,
+          color: a.color,
+          ...(idx != null ? { id: featureDomId(idx) } : {}),
+          // seq introns bot. Pass exon spans through to SeqViz so a multi-exon
+          // (join) feature draws exon boxes + a dashed intron connector. Absent
+          // for single-span features (unchanged rendering).
+          ...(a.segments && a.segments.length > 1 ? { segments: a.segments } : {}),
+        };
+      });
+  }, [docAnnotations, view, featureIndexByKey, translatedKeys, doc.circular]);
 
   // Distinct feature types present (lowercase keys, sorted), for the per-type
   // show/hide flyout on the rail. Mirrors FeaturesPanel's typesPresent.
