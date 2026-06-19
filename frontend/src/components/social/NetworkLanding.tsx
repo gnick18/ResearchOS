@@ -21,6 +21,7 @@ import Kicker from "@/components/marketing/Kicker";
 import { Icon, type IconName } from "@/components/icons";
 import PublicResearcherSearch from "@/components/social/PublicResearcherSearch";
 import LabDirectoryCard from "@/components/social/LabDirectoryCard";
+import NetworkShareHandler from "@/components/social/NetworkShareHandler";
 import { DEMO_LAB_CARD } from "@/lib/social/demo-lab";
 
 const VALUE_PROPS: { icon: IconName; title: string; body: string }[] = [
@@ -153,6 +154,12 @@ export default function NetworkLanding() {
       </section>
 
       <MarketingFooter />
+
+      {/* App-origin deep-link handler: reads ?share=<slug> from the URL and
+          opens RecipientShareDialog pre-addressed to the lab's PI when the
+          gate conditions are met (flag + session + folder + resolved slug).
+          Inert when any condition is missing; renders no visible DOM otherwise. */}
+      <NetworkShareHandler />
     </div>
   );
 }

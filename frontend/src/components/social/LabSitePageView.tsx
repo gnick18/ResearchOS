@@ -40,6 +40,7 @@ import LabSiteNav from "@/components/social/LabSiteNav";
 import LabSiteSwitcher from "@/components/social/LabSiteSwitcher";
 import LabCompanionList from "@/components/social/LabCompanionList";
 import LabCitation from "@/components/social/LabCitation";
+import LabCollaborationActions from "@/components/social/LabCollaborationActions";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
@@ -178,6 +179,13 @@ export default function LabSitePageView({
             pages={pages}
             hasByo={byoActive}
           />
+
+          {/* Collaboration CTAs (Phase 2). Deep links to research-os.app for all
+              session-dependent actions (send data, reach out, request data).
+              Find people stays on the lab origin (read-only People page). Cite
+              is handled by LabCitation below and is NOT duplicated here.
+              Absent for non-demo labs until Phase 4 adds a lab_sites profile. */}
+          {demoCard && <LabCollaborationActions card={demoCard} />}
 
           {/* Copyable citation block. Only when we have a lab profile. */}
           {demoCard && (

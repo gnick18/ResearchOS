@@ -9,6 +9,13 @@
 // copy stays on the locked sharing positioning, NO follower counts, NO likes, NO
 // feed.
 //
+// Phase 2 addition: a "Share to this lab" button that, on the APP ORIGIN
+// (/network on research-os.app), opens RecipientShareDialog inline with the lab's
+// PI as the resolved ShareRecipient. This is gated on SOCIAL_LAYER_ENABLED plus
+// a resolved sharing identity plus a connected folder (same conditions as
+// ResearcherProfileModal). When any gate is off the button is absent and the card
+// is byte-identical to Phase 1.
+//
 // For the demo this is sourced from the pure DEMO_LAB_CARD fixture (which mirrors
 // the seeded Option A row). It carries the sample-lab ribbon so a viewer always
 // knows the lab is fabricated. It is demo-only by construction (its only caller
@@ -16,13 +23,18 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
+import { useState } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
-import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
+import RecipientShareDialog from "@/components/social/RecipientShareDialog";
+import { SOCIAL_LAYER_ENABLED, LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import { LAB_SITE_BYO_PREFIX } from "@/lib/social/lab-byo";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { resolveLabRecipient } from "@/lib/social/lab-collab";
 import {
   DEMO_BYO_HOST,
   type DemoLabCard,
@@ -84,7 +96,25 @@ export default function LabDirectoryCard({ card }: { card: DemoLabCard }) {
   const byoHref = onComOrigin
     ? `https://${DEMO_BYO_HOST}${LAB_SITE_BYO_PREFIX}/`
     : `https://${DEMO_BYO_HOST}`;
+
+  // Phase 2: inline share dialog (app origin only).
+  // Hooks must run unconditionally; the gate is applied to canShare below.
+  const identity = useSharingIdentity();
+  const { currentUser } = useFileSystem();
+  const [shareOpen, setShareOpen] = useState(false);
+
+  // Resolve the lab to a ShareRecipient (PI for the demo lab, null for real labs
+  // until Phase 4). The button is absent when resolution returns null, so a
+  // non-demo card is byte-identical to Phase 1.
+  const recipient = resolveLabRecipient(card.slug);
+
+  // Mirror the same gate as ResearcherProfileModal: flag + sharing identity +
+  // connected folder + a resolved recipient.
+  const canShare =
+    SOCIAL_LAYER_ENABLED && !!identity.email && !!currentUser && !!recipient;
+
   return (
+    <>
     <article className="rounded-2xl border border-border bg-surface p-6 shadow-sm">
       {/* Header: avatar, name, handle, sample-lab badge */}
       <div className="flex items-start gap-4">
@@ -176,7 +206,35 @@ export default function LabDirectoryCard({ card }: { card: DemoLabCard }) {
         >
           <Icon name="file" className="h-3.5 w-3.5" /> Paper companion
         </a>
+
+        {/* Phase 2 share CTA. Present only when SOCIAL_LAYER_ENABLED and the
+            visitor has a connected folder with a sharing identity. Opens
+            RecipientShareDialog inline exactly like ResearcherProfileModal does,
+            with the lab's PI as the resolved recipient. Absent when the gate is
+            off, so the card is byte-identical to Phase 1. */}
+        {canShare && (
+          <Tooltip label="Send a method, sequence, dataset, or figure to this lab's PI directly.">
+            <button
+              type="button"
+              onClick={() => setShareOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-border-strong px-3.5 py-1.5 text-xs font-semibold text-foreground transition hover:border-brand-action"
+            >
+              <Icon name="share" className="h-3.5 w-3.5" /> Share to this lab
+            </button>
+          </Tooltip>
+        )}
       </div>
     </article>
+
+    {/* Dialog mounts outside the article so its fixed overlay is not clipped. */}
+    {shareOpen && recipient && identity.email && currentUser && (
+      <RecipientShareDialog
+        recipient={recipient}
+        senderEmail={identity.email}
+        ownerUsername={currentUser}
+        onClose={() => setShareOpen(false)}
+      />
+    )}
+  </>
   );
 }
