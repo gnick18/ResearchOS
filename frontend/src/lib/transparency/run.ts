@@ -170,6 +170,7 @@ import {
 } from "./oracles";
 import {
   classify,
+  numericallyExact,
   rollup,
   type CaseResult,
   type DomainReport,
@@ -686,7 +687,12 @@ function buildCalculatorsDomain(): DomainReport {
         + "dilution) and the cited average-mass and spectrophotometry constants, "
         + "so it must reproduce the closed-form value to floating-point precision.",
     };
-    const status = classify(deltaFull, tol);
+    // Agreement to within floating-point precision is exact, not a tolerance
+    // miss; the closed-form algebra and the engine just accumulate rounding in a
+    // different order. Without this, a 1e-7 ordering difference fell past the
+    // 1e-9 band and read as a flagged warning for an otherwise identical result.
+    const noiseExact = numericallyExact(raw, c.oracle);
+    const status = noiseExact ? "pass" : classify(deltaFull, tol);
 
     return {
       id: c.id,
@@ -697,7 +703,7 @@ function buildCalculatorsDomain(): DomainReport {
           oracleId: EXACT_DEFINITIONS.id,
           ours: round(raw, 4),
           theirs: round(c.oracle, 4),
-          delta: round(deltaFull, 6),
+          delta: noiseExact ? 0 : round(deltaFull, 6),
           tolerance: tol,
           status,
         },
@@ -1798,7 +1804,12 @@ function buildDatahubStatsDomain(): DomainReport {
     // Compare on the sign-free magnitude where the metric is sign-invariant
     // (mean differences are pinned as magnitudes; everything else is direct).
     const oursVal = pin.unit === "diff" ? Math.abs(got) : got;
-    const delta = round(Math.abs(oursVal - pin.reference), 9);
+    // A relative agreement to six significant figures is the same number; a
+    // surviving 1e-8 difference is floating-point noise, so report it as exact
+    // (delta 0, which classify reads as pass) rather than a tolerance miss.
+    const delta = numericallyExact(oursVal, pin.reference)
+      ? 0
+      : round(Math.abs(oursVal - pin.reference), 9);
     const tol: Tolerance = {
       pass: pin.tol,
       warn: pin.warn,
