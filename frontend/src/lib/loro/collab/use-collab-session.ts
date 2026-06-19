@@ -237,6 +237,9 @@ export function useCollabSession(args: {
         doc,
         ephemeral,
         transport,
+        // [freeze-diag] OBSERVE-ONLY: label the diagnostic logs with the session
+        // id so a reproduced freeze names the exact note. No effect on sync.
+        docId: sessionId,
         // Record the remote collaborator in the actors map the first time their
         // commit arrives, so version-history rows can attribute remote edits to
         // a real person. Plaintext frames carry no per-frame sender identity, so

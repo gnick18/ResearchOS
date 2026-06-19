@@ -33,6 +33,46 @@ import { buildCollabBaseDoc } from "@/lib/collab/client/sync-hooks";
 import type { Note } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
+// [freeze-diag] OBSERVE-ONLY commit-rate instrumentation (2026-06-18).
+//
+// Diagnostic for a reported ~90s main-thread freeze in the Loro Lab Notes
+// editor on prod (research-os.app). One suspect is a high-iteration commit
+// feedback loop. This is pure counters + a throttled console.warn: it adds NO
+// throttling, debouncing, or early-return to the real commit path and never
+// changes what _runCommit does. It only emits a log line when the observed
+// commit rate exceeds ~20/sec (which never happens during normal editing), so
+// it is safe to ship live. Remove once the runaway path is named.
+// ---------------------------------------------------------------------------
+const _freezeDiagCommitTimes: number[] = [];
+let _freezeDiagPersistNoteCalls = 0;
+let _freezeDiagLastCommitWarn = 0;
+
+/** Record one _runCommit tick and warn (throttled) if the 1s rate is high. */
+function freezeDiagRecordCommit(message: string | undefined, note: string): void {
+  if (typeof performance === "undefined") return;
+  const now = performance.now();
+  _freezeDiagCommitTimes.push(now);
+  // Drop timestamps older than the 1000ms sliding window.
+  while (
+    _freezeDiagCommitTimes.length > 0 &&
+    now - _freezeDiagCommitTimes[0] > 1000
+  ) {
+    _freezeDiagCommitTimes.shift();
+  }
+  if (
+    _freezeDiagCommitTimes.length > 20 &&
+    now - _freezeDiagLastCommitWarn > 500
+  ) {
+    _freezeDiagLastCommitWarn = now;
+    console.warn(
+      `[freeze-diag] _runCommit fired ${_freezeDiagCommitTimes.length} times in last 1s; ` +
+        `persistNote total=${_freezeDiagPersistNoteCalls}; ` +
+        `lastMessage=${message ?? "<none>"}; note=${note}`,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // NoteHandle
 // ---------------------------------------------------------------------------
 
@@ -279,6 +319,9 @@ class NoteHandleImpl implements NoteHandle {
     }
     this._pendingBase = null;
 
+    // [freeze-diag] OBSERVE-ONLY: record this commit tick. No control-flow effect.
+    freezeDiagRecordCommit(this._pendingMessage, `${this._owner}/${base.id}`);
+
     // Stamp note-level updated_at to the current wall-clock ISO string.
     // The CRDT does NOT track note-level updated_at (only entry-level
     // updated_at is inside the doc; the note-level field is a mirror-only
@@ -304,6 +347,9 @@ class NoteHandleImpl implements NoteHandle {
       this.doc.commit({ message: "metadata-sync" });
     }
 
+    // [freeze-diag] OBSERVE-ONLY: count persistNote invocations (running total
+    // is reported in the commit-rate warn above). No control-flow effect.
+    _freezeDiagPersistNoteCalls++;
     await persistNote(this._owner, this.doc, stampedBase);
 
     // Commit complete: clear the pending flag so the auto-save indicator
