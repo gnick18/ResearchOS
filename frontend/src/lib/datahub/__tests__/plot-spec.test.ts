@@ -583,10 +583,44 @@ describe("plot-spec: significance brackets", () => {
     const geo = layoutPlot(groups, style, reqs);
 
     const [b0, b1] = geo.brackets; // b1 sits a tier above b0
-    // Top of b0's star label (baseline labelY, glyphs rise ~fontSize) must clear
+    // Top of b0's star label (baseline labelY, glyphs rise ~labelFont) must clear
     // the bottom of b1's legs (legY = the lowest ink of the upper bracket).
-    const lowerLabelTop = b0.labelY - style.fontSize;
+    const lowerLabelTop = b0.labelY - (b0.labelFont ?? style.fontSize);
     expect(b1.legY).toBeLessThanOrEqual(lowerLabelTop);
+  });
+
+  it("fits a dense stack (4 groups, all 6 pairs) without crushing data OR overlapping", () => {
+    // Regression for the real composer failure: at the default 430x340 panel a
+    // 4-group all-pairs comparison makes a 6-tier stack. The old auto-spacing
+    // either inflated the axis enormously (data crushed into the bottom quarter)
+    // or bailed and let the brackets overlap the data. The fix caps the axis
+    // headroom (data keeps ~half the plot) and compresses the tier + star font to
+    // fit the reserved band. Assert BOTH invariants on the real panel size.
+    const content = fourGroupTightContent();
+    const style = defaultPlotStyle(); // 430x340, fontSize 13
+    const groups = resolvePlotGroups(content, style);
+    const geo = layoutPlot(groups, style, ALL_PAIRS_4);
+    expect(geo.brackets).toHaveLength(6);
+
+    // (1) Data is not crushed: the tallest group (~3.4) keeps a healthy share of
+    // the axis. Old behaviour inflated yMax to ~14 (data at ~24%); cap holds it
+    // well under that.
+    const dataTop = 3.41;
+    expect(geo.yMax).toBeLessThanOrEqual(dataTop / 0.4); // data >= 40% of axis
+
+    // (2) No overlap: every bracket's star label clears the legs of any bracket
+    // sitting directly above it (the next-higher distinct tier).
+    const tiers = [...new Set(geo.brackets.map((b) => Math.round(b.spanY)))].sort(
+      (a, b) => a - b,
+    ); // top (smallest y) -> bottom
+    for (let t = 0; t < tiers.length - 1; t++) {
+      const upperY = tiers[t];
+      const lowerY = tiers[t + 1];
+      const lower = geo.brackets.find((b) => Math.round(b.spanY) === lowerY)!;
+      const upper = geo.brackets.find((b) => Math.round(b.spanY) === upperY)!;
+      const lowerLabelTop = lower.labelY - (lower.labelFont ?? style.fontSize);
+      expect(upper.legY).toBeLessThanOrEqual(lowerLabelTop + 0.5);
+    }
   });
 
   it("omits brackets entirely when showBrackets is off", () => {

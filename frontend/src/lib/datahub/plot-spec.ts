@@ -911,6 +911,9 @@ export interface BracketGeometry {
   labelX: number;
   labelY: number;
   label: string;
+  /** Star-label font size. Shrinks below the body font when a dense stack is
+   *  compressed to fit, so the labels never collide. Absent = use the body font. */
+  labelFont?: number;
 }
 
 /** A y-axis tick: its value and its pixel y. */
@@ -1265,12 +1268,16 @@ export function layoutPlot(
     }
     const plotH = y0 - y1;
     const depth = bracketStackDepth(bracketRequests);
-    // (depth-1) tier steps + the gap above the tallest point + the top label + a
-    // small margin, matching the layout constants used below.
-    const stackPx = (depth - 1) * BRACKET_TIER_PX + 16 + style.fontSize + 8;
-    const frac = plotH > 0 ? stackPx / plotH : 1;
-    if (dataTop > 0 && frac > 0 && frac < 0.8) {
-      const needed = dataTop / (1 - frac);
+    // The stack WANTS this much room; but cap the reserved band so the DATA always
+    // keeps at least ~48% of the plot. Without the cap a dense stack inflates the
+    // axis enormously (4 groups all-pairs -> 6 tiers -> data crushed into the
+    // bottom quarter). The layout pass below then COMPRESSES the tier step (and
+    // shrinks the star font) to fit whatever band this reserves, so the brackets
+    // never overlap the data either. Few brackets reserve little (axis unchanged).
+    const idealStackPx = (depth - 1) * BRACKET_TIER_PX + 16 + style.fontSize + 8;
+    const reservedFrac = plotH > 0 ? Math.min(0.52, idealStackPx / plotH) : 0;
+    if (dataTop > 0 && reservedFrac > 0) {
+      const needed = dataTop / (1 - reservedFrac);
       if (needed > autoYMax) autoYMax = Math.ceil(needed / auto.step) * auto.step;
     }
   }
@@ -1375,7 +1382,6 @@ export function layoutPlot(
       return t;
     });
     const gap = 16; // air between a bracket and the tallest element it clears
-    const tier = BRACKET_TIER_PX; // font-scaled step so stacked brackets never collide
     const legDrop = BRACKET_LEG_DROP;
     // Place narrow spans first (then left to right) so a wide span is pushed up
     // OVER the narrow ones it crosses, never the reverse.
@@ -1387,29 +1393,57 @@ export function layoutPlot(
         if (wa !== wb) return wa - wb;
         return Math.min(a.req.i, a.req.j) - Math.min(b.req.i, b.req.j);
       });
-    const placed: { lo: number; hi: number; spanY: number }[] = [];
-    const spanYByIdx: number[] = new Array(drawn.length);
-    for (const { req, idx } of order) {
-      const lo = Math.min(req.i, req.j);
-      const hi = Math.max(req.i, req.j);
-      // Clear the tallest element anywhere under this span.
-      let clearY = Infinity;
-      for (let k = lo; k <= hi; k++) clearY = Math.min(clearY, groupTop[k]!);
-      let spanY = clearY - gap;
-      // And sit a tier above any already-placed bracket whose x-range overlaps
-      // (touching at a shared endpoint column counts, so legs never collide).
-      for (const p of placed) {
-        if (p.lo <= hi && lo <= p.hi) spanY = Math.min(spanY, p.spanY - tier);
+    // Place the whole stack for a given tier step. Each bracket clears the tallest
+    // element under its own span, then sits one tier above any already-placed
+    // bracket whose x-range overlaps it (shared endpoint counts, so legs never
+    // collide). Pure in `tierPx` so we can re-place at a compressed step below.
+    const placeStack = (tierPx: number): number[] => {
+      const placed: { lo: number; hi: number; spanY: number }[] = [];
+      const out = new Array<number>(drawn.length);
+      for (const { req, idx } of order) {
+        const lo = Math.min(req.i, req.j);
+        const hi = Math.max(req.i, req.j);
+        let clearY = Infinity;
+        for (let k = lo; k <= hi; k++) clearY = Math.min(clearY, groupTop[k]!);
+        let spanY = clearY - gap;
+        for (const p of placed) {
+          if (p.lo <= hi && lo <= p.hi) spanY = Math.min(spanY, p.spanY - tierPx);
+        }
+        placed.push({ lo, hi, spanY });
+        out[idx] = spanY;
       }
-      placed.push({ lo, hi, spanY });
-      spanYByIdx[idx] = spanY;
-    }
-    // Hold the whole stack below a ceiling (clear of the title / canvas top),
-    // shifting every bracket down by the same delta so the tiers are preserved.
+      return out;
+    };
+
     const hasTitle = style.title.trim() !== "";
     const ceiling = hasTitle ? y1 + 6 : 4;
+    // First lay the stack out at the comfortable tier step.
+    let tier = BRACKET_TIER_PX;
+    let labelFont = style.fontSize;
+    let spanYByIdx = placeStack(tier);
+    // If the top bracket's label would push past the ceiling, COMPRESS the tier
+    // step so the whole stack fits between the ceiling and its lowest bar, and
+    // shrink the star font to match so labels still never touch the bar above.
+    // (Shrinking the stack beats the old behaviour of shoving it down into the
+    // data, and pairs with the capped axis headroom so the data stays readable.)
+    const bottomSpan = Math.max(...spanYByIdx);
+    const topSpan = Math.min(...spanYByIdx);
+    const idealSpanH = bottomSpan - topSpan; // pixel height contributed by tiering
+    const labelAllow = 3 + style.fontSize; // room above the top bar for its stars
+    if (topSpan - labelAllow < ceiling && idealSpanH > 0) {
+      const available = bottomSpan - ceiling - labelAllow;
+      const scale = Math.max(0, available) / idealSpanH;
+      tier = Math.max(11, BRACKET_TIER_PX * scale);
+      // Stars must fit the compressed tier: keep ~legDrop+3 of clearance.
+      if (tier < style.fontSize + legDrop + 4) {
+        labelFont = Math.max(7, Math.round(tier - legDrop - 3));
+      }
+      spanYByIdx = placeStack(tier);
+    }
+    // Final safety: if even the compressed stack still clips the ceiling (extreme
+    // panel), shift the whole thing down uniformly so nothing renders off-canvas.
     let topLabelY = Infinity;
-    for (const s of spanYByIdx) topLabelY = Math.min(topLabelY, s - 3 - style.fontSize);
+    for (const s of spanYByIdx) topLabelY = Math.min(topLabelY, s - 3 - labelFont);
     const shiftDown = topLabelY < ceiling ? ceiling - topLabelY : 0;
     drawn.forEach((req, idx) => {
       const a = groupGeo[req.i]!.cx;
@@ -1423,6 +1457,7 @@ export function layoutPlot(
         labelX: (a + b) / 2,
         labelY: spanY - 3,
         label: req.label,
+        labelFont,
       });
     });
   }
@@ -1664,7 +1699,7 @@ export function renderPlotSvg(
       `<line x1="${b.leftX}" y1="${b.legY}" x2="${b.leftX}" y2="${b.spanY}" stroke="${LABEL_TEXT}"/>` +
         `<line x1="${b.leftX}" y1="${b.spanY}" x2="${b.rightX}" y2="${b.spanY}" stroke="${LABEL_TEXT}"/>` +
         `<line x1="${b.rightX}" y1="${b.spanY}" x2="${b.rightX}" y2="${b.legY}" stroke="${LABEL_TEXT}"/>` +
-        `<text x="${b.labelX}" y="${b.labelY}" font-size="${f}" fill="${LABEL_TEXT}" text-anchor="middle" font-weight="700">${esc(b.label)}</text>`,
+        `<text x="${b.labelX}" y="${b.labelY}" font-size="${b.labelFont ?? f}" fill="${LABEL_TEXT}" text-anchor="middle" font-weight="700">${esc(b.label)}</text>`,
     );
   }
 
