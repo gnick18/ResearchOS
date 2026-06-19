@@ -211,7 +211,7 @@ export function findCloseDna(
   const seen = new Set<string>();
   for (const h of hits) {
     if (h.alignment.identity < minIdentity) continue;
-    let start = h.targetStart;
+    const start = h.targetStart;
     let end = h.targetEnd;
     if (circular) {
       if (start >= base.length) continue; // duplicate of an early-origin hit

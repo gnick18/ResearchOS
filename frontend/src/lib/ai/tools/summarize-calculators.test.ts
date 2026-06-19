@@ -3,7 +3,7 @@
 import { describe, it, expect } from "vitest";
 import { aggregateCalculators } from "./summarize-calculators";
 import { calculatorSummaryReport } from "@/lib/ai/summary-report";
-import type { CustomCalculator } from "@/lib/types";
+import type { CustomCalculator, CustomCalculatorInput, CustomCalculatorConditional } from "@/lib/types";
 
 function calc(partial: Partial<CustomCalculator> & { id: number }): CustomCalculator {
   return {
@@ -26,11 +26,11 @@ const TODAY = "2026-06-16";
 
 function sampleLibrary(): CustomCalculator[] {
   return [
-    calc({ id: 1, name: "Molarity", field: "General", inputs: [{}, {}] as any, updated_at: "2026-06-10T00:00:00Z" }),
-    calc({ id: 2, name: "Dilution", field: "General", inputs: [{}, {}, {}] as any, conditionals: [{}] as any, updated_at: "2026-06-14T00:00:00Z" }),
-    calc({ id: 3, name: "OD600 growth", field: "Microbiology", inputs: [{}] as any, updated_at: "2026-06-12T00:00:00Z" }),
+    calc({ id: 1, name: "Molarity", field: "General", inputs: [{}, {}] as unknown as CustomCalculatorInput[], updated_at: "2026-06-10T00:00:00Z" }),
+    calc({ id: 2, name: "Dilution", field: "General", inputs: [{}, {}, {}] as unknown as CustomCalculatorInput[], conditionals: [{}] as unknown as CustomCalculatorConditional[], updated_at: "2026-06-14T00:00:00Z" }),
+    calc({ id: 3, name: "OD600 growth", field: "Microbiology", inputs: [{}] as unknown as CustomCalculatorInput[], updated_at: "2026-06-12T00:00:00Z" }),
     // A shared-in calculator owned by alice, no field.
-    calc({ id: 4, name: "Shared mix", owner: "alice", is_shared_with_me: true, inputs: [{}, {}, {}, {}] as any, updated_at: "2026-06-08T00:00:00Z" }),
+    calc({ id: 4, name: "Shared mix", owner: "alice", is_shared_with_me: true, inputs: [{}, {}, {}, {}] as unknown as CustomCalculatorInput[], updated_at: "2026-06-08T00:00:00Z" }),
   ];
 }
 

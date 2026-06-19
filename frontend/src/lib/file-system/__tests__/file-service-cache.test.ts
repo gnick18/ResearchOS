@@ -45,7 +45,6 @@ class MFile {
   }
 
   async createWritable() {
-    const self = this;
     let buf = new Uint8Array(0);
     return {
       async write(payload: string | Blob | ArrayBuffer | Uint8Array) {
@@ -54,9 +53,9 @@ class MFile {
         else if (payload instanceof ArrayBuffer) buf = new Uint8Array(payload);
         else buf = new Uint8Array(await (payload as Blob).arrayBuffer());
       },
-      async close() {
-        self.bytes = buf;
-        self.lastModified += 1; // mtime advances on write
+      close: async () => {
+        this.bytes = buf;
+        this.lastModified += 1; // mtime advances on write
       },
       async abort() {},
     };

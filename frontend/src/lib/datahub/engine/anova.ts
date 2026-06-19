@@ -592,7 +592,7 @@ export function twoWayAnova(
   ];
 
   // Optional Tukey post-hoc on marginal means of the requested factor.
-  let comparisons: PairwiseComparison[] = [];
+  const comparisons: PairwiseComparison[] = [];
   if (options.postHocFactor) {
     const levels = options.postHocFactor === "A" ? levelsA : levelsB;
     const getVals = options.postHocFactor === "A" ? rowValues : colValues;

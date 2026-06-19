@@ -167,7 +167,7 @@ describe("extractPanelValues", () => {
       META,
     );
     const tipA = [...META.entries()].find(([, r]) => r.tip === "A")![0];
-    const st = v.pointStats?.get(tipA)!;
+    const st = v.pointStats!.get(tipA)!;
     // ab=10, load=5 -> mean 7.5, sample sd = sqrt(((2.5)^2+(2.5)^2)/1) = 3.5355...
     expect(st.mean).toBeCloseTo(7.5, 6);
     expect(st.error).toBeCloseTo(Math.sqrt(((2.5) ** 2 + (2.5) ** 2) / 1), 6);

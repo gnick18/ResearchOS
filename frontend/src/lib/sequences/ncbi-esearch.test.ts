@@ -9,7 +9,6 @@ import {
   geneSummaryUrl,
   parseEsearchIds,
   parseGeneSummaries,
-  type GeneSearchHit,
 } from "./ncbi-esearch";
 import esearchFixture from "./__fixtures__/ncbi/cyp51a-esearch.json";
 import esummaryFixture from "./__fixtures__/ncbi/cyp51a-esummary.json";
@@ -95,10 +94,8 @@ describe("parseEsearchIds (real cyp51A esearch fixture)", () => {
 // ---------------------------------------------------------------------------
 
 describe("parseGeneSummaries (real cyp51A esummary fixture)", () => {
-  let hits: GeneSearchHit[];
-
   // Run once so all sub-tests share the same parsed output.
-  hits = parseGeneSummaries(esummaryFixture);
+  const hits = parseGeneSummaries(esummaryFixture);
 
   it("parses the cyp51A hit", () => {
     const cyp51a = hits.find((h) => h.geneId === "3509526");

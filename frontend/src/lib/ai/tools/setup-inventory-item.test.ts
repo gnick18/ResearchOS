@@ -12,7 +12,7 @@ import {
   overrideSetupInventoryItemDeps,
   type StockSpec,
 } from "./setup-inventory-item";
-import type { InventoryItem, InventoryItemCreate, InventoryStockCreate } from "@/lib/types";
+import type { InventoryItem, InventoryItemCreate, InventoryStock, InventoryStockCreate } from "@/lib/types";
 
 function stock(partial: Partial<StockSpec> = {}): StockSpec {
   return {
@@ -62,7 +62,7 @@ describe("setup_inventory_item execute", () => {
       },
       createStock: async (data) => {
         createdStocks.push(data);
-        return { id: 100 + createdStocks.length } as any;
+        return { id: 100 + createdStocks.length } as unknown as InventoryStock;
       },
       navigate: (p) => {
         navigatedTo = p;
@@ -115,7 +115,7 @@ describe("setup_inventory_item execute", () => {
       createItem: async (data) => ({ id: 7, name: data.name } as InventoryItem),
       createStock: async () => {
         stockCalls += 1;
-        return { id: 1 } as any;
+        return { id: 1 } as unknown as InventoryStock;
       },
       navigate: () => {},
     });
@@ -152,7 +152,7 @@ describe("setup_inventory_item execute", () => {
         captured = data;
         return { id: 9, name: data.name } as InventoryItem;
       },
-      createStock: async () => ({ id: 1 } as any),
+      createStock: async () => ({ id: 1 } as unknown as InventoryStock),
       navigate: () => {},
     });
     try {

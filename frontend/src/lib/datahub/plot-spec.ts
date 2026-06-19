@@ -2165,7 +2165,7 @@ export function layoutXYPlot(
   const fit = resolveXYFit(xs, yvals, style.fitModel);
 
   // Data extents over the points; widen the Y extent to include the curve.
-  let xMinData = xs.length ? Math.min(...xs) : 0;
+  const xMinData = xs.length ? Math.min(...xs) : 0;
   let xMaxData = xs.length ? Math.max(...xs) : 1;
   if (xMinData === xMaxData) {
     xMaxData = xMinData + 1;

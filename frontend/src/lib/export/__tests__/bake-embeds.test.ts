@@ -66,12 +66,15 @@ vi.mock("@/lib/local-api", () => ({
 
 // Pull out the mocked modules so tests can configure them.
 import { moleculesApi } from "@/lib/chemistry/api";
+import type { MoleculeDetail } from "@/lib/chemistry/api";
 import { renderSvg as renderMoleculeSvg } from "@/lib/chemistry/rdkit";
 import { dataHubApi } from "@/lib/datahub/api";
+import type { DataHubDocContent } from "@/lib/datahub/model/types";
 import { renderPlot, readPlotSource } from "@/lib/datahub/plot-spec";
 import { resultToText } from "@/lib/datahub/result-text";
 import { plainLanguageSummary } from "@/lib/datahub/plain-language";
 import { sequencesApi, notesApi, methodsApi, projectsApi, tasksApi } from "@/lib/local-api";
+import type { Note, Method, Project, Task, SequenceDetail } from "@/lib/types";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -214,7 +217,7 @@ describe("bakeAllEmbeds", () => {
       ],
       analyses: [],
       plots: [],
-    } as any);
+    } as unknown as DataHubDocContent);
 
     const md = `[My data](${DH_TABLE_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -239,7 +242,7 @@ describe("bakeAllEmbeds", () => {
       rows: [],
       analyses: [fakeAnalysis],
       plots: [],
-    } as any);
+    } as unknown as DataHubDocContent);
     vi.mocked(plainLanguageSummary).mockReturnValue("The difference is significant.");
     vi.mocked(resultToText).mockReturnValue("The difference is significant.\n\nStat   Value\np      0.03");
 
@@ -267,7 +270,7 @@ describe("bakeAllEmbeds", () => {
       annotations: [],
       genbank: "",
       locus_name: "pUC19",
-    } as any);
+    } as unknown as SequenceDetail);
 
     const md = `[pUC19](${SEQ_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -287,7 +290,7 @@ describe("bakeAllEmbeds", () => {
       title: "My lab note",
       description: "",
       entries: [{ content: "First entry content." }],
-    } as any);
+    } as unknown as Note);
 
     const md = `[My lab note](${NOTE_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -304,7 +307,7 @@ describe("bakeAllEmbeds", () => {
       id: 3,
       name: "Western blot",
       method_type: "markdown",
-    } as any);
+    } as unknown as Method);
 
     const md = `[Western blot](${METHOD_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -322,7 +325,7 @@ describe("bakeAllEmbeds", () => {
       id: 9,
       name: "Cancer study",
       color: "#ff0000",
-    } as any);
+    } as unknown as Project);
 
     const md = `[Cancer study](${PROJECT_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -340,7 +343,7 @@ describe("bakeAllEmbeds", () => {
       name: "My task",
       is_complete: false,
       start_date: "2026-01-15",
-    } as any);
+    } as unknown as Task);
 
     const md = `[My task](${TASK_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -383,11 +386,11 @@ describe("bakeAllEmbeds", () => {
       title: "Note A",
       description: "",
       entries: [],
-    } as any);
+    } as unknown as Note);
     vi.mocked(moleculesApi.get).mockResolvedValue({
       meta: { id: "mol-1", name: "Aspirin", project_ids: [], added_at: "2026-01-01" },
       molfile: "",
-    } as any);
+    } as unknown as MoleculeDetail);
     vi.mocked(renderMoleculeSvg).mockResolvedValue("");
 
     const md = `<!-- ros:number-figures -->
@@ -413,7 +416,7 @@ describe("bakeAllEmbeds", () => {
       rows: [],
       analyses: [],
       plots: [],
-    } as any);
+    } as unknown as DataHubDocContent);
 
     const md = `<!-- ros:number-figures -->
 
@@ -432,7 +435,7 @@ describe("bakeAllEmbeds", () => {
       title: "Note A",
       description: "",
       entries: [],
-    } as any);
+    } as unknown as Note);
 
     const md = `[Note A](${NOTE_HREF})`;
     const result = await bakeAllEmbeds([md]);
@@ -447,12 +450,12 @@ describe("bakeAllEmbeds", () => {
       title: "Note",
       description: "",
       entries: [],
-    } as any);
+    } as unknown as Note);
     vi.mocked(methodsApi.get).mockResolvedValue({
       id: 3,
       name: "Method",
       method_type: "pcr",
-    } as any);
+    } as unknown as Method);
 
     const md1 = `<!-- ros:number-figures -->\n[Note](${NOTE_HREF})`;
     const md2 = `[Method](${METHOD_HREF})`;
@@ -468,7 +471,7 @@ describe("bakeAllEmbeds", () => {
       title: "Note",
       description: "",
       entries: [],
-    } as any);
+    } as unknown as Note);
 
     const md = `[Note](${NOTE_HREF})`;
     const result = await bakeAllEmbeds([md]);

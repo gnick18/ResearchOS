@@ -16,6 +16,13 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { snapgeneToJson } from "@/vendor/bio-parsers";
+import type { ParsedSequence, ParsedFeature } from "@/vendor/bio-parsers";
+
+/** Extended feature shape with primer-specific fields the snapgene parser adds. */
+interface SnapFeature extends ParsedFeature {
+  notes?: Record<string, string[]>;
+  locations?: Array<{ start: number; end: number }>;
+}
 
 // Guard the premise: this suite must run WITHOUT a DOM, mirroring SSR / worker
 // / node contexts. If a future setup leaks a DOMParser global in, the
@@ -140,7 +147,7 @@ const PRIMERS_XML =
   "</Primers>";
 
 describe("snapgeneToJson — primers (block type 5)", () => {
-  let parsed: any;
+  let parsed: ParsedSequence;
 
   beforeAll(async () => {
     const ab = buildSyntheticDna({
@@ -152,50 +159,50 @@ describe("snapgeneToJson — primers (block type 5)", () => {
     });
     const res = await snapgeneToJson(ab, { fileName: "with-primers.dna" });
     expect(res[0].success).toBe(true);
-    parsed = res[0].parsedSequence;
+    parsed = res[0].parsedSequence!;
   });
 
   it("emits primer_bind features (and keeps the type-10 features too)", () => {
-    const primers = parsed.features.filter(
-      (f: any) => f.type === "primer_bind",
+    const primers = (parsed.features as SnapFeature[]).filter(
+      (f) => f.type === "primer_bind",
     );
     // M13_fwd + M13_rev + multi(2 sites) = 4; "broken" is skipped.
     expect(primers).toHaveLength(4);
     // The two real Features (geneA, geneB) must still be present.
     expect(
-      parsed.features.filter((f: any) => f.type !== "primer_bind"),
+      (parsed.features as SnapFeature[]).filter((f) => f.type !== "primer_bind"),
     ).toHaveLength(2);
   });
 
   it("maps a forward primer with correct coords, strand, and oligo note", () => {
-    const fwd = parsed.features.find((f: any) => f.name === "M13_fwd");
+    const fwd = (parsed.features as SnapFeature[]).find((f) => f.name === "M13_fwd");
     expect(fwd).toBeTruthy();
-    expect(fwd.type).toBe("primer_bind");
-    expect(fwd.start).toBe(2); // 1-based 3 -> 0-based 2
-    expect(fwd.end).toBe(11); // 1-based 12 -> 0-based 11
-    expect(fwd.strand).toBe(1);
+    expect(fwd!.type).toBe("primer_bind");
+    expect(fwd!.start).toBe(2); // 1-based 3 -> 0-based 2
+    expect(fwd!.end).toBe(11); // 1-based 12 -> 0-based 11
+    expect(fwd!.strand).toBe(1);
     // Oligo sequence carried as a /note (array value -> survives to GenBank).
-    expect(fwd.notes.note).toEqual(["GTAAAACGACGGCCAGT"]);
+    expect(fwd!.notes!.note).toEqual(["GTAAAACGACGGCCAGT"]);
   });
 
   it("maps a reverse primer to strand -1", () => {
-    const rev = parsed.features.find((f: any) => f.name === "M13_rev");
+    const rev = (parsed.features as SnapFeature[]).find((f) => f.name === "M13_rev");
     expect(rev).toBeTruthy();
-    expect(rev.strand).toBe(-1);
-    expect(rev.start).toBe(24); // 25 -> 24
-    expect(rev.end).toBe(35); // 36 -> 35
-    expect(rev.notes.note).toEqual(["CAGGAAACAGCTATGAC"]);
+    expect(rev!.strand).toBe(-1);
+    expect(rev!.start).toBe(24); // 25 -> 24
+    expect(rev!.end).toBe(35); // 36 -> 35
+    expect(rev!.notes!.note).toEqual(["CAGGAAACAGCTATGAC"]);
   });
 
   it("emits one feature per binding site for a multi-site primer", () => {
-    const multi = parsed.features.filter((f: any) => f.name === "multi");
+    const multi = (parsed.features as SnapFeature[]).filter((f) => f.name === "multi");
     expect(multi).toHaveLength(2);
-    const strands = multi.map((f: any) => f.strand).sort();
+    const strands = multi.map((f) => f.strand).sort();
     expect(strands).toEqual([-1, 1]);
   });
 
   it("skips a primer whose binding-site location won't parse", () => {
-    expect(parsed.features.some((f: any) => f.name === "broken")).toBe(false);
+    expect((parsed.features as SnapFeature[]).some((f) => f.name === "broken")).toBe(false);
   });
 
   it("does not throw when there is no Features block, only Primers", async () => {
@@ -210,8 +217,8 @@ describe("snapgeneToJson — primers (block type 5)", () => {
     });
     const res = await snapgeneToJson(ab, { fileName: "x.dna" });
     expect(res[0].success).toBe(true);
-    const solo = res[0].parsedSequence!.features!.find(
-      (f: any) => f.name === "solo",
+    const solo = (res[0].parsedSequence!.features as SnapFeature[]).find(
+      (f) => f.name === "solo",
     )!;
     expect(solo).toBeTruthy();
     expect(solo.type).toBe("primer_bind");
@@ -220,7 +227,7 @@ describe("snapgeneToJson — primers (block type 5)", () => {
 });
 
 describe("snapgeneToJson — modern format, no DOMParser", () => {
-  let parsed: any;
+  let parsed: ParsedSequence;
 
   beforeAll(async () => {
     const ab = buildSyntheticDna({
@@ -232,7 +239,7 @@ describe("snapgeneToJson — modern format, no DOMParser", () => {
     });
     const res = await snapgeneToJson(ab, { fileName: "synthetic-modern.dna" });
     expect(res[0].success).toBe(true);
-    parsed = res[0].parsedSequence;
+    parsed = res[0].parsedSequence!;
   });
 
   it("extracts the sequence and circular topology", () => {
@@ -258,7 +265,7 @@ describe("snapgeneToJson — modern format, no DOMParser", () => {
         color: "#ff0000",
       }),
     );
-    const geneB = parsed.features.find((f: any) => f.name === "geneB")!;
+    const geneB = (parsed.features as SnapFeature[]).find((f) => f.name === "geneB")!;
     expect(geneB.strand).toBe(-1);
     expect(geneB.type).toBe("CDS");
     // multi-segment -> a `locations` array is attached

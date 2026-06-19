@@ -252,7 +252,7 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
         // This is the exact pattern that Next 16.1.6 crashes on if it escapes
         // to the error boundary (throw undefined produces an error where .digest
         // reads as undefined and crashes Next's overlay). runToolCall must catch it.
-        throw undefined; // eslint-disable-line @typescript-eslint/no-throw-literal
+        throw undefined;
       },
     };
 
@@ -317,7 +317,6 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
       description: "A test tool that throws null.",
       parameters: { type: "object", properties: {} },
       execute: async () => {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw null;
       },
     };
@@ -365,7 +364,6 @@ describe("runAgentLoop defensive hardening: tool throws undefined", () => {
       description: "A test tool that throws a string.",
       parameters: { type: "object", properties: {} },
       execute: async () => {
-        // eslint-disable-next-line @typescript-eslint/no-throw-literal
         throw "something went wrong";
       },
     };
@@ -423,7 +421,7 @@ describe("runAgentLoop: loop-level undefined propagation guard", () => {
       name: "bad_tool",
       description: "Throws undefined.",
       parameters: { type: "object", properties: {} },
-      execute: async () => { throw undefined; }, // eslint-disable-line @typescript-eslint/no-throw-literal
+      execute: async () => { throw undefined; },
     };
 
     let c = 0;
