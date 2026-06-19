@@ -52,12 +52,12 @@ The user gave informed consent by approving the visible plan card, so running th
 - The plan card UI: `src/components/ai/BeakerBotPlanCard.tsx` (add the "review each step instead" escape).
 - The prompt: `src/lib/ai/system-prompt.ts` (the WHEN-to-propose instruction).
 
-## Decisions for Grant
+## Decisions (LOCKED, Grant 2026-06-19, all on the recommended choice)
 
-1. Threshold. Offer a plan at TWO or more non-trivial actions (recommended), or only at three or more. Recommendation: two, since two confirms already feel naggy and the card is cheap.
-2. Per-turn vs sticky. The elevation reverts to step-by-step after the turn (recommended), or it stays plan for the rest of the conversation once the user approves one plan. Recommendation: per-turn, it respects the default and never surprises the user later.
-3. Escape on the card. Add a "review each step instead" link that declines the plan and runs the request step-by-step (recommended), so the granular path is never lost. Recommendation: yes.
-4. Mixed read-and-write chains. Count only the writes toward the threshold (recommended, since reads never gate), or count previewable steps too. Recommendation: count writes plus previewable steps, since a previewable step is also something the user reviews in step mode.
+1. Threshold. Offer a plan at TWO or more non-trivial actions. Two confirms already feel naggy and the card is cheap.
+2. Per-turn vs sticky. Per-turn. The elevation reverts to step-by-step after the turn, respecting the default and never surprising the user later.
+3. Escape on the card. Yes. A "review each step instead" link declines the plan and runs the request step-by-step, so the granular path is never lost.
+4. What counts toward the threshold. Writes PLUS previewable steps (an analysis, a plot the user reviews). Reads and navigation never count, they never gate.
 
 ## Phasing
 
