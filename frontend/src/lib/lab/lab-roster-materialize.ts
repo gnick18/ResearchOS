@@ -49,6 +49,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { fileService } from "../file-system/file-service";
+import { pickUserColor } from "../file-system/user-color";
 import { fingerprint } from "../sharing/identity/keys";
 import {
   compactFingerprint,
@@ -67,15 +68,13 @@ import type { LabMember, LabRecord } from "./lab-membership";
  *  write-queue-bearing module). */
 const METADATA_PATH = "users/_user_metadata.json";
 
-/** Hex-only palette mirrored from user-metadata.ts USER_COLOR_PALETTE (the
- *  rainbow sentinels are intentionally excluded: they are opt-in only and must
- *  never be auto-assigned). Kept local so the deterministic assignment here
- *  matches the swatches the rest of the app uses without importing the
- *  write-queue-bearing module. */
-const HEX_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
+// The deterministic color a co-member with no stored color is assigned comes
+// from the single source (user-color.ts pickUserColor / deterministicUserColor).
+// That is the same hash + same hex palette the metadata auto-assign and the
+// pre-folder picker fallback use, so the color materialize ASSIGNS here is
+// identical to the fallback every consumer would otherwise compute. The
+// write-queue-bearing user-metadata module is deliberately NOT imported (the
+// color helper is a dependency-free leaf).
 
 // ---------------------------------------------------------------------------
 // Local copies of the on-disk shapes we read / write. We deliberately keep
@@ -87,6 +86,16 @@ const HEX_PALETTE = [
 interface MetadataEntryLike {
   color: string;
   created_at: string;
+  /** Soft-delete tombstone (ISO timestamp). When set, discoverUsers /
+   *  usersApi.list filter the user out. The ghost-cleanup reconcile sets this on
+   *  a materialized co-member who has left the relay roster (trash, not destroy)
+   *  and clears it when they re-appear. */
+  deleted_at?: string;
+  /** True when this entry was created by THIS materialize for a co-member (a
+   *  cached identity, not a real local user). Only flagged entries are eligible
+   *  for the reconcile to tombstone, so a genuine local user is never auto-
+   *  tombstoned. */
+  materialized_member?: boolean;
   [k: string]: unknown;
 }
 
@@ -144,6 +153,13 @@ export interface RosterMaterializeResult {
   settingsWritten: string[];
   /** Usernames added to _user_metadata.json (a fresh color entry). */
   metadataAdded: string[];
+  /** Previously-materialized co-members who left the relay roster and were
+   *  TOMBSTONED (deleted_at set) this run. Trash, not destroy: their dir is left
+   *  in place and the entry is reversible. Never the viewer or the head. */
+  tombstoned: string[];
+  /** Co-members who were tombstoned but are back on the roster, so their
+   *  deleted_at was cleared (un-tombstoned) and they were re-materialized. */
+  unTombstoned: string[];
   /** The viewer username, whose own identity files were intentionally PRESERVED. */
   viewer: string;
 }
@@ -188,7 +204,17 @@ function fingerprintForMember(member: LabMember): string | null {
  *      for a co-member's identity (only the VIEWER's own settings is local
  *      source-of-truth, which we never touch).
  *   3. Add a `_user_metadata.json` color entry IF the member has none yet
- *      (preserving any existing local color, including the viewer's own).
+ *      (preserving any existing local color, including the viewer's own),
+ *      flagged `materialized_member: true` so the reconcile can later tombstone
+ *      it. A previously-tombstoned member who is back on the roster is
+ *      un-tombstoned (deleted_at cleared) and re-materialized.
+ *
+ * After the per-member pass it RECONCILES removals: any entry THIS materialize
+ * created (materialized_member === true) whose username is no longer on the
+ * current roster is TOMBSTONED (deleted_at set) so it stops showing up as a
+ * ghost in People / mentions / colors. Trash not destroy (the dir stays, the
+ * tombstone is reversible), idempotent, and it NEVER touches the viewer, the
+ * head, a current member, or a genuine local user (no materialized flag).
  *
  * The VIEWER's own `users/<viewer>/settings.json` and own color entry are NEVER
  * written here. Their own identity lives locally and is the source of truth.
@@ -209,6 +235,8 @@ export async function materializeLabRoster(
   const presenceWritten: string[] = [];
   const settingsWritten: string[] = [];
   const metadataAdded: string[] = [];
+  const tombstoned: string[] = [];
+  const unTombstoned: string[] = [];
 
   // The full roster, head first. record.head is the PI; record.members is the
   // complete roster (the signed log guarantees head + members agree). We iterate
@@ -277,38 +305,70 @@ export async function materializeLabRoster(
     settingsWritten.push(username);
 
     // 3. Color entry: add ONLY when missing so we never overwrite a local color.
-    if (!metaFile.users[username]) {
-      const color = pickColor(takenColors, username);
+    const existingEntry = metaFile.users[username];
+    if (!existingEntry) {
+      const color = pickUserColor(takenColors, username);
       takenColors.add(color);
-      metaFile.users[username] = { color, created_at: now };
+      // Flag the entry as materialized so the reconcile below can safely tombstone
+      // it (and only it) when this member later leaves the roster. A genuine local
+      // user this viewer created carries no such flag and is never auto-tombstoned.
+      metaFile.users[username] = {
+        color,
+        created_at: now,
+        materialized_member: true,
+      };
       metadataAdded.push(username);
       metaMutated = true;
+    } else if (existingEntry.deleted_at) {
+      // Re-added member who was previously tombstoned: clear the tombstone so
+      // they reappear in People / mentions / colors, and (re-)flag the entry as
+      // materialized so a future removal can tombstone it again. We do NOT touch
+      // their stored color (residency: a chosen color survives).
+      delete existingEntry.deleted_at;
+      existingEntry.materialized_member = true;
+      unTombstoned.push(username);
+      metaMutated = true;
     }
+  }
+
+  // Ghost-cleanup reconcile: a member removed from the relay roster leaves a
+  // materialized scaffold + metadata entry behind (materialize only ADDS, it
+  // never pruned). For every entry THIS materialize created (materialized_member
+  // === true) whose username is no longer on the current roster, TOMBSTONE it
+  // (set deleted_at) so discoverUsers / the pickers filter it out. This is trash
+  // not destroy: the dir is left in place and the tombstone is reversible (a re-
+  // added member is un-tombstoned above), so the change is idempotent and safe.
+  //
+  // SAFETY INVARIANTS:
+  //   - Never the VIEWER: their identity is local source-of-truth and they carry
+  //     no materialized_member flag anyway (we skip writing their entry).
+  //   - Never the HEAD or any current roster member: they are in `roster`.
+  //   - Never a genuine local / co-located user: only entries WE flagged
+  //     materialized_member are touched. An un-flagged entry (a real local user,
+  //     or a pre-flag legacy entry) is left exactly as-is.
+  //   - Idempotent: an already-tombstoned ghost is skipped (no re-write).
+  for (const [username, entry] of Object.entries(metaFile.users)) {
+    if (username === viewer) continue;
+    if (roster.has(username)) continue;
+    if (!entry || entry.materialized_member !== true) continue;
+    if (entry.deleted_at) continue; // already tombstoned, idempotent.
+    entry.deleted_at = now;
+    tombstoned.push(username);
+    metaMutated = true;
   }
 
   if (metaMutated) {
     await io.writeText(METADATA_PATH, JSON.stringify(metaFile));
   }
 
-  return { presenceWritten, settingsWritten, metadataAdded, viewer };
-}
-
-/**
- * Deterministic palette assignment mirroring user-metadata.ts pickColor: prefer
- * an unused palette swatch, else fall back to a stable per-username hash so two
- * members never silently collapse to one color and the choice is stable across
- * runs.
- */
-function pickColor(taken: Set<string>, username: string): string {
-  for (const color of HEX_PALETTE) {
-    if (!taken.has(color)) return color;
-  }
-  // Hash fallback (same algorithm as user-metadata.ts hashColor).
-  let hash = 0;
-  for (let i = 0; i < username.length; i += 1) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return HEX_PALETTE[Math.abs(hash) % HEX_PALETTE.length];
+  return {
+    presenceWritten,
+    settingsWritten,
+    metadataAdded,
+    tombstoned,
+    unTombstoned,
+    viewer,
+  };
 }
 
 /** Exposed for unit tests: the role -> account_type mapping. */

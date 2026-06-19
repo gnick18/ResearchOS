@@ -3,6 +3,7 @@
 // user-metadata (a leaf module), so no import cycle.
 
 import { RAINBOW_COLOR, RAINBOW_VIVID_COLOR } from "@/lib/file-system/user-metadata";
+import { deterministicUserColor } from "@/lib/file-system/user-color";
 
 export interface HSL {
   h: number; // 0-360
@@ -195,19 +196,13 @@ export function rainbowTheme(
 
 /**
  * Deterministic fallback color when no user metadata is loaded yet (e.g.
- * the pre-folder picker screen). Hashes username → palette index.
+ * the pre-folder picker screen). Delegates to the single source
+ * (user-color.ts deterministicUserColor) so this fallback, the metadata
+ * auto-assign, and the roster materialize all resolve the same color for a
+ * username with no stored entry.
  */
-const FALLBACK_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
-];
-
 export function fallbackColorForUsername(username: string): string {
-  let hash = 0;
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return FALLBACK_PALETTE[Math.abs(hash) % FALLBACK_PALETTE.length];
+  return deterministicUserColor(username);
 }
 
 /** Convert "#rrggbb" → "rgba(r, g, b, a)" for translucent overlays. */

@@ -8,10 +8,10 @@
 // seedReservedSlugs / seedExistingHandles / seedInstitutionSlugs: every underlying
 // write is an upsert / ON CONFLICT, so re-running on every deploy is a no-op.
 //
-// This is the IO layer (Neon + R2 + fs). The pure content lives in demo-lab.ts so
-// the shapes are unit-testable without infrastructure. Every dependency is
-// injectable (DemoSeedDeps) so a test can run the whole seed against an in-memory
-// fake and assert idempotency without a database.
+// This is the IO layer (Neon + R2). The pure content lives in demo-lab.ts so the
+// shapes are unit-testable without infrastructure. Every dependency is injectable
+// (DemoSeedDeps) so a test can run the whole seed against an in-memory fake and
+// assert idempotency without a database.
 //
 // HOLD: this seeder is NOT wired to any route or deploy step here. Running it is
 // Phase 3 (prod activation), held for Grant. It needs a populated Neon
@@ -19,20 +19,11 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { readFile } from "node:fs/promises";
-import { fileURLToPath } from "node:url";
-import { dirname, join } from "node:path";
-
-// This module's own directory, resolved at runtime from import.meta.url. We must
-// NOT use `new URL("./fixtures/<dir>/", import.meta.url)` for a fixtures DIRECTORY:
-// Turbopack statically analyzes that literal and tries to resolve the trailing-
-// slash directory as an asset, which fails the whole build ("Module not found").
-// Deriving the dir from import.meta.url at runtime + joining the relative path is
-// opaque to the bundler, so it compiles, and the (flag-gated) seeder still reads
-// the checked-in fixtures from disk on the server.
-const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
-
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
+import {
+  DEMO_BYO_FIXTURES_B64,
+  DEMO_FIGURE_FIXTURES_B64,
+} from "./demo-lab-fixtures";
 import {
   DEMO_BYO_FILES,
   DEMO_LAB_OWNER_KEY,
@@ -75,22 +66,43 @@ export interface DemoSeedDeps {
   putByoFile: typeof putByoFile;
   upsertByoSite: typeof upsertByoSite;
   /** Read one BYO bundle file's bytes by its relative path (defaults to the
-   *  checked-in fixtures/demo-byo-site/ folder). */
+   *  inlined DEMO_BYO_FIXTURES_B64, keyed by path under demo-byo-site/). */
   readBundleFile: (relPath: string) => Promise<Uint8Array>;
-  /** Read one figure's SVG artwork by file name (defaults to the checked-in
-   *  fixtures/figures/ folder). The seeder turns it into the baked snapshot. */
+  /** Read one figure's SVG artwork by file name (defaults to the inlined
+   *  DEMO_FIGURE_FIXTURES_B64). The seeder turns it into the baked snapshot. */
   readFigureSvg: (svgFile: string) => Promise<string>;
 }
 
-/** Read a checked-in BYO bundle file from fixtures/demo-byo-site/<relPath>. */
-async function readFixtureFile(relPath: string): Promise<Uint8Array> {
-  const buf = await readFile(join(MODULE_DIR, "fixtures", "demo-byo-site", relPath));
-  return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+const FIXTURE_DECODER = new TextDecoder();
+
+/** Decode one inlined base64 fixture to its exact source bytes. Uses atob (not a
+ *  node:fs read) so it is runtime-agnostic across the Vercel and Cloudflare
+ *  Workers targets. */
+function decodeFixture(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) bytes[i] = bin.charCodeAt(i);
+  return bytes;
 }
 
-/** Read a checked-in figure SVG from the fixtures/figures/ folder by file name. */
+/** Read a checked-in BYO bundle file from the inlined fixtures by relative path.
+ *  Inlined (not read from disk) so the seed works identically on Vercel and on
+ *  the Cloudflare Workers target, which has no runtime filesystem. */
+async function readFixtureFile(relPath: string): Promise<Uint8Array> {
+  const b64 = DEMO_BYO_FIXTURES_B64[relPath];
+  if (b64 === undefined) {
+    throw new Error(`Demo BYO fixture missing: ${relPath}`);
+  }
+  return decodeFixture(b64);
+}
+
+/** Read a checked-in figure SVG from the inlined fixtures by file name. */
 async function readFigureFile(svgFile: string): Promise<string> {
-  return readFile(join(MODULE_DIR, "fixtures", "figures", svgFile), "utf8");
+  const b64 = DEMO_FIGURE_FIXTURES_B64[svgFile];
+  if (b64 === undefined) {
+    throw new Error(`Demo figure fixture missing: ${svgFile}`);
+  }
+  return FIXTURE_DECODER.decode(decodeFixture(b64));
 }
 
 const DEFAULT_DEPS: DemoSeedDeps = {

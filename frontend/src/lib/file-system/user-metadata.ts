@@ -1,4 +1,9 @@
 import { fileService } from "./file-service";
+import {
+  deterministicUserColor,
+  pickUserColor,
+  USER_COLOR_PALETTE as HEX_USER_COLOR_PALETTE,
+} from "./user-color";
 
 const METADATA_PATH = "users/_user_metadata.json";
 
@@ -81,8 +86,9 @@ export const RAINBOW_SENTINELS = new Set<string>([
 ]);
 
 const USER_COLOR_PALETTE = [
-  "#3b82f6", "#ef4444", "#10b981", "#f59e0b", "#8b5cf6",
-  "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
+  // The hex swatches come from the single source (user-color.ts) so the
+  // auto-assign / fallback colors stay identical to every other surface.
+  ...HEX_USER_COLOR_PALETTE,
   // Special sentinels: BeakerBot rainbow (pastel) + vivid rainbow. Must remain
   // LAST so existing users keep their assigned palette index.
   RAINBOW_COLOR,
@@ -122,6 +128,16 @@ export interface UserMetadataEntry {
   // the others (mirrors how `color` is per-user). No migration needed:
   // existing entries without the field render exactly as before.
   native_calendar_color?: string;
+  // Multi-lab P3 ghost-cleanup marker (lab-roster-materialize.ts). True when
+  // this entry was CREATED by the roster materialize for a co-member of someone
+  // else's lab (a cached identity, not a real local user this viewer made). Only
+  // entries carrying this flag are eligible for the roster reconcile to
+  // TOMBSTONE (set deleted_at) when the member leaves the relay roster, so the
+  // reconcile can never tombstone a genuine local / co-located user. Absent /
+  // false = "not a materialized co-member, never auto-tombstone". Additive +
+  // optional: entries written before this slice load unchanged (the reconcile
+  // simply skips them, the conservative default).
+  materialized_member?: boolean;
   // Structured-research-metadata foundation (metadata implementation bot,
   // 2026-05-28). The person's ORCID iD, stored in the canonical bare
   // hyphenated 16-character form (e.g. "0000-0002-1825-0097") with NO
@@ -159,30 +175,21 @@ export interface UserMetadataFile {
   main_user?: string | null;
 }
 
-/** The hex-only slice of the palette used by hashColor and pickColor.
- *  Rainbow is excluded so the hash-based fallback and the auto-assign
- *  logic never implicitly give a user the rainbow option — it must be
- *  explicitly chosen via the color picker. */
-const HEX_ONLY_PALETTE = USER_COLOR_PALETTE.filter(
-  (c) => !RAINBOW_SENTINELS.has(c),
-);
-
+/** The hash-into-palette fallback. Delegates to the single source
+ *  (user-color.ts deterministicUserColor) so this surface and the roster
+ *  materialize / the pre-folder picker all resolve the same fallback color for
+ *  a username. Rainbow is excluded by construction (the shared palette is
+ *  hex-only), so the hash never implicitly hands out a rainbow option — it must
+ *  be explicitly chosen via the color picker. */
 function hashColor(username: string): string {
-  let hash = 0;
-  for (let i = 0; i < username.length; i++) {
-    hash = username.charCodeAt(i) + ((hash << 5) - hash);
-  }
-  return HEX_ONLY_PALETTE[Math.abs(hash) % HEX_ONLY_PALETTE.length];
+  return deterministicUserColor(username);
 }
 
 function pickColor(takenColors: Set<string>, username: string): string {
-  for (const color of USER_COLOR_PALETTE) {
-    // Never auto-assign a rainbow sentinel — they must only be explicitly
-    // chosen via the color picker (opt-in, not auto-allocated).
-    if (RAINBOW_SENTINELS.has(color)) continue;
-    if (!takenColors.has(color)) return color;
-  }
-  return hashColor(username);
+  // Delegates to the single source (user-color.ts pickUserColor): prefer an
+  // unused hex swatch, else the deterministic hash. The shared palette is
+  // hex-only so a rainbow sentinel is never auto-assigned (opt-in only).
+  return pickUserColor(takenColors, username);
 }
 
 /**
