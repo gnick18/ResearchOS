@@ -92,7 +92,7 @@ import {
   setElementRotation,
   duplicateElements,
 } from "@/lib/figure/figure-arrange";
-import { elementTransform } from "@/lib/figure/figure-compose";
+import { elementTransform, elementTransformCss } from "@/lib/figure/figure-compose";
 import {
   getFigureSource,
   listFigureSources,
@@ -1315,7 +1315,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             const py = s.yIn * scale;
             const pw = s.wIn * scale;
             const ph = s.hIn * scale;
-            const tf = elementTransform(px, py, pw, ph, { rotation: s.rotation, flipX: s.flipX, flipY: s.flipY });
+            const tf = elementTransformCss(px, py, pw, ph, { rotation: s.rotation, flipX: s.flipX, flipY: s.flipY });
             return (
               <div
                 key={s.shapeId}
@@ -1357,7 +1357,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             const py = p.yIn * scale;
             const pw = p.wIn * scale;
             const ph = p.hIn * scale;
-            const tf = elementTransform(px, py, pw, ph, { flipX: p.flipX, flipY: p.flipY });
+            const tf = elementTransformCss(px, py, pw, ph, { flipX: p.flipX, flipY: p.flipY });
             return (
               <div
                 key={p.panelId}
@@ -1420,7 +1420,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             const py = a.yIn * scale;
             const pw = a.wIn * scale;
             const ph = a.hIn * scale;
-            const tf = elementTransform(px, py, pw, ph, { rotation: a.rotation, flipX: a.flipX, flipY: a.flipY });
+            const tf = elementTransformCss(px, py, pw, ph, { rotation: a.rotation, flipX: a.flipX, flipY: a.flipY });
             return (
               <div
                 key={a.assetId}

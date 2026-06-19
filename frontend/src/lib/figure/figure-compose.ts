@@ -47,6 +47,42 @@ export function elementTransform(
   }
   return parts.join(" ");
 }
+
+/**
+ * Build a CSS `transform` string equivalent to `elementTransform` for use on
+ * canvas DOM elements. CSS requires commas between function arguments and `px`
+ * / `deg` units; SVG accepts bare numbers with spaces -- the two syntaxes are
+ * NOT interchangeable.  This function emits CSS-valid syntax; keep
+ * `elementTransform` (SVG syntax) for the export path unchanged.
+ *
+ * Returns "" when no transform is needed (no rotation, no flip).
+ */
+export function elementTransformCss(
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
+  opts: { rotation?: number; flipX?: boolean; flipY?: boolean },
+): string {
+  const cx = px + pw / 2;
+  const cy = py + ph / 2;
+  const parts: string[] = [];
+  if (opts.rotation) {
+    parts.push(`rotate(${opts.rotation}deg)`);
+  }
+  const sx = opts.flipX ? -1 : 1;
+  const sy = opts.flipY ? -1 : 1;
+  if (sx !== 1 || sy !== 1) {
+    // Translate to center, scale, translate back -- using px units and commas.
+    parts.push(
+      `translate(${cx.toFixed(2)}px, ${cy.toFixed(2)}px)` +
+      ` scale(${sx}, ${sy})` +
+      ` translate(${(-cx).toFixed(2)}px, ${(-cy).toFixed(2)}px)`,
+    );
+  }
+  return parts.join(" ");
+}
+
 import { missingPanelSvg } from "@/lib/figure/figure-source";
 import { connectorEndpoints, connectorPath, type Point } from "@/lib/figure/figure-connectors";
 
