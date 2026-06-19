@@ -697,32 +697,41 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
 function GateFooter({ onBugReport }: { onBugReport: () => void }) {
   const { disconnect } = useFileSystem();
   return (
-    <div className="mt-6 flex flex-col items-center gap-2">
-      <Link
-        href="/wiki/getting-started/connecting-your-folder"
-        className="text-foreground-muted hover:text-foreground text-meta transition-colors"
-      >
-        New here? Read the setup guide
-      </Link>
-      <button
-        type="button"
-        onClick={async () => {
-          // Full exit (Grant 2026-06-19): clear the sharing session AND
-          // disconnect the folder so Sign out returns to the landing, never a
-          // half-state. disconnect() is a safe no-op if no folder is connected.
-          await disconnect();
-          void signOut({ callbackUrl: "/" });
-        }}
-        className="text-foreground-muted hover:text-foreground text-meta transition-colors underline underline-offset-2"
-        data-testid="gate-sign-out"
-      >
-        Sign out
-      </button>
+    <div className="mt-6 flex flex-col items-center">
+      {/* ONE thin bar (Grant 2026-06-19): the gate-specific actions (setup guide
+          link + full-exit Sign out) are threaded into the SAME row as the shared
+          compact MarketingFooter via leadingSlot, instead of stacking as their
+          own rows above it, so this gate matches the single thin bar on the
+          other gate screens. */}
       <MarketingFooter
         compact
-        className="mt-1"
         onReportBug={onBugReport}
         supportSlot={<BetaDonationButton variant="link" />}
+        leadingSlot={
+          <>
+            <Link
+              href="/wiki/getting-started/connecting-your-folder"
+              className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
+            >
+              New here? Read the setup guide
+            </Link>
+            <button
+              type="button"
+              onClick={async () => {
+                // Full exit (Grant 2026-06-19): clear the sharing session AND
+                // disconnect the folder so Sign out returns to the landing,
+                // never a half-state. disconnect() is a safe no-op if no folder
+                // is connected.
+                await disconnect();
+                void signOut({ callbackUrl: "/" });
+              }}
+              className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
+              data-testid="gate-sign-out"
+            >
+              Sign out
+            </button>
+          </>
+        }
       />
     </div>
   );

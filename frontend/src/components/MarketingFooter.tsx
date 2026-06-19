@@ -130,10 +130,20 @@ function CompactFooter({
   className = "",
   onReportBug,
   supportSlot,
+  leadingSlot,
 }: {
   className?: string;
   onReportBug?: () => void;
   supportSlot?: ReactNode;
+  /**
+   * Gate-specific context actions (e.g. "Use a different folder", "Sign out")
+   * threaded into the SAME single row as the legal links, so the focused gate
+   * screens read as one thin bar instead of a vertical stack of action rows
+   * above the footer. A hairline divider separates these actions from the legal
+   * links. Pass undefined (not an empty fragment) when there are no actions, so
+   * the divider never dangles.
+   */
+  leadingSlot?: ReactNode;
 }) {
   const linkClass =
     "text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline";
@@ -142,6 +152,12 @@ function CompactFooter({
       data-testid="marketing-footer-compact"
       className={`flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-meta text-foreground-muted ${className}`}
     >
+      {leadingSlot ? (
+        <>
+          {leadingSlot}
+          <span aria-hidden className="h-3 w-px bg-border" />
+        </>
+      ) : null}
       <Link href="/terms" className={linkClass}>
         Terms
       </Link>
@@ -169,6 +185,7 @@ export default function MarketingFooter({
   compact = false,
   onReportBug,
   supportSlot,
+  leadingSlot,
 }: {
   className?: string;
   /** Slim single-row variant for the focused login / connect / welcome gates. */
@@ -177,6 +194,8 @@ export default function MarketingFooter({
   onReportBug?: () => void;
   /** Gate-supplied support affordance, e.g. <BetaDonationButton variant="link" /> (compact only). */
   supportSlot?: ReactNode;
+  /** Gate-specific actions threaded into the compact row (compact variant only). */
+  leadingSlot?: ReactNode;
 }) {
   if (compact) {
     return (
@@ -184,6 +203,7 @@ export default function MarketingFooter({
         className={className}
         onReportBug={onReportBug}
         supportSlot={supportSlot}
+        leadingSlot={leadingSlot}
       />
     );
   }

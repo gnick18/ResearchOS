@@ -1596,41 +1596,6 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 </button>
               </div>
             </div>
-          ) : showQuickConfirm && soleUser ? (
-            <div className="p-6 text-center space-y-5">
-              <div className="flex flex-col items-center gap-3">
-                <UserAvatar username={soleUser} size="xl" />
-                <div>
-                  <p className="text-body text-slate-400">Continue as</p>
-                  <p className="text-heading font-semibold text-white">
-                    {soleUser}?
-                  </p>
-                </div>
-              </div>
-              {error && (
-                <div className="p-3 bg-red-500/20 border border-red-500/30 rounded-lg">
-                  <p className="text-body text-red-300">{error}</p>
-                </div>
-              )}
-              <div className="space-y-2">
-                <button
-                  onClick={() => handleLogin(soleUser)}
-                  disabled={loggingIn !== null}
-                  className="w-full py-3 btn-brand text-white font-medium rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Yes, I&apos;m {soleUser}
-                </button>
-                <button
-                  onClick={() => {
-                    setError(null);
-                    setExpandPicker(true);
-                  }}
-                  className="w-full py-2.5 text-body bg-white/5 hover:bg-white/10 border border-white/10 text-slate-200 rounded-lg transition-colors"
-                >
-                  No, I&apos;m someone else
-                </button>
-              </div>
-            </div>
           ) : showCreateForm ? (
             <div className="p-6">
               <button
@@ -2630,64 +2595,58 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         />
       )}
 
-      {/* Bottom chrome: the data-locality reassurance + the auth-context action
-          row (disconnect / sign out) sit on top, with the shared compact
-          MarketingFooter below them so the help / legal links match the
-          marketing pages instead of drifting in a hand-rolled list. The whole
-          cluster is one fixed band with a soft fade up from the page so it stays
-          legible and never stacks on top of the centered card. */}
-      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-1.5 px-4 pb-4 pt-12 bg-gradient-to-t from-surface via-surface/85 to-transparent">
-        <p className="text-center text-meta text-foreground-muted">
-          Your data is stored locally in the folder you picked
-        </p>
-        {/* Escape hatch: picked the wrong folder? Disconnect (non-destructive —
-            the folder's data stays on disk) and land back on the folder-connect
-            screen to choose a different one. Without this the account picker was
-            a soft-lock once a folder was chosen (Grant 2026-06-15). Hidden in
-            demo/wiki-capture, which run on an ephemeral fixture folder. */}
-        {!isDemoOrWikiCapture() && (
-          <button
-            type="button"
-            onClick={() => void disconnect()}
-            className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
-            data-testid="login-change-folder"
-          >
-            Use a different folder
-          </button>
-        )}
-        {/* The single sign-out for signed-in sessions. It is unconditional
-            (not gated behind isRealSharingEnabled like the old sharing-section
-            duplicate that was removed), so a signed-in user is never
-            soft-locked. */}
-        {sessionStatus === "authenticated" && !isDemoOrWikiCapture() && (
-          <button
-            type="button"
-            onClick={async () => {
-              // Full exit (Grant 2026-06-19): Sign out clears the sharing
-              // session AND disconnects the folder, returning to the landing
-              // page, rather than dropping only the OAuth session and stranding
-              // the user on the still-connected folder's account chooser (which
-              // read as broken). disconnect() is a safe no-op if no folder is
-              // connected. signOut redirects to "/", now a clean landing.
-              await disconnect();
-              void signOut({ callbackUrl: "/" });
-            }}
-            className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
-            data-testid="login-sign-out"
-          >
-            Sign out
-          </button>
-        )}
-        {/* Shared compact footer: the help / legal links that used to be a
-            hand-rolled list here, now the single source so it matches the
-            marketing pages. "What we're building" (the stale roadmap) is
-            dropped on purpose. Report Bug + Support this project are threaded
-            in as the gate's own action + component. */}
+      {/* Bottom chrome: ONE thin bar (Grant 2026-06-19). The auth-context actions
+          (disconnect / sign out) are threaded into the SAME row as the shared
+          compact MarketingFooter via leadingSlot, instead of stacking as their
+          own rows above it, so this gate reads as a single thin bar like the
+          other gate screens. The standalone "Your data is stored locally"
+          reassurance line was dropped (the connect screen already states it).
+          The whole bar is one fixed band with a soft fade up from the page so it
+          stays legible and never stacks on top of the centered card. */}
+      <div className="fixed inset-x-0 bottom-0 z-40 flex flex-col items-center px-4 pb-4 pt-12 bg-gradient-to-t from-surface via-surface/85 to-transparent">
         <MarketingFooter
           compact
-          className="mt-0.5 max-w-[90vw]"
+          className="max-w-[90vw]"
           onReportBug={openBugReport}
           supportSlot={<BetaDonationButton variant="link" />}
+          leadingSlot={
+            // Both actions are demo-gated, so the slot is undefined in
+            // demo/wiki-capture (no dangling divider). Escape hatch: picked the
+            // wrong folder? Disconnect (non-destructive, the folder's data stays
+            // on disk) and land back on the connect screen. Sign out is the
+            // single unconditional full-exit for a signed-in session, so a user
+            // is never soft-locked.
+            !isDemoOrWikiCapture() ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void disconnect()}
+                  className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                  data-testid="login-change-folder"
+                >
+                  Use a different folder
+                </button>
+                {sessionStatus === "authenticated" && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      // Full exit (Grant 2026-06-19): clear the sharing session
+                      // AND disconnect the folder, returning to the landing,
+                      // rather than stranding the user on the still-connected
+                      // folder's account chooser. disconnect() is a safe no-op
+                      // when no folder is connected.
+                      await disconnect();
+                      void signOut({ callbackUrl: "/" });
+                    }}
+                    className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
+                    data-testid="login-sign-out"
+                  >
+                    Sign out
+                  </button>
+                )}
+              </>
+            ) : undefined
+          }
         />
       </div>
 

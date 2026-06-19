@@ -124,11 +124,44 @@ import {
   type LibraryAsset,
 } from "@/lib/figure/asset-library";
 import { registerFigureSources } from "@/lib/figure/register-sources";
+import { BeakerBotLoader } from "@/components/page-boot/BeakerBotLoader";
+import {
+  runBoot,
+  createLocalTimingStore,
+  PAGE_BOOT_WHY_HREF,
+  type BootState,
+  type BootTask,
+} from "@/lib/page-boot/page-boot";
 import { PAPER_PRESETS } from "@/lib/figure/artboard";
 import ZoomPanCanvas from "@/components/figure/ZoomPanCanvas";
 import { CompositionPanelAdvisor } from "@/components/figure/CompositionPanelAdvisor";
 
 const SCREEN_DPI = 96;
+
+// Per-page boot timing cache (for the honest ETA on repeat opens). Module scope
+// so it is shared across mounts and not rebuilt every render.
+const figureTimingStore = createLocalTimingStore();
+
+// Render one panel's SVG with the same options the reactive render effect uses.
+// Returns null when the source is missing or the render throws, so one bad panel
+// falls through to the compositor's placeholder instead of failing the whole boot.
+async function renderPanelSvg(p: FigurePage["panels"][number]): Promise<string | null> {
+  const src = getFigureSource(p.ref.type);
+  if (!src) return null;
+  try {
+    const r = await src.render(p.ref.id, {
+      widthIn: p.wIn,
+      heightIn: p.hIn,
+      dpi: SCREEN_DPI,
+      theme: "light",
+      overrides: { hideTitle: p.overrides?.hideTitle ?? true, hideLegend: p.overrides?.hideLegend },
+      style: p.style,
+    });
+    return r.svg;
+  } catch {
+    return null;
+  }
+}
 
 /** Icon-only button for the Illustrator-style arrange bar. */
 const ARRANGE_ICON_BTN =
@@ -203,6 +236,15 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // alignTarget = "key" (others align to this element, which stays fixed).
   const [keyRef, setKeyRef] = useState<ElementRef | null>(null);
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
+  // Honest page-boot loader state. Non-null while the initial read + first full
+  // panel-render pass runs, so opening a figure shows the BeakerBot loader over an
+  // already-drawn composer rather than a blank line that pops panels in one by one.
+  const [bootState, setBootState] = useState<BootState | null>(null);
+  // The render signature the boot already drew, so the reactive render effect can
+  // skip the identical first pass (avoids a visible double draw on open).
+  const renderedSigRef = useRef<string | null>(null);
+  // Bumped to retry a failed boot (no soft-lock).
+  const [bootAttempt, setBootAttempt] = useState(0);
   const [tool, setTool] = useState<null | "text" | "arrow" | "bracket" | "connect">(null);
   // Smart-connector state (Phase 2). selectedConn is kept separate from the element
   // selection (connectors are not panels/icons/annotations). connDraw holds an
@@ -245,25 +287,84 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     registerFigureSources();
     let live = true;
     setLoadState("loading");
-    readFigurePage(pageId)
-      .then((p) => {
-        if (!live) return;
-        // A page can be absent if the link is stale or its data was cleared (e.g.
-        // a demo re-seed). Show a recoverable not-found state, never spin forever.
-        if (p) {
-          setPage(p);
-          setLoadState("ready");
-        } else {
-          setLoadState("missing");
-        }
-      })
-      .catch(() => {
+    setBootState(null);
+    renderedSigRef.current = null;
+
+    void (async () => {
+      // Resolve found-vs-missing FIRST with the fast page read. A missing page is a
+      // legitimate recoverable not-found state (stale link or cleared demo data), so
+      // it must bypass the loader entirely, no spinner and no retry loop.
+      let loaded: FigurePage | null;
+      try {
+        loaded = await readFigurePage(pageId);
+      } catch {
         if (live) setLoadState("missing");
-      });
+        return;
+      }
+      if (!live) return;
+      if (!loaded) {
+        setLoadState("missing");
+        return;
+      }
+      const found = loaded;
+
+      // Found: gate the composer body behind the honest page-boot loader. Two real
+      // tasks, a near-instant read confirm plus the first full panel-render pass,
+      // which is the heavy, variable step and the real progress bar.
+      const tasks: BootTask[] = [
+        {
+          id: "read",
+          label: "Reading figure page",
+          weight: 1,
+          run: async () => {
+            // The read already happened above; this confirms the page is in hand.
+          },
+        },
+        {
+          id: "render-panels",
+          label: "Drawing panels",
+          weight: found.panels.length || 1,
+          run: async (onProgress) => {
+            const total = found.panels.length;
+            const next = new Map<string, string>();
+            for (let i = 0; i < total; i++) {
+              if (!live) return;
+              const svg = await renderPanelSvg(found.panels[i]);
+              if (svg !== null) next.set(found.panels[i].panelId, svg);
+              onProgress((i + 1) / total);
+            }
+            if (live) setPanelSvgs(next);
+          },
+        },
+      ];
+
+      try {
+        await runBoot(tasks, {
+          pageId: "figure-composer",
+          timingStore: figureTimingStore,
+          onUpdate: (s) => {
+            if (live) setBootState(s);
+          },
+        });
+      } catch {
+        // The error phase was already emitted to bootState; the loader shows a
+        // retry. Leave page unset so the composer body stays gated behind it.
+        return;
+      }
+      if (!live) return;
+      // Mark the signature the boot already drew so the reactive effect skips the
+      // identical first pass, then reveal the already-drawn composer.
+      renderedSigRef.current = renderSignature(found);
+      setPage(found);
+      setBootState(null);
+      setLoadState("ready");
+    })();
+
     return () => {
       live = false;
     };
-  }, [pageId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageId, bootAttempt]);
 
   // Load the figure-page list for the left-rail Figures file browser. Reloads
   // when the active page changes (e.g. after creating one), so it stays current.
@@ -281,26 +382,19 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   const sig = page ? renderSignature(page) : "";
   useEffect(() => {
     if (!page) return;
+    // The page-boot already drew this exact signature on open. Skip the identical
+    // first pass once (avoids a visible double draw); later resize/ref changes
+    // produce a new signature and render normally.
+    if (renderedSigRef.current === sig) {
+      renderedSigRef.current = null;
+      return;
+    }
     let cancelled = false;
     void (async () => {
       const next = new Map<string, string>();
       for (const p of page.panels) {
-        const src = getFigureSource(p.ref.type);
-        if (!src) continue;
-        try {
-          const r = await src.render(p.ref.id, {
-            widthIn: p.wIn,
-            heightIn: p.hIn,
-            dpi: SCREEN_DPI,
-            theme: "light",
-            // Composed panels hide the plot's own title by default (per-panel toggle).
-            overrides: { hideTitle: p.overrides?.hideTitle ?? true, hideLegend: p.overrides?.hideLegend },
-            style: p.style,
-          });
-          next.set(p.panelId, r.svg);
-        } catch {
-          // leave it unrendered; the compositor draws the missing placeholder
-        }
+        const svg = await renderPanelSvg(p);
+        if (svg !== null) next.set(p.panelId, svg);
       }
       if (!cancelled) setPanelSvgs(next);
     })();
@@ -969,6 +1063,21 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   }
 
   if (loadState === "loading" || !page) {
+    // Honest page-boot loader over the page read plus the first full panel-render
+    // pass, so the composer reveals already-drawn. On a render failure it shows a
+    // retry, never a soft-lock; a found page with zero panels resolves promptly.
+    if (bootState) {
+      return (
+        <div className="flex h-full items-center justify-center">
+          <BeakerBotLoader
+            state={bootState}
+            blurb="Drawing your figure page in your browser, so nothing uploads. It caches timings, so the next open shows a real estimate."
+            whyHref={PAGE_BOOT_WHY_HREF}
+            onRetry={() => setBootAttempt((a) => a + 1)}
+          />
+        </div>
+      );
+    }
     return <div className="p-8 text-body text-foreground-muted">Loading figure page...</div>;
   }
 
