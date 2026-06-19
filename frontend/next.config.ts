@@ -191,6 +191,25 @@ const nextConfig: NextConfig = {
   // ketcher packages through Next's own pipeline resolves the recursion. Scoped
   // to the three ketcher packages only; everything else bundles unchanged.
   transpilePackages: ["ketcher-react", "ketcher-core", "ketcher-standalone"],
+  // Trace the demo-lab seed fixtures into the server output (demo-lab-network
+  // Phase 3). instrumentation.ts (the server-init seed hook) dynamically imports
+  // seed-demo-lab.ts, which reads its checked-in fixtures with
+  // readFile(join(MODULE_DIR, "fixtures", ...)). That runtime path join is opaque
+  // to Turbopack/nft on purpose (commit 81c6d2a64 switched off the static
+  // new URL("./fixtures/..", import.meta.url) form that broke the build), so the
+  // tracer no longer pulls the fixture files into the function output and the
+  // seeder would not find them in prod. Force-include them here so Vercel /
+  // OpenNext ship them. The two globs cover the whole BYO bundle
+  // (demo-byo-site/index.html + assets/style.css + assets/app.js) and every
+  // figure SVG (figures/growth.svg, figures/results.svg). The "/**" key matches
+  // all server route entries (purely static pages are skipped by the tracer), so
+  // the fixtures land in the same server output tree the seed hook reads at boot.
+  outputFileTracingIncludes: {
+    "/**": [
+      "src/lib/social/fixtures/demo-byo-site/**/*",
+      "src/lib/social/fixtures/figures/*.svg",
+    ],
+  },
   env: {
     // Exposed to the browser as `process.env.NEXT_PUBLIC_RESEARCHOS_COMMIT`
     // and inlined at build time. Used by the AI Helper settings section to
