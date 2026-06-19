@@ -38,6 +38,7 @@ import AppFooter from "@/components/AppFooter";
 import AccountsPanel from "@/components/admin/AccountsPanel";
 import BeakerBotGreeting from "@/components/admin/BeakerBotGreeting";
 import BroadcastPanel from "@/components/admin/BroadcastPanel";
+import StorageInventorySection from "@/components/admin/StorageInventorySection";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
@@ -149,6 +150,14 @@ const GROUPS: RailGroup[] = [
         icon: "database",
         desc: "Free-tier usage vs ceilings. The R2, Neon collab, and Resend ceilings are survival-critical.",
         keywords: "neon r2 upstash resend storage limits ceilings",
+      },
+      {
+        id: "storage-inventory",
+        group: "Metrics",
+        title: "Storage inventory",
+        icon: "database",
+        desc: "What is stored on R2 right now, by bucket (icon library vs app data) and by prefix (each lab's site, the relay).",
+        keywords: "r2 storage buckets assets icon library lab sites relay objects size inventory",
       },
       {
         id: "feature-usage",
@@ -930,6 +939,9 @@ export default function OperatorShell() {
               ) : (
                 <MetricsPhasePlaceholder phase={metrics.phase} />
               )}
+            </Section>
+            <Section section={byId("storage-inventory")}>
+              <StorageInventorySection />
             </Section>
             <Section section={byId("feature-usage")}>
               {metrics.phase === "ready" ? (
