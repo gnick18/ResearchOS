@@ -299,6 +299,31 @@ export interface TransparencyReport {
   status: Status;
 }
 
+/**
+ * Relative tolerance for the numerical-noise floor. Two values that agree to
+ * within six significant figures are the same number for any scientific purpose.
+ */
+export const NUMERIC_NOISE_RTOL = 1e-6;
+/** Absolute floor, so two values near zero are not divided into a giant ratio. */
+export const NUMERIC_NOISE_ATOL = 1e-12;
+
+/**
+ * True when two values agree to within floating-point precision (the numpy
+ * isclose form, a relative band plus a tiny absolute floor). A difference below
+ * this is floating-point ordering noise, not a real disagreement, so the page
+ * reports it as exact rather than a tolerance miss. The test is relative, not a
+ * fixed decimal round, so a genuinely small value like a p-value of 2e-8 keeps
+ * its real magnitude instead of collapsing to zero.
+ */
+export function numericallyExact(
+  a: number,
+  b: number,
+  rtol: number = NUMERIC_NOISE_RTOL,
+  atol: number = NUMERIC_NOISE_ATOL,
+): boolean {
+  return Math.abs(a - b) <= atol + rtol * Math.max(Math.abs(a), Math.abs(b));
+}
+
 /** Classify a |delta| against a tolerance band. */
 export function classify(delta: number, tol: Tolerance): Status {
   if (delta <= tol.pass) return "pass";
