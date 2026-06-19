@@ -1,7 +1,7 @@
 // Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory } from "./lib.mjs";
 
 test("classifyLicense: allowed set", () => {
   for (const [s, id] of [
@@ -95,6 +95,14 @@ test("category mappers land on existing curated leaves (never bare source slugs)
   assert.equal(healthiconsCategory("ppe"), "Safety symbols");
   assert.equal(healthiconsCategory("zoonoses"), "Microbiology");
   assert.equal(healthiconsCategory("vehicles"), "General");
+  // Tabler: science/tech categories map to leaves; UI/brand categories return null (skip).
+  assert.equal(tablerCategory("Health"), "Human physiology");
+  assert.equal(tablerCategory("Computers"), "Computer hardware");
+  assert.equal(tablerCategory("Charts"), "Scientific graphs");
+  assert.equal(tablerCategory("Electrical"), "Computer hardware");
+  assert.equal(tablerCategory("System"), null); // UI -> skipped
+  assert.equal(tablerCategory("Brand"), null); // logos -> skipped
+  assert.equal(tablerCategory("Arrows"), null);
 });
 
 test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {

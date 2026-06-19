@@ -71,6 +71,15 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // Health Icons are MIT / public-domain; courtesy credit retains the project notice.
     return `${title}. Health Icons by Resolve to Save Lives. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "tabler") {
+    // Tabler Icons are MIT; courtesy credit retains the project notice.
+    return `${title}. Tabler Icons (MIT). ${sourceUrl}`;
+  }
+  if (source === "devicon") {
+    // Devicon ships the SVGs under MIT, but the logos themselves are TRADEMARKS of
+    // their respective owners. Credit both so attribution + the trademark are clear.
+    return `${title} logo. Devicon (MIT); logo is a trademark of its owner. ${sourceUrl}`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
@@ -122,6 +131,28 @@ const HEALTHICONS_CATEGORY = {
 export function healthiconsCategory(raw) {
   const k = (raw || "").toLowerCase().replace(/\s+/g, "_");
   return HEALTHICONS_CATEGORY[k] || "General";
+}
+
+/** Tabler icon category -> curated taxonomy leaf. Also the ingest allowlist: a
+ *  category not in this map is a UI/brand category (System, Arrows, Brand,
+ *  E-commerce, ...) and is SKIPPED so the science library stays science. */
+const TABLER_CATEGORY = {
+  Health: "Human physiology",
+  Nature: "General",
+  Math: "General",
+  Charts: "Scientific graphs",
+  Computers: "Computer hardware",
+  Database: "Computer hardware",
+  Development: "Computer hardware",
+  Logic: "Computer hardware",
+  Electrical: "Computer hardware",
+  Devices: "Lab apparatus",
+  Shapes: "General",
+  Symbols: "Safety symbols",
+};
+/** Returns the mapped leaf, or null when the category is not science/tech (skip). */
+export function tablerCategory(raw) {
+  return TABLER_CATEGORY[raw] || null;
 }
 
 /**
