@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Demo lab on the researcher network (mockup)</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --surface: #ffffff;
+    --sunken: #f1f2f4;
+    --ink: #1c2024;
+    --muted: #5f6b76;
+    --faint: #8a939d;
+    --border: #e3e6ea;
+    --border-strong: #cdd3da;
+    --action: #2f6df6;
+    --action-soft: #e9f0fe;
+    --good: #1d9e75;
+    --good-soft: #e1f5ee;
+    --amber: #ba7517;
+    --amber-soft: #faeeda;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --maxw: 1040px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.55; }
+  a { color: var(--action); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: var(--maxw); margin: 0 auto; padding: 20px; }
+
+  .legend {
+    max-width: var(--maxw); margin: 0 auto; padding: 18px 20px 4px;
+  }
+  .legend h1 { font-size: 19px; font-weight: 600; margin: 0 0 4px; }
+  .legend p { font-size: 13.5px; color: var(--muted); margin: 0; }
+
+  .toolbar {
+    position: sticky; top: 0; z-index: 30;
+    background: rgba(246,247,249,0.92); backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--border);
+  }
+  .toolbar-inner { max-width: var(--maxw); margin: 0 auto; padding: 10px 20px; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .toolbar .seg { display: inline-flex; background: var(--sunken); border: 1px solid var(--border); border-radius: 999px; padding: 3px; }
+  .toolbar .seg button {
+    border: 0; background: transparent; color: var(--muted);
+    font: inherit; font-size: 13px; font-weight: 500; padding: 6px 13px; border-radius: 999px; cursor: pointer;
+  }
+  .toolbar .seg button.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,0.06); }
+  .toolbar .hint { font-size: 12.5px; color: var(--faint); margin-left: auto; }
+
+  .browser { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .urlbar { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-bottom: 1px solid var(--border); background: var(--sunken); }
+  .dots { display: flex; gap: 5px; }
+  .dots i { width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); display: block; }
+  .url { flex: 1; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px 12px; font-size: 12.5px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .url b { color: var(--ink); font-weight: 600; }
+  .pagebody { padding: 0; }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* marketing chrome */
+  .mkt-nav { display: flex; align-items: center; gap: 16px; padding: 14px 28px; border-bottom: 1px solid var(--border); }
+  .mkt-logo { font-weight: 700; font-size: 15px; letter-spacing: -0.01em; }
+  .mkt-logo span { color: var(--action); }
+  .mkt-nav .links { display: flex; gap: 16px; margin-left: 8px; }
+  .mkt-nav .links a { color: var(--muted); font-size: 13px; font-weight: 500; }
+  .mkt-nav .spacer { flex: 1; }
+  .mkt-nav .signin { font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--border-strong); padding: 6px 14px; border-radius: 999px; }
+
+  .mkt-foot { border-top: 1px solid var(--border); padding: 18px 28px; color: var(--faint); font-size: 12px; display: flex; gap: 16px; flex-wrap: wrap; }
+
+  /* sample-lab ribbon */
+  .ribbon { display: flex; align-items: center; justify-content: center; gap: 8px; background: var(--amber-soft); color: var(--amber); font-size: 12.5px; font-weight: 500; padding: 7px 14px; border-bottom: 1px solid #f0dcb6; }
+  .ribbon b { font-weight: 600; }
+
+  /* network hero */
+  .hero { text-align: center; padding: 40px 28px 8px; }
+  .kicker { display: inline-block; font-size: 11.5px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--action); background: var(--action-soft); padding: 4px 11px; border-radius: 999px; }
+  .hero h2 { font-size: 27px; font-weight: 700; letter-spacing: -0.02em; margin: 14px auto 8px; max-width: 620px; line-height: 1.2; }
+  .hero p { font-size: 14.5px; color: var(--muted); max-width: 560px; margin: 0 auto; }
+
+  .section-label { display: flex; align-items: center; gap: 10px; max-width: 760px; margin: 30px auto 12px; padding: 0 28px; }
+  .section-label h3 { font-size: 14px; font-weight: 600; margin: 0; }
+  .section-label .rule { flex: 1; height: 1px; background: var(--border); }
+  .section-label .count { font-size: 12px; color: var(--faint); }
+
+  /* lab directory card */
+  .dir { max-width: 760px; margin: 0 auto; padding: 0 28px 36px; }
+  .labcard { border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; background: var(--surface); }
+  .labcard:hover { border-color: var(--border-strong); }
+  .labcard .top { display: flex; align-items: flex-start; gap: 14px; }
+  .lab-avatar { width: 46px; height: 46px; border-radius: 11px; background: #fdebd9; color: #b3611a; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; flex: none; }
+  .labcard h4 { font-size: 16.5px; font-weight: 600; margin: 0 0 2px; }
+  .labcard .handle { font-size: 12.5px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .badges { display: flex; gap: 8px; flex-wrap: wrap; margin: 10px 0 0; }
+  .badge { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; font-weight: 500; padding: 3px 9px; border-radius: 999px; }
+  .badge.verified { background: var(--good-soft); color: var(--good); }
+  .badge.fp { background: var(--sunken); color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .badge.site { background: var(--action-soft); color: #1a4fb0; cursor: pointer; }
+  .ico { width: 13px; height: 13px; display: inline-block; vertical-align: -2px; }
+  .labcard .blurb { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+  .people { display: flex; align-items: center; gap: 0; margin: 14px 0 0; }
+  .people .pi { display: flex; align-items: center; gap: 8px; margin-right: 14px; }
+  .avatar { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 600; color: #fff; border: 2px solid var(--surface); }
+  .stack { display: flex; }
+  .stack .avatar:not(:first-child) { margin-left: -9px; }
+  .people .pi .who { line-height: 1.2; }
+  .people .pi .who .n { font-size: 12.5px; font-weight: 600; }
+  .people .pi .who .r { font-size: 11px; color: var(--faint); }
+  .people .more { font-size: 12px; color: var(--muted); margin-left: 10px; }
+  .card-foot { display: flex; gap: 8px; margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--border); }
+  .btn { font: inherit; font-size: 12.5px; font-weight: 600; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--action); border-color: var(--action); color: #fff; }
+  .btn:hover { filter: brightness(0.98); }
+
+  /* site switcher */
+  .switcher { max-width: 760px; margin: 0 auto; padding: 16px 28px 0; }
+  .switcher .label { font-size: 11.5px; color: var(--faint); font-weight: 500; margin: 0 0 7px; text-transform: uppercase; letter-spacing: 0.05em; }
+  .switch-row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .switch-card { flex: 1; min-width: 220px; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 11px 13px; cursor: pointer; background: var(--surface); display: flex; gap: 10px; align-items: center; }
+  .switch-card:hover { border-color: var(--border-strong); }
+  .switch-card.current { border: 2px solid var(--action); background: var(--action-soft); }
+  .switch-card .si { width: 30px; height: 30px; border-radius: 8px; background: var(--sunken); display: flex; align-items: center; justify-content: center; flex: none; color: var(--muted); }
+  .switch-card.current .si { background: #fff; color: var(--action); }
+  .switch-card .st { font-size: 13px; font-weight: 600; }
+  .switch-card .su { font-size: 11.5px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; }
+  .switch-card .cur-tag { margin-left: auto; font-size: 10.5px; font-weight: 600; color: var(--action); }
+
+  /* native page body */
+  .doc { max-width: 760px; margin: 0 auto; padding: 8px 28px 20px; }
+  .crumb { font-size: 12.5px; color: var(--muted); font-family: ui-monospace, Menlo, monospace; margin: 18px 0 4px; }
+  .doc h1 { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; margin: 6px 0 18px; }
+  .subnav { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 18px; }
+  .subnav button { font: inherit; font-size: 12.5px; font-weight: 500; color: var(--muted); background: var(--sunken); border: 1px solid var(--border); padding: 5px 12px; border-radius: 999px; cursor: pointer; }
+  .subnav button.active { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .prose { font-size: 15px; color: #2b3138; }
+  .prose p { margin: 0 0 14px; }
+  .prose h2 { font-size: 18px; font-weight: 600; margin: 24px 0 10px; }
+  .prose ul { margin: 0 0 14px; padding-left: 20px; }
+  .prose li { margin: 4px 0; }
+  .figure { border: 1px solid var(--border); border-radius: var(--radius-sm); overflow: hidden; margin: 18px 0; background: var(--sunken); }
+  .figure .cap { font-size: 12px; color: var(--muted); padding: 8px 12px; border-top: 1px solid var(--border); background: var(--surface); display: flex; align-items: center; gap: 6px; }
+  .baked-tag { font-size: 10px; font-weight: 600; color: var(--amber); background: var(--amber-soft); padding: 2px 7px; border-radius: 999px; margin-left: auto; }
+
+  .people-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; margin: 6px 0 10px; }
+  .pcard { border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 13px; display: flex; gap: 11px; align-items: center; }
+  .pcard .who .n { font-size: 14px; font-weight: 600; }
+  .pcard .who .r { font-size: 12px; color: var(--muted); }
+  .pcard .who .h { font-size: 11.5px; color: var(--action); font-family: ui-monospace, Menlo, monospace; }
+
+  /* BYO site (its own custom look, on the assets domain) */
+  .byo { background: #0f1b2d; color: #e8eef7; min-height: 420px; }
+  .byo .byo-nav { display: flex; align-items: center; gap: 18px; padding: 16px 30px; border-bottom: 1px solid #1f3047; }
+  .byo .byo-nav .bl { font-weight: 700; font-size: 15px; color: #fff; }
+  .byo .byo-nav a { color: #9fb6d4; font-size: 13px; font-weight: 500; }
+  .byo .byo-hero { padding: 44px 30px 26px; max-width: 720px; margin: 0 auto; }
+  .byo .byo-hero .eyebrow { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: #5fcaa5; font-weight: 600; }
+  .byo .byo-hero h1 { font-size: 30px; font-weight: 700; margin: 10px 0 12px; color: #fff; line-height: 1.2; }
+  .byo .byo-hero p { font-size: 15px; color: #b8c6da; margin: 0 0 8px; }
+  .byo .byo-cols { max-width: 720px; margin: 0 auto; padding: 0 30px 40px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px,1fr)); gap: 16px; }
+  .byo .bcol { border: 1px solid #1f3047; border-radius: 10px; padding: 16px; background: #14233a; }
+  .byo .bcol h3 { font-size: 14px; margin: 0 0 7px; color: #fff; font-weight: 600; }
+  .byo .bcol p { font-size: 12.5px; color: #9fb6d4; margin: 0; }
+  .byo .interactive { max-width: 720px; margin: 0 auto; padding: 0 30px 40px; }
+  .byo .ivbox { border: 1px solid #1f3047; border-radius: 10px; background: #14233a; padding: 16px; }
+  .byo .ivbox .ivh { font-size: 13px; font-weight: 600; color: #fff; margin: 0 0 4px; display:flex; align-items:center; gap:8px; }
+  .byo .live-tag { font-size: 10px; font-weight: 600; color: #04342c; background: #5dcaa5; padding: 2px 7px; border-radius: 999px; }
+  .byo .ivbox table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+  .byo .ivbox th, .byo .ivbox td { text-align: left; padding: 5px 8px; border-bottom: 1px solid #1f3047; color: #cdd9ea; }
+  .byo .ivbox th { color: #7f96b5; font-weight: 600; }
+  .byo .byo-foot { border-top: 1px solid #1f3047; padding: 16px 30px; font-size: 11.5px; color: #6f86a6; max-width: 720px; margin: 0 auto; }
+
+  /* sandbox note pill that sits on top of BYO */
+  .sandbox-note { display: flex; align-items: center; gap: 8px; background: #102942; color: #7fd0b4; font-size: 11.5px; padding: 6px 14px; border-bottom: 1px solid #1f3047; justify-content: center; }
+
+  .footnote { max-width: var(--maxw); margin: 14px auto 40px; padding: 0 20px; font-size: 12px; color: var(--faint); }
+  .footnote code { background: var(--sunken); padding: 1px 5px; border-radius: 4px; font-size: 11.5px; }
+</style>
+</head>
+<body>
+
+<div class="legend">
+  <h1>Demo lab on the researcher network</h1>
+  <p>Clickable mockup. The same lab (the Castellanos Lab) seen three ways, the network directory card, its built-in wizard companion site, and its bring-your-own static site. Use the switch below or the in-page controls.</p>
+</div>
+
+<div class="toolbar">
+  <div class="toolbar-inner">
+    <div class="seg" role="tablist" aria-label="Surface">
+      <button data-view="network" class="active" onclick="showView('network', this)">Network directory</button>
+      <button data-view="native" onclick="showView('native', this)">Built-in lab site</button>
+      <button data-view="byo" onclick="showView('byo', this)">BYO static site</button>
+    </div>
+    <span class="hint">Fictional data. For showing the feature, not a real lab.</span>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <!-- NETWORK DIRECTORY -->
+  <section id="view-network" class="view active">
+    <div class="browser">
+      <div class="urlbar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="url">research-os.app<b>/network</b></span>
+      </div>
+      <div class="pagebody">
+        <nav class="mkt-nav">
+          <span class="mkt-logo">Research<span>OS</span></span>
+          <span class="links"><a>Network</a><a>Library</a><a>Pricing</a></span>
+          <span class="spacer"></span>
+          <span class="signin">Sign in</span>
+        </nav>
+
+        <div class="hero">
+          <span class="kicker">Seamless sharing</span>
+          <h2>Send your work to any researcher, in one step.</h2>
+          <p>Find a lab or a person on ResearchOS and share a method, sequence, dataset, or figure straight to them. Not a feed, not a follower count. The shortest path from your data to a collaborator.</p>
+        </div>
+
+        <div class="section-label">
+          <h3>Labs</h3><span class="rule"></span><span class="count">1 listed</span>
+        </div>
+
+        <div class="dir">
+          <article class="labcard">
+            <div class="top">
+              <div class="lab-avatar">CL</div>
+              <div style="flex:1">
+                <h4>The Castellanos Lab</h4>
+                <span class="handle">research-os.app/castellanos-lab</span>
+                <div class="badges">
+                  <span class="badge verified" title="Confirmed via a verified email domain">
+                    <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 3l7 3v5c0 4-3 7-7 9-4-2-7-5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg>
+                    Verified, fakeyeast.edu
+                  </span>
+                  <span class="badge fp" title="Key fingerprint, confirm before you send">
+                    key ab12 cd34 ef56
+                  </span>
+                  <span class="badge site" onclick="showView('native', document.querySelector('[data-view=native]'))">Lab site</span>
+                  <span class="badge site" onclick="showView('byo', document.querySelector('[data-view=byo]'))">Paper companion</span>
+                </div>
+              </div>
+            </div>
+
+            <p class="blurb">Synthetic biology lab engineering FakeYeast strains for high-yield metabolite production. Open to sharing methods and strain data with collaborators.</p>
+
+            <div class="people">
+              <div class="pi">
+                <span class="avatar" style="background:#f97316">MC</span>
+                <span class="who"><span class="n">Dr. Mira Castellanos</span><span class="r">Principal investigator, @mira</span></span>
+              </div>
+              <div class="stack">
+                <span class="avatar" style="background:#3b82f6" title="@alex, postdoc">AL</span>
+                <span class="avatar" style="background:#8b5cf6" title="@ivy, postdoc">IV</span>
+                <span class="avatar" style="background:#10b981" title="@morgan, grad student">MO</span>
+                <span class="avatar" style="background:#d4537e" title="@nia, grad student">NI</span>
+                <span class="avatar" style="background:#0f6e56" title="@remy, technician">RE</span>
+                <span class="avatar" style="background:#993c1d" title="@theo, rotation student">TH</span>
+              </div>
+              <span class="more">6 members</span>
+            </div>
+
+            <div class="card-foot">
+              <button class="btn primary">Share to this lab</button>
+              <button class="btn" onclick="showView('native', document.querySelector('[data-view=native]'))">Visit lab site</button>
+            </div>
+          </article>
+        </div>
+
+        <div class="mkt-foot"><span>ResearchOS</span><span>Listing is opt-in</span><span>Your email is never shown</span></div>
+      </div>
+    </div>
+    <p class="footnote">Directory card. Lab handle, PI plus member <code>@handles</code>, a verified-domain badge and a key fingerprint (sharing trust, not social), and two site chips showing the lab hosts both kinds of public site. In production this card is sourced from a real seeded <code>slug_registry</code> + <code>lab_sites</code> row (Option A in the doc).</p>
+  </section>
+
+  <!-- BUILT-IN NATIVE LAB SITE -->
+  <section id="view-native" class="view">
+    <div class="browser">
+      <div class="urlbar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="url" id="native-url">research-os.app<b>/castellanos-lab</b></span>
+      </div>
+      <div class="pagebody">
+        <div class="ribbon">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span>You are exploring a <b>sample lab</b>. The data is fictional and lives only to show the feature.</span>
+        </div>
+        <nav class="mkt-nav">
+          <span class="mkt-logo">Research<span>OS</span></span>
+          <span class="links"><a>Network</a><a>Library</a><a>Pricing</a></span>
+          <span class="spacer"></span>
+          <span class="signin">Sign in</span>
+        </nav>
+
+        <div class="switcher">
+          <p class="label">This lab publishes two sites</p>
+          <div class="switch-row">
+            <div class="switch-card current">
+              <span class="si">
+                <svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/></svg>
+              </span>
+              <span><span class="st">Lab site</span><br><span class="su">research-os.app/castellanos-lab</span></span>
+              <span class="cur-tag">Viewing</span>
+            </div>
+            <div class="switch-card" onclick="showView('byo', document.querySelector('[data-view=byo]'))">
+              <span class="si">
+                <svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+              </span>
+              <span><span class="st">Paper companion (BYO)</span><br><span class="su">castellanos-lab.research-os.com</span></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="doc">
+          <div class="crumb" id="native-crumb">castellanos-lab</div>
+          <div class="subnav">
+            <button class="active" onclick="showNativePage('home', this)">Home</button>
+            <button onclick="showNativePage('people', this)">People</button>
+            <button onclick="showNativePage('paper', this)">Paper companion</button>
+          </div>
+
+          <div id="np-home" class="np">
+            <h1>The Castellanos Lab</h1>
+            <div class="prose">
+              <p>We engineer FakeYeast strains to push metabolite yields past what wild strains can reach. We publish our methods, our strain builds, and our analysis so other labs can reproduce and build on them.</p>
+              <h2>What we work on</h2>
+              <ul>
+                <li>High-yield metabolite pathways in FakeYeast</li>
+                <li>Reproducible strain-engineering protocols</li>
+                <li>Open datasets and figures, shareable in one step</li>
+              </ul>
+              <div class="figure">
+                <div style="height:150px;display:flex;align-items:center;justify-content:center;color:var(--faint);font-size:12.5px">
+                  <svg width="220" height="110" viewBox="0 0 220 110"><rect x="20" y="70" width="28" height="28" fill="#9fe1cb"/><rect x="58" y="46" width="28" height="52" fill="#5dcaa5"/><rect x="96" y="24" width="28" height="74" fill="#1d9e75"/><rect x="134" y="58" width="28" height="40" fill="#9fe1cb"/><rect x="172" y="38" width="28" height="60" fill="#5dcaa5"/></svg>
+                </div>
+                <div class="cap">Figure 1. Metabolite yield by strain (fabricated). <span class="baked-tag">Baked snapshot</span></div>
+              </div>
+              <p>This page is authored as plain markdown in ResearchOS and published to the lab's public site. The figure above is a frozen snapshot, so a logged-out reader sees exactly what the author published, with no access to the lab's live data.</p>
+            </div>
+          </div>
+
+          <div id="np-people" class="np" style="display:none">
+            <h1>People</h1>
+            <div class="prose"><p>The lab roster. Each person links to their researcher profile, where a collaborator can reach them.</p></div>
+            <div class="people-grid">
+              <div class="pcard"><span class="avatar" style="background:#f97316">MC</span><span class="who"><span class="n">Dr. Mira Castellanos</span><br><span class="r">Principal investigator</span><br><span class="h">@mira</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#3b82f6">AL</span><span class="who"><span class="n">Alex Mercado</span><br><span class="r">Postdoc</span><br><span class="h">@alex</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#8b5cf6">IV</span><span class="who"><span class="n">Ivy Tran</span><br><span class="r">Postdoc</span><br><span class="h">@ivy</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#10b981">MO</span><span class="who"><span class="n">Morgan Lee</span><br><span class="r">Grad student</span><br><span class="h">@morgan</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#d4537e">NI</span><span class="who"><span class="n">Nia Osei</span><br><span class="r">Grad student</span><br><span class="h">@nia</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#0f6e56">RE</span><span class="who"><span class="n">Remy Fontaine</span><br><span class="r">Technician</span><br><span class="h">@remy</span></span></div>
+              <div class="pcard"><span class="avatar" style="background:#993c1d">TH</span><span class="who"><span class="n">Theo Park</span><br><span class="r">Rotation student</span><br><span class="h">@theo</span></span></div>
+            </div>
+          </div>
+
+          <div id="np-paper" class="np" style="display:none">
+            <h1>Engineering FakeYeast for high-yield metabolites</h1>
+            <div class="prose">
+              <p style="font-style:italic;color:var(--muted)">Castellanos M, Mercado A, Lee M. FakeYeast Journal, 2026 (fabricated).</p>
+              <h2>Abstract</h2>
+              <p>We report a reproducible pipeline for engineering FakeYeast strains that raises target metabolite yield by a factor of three over the parent strain. All strains, protocols, and raw measurements are published openly.</p>
+              <div class="figure">
+                <div style="height:130px;display:flex;align-items:center;justify-content:center">
+                  <svg width="240" height="100" viewBox="0 0 240 100"><polyline points="10,85 50,70 90,55 130,38 170,28 210,18" fill="none" stroke="#1d9e75" stroke-width="3"/><circle cx="210" cy="18" r="4" fill="#0f6e56"/></svg>
+                </div>
+                <div class="cap">Figure 2. Yield over engineering rounds. <span class="baked-tag">Baked snapshot</span></div>
+              </div>
+              <p>For the full interactive companion with the live dataset table, see the lab's bring-your-own paper site.
+                <a onclick="showView('byo', document.querySelector('[data-view=byo]'))" style="cursor:pointer">Open the paper companion site &rarr;</a>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="mkt-foot"><span>ResearchOS</span><span>Published lab site</span><span>Login-free public page</span></div>
+      </div>
+    </div>
+    <p class="footnote">Built-in wizard companion site. Native markdown pages authored in ResearchOS, rendered on the marketing chrome by <code>LabSitePageView</code> with no AppShell and no connected folder. Figures render as frozen baked snapshots so a logged-out reader never touches live lab data.</p>
+  </section>
+
+  <!-- BYO STATIC SITE -->
+  <section id="view-byo" class="view">
+    <div class="browser">
+      <div class="urlbar">
+        <span class="dots"><i></i><i></i><i></i></span>
+        <span class="url">castellanos-lab<b>.research-os.com</b></span>
+      </div>
+      <div class="pagebody byo">
+        <div class="sandbox-note">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v5c0 4-3 8-8 9-5-1-8-5-8-9V7z"/></svg>
+          Served from the assets domain (research-os.com). No app cookies, sandboxed from the authed app.
+        </div>
+        <nav class="byo-nav">
+          <span class="bl">FakeYeast 2026</span>
+          <a>Abstract</a><a>Figures</a><a>Data</a><a>Methods</a>
+          <span style="flex:1"></span>
+          <a onclick="showView('native', document.querySelector('[data-view=native]'))" style="cursor:pointer">Back to lab site</a>
+        </nav>
+
+        <div class="switcher" style="max-width:720px;padding:18px 30px 0">
+          <p class="label" style="color:#6f86a6">This lab publishes two sites</p>
+          <div class="switch-row">
+            <div class="switch-card" style="background:#14233a;border-color:#1f3047" onclick="showView('native', document.querySelector('[data-view=native]'))">
+              <span class="si" style="background:#0f1b2d;color:#9fb6d4">
+                <svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 5h16v14H4z"/><path d="M4 9h16"/></svg>
+              </span>
+              <span><span class="st" style="color:#e8eef7">Lab site</span><br><span class="su" style="color:#9fb6d4">research-os.app/castellanos-lab</span></span>
+            </div>
+            <div class="switch-card current" style="border-color:#5dcaa5;background:#10342a">
+              <span class="si" style="background:#0f1b2d;color:#5dcaa5">
+                <svg class="ico" style="width:16px;height:16px" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+              </span>
+              <span><span class="st" style="color:#e8eef7">Paper companion (BYO)</span><br><span class="su" style="color:#9fb6d4">castellanos-lab.research-os.com</span></span>
+              <span class="cur-tag" style="color:#5dcaa5">Viewing</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="byo-hero">
+          <span class="eyebrow">Paper companion</span>
+          <h1>Engineering FakeYeast for high-yield metabolites</h1>
+          <p>The lab's own static site, built from a GitHub repo and hosted under its ResearchOS domain. Custom layout, custom CSS, fully the lab's design.</p>
+        </div>
+
+        <div class="byo-cols">
+          <div class="bcol"><h3>Built on GitHub</h3><p>Exported static HTML, CSS, and JS, pushed from the lab's public repo and synced on each release.</p></div>
+          <div class="bcol"><h3>Hosted on the lab domain</h3><p>Served at castellanos-lab.research-os.com, the same slug as the lab site, so readers find both from one handle.</p></div>
+          <div class="bcol"><h3>Fully custom</h3><p>Not limited to the markdown wizard. The lab controls every pixel of this companion.</p></div>
+        </div>
+
+        <div class="interactive">
+          <div class="ivbox">
+            <p class="ivh">Strain yield dataset <span class="live-tag">Live in the bundle</span></p>
+            <p style="font-size:12px;color:#9fb6d4;margin:0">An interactive table shipped inside the lab's own static bundle.</p>
+            <table>
+              <thead><tr><th>Strain</th><th>Round</th><th>Yield (g/L)</th><th>Fold</th></tr></thead>
+              <tbody>
+                <tr><td>Parent</td><td>0</td><td>2.1</td><td>1.0x</td></tr>
+                <tr><td>FakeYeast-001</td><td>1</td><td>3.4</td><td>1.6x</td></tr>
+                <tr><td>FakeYeast-002</td><td>2</td><td>5.0</td><td>2.4x</td></tr>
+                <tr><td>FakeYeast-003</td><td>3</td><td>6.5</td><td>3.1x</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="byo-foot">Static bundle uploaded to R2 and validated (zip-slip sanitized, capped). Fabricated content for the demo.</div>
+      </div>
+    </div>
+    <p class="footnote">Bring-your-own static site. A GitHub-built HTML/CSS/JS bundle, validated by <code>validateByoEntries</code>, stored in <code>lab_byo_sites</code> + R2, and served from <code>research-os.com</code> with no cookies so the lab's own JS is isolated from the authed app.</p>
+  </section>
+
+</div>
+
+<script>
+  function showView(name, btn) {
+    document.querySelectorAll('.view').forEach(function (v) { v.classList.remove('active'); });
+    document.getElementById('view-' + name).classList.add('active');
+    document.querySelectorAll('.toolbar .seg button').forEach(function (b) { b.classList.remove('active'); });
+    var seg = document.querySelector('.toolbar .seg button[data-view=' + name + ']');
+    if (seg) seg.classList.add('active');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  var nativeMeta = {
+    home:   { url: 'research-os.app<b>/castellanos-lab</b>', crumb: 'castellanos-lab' },
+    people: { url: 'research-os.app<b>/castellanos-lab/people</b>', crumb: 'castellanos-lab / people' },
+    paper:  { url: 'research-os.app<b>/castellanos-lab/papers/fakeyeast-2026</b>', crumb: 'castellanos-lab / papers / fakeyeast-2026' }
+  };
+  function showNativePage(page, btn) {
+    ['home', 'people', 'paper'].forEach(function (p) { document.getElementById('np-' + p).style.display = 'none'; });
+    document.getElementById('np-' + page).style.display = 'block';
+    btn.parentElement.querySelectorAll('button').forEach(function (b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    document.getElementById('native-url').innerHTML = nativeMeta[page].url;
+    document.getElementById('native-crumb').textContent = nativeMeta[page].crumb;
+  }
+</script>
+</body>
+</html>
