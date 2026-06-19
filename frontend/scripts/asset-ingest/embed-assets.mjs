@@ -98,11 +98,18 @@ async function main() {
   // The repo migrated the client to @huggingface/transformers v3 (same MiniLM model
   // + onnxruntime backend); keep this build script on the same backend so the
   // precomputed vectors match what the browser produces for live queries.
-  const { pipeline } = await import("@huggingface/transformers");
-  // dtype:"q8" -> the quantized MiniLM (~23MB) the CLIENT also loads (its default
-  // q8 maps to onnx/model_quantized.onnx), so corpus + query vectors come from the
-  // SAME weights. v3's CPU default is fp32 (model.onnx, ~90MB) which both mismatches
-  // the client and times out the HF download.
+  const { pipeline, env } = await import("@huggingface/transformers");
+  // Pull the model from OUR R2 (assets.research-os.com/Xenova/...), exactly the
+  // host the browser client uses, instead of huggingface.co (whose downloads time
+  // out here). R2 already serves the quantized model + config + tokenizer with CORS.
+  // Mirrors the client's env wiring in asset-embed-search.ts.
+  const MODEL_HOST = process.env.ASSET_MODEL_HOST || "https://assets.research-os.com";
+  env.allowLocalModels = false;
+  env.remoteHost = MODEL_HOST.replace(/\/$/, "") + "/";
+  env.remotePathTemplate = "{model}/";
+  // dtype:"q8" -> onnx/model_quantized.onnx, the same weights the client loads, so
+  // corpus + query vectors come from the SAME model (v3's CPU default fp32 would
+  // both mismatch the client and require the absent model.onnx).
   const extractor = await pipeline("feature-extraction", MODEL, { dtype: "q8" });
 
   // f16 matrix, row-major count x DIMS.
