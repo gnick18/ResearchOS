@@ -44,6 +44,7 @@ import {
   stashLabBranding,
   stashLabLogo,
 } from "@/lib/onboarding/lab-branding-stash";
+import { hasPendingLabInvite } from "@/lib/lab/lab-invite-stash";
 
 export type WizardSelection =
   | "solo-local"
@@ -156,6 +157,22 @@ export default function OnboardingWizard({
     }
     router.replace("/");
   }, [onClose, isOrg, orgPortal, router]);
+
+  // Defense: an invited visitor must never be funneled into creating their own
+  // lab (the spurious-second-lab bug). If the lab-create track is selected while a
+  // pending invite is stashed (they arrived via an invite link), route to the join
+  // page instead of provisioning a lab. The chooser already suppresses the create
+  // tile for an invited visitor; this is the belt-and-suspenders for the post-OAuth
+  // return path, where the selection rides the URL marker. Replace-during-render
+  // matches the org-flag guards below; this component unmounts on the navigation.
+  if (
+    selection === "pi-create" &&
+    typeof window !== "undefined" &&
+    hasPendingLabInvite()
+  ) {
+    router.replace("/lab/join");
+    return null;
+  }
 
   // Defensive: if an org selection arrives while its tier flag is off (should be
   // unreachable, the chooser gates it), fall back to the app root rather than

@@ -40,6 +40,7 @@ import {
   stashInviteFragment,
   readStashedInviteFragment,
   clearStashedInvite,
+  LAB_TOKEN_STASH_KEY,
 } from "@/lib/lab/lab-invite-stash";
 import { isLabTokensV2Enabled } from "@/lib/lab/lab-tokens-config";
 import {
@@ -53,7 +54,7 @@ import BeakerBotLabWelcomeScene from "@/components/BeakerBotLabWelcomeScene";
 
 type Phase = "idle" | "working" | "sent" | "entering" | "pending" | "error";
 
-const LAB_TOKEN_STASH = "lab-token-invite-pending";
+const LAB_TOKEN_STASH = LAB_TOKEN_STASH_KEY;
 const BARE_TOKEN_RE = /^[0-9a-f]{64}$/;
 
 const primaryBtn =
