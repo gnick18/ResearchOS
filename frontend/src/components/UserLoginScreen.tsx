@@ -776,6 +776,17 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         return;
       }
 
+      // Phase-out-multi-user-folders (flag ON only): auto-provision only ever
+      // runs on an empty folder (the caller gates on users.length === 0), so the
+      // predicate is true here today. Guard the create site explicitly anyway so
+      // the policy and the emptiness precondition can never silently disagree if
+      // that caller condition is ever loosened. Flag OFF short-circuits to
+      // allowed, so this is byte-identical to today.
+      if (!canCreateAnotherUser(users.length)) {
+        setAutoProvisioning(false);
+        return;
+      }
+
       // 1. Create the workspace user (writes the user dir + curated settings and
       //    sets it as the current user).
       await usersApi.create(username);
@@ -1202,6 +1213,21 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
   ) => {
     if (!colorPicker) return;
     const { username } = colorPicker;
+    // Phase-out-multi-user-folders (flag ON only): this is the ACTUAL create
+    // call site. The color picker only mounts from handleCreateUser, which
+    // already gates the submit, but guard the real create too so a future path
+    // that mounts the picker another way can never grow a folder past one real
+    // user. Flag OFF short-circuits to allowed, so this is byte-identical to
+    // today. `users` is listLocalIdentities (no materialized co-members), the
+    // same real-local-user proxy the entry gate uses.
+    if (!canCreateAnotherUser(users.length)) {
+      setColorPicker(null);
+      setLoggingIn(null);
+      setError(
+        "This folder already belongs to someone. Open your own folder instead, and collaborate through a lab account.",
+      );
+      return;
+    }
     try {
       // 1. Persist the chosen color first. If this fails, we abort
       //    creation rather than ending up with a user-with-no-color.
