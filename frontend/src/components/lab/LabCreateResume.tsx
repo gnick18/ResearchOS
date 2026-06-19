@@ -218,15 +218,16 @@ export default function LabCreateResume() {
     [currentUser],
   );
 
-  // Paid "Start a lab" landing (NO-CARD-UP-FRONT, Grant 2026-06-17). The chooser's
-  // paid CTA sets the start-plan marker; we consume it once the lab + PI are
-  // provisioned, but DO NOT collect a card here. Per the no-card-up-front decision
-  // the lab head lands straight in the app as a provisioned lab head, and the card
-  // is captured later at the conversion moment (the in-app upgrade nudge + the
-  // settings billing panel). The old up-front Stripe card-on-file redirect was
-  // removed, it forced a card at signup AND its full external redirect to hosted
-  // Checkout dropped the local folder's read-write permission, dumping the user
-  // back at the folder picker with no confirmation on return.
+  // Paid "Start a lab" landing (NO-CARD 90-DAY FREE TRIAL, Grant 2026-06-19). The
+  // chooser's paid CTA sets the start-plan marker; we consume it once the lab + PI
+  // are provisioned. We do NOT collect a card here. Instead we start the lab's
+  // 90-day free trial server-side: the lab head lands straight in the app as a
+  // provisioned, produce-unlocked lab head and is not charged for the trial
+  // regardless of usage. The card is prompted before day 90 (the settings billing
+  // panel + the in-app countdown nudge); if none is added by then the lab pauses
+  // until one is. There is no Stripe redirect, so the local folder's read-write
+  // permission is never dropped. The endpoint is billing-flag-gated and idempotent,
+  // so this is a clean no-op when billing is off and safe to fire once.
   useEffect(() => {
     if (!done) return;
     let plan: string | null = null;
@@ -236,13 +237,21 @@ export default function LabCreateResume() {
       // sessionStorage unavailable; nothing to do.
     }
     if (plan !== "lab") return;
-    // Consume the marker so it does not linger. No Stripe redirect, the lab head
-    // simply lands in the app (no-card-up-front).
+    // Consume the marker first so a re-render cannot double-fire the start call.
     try {
       sessionStorage.removeItem("researchos:start-plan");
     } catch {
       // best-effort consume.
     }
+    void (async () => {
+      try {
+        await fetch("/api/billing/model-a/start-trial", { method: "POST" });
+      } catch {
+        // Network hiccup. The lab is already provisioned; the trial is also
+        // started lazily by the settings billing panel on first read, so a missed
+        // call here is recoverable and never blocks the lab head from working.
+      }
+    })();
   }, [done]);
 
   useEffect(() => {

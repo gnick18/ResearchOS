@@ -34,6 +34,27 @@ export function centerInContainer(target: RectLike, container: RectLike): Point 
   };
 }
 
+/** A box in container coordinates (top-left + size), for the soft-ring spotlight
+ *  which must wrap the WHOLE control, not just sit at its center. */
+export interface BoxLike {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/** The target's box expressed in `container` coordinates. Pure, unit-tested.
+ *  The soft ring renders at this box (optionally padded) so it hugs the control;
+ *  the cursor still aims for its center via centerInContainer. */
+export function rectInContainer(target: RectLike, container: RectLike): BoxLike {
+  return {
+    x: target.left - container.left,
+    y: target.top - container.top,
+    width: target.width,
+    height: target.height,
+  };
+}
+
 /** Build the attribute selector for a logical target id. */
 export function targetSelector(id: string): string {
   return `[${TUTOR_TARGET_ATTR}="${id}"]`;
@@ -51,6 +72,23 @@ export function resolveTargetPoint(
   const el = doc.querySelector(targetSelector(id));
   if (!el) return null;
   return centerInContainer(
+    el.getBoundingClientRect(),
+    container.getBoundingClientRect(),
+  );
+}
+
+/** Resolve a logical target to its box inside `container`, or null when the
+ *  control is not on the page. The soft-ring spotlight renders at this box.
+ *  DOM-touching, kept thin (mirrors resolveTargetPoint). */
+export function resolveTargetRect(
+  id: string | null,
+  container: Element | null,
+  doc: Document | null = typeof document === "undefined" ? null : document,
+): BoxLike | null {
+  if (!id || !container || !doc) return null;
+  const el = doc.querySelector(targetSelector(id));
+  if (!el) return null;
+  return rectInContainer(
     el.getBoundingClientRect(),
     container.getBoundingClientRect(),
   );

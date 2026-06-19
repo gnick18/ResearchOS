@@ -280,6 +280,7 @@ export default function FeaturesPanel({
             <Tooltip label={canAdd ? "Add a feature from the selected range" : "Select a range in the viewer first"}>
               <button
                 type="button"
+                data-tutor-target="sequence-annotate-button"
                 onClick={onAddFeature}
                 disabled={!canAdd}
                 className="ros-btn-raise flex items-center gap-1 rounded-md bg-brand-action px-2 py-1 text-meta font-medium text-white transition-colors hover:bg-brand-action/90 disabled:cursor-not-allowed disabled:opacity-40"

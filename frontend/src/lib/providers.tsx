@@ -61,6 +61,7 @@ import CelebrationManager from "@/components/onboarding/CelebrationManager";
 import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
+import TourHost from "@/components/onboarding/tutor/TourHost";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
@@ -1312,6 +1313,11 @@ function AppContent({ children }: { children: ReactNode }) {
             returns null when no provider is in the tree, so the manager
             runs normally now that the tour engine is gone. */}
         <CelebrationManager username={currentUser} />
+        {/* TourHost: the LLM onboarding tutor, mounted ABOVE the route outlet so
+            Beaker can drive the real router during the deep demos without
+            unmounting. Gated on a brand-new account + NEXT_PUBLIC_ONBOARDING_TUTOR,
+            so it is inert with the flag off (the current prod state). */}
+        <TourHost username={currentUser} />
         {/* MilestoneTwirlMount: fires the BeakerBot twirl on rare checkpoint
             moments (first experiment complete, first project done), deduped
             per-user in localStorage. */}

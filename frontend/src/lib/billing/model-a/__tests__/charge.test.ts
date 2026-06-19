@@ -15,7 +15,7 @@ function makeMockSql() {
   const seenIdem = new Set<string>();
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = strings.join(" ");
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
+    if (/CREATE TABLE|ALTER TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
     // charge ledger insert, idempotent on the charge id.
     if (/INSERT INTO cloud_usage_ledger/i.test(text) && /'charge'/i.test(text)) {
       const idem = values[2] as string;
@@ -42,8 +42,18 @@ function makeMockSql() {
   return { sql, balances };
 }
 
-function owner(ownerKey: string, accruedCents: number): ChargeableOwner {
-  return { ownerKey, accruedCents, customerId: `cus_${ownerKey}`, paymentMethodId: `pm_${ownerKey}` };
+function owner(
+  ownerKey: string,
+  accruedCents: number,
+  trialEndsAt: string | null = null,
+): ChargeableOwner {
+  return {
+    ownerKey,
+    accruedCents,
+    customerId: `cus_${ownerKey}`,
+    paymentMethodId: `pm_${ownerKey}`,
+    trialEndsAt,
+  };
 }
 
 describe("runChargeRun", () => {
@@ -57,10 +67,49 @@ describe("runChargeRun", () => {
 
     const summary = await runChargeRun(charger, { owners: [owner("a", 800), owner("b", 1200)], sql });
 
-    expect(summary).toEqual({ attempted: 2, succeeded: 2, failed: 2 - 2, totalChargedCents: 2000 });
+    expect(summary).toEqual({ attempted: 2, succeeded: 2, failed: 2 - 2, totalChargedCents: 2000, trialSuppressed: 0 });
     expect(charger).toHaveBeenCalledTimes(2);
     expect(await getCloudBalance("a", sql)).toBe(0);
     expect(await getCloudBalance("b", sql)).toBe(0);
+  });
+
+  it("suppresses the card while a lab is inside its free trial, charges others", async () => {
+    const { sql, balances } = makeMockSql();
+    balances.set("trial", { accrued_cents: 4000 });
+    balances.set("paid", { accrued_cents: 800 });
+    const now = new Date("2026-07-01T00:00:00.000Z");
+    const future = new Date("2026-09-29T00:00:00.000Z").toISOString(); // trial still open
+    const charger: OffSessionCharger = vi.fn(async ({ ownerKey }) => ({ ok: true, chargeId: `pi_${ownerKey}` }));
+
+    const summary = await runChargeRun(charger, {
+      owners: [owner("trial", 4000, future), owner("paid", 800)],
+      now,
+      sql,
+    });
+
+    // The trialing lab is skipped (no card run); the non-trial owner charges.
+    expect(summary.trialSuppressed).toBe(1);
+    expect(summary.succeeded).toBe(1);
+    expect(summary.totalChargedCents).toBe(800);
+    expect(charger).toHaveBeenCalledTimes(1);
+    expect(charger).toHaveBeenCalledWith(expect.objectContaining({ ownerKey: "paid" }));
+    expect(await getCloudBalance("trial", sql)).toBe(4000); // untouched, no charge during trial
+    expect(await getCloudBalance("paid", sql)).toBe(0);
+  });
+
+  it("charges a lab whose trial has ended (now past trial_ends_at)", async () => {
+    const { sql, balances } = makeMockSql();
+    balances.set("expired", { accrued_cents: 4000 });
+    const now = new Date("2026-10-01T00:00:00.000Z");
+    const past = new Date("2026-09-29T00:00:00.000Z").toISOString(); // trial already over
+    const charger: OffSessionCharger = vi.fn(async ({ ownerKey }) => ({ ok: true, chargeId: `pi_${ownerKey}` }));
+
+    const summary = await runChargeRun(charger, { owners: [owner("expired", 4000, past)], now, sql });
+
+    expect(summary.trialSuppressed).toBe(0);
+    expect(summary.succeeded).toBe(1);
+    expect(summary.totalChargedCents).toBe(4000);
+    expect(await getCloudBalance("expired", sql)).toBe(0);
   });
 
   it("a decline leaves that balance accrued and is counted as failed", async () => {

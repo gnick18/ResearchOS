@@ -20,6 +20,7 @@ import FeedbackButton from "./FeedbackButton";
 import CalculatorsButton from "./CalculatorsButton";
 import DevTestNotificationButton from "./DevTestNotificationButton";
 import DevDemoToggleButton from "./DevDemoToggleButton";
+import DevForceTourButton from "./DevForceTourButton";
 import DevBeakerBotGalleryButton from "./DevBeakerBotGalleryButton";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import FeedbackModal from "./FeedbackModal";
@@ -47,6 +48,7 @@ import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
+import { hasTourResume } from "@/lib/onboarding/tour-demo-session";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
 import { headerGradient, rainbowTheme } from "@/lib/colors";
 import UserAvatarMenu from "@/components/UserAvatarMenu";
@@ -226,6 +228,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const demo = isDemoOrWikiCapture();
     setShowDevDock(!demo);
     setIsDemo(demo);
+  }, []);
+
+  // While the onboarding tour is running its deep demos (the transparent overlay
+  // over the real app), suppress incidental header chrome that competes with
+  // Beaker's spotlight, like the streak badge. A live tour-resume marker is the
+  // precise signal (set when the tour enters demo mode, cleared on exit). Same
+  // hydration-safe pattern: default false on the server + first render, read the
+  // client-only marker after mount, so the badge never causes an SSR mismatch.
+  const [tourActive, setTourActive] = useState(false);
+  useEffect(() => {
+    setTourActive(hasTourResume());
   }, []);
 
   // Showcase unlock: counts clicks on the brand-mark BeakerBot. Clicks
@@ -540,7 +553,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               textTestId="appshell-beakerbot-brand"
               onTextClick={onBeakerBotClick}
             />
-            <StreakBadge username={currentUser} />
+            {!tourActive ? <StreakBadge username={currentUser} /> : null}
             {/* Ambient lab mark: only renders for a signed-in lab member whose
                 lab has a logo, otherwise nothing (no layout shift for solos). */}
             <LabHeaderLogo />
@@ -851,6 +864,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <DevTestNotificationButton />
 
             <DevDemoToggleButton />
+
+            <DevForceTourButton />
           </>
         )}
 

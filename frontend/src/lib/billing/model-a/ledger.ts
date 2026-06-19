@@ -195,17 +195,23 @@ export interface ChargeableOwner {
   accruedCents: number;
   customerId: string;
   paymentMethodId: string;
+  /** ISO trial-end timestamp, or null. The charge run suppresses the card while
+   *  now < trialEndsAt (lab free trial), via labTrialDecision. A chargeable owner
+   *  by definition has a card, so once the trial ends they charge normally. */
+  trialEndsAt: string | null;
 }
 
 /** Payers whose accrued balance is at or above the threshold AND who have a card
- *  on file, so the charge job can run them off-session. */
+ *  on file, so the charge job can run them off-session. trial_ends_at rides along
+ *  so the charge run can suppress the card during a lab free trial without a
+ *  second query. */
 export async function listChargeableOwners(
   thresholdCents: number,
   sql: Sql = getSql(),
 ): Promise<ChargeableOwner[]> {
   await ensureCloudLedgerSchema(sql);
   const rows = (await sql`
-    SELECT owner_key, accrued_cents, stripe_customer_id, stripe_payment_method_id
+    SELECT owner_key, accrued_cents, stripe_customer_id, stripe_payment_method_id, trial_ends_at
     FROM cloud_balance
     WHERE accrued_cents >= ${thresholdCents}
       AND stripe_customer_id IS NOT NULL
@@ -215,13 +221,79 @@ export async function listChargeableOwners(
     accrued_cents: number;
     stripe_customer_id: string;
     stripe_payment_method_id: string;
+    trial_ends_at: string | null;
   }>;
   return rows.map((r) => ({
     ownerKey: r.owner_key,
     accruedCents: Number(r.accrued_cents),
     customerId: r.stripe_customer_id,
     paymentMethodId: r.stripe_payment_method_id,
+    trialEndsAt: r.trial_ends_at,
   }));
+}
+
+export interface LabTrialRow {
+  /** ISO trial-end timestamp, or null if this owner is not on a trial. */
+  trialEndsAt: string | null;
+  /** Whether a card is on file (the day-90 fork: resume vs pause). */
+  hasCard: boolean;
+}
+
+/** The trial state for an owner (trial-end timestamp + whether a card is on
+ *  file). Feeds labTrialPhase / labTrialDecision. A missing row reads as "no
+ *  trial, no card", which is the pre-trial engine default. */
+export async function getLabTrialState(
+  ownerKey: string,
+  sql: Sql = getSql(),
+): Promise<LabTrialRow> {
+  await ensureCloudLedgerSchema(sql);
+  const rows = (await sql`
+    SELECT trial_ends_at, stripe_customer_id, stripe_payment_method_id
+    FROM cloud_balance WHERE owner_key = ${ownerKey}
+  `) as Array<{
+    trial_ends_at: string | null;
+    stripe_customer_id: string | null;
+    stripe_payment_method_id: string | null;
+  }>;
+  const row = rows[0];
+  return {
+    trialEndsAt: row?.trial_ends_at ?? null,
+    hasCard: !!(row?.stripe_customer_id && row?.stripe_payment_method_id),
+  };
+}
+
+/**
+ * Start (or refresh) a lab's free trial by stamping trial_ends_at. Additive and
+ * idempotent on the owner key. Never touches the card, the balance, or the cap,
+ * so it is safe to call at signup with no Stripe involvement. Only stamps when no
+ * trial is already set (a second call does not extend a running trial), unless
+ * `force` is passed.
+ */
+export async function startLabTrial(
+  ownerKey: string,
+  trialEndsAtIso: string,
+  sql: Sql = getSql(),
+  force = false,
+): Promise<void> {
+  await ensureCloudLedgerSchema(sql);
+  if (force) {
+    await sql`
+      INSERT INTO cloud_balance (owner_key, trial_ends_at)
+      VALUES (${ownerKey}, ${trialEndsAtIso})
+      ON CONFLICT (owner_key) DO UPDATE
+        SET trial_ends_at = ${trialEndsAtIso}, updated_at = now()
+    `;
+    return;
+  }
+  // Stamp only if no trial is set yet. A re-run (a reload, a double submit) must
+  // not push the end date out, so we leave an existing trial_ends_at untouched.
+  await sql`
+    INSERT INTO cloud_balance (owner_key, trial_ends_at)
+    VALUES (${ownerKey}, ${trialEndsAtIso})
+    ON CONFLICT (owner_key) DO UPDATE
+      SET trial_ends_at = COALESCE(cloud_balance.trial_ends_at, ${trialEndsAtIso}),
+          updated_at = now()
+  `;
 }
 
 export interface CloudLedgerRow {

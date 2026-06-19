@@ -2234,6 +2234,7 @@ export default function DataHubPage() {
           primary: true,
           tooltip: "Choose a statistical test to run on this table.",
           testId: "datahub-toolbar-analyze",
+          tutorTarget: "datahub-analyze-button",
         },
         {
           icon: "chart",
@@ -2241,6 +2242,7 @@ export default function DataHubPage() {
           onClick: () => setNewGraphOpen(true),
           tooltip: "Make a figure from this table.",
           testId: "datahub-toolbar-new-graph",
+          tutorTarget: "datahub-plot-button",
         },
         {
           icon: "gauge",

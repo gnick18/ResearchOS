@@ -16,7 +16,9 @@ import {
   getCloudBalance,
   getCloudPaymentMethod,
   getMonthlyCap,
+  getLabTrialState,
 } from "@/lib/billing/model-a/ledger";
+import { labTrialPhase } from "@/lib/billing/model-a/lab-trial";
 
 export const runtime = "nodejs";
 
@@ -29,7 +31,7 @@ export async function GET(): Promise<Response> {
 
   const ownerKey = ownerKeyForEmail(email);
   try {
-    const [planId, accruedCents, capCents, card, produceEntitled] = await Promise.all([
+    const [planId, accruedCents, capCents, card, produceEntitled, trial] = await Promise.all([
       resolveModelAPlanId(ownerKey),
       getCloudBalance(ownerKey),
       getMonthlyCap(ownerKey),
@@ -37,8 +39,21 @@ export async function GET(): Promise<Response> {
       // Resolves a free member to their sponsoring PI, so a paid-lab member reads
       // as entitled to the produce features (send, co-edit, pairing) the PI covers.
       isProduceEntitled(ownerKey),
+      getLabTrialState(ownerKey),
     ]);
-    return json(200, { planId, accruedCents, capCents, hasCard: !!card, produceEntitled });
+    // Trial fields drive the settings countdown line and the day-90 pause prompt.
+    // trialPhase is the single shared decision; trialEndsAt feeds the countdown.
+    const trialPhase = labTrialPhase(trial);
+    return json(200, {
+      planId,
+      accruedCents,
+      capCents,
+      hasCard: !!card,
+      produceEntitled,
+      trialEndsAt: trial.trialEndsAt,
+      trialPhase,
+      trialPaused: trialPhase === "ended_no_card",
+    });
   } catch {
     return json(500, { error: "status failed" });
   }
