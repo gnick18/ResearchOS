@@ -12,13 +12,18 @@
  *   2. METADATA  - a DataCite-mapped form prefilled from task/project/ORCID;
  *                  the user fills what is missing, especially a LICENSE.
  *   3. HANDOFF   - pick a repository, download the bundle + metadata, open
- *                  the repository's new-upload page, paste the metadata.
+ *                  the repository's own-upload page, paste the metadata.
+ *
+ * Deposit tracking: after the bundle downloads, one Deposit record is written
+ * to the local data folder (deposit-tracking bot, 2026-06-18). A persistent
+ * ref prevents duplicate records if the user triggers the build a second time
+ * in the same dialog session.
  *
  * Conventions: no em-dashes, no emojis, custom inline SVG icons only,
  * Tooltip component (never native title=) for icon-only affordances.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import LivingPopup from "@/components/ui/LivingPopup";
 import type { Task } from "@/lib/types";
 import {
@@ -52,6 +57,8 @@ import {
   type RepositoryId,
 } from "@/lib/deposit/repositories";
 import type { ExportFormat } from "@/lib/export/types";
+import { depositsApi } from "@/lib/local-api";
+import ExistingDepositsPanel from "@/components/deposit/ExistingDepositsPanel";
 
 type Step = "curation" | "metadata" | "handoff";
 
@@ -197,6 +204,13 @@ export default function DepositDialog({
   const [built, setBuilt] = useState<DepositBundleResult | null>(null);
   const [buildError, setBuildError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // Optional DOI input on the download step; the repository mints the DOI after
+  // the user uploads. The user can paste it here immediately if they already
+  // have it, or leave it blank and update the record later.
+  const [handoffDoi, setHandoffDoi] = useState("");
+  // Idempotency guard: prevents a second deposit record if the user re-triggers
+  // the build in the same dialog session (e.g. via "Build again").
+  const depositCreatedRef = useRef<number | null>(null);
 
   // Synchronous open-reset, done at RENDER time (not in an effect) keyed on a
   // (isOpen, task.id) transition. This is the `ExportFormatDialog` pattern:
@@ -214,10 +228,12 @@ export default function DepositDialog({
     setBuilt(null);
     setBuildError(null);
     setCopied(false);
+    setHandoffDoi("");
     setLoading(isOpen);
     setPrefill(null);
     setMenu(null);
     setSelection(null);
+    depositCreatedRef.current = null;
   }
 
   // Load the prefill once per open. The synchronous reset above already set
@@ -306,6 +322,36 @@ export default function DepositDialog({
       const result = await buildDepositBundle(curated, bundleFormat, metadata);
       setBuilt(result);
       downloadBlob(result.blob, result.filename);
+
+      // Write a deposit record once per dialog session. The ref guard prevents
+      // a duplicate if the user triggers "Build again" without closing.
+      if (depositCreatedRef.current === null) {
+        try {
+          const task = prefill.payload.task;
+          const doi = handoffDoi.trim() || null;
+          const record = await depositsApi.create({
+            task_id: task.id,
+            project_id: prefill.payload.project?.id ?? null,
+            repository: repoId,
+            title: metadata.titles[0]?.title ?? task.name ?? null,
+            doi,
+          });
+          depositCreatedRef.current = record.id;
+        } catch (writeErr) {
+          // A write failure must never block the download handoff. Log and continue.
+          console.error("[DepositDialog] Failed to write deposit record:", writeErr);
+        }
+      } else {
+        // Subsequent build in same session: update doi if the user added one.
+        const doi = handoffDoi.trim() || null;
+        if (doi !== null) {
+          try {
+            await depositsApi.update(depositCreatedRef.current, { doi });
+          } catch (updateErr) {
+            console.error("[DepositDialog] Failed to update deposit doi:", updateErr);
+          }
+        }
+      }
     } catch (err) {
       setBuildError(
         err instanceof Error ? err.message : "Could not build the bundle.",
@@ -313,7 +359,7 @@ export default function DepositDialog({
     } finally {
       setBuilding(false);
     }
-  }, [prefill, selection, metadata, bundleFormat]);
+  }, [prefill, selection, metadata, bundleFormat, repoId, handoffDoi]);
 
   const handleCopyMetadata = useCallback(async () => {
     if (!built) return;
@@ -385,14 +431,17 @@ export default function DepositDialog({
               {loadError}
             </div>
           ) : step === "curation" && menu && selection ? (
-            <CurationStep
-              menu={menu}
-              selection={selection}
-              setSelection={setSelection}
-              toggleAttachment={toggleAttachment}
-              bundleFormat={bundleFormat}
-              setBundleFormat={setBundleFormat}
-            />
+            <>
+              <ExistingDepositsPanel taskId={task.id} />
+              <CurationStep
+                menu={menu}
+                selection={selection}
+                setSelection={setSelection}
+                toggleAttachment={toggleAttachment}
+                bundleFormat={bundleFormat}
+                setBundleFormat={setBundleFormat}
+              />
+            </>
           ) : step === "metadata" && prefill && metadata && issues ? (
             <MetadataStep
               prefill={prefill}
@@ -417,6 +466,8 @@ export default function DepositDialog({
               built={built}
               copied={copied}
               onCopy={handleCopyMetadata}
+              doi={handoffDoi}
+              setDoi={setHandoffDoi}
             />
           ) : null}
           {buildError ? (
@@ -1002,11 +1053,15 @@ function HandoffDownloadStep({
   built,
   copied,
   onCopy,
+  doi,
+  setDoi,
 }: {
   repoId: RepositoryId;
   built: DepositBundleResult;
   copied: boolean;
   onCopy: () => void;
+  doi: string;
+  setDoi: (v: string) => void;
 }) {
   const repo = findRepository(repoId);
   return (
@@ -1078,6 +1133,26 @@ function HandoffDownloadStep({
         >
           {built.metadataJson}
         </pre>
+      </div>
+
+      <div className="space-y-1">
+        <label className="text-meta font-medium text-foreground" htmlFor="deposit-doi-input">
+          Already have your DOI? Paste it here (you can add it later)
+        </label>
+        <input
+          id="deposit-doi-input"
+          type="text"
+          value={doi}
+          onChange={(e) => setDoi(e.target.value)}
+          placeholder="e.g. 10.5281/zenodo.1234567"
+          className="w-full text-body rounded-lg border border-border px-3 py-2 focus:border-blue-400 focus:ring-1 focus:ring-blue-300 outline-none"
+          data-testid="deposit-doi-input"
+        />
+        <p className="text-meta text-foreground-muted">
+          Optional. The repository mints the DOI after you upload. ResearchOS
+          saves it to your deposit record so the lab can track what has been
+          shared publicly.
+        </p>
       </div>
     </div>
   );

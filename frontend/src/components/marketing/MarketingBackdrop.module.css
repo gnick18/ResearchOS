@@ -18,6 +18,11 @@
   border-radius: 50%;
   filter: blur(64px);
   pointer-events: none;
+  /* Drift animates transform ONLY (no scale), so this 64px-blur surface is
+     rasterized once and only translated on the compositor. Scaling a blur
+     re-runs it every frame and saturates the GPU. will-change promotes the
+     layer up front. */
+  will-change: transform;
   /* Pastel-rainbow conic, endpoints matched so the wrap is seamless under blur. */
   background: conic-gradient(
     from 0deg,
@@ -38,13 +43,14 @@
 .vivid .a1, .vivid .a2 { opacity: 0.42; }
 .vivid .a3, .vivid .a4 { opacity: 0.3; }
 
+/* Translate only, no scale (scaling a filter: blur re-rasterizes it per frame). */
 @keyframes drift1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(42px, -34px) scale(1.14); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(54px, -40px); }
 }
 @keyframes drift2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-52px, 30px) scale(1.1); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-64px, 38px); }
 }
 
 /* Faint dot grid that gives a section a stage instead of floating in void,

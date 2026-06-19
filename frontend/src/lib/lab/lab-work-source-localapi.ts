@@ -36,6 +36,7 @@ import type {
   PurchaseItem,
   InventoryItem,
   InventoryStock,
+  Deposit,
 } from "@/lib/types";
 import { sequencesApi } from "@/lib/local-api";
 import { phyloApi } from "@/lib/phylo/api";
@@ -79,6 +80,7 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
   const purchasesStore = new JsonStore<PurchaseItem>("purchase_items");
   const inventoryItemsStore = new JsonStore<InventoryItem>("inventory_items");
   const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
+  const depositsLocalStore = new JsonStore<Deposit>("deposits");
 
   return {
     listTasks(owner: string): Promise<OwnedRecord[]> {
@@ -137,6 +139,12 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
     },
     listNotesSheets(owner: string): Promise<OwnedRecord[]> {
       return readTaskSheets(owner, "notes");
+    },
+    listDeposits(owner: string): Promise<OwnedRecord[]> {
+      // Deposit lacks an index signature; route through unknown so tsc accepts
+      // the cast to OwnedRecord[]. The raw persisted record has no volatile
+      // fields, satisfying the canonical-bytes deduplication requirement.
+      return depositsLocalStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
     },
   };
 }

@@ -12,6 +12,12 @@
   filter: blur(64px);
   pointer-events: none;
   z-index: 0;
+  /* The drift below animates transform ONLY (never scale), so this 64px-blur
+     surface is rasterized once and then just translated on the compositor.
+     will-change promotes it to its own layer up front. Animating scale here
+     would re-run the blur every frame and saturate the GPU, which froze the
+     loading-screen progress bar under heavy boot work (2026-06-18). */
+  will-change: transform;
   /* Pastel-rainbow conic, endpoints matched so the wrap is seamless under blur. */
   background: conic-gradient(
     from 0deg,
@@ -28,13 +34,17 @@
 .a3 { width: 340px; height: 340px; top: 42%; left: 4%; opacity: 0.30; animation: drift1 35s ease-in-out infinite reverse; }
 .a4 { width: 380px; height: 380px; top: 24%; right: 6%; opacity: 0.30; animation: drift2 29s ease-in-out infinite reverse; }
 
+/* Translate only, no scale. Scaling a filter: blur surface re-rasterizes the
+   blur every frame; translating a pre-rasterized blur layer is a cheap
+   compositor move. Drift distances bumped a little to keep the motion lively
+   now that the scale pulse is gone. */
 @keyframes drift1 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(42px, -34px) scale(1.14); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(54px, -40px); }
 }
 @keyframes drift2 {
-  0%, 100% { transform: translate(0, 0) scale(1); }
-  50% { transform: translate(-52px, 30px) scale(1.1); }
+  0%, 100% { transform: translate(0, 0); }
+  50% { transform: translate(-64px, 38px); }
 }
 
 /* Gentle float for the decorative corner beakers. */

@@ -45,6 +45,9 @@ import type {
   Method,
   MethodCreate,
   MethodUpdate,
+  Deposit,
+  DepositCreate,
+  DepositUpdate,
   Event,
   EventCreate,
   EventUpdate,
@@ -210,6 +213,11 @@ const dependenciesStore = new JsonStore<Dependency>("dependencies");
 const methodsStore = new JsonStore<Method>("methods");
 const publicMethodsStore = getPublicStore<Method>("methods");
 const eventsStore = new JsonStore<Event>("events");
+// Deposit tracking (deposit-tracking bot, 2026-06-18). Per-user store at
+// `users/<owner>/deposits/<id>.json`. One record per guided-deposit handoff.
+// No whole-lab sharing by default: deposit records are personal tracking data
+// owned by the depositing user; PI-level reads come via the lab-work mirror.
+const depositsStore = new JsonStore<Deposit>("deposits");
 const goalsStore = new JsonStore<HighLevelGoal>("goals");
 const pcrStore = new JsonStore<PCRProtocol>("pcr_protocols");
 const publicPcrStore = getPublicStore<PCRProtocol>("pcr_protocols");
@@ -3686,6 +3694,66 @@ export const eventsApi = {
   
   delete: async (id: number): Promise<void> => {
     await eventsStore.delete(id);
+  },
+};
+
+// Deposit tracking (deposit-tracking bot, 2026-06-18).
+export const depositsApi = {
+  list: async (): Promise<Deposit[]> => {
+    return depositsStore.listAll();
+  },
+
+  listForUser: async (owner: string): Promise<Deposit[]> => {
+    return depositsStore.listAllForUser(owner);
+  },
+
+  get: async (id: number): Promise<Deposit | null> => {
+    return depositsStore.get(id);
+  },
+
+  getForUser: async (id: number, owner: string): Promise<Deposit | null> => {
+    return depositsStore.getForUser(id, owner);
+  },
+
+  create: async (data: DepositCreate): Promise<Deposit> => {
+    const owner = (await getCurrentUserCached()) ?? "unknown";
+    return depositsStore.create({
+      task_id: data.task_id ?? null,
+      project_id: data.project_id ?? null,
+      repository: data.repository,
+      title: data.title ?? null,
+      doi: data.doi ?? null,
+      concept_doi: data.concept_doi ?? null,
+      version_sequence: null,
+      prior_version_id: null,
+      deposited_at: new Date().toISOString(),
+      created_at: new Date().toISOString(),
+      owner,
+      shared_with: [],
+      created_by: owner,
+    });
+  },
+
+  update: async (id: number, data: DepositUpdate): Promise<Deposit | null> => {
+    const existing = await depositsStore.get(id);
+    if (!existing) return null;
+    const stamp = await buildAttributionStamp();
+    return depositsStore.update(id, { ...data, ...stamp });
+  },
+
+  updateForUser: async (
+    id: number,
+    owner: string,
+    data: DepositUpdate,
+  ): Promise<Deposit | null> => {
+    const existing = await depositsStore.getForUser(id, owner);
+    if (!existing) return null;
+    const stamp = await buildAttributionStamp();
+    return depositsStore.saveForUser(id, { ...existing, ...data, ...stamp }, owner);
+  },
+
+  delete: async (id: number): Promise<void> => {
+    await depositsStore.delete(id);
   },
 };
 

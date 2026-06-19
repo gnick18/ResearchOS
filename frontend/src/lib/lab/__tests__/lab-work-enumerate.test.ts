@@ -49,6 +49,7 @@ function fakeSource(overrides: Partial<LabWorkSource> = {}): LabWorkSource {
     listDatahub: overrides.listDatahub ?? (async () => []),
     listResultSheets: overrides.listResultSheets ?? (async () => []),
     listNotesSheets: overrides.listNotesSheets ?? (async () => []),
+    listDeposits: overrides.listDeposits ?? (async () => []),
   };
 }
 
@@ -362,7 +363,7 @@ describe("enumerateLabWork", () => {
     expect(records).toEqual([]);
   });
 
-  it("LAB_WORK_TYPES array contains all thirteen expected types in order", () => {
+  it("LAB_WORK_TYPES array contains all fourteen expected types in order", () => {
     expect(LAB_WORK_TYPES).toEqual([
       "task",
       "experiment",
@@ -377,7 +378,37 @@ describe("enumerateLabWork", () => {
       "datahub",
       "result_sheet",
       "notes_sheet",
+      "deposit",
     ]);
+  });
+
+  it("maps deposits to recordType 'deposit'", async () => {
+    const source = fakeSource({
+      listDeposits: async () => [
+        { id: 1, task_id: 42, repository: "zenodo", doi: null },
+      ],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+
+    expect(records).toHaveLength(1);
+    expect(records[0].recordType).toBe("deposit");
+    expect(records[0].recordId).toBe("1");
+  });
+
+  it("'deposit' appears after 'notes_sheet' in output order (appended last)", async () => {
+    const source = fakeSource({
+      listNotesSheets: async () => [{ id: "ns1", sheet: "notes", markdown: "" }],
+      listDeposits: async () => [{ id: 1, repository: "zenodo" }],
+    });
+
+    const records = await enumerateLabWork({ owner: "alice", source });
+    const types = records.map((r) => r.recordType);
+
+    const nsIdx = types.indexOf("notes_sheet");
+    const depIdx = types.indexOf("deposit");
+
+    expect(nsIdx).toBeLessThan(depIdx);
   });
 
   it("maps inventory items to recordType 'inventory'", async () => {
