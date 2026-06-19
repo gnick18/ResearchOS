@@ -18,6 +18,7 @@ import {
   updateLabProfile,
   uploadLabLogo,
   labLogoUrl,
+  describeLabWriteError,
 } from "@/lib/lab/lab-profile-client";
 import LabIdentityFields, {
   resolvePiTitle,
@@ -117,7 +118,9 @@ export default function LabIdentitySection({
         identity.keys.signing.privateKey,
       );
       if (!res.ok) {
-        throw new Error(`Could not save (HTTP ${res.status})`);
+        const { message, raw } = await describeLabWriteError(res);
+        console.warn("[LabIdentitySection] lab profile save failed:", raw);
+        throw new Error(message);
       }
       if (logo) {
         const logoRes = await uploadLabLogo(
@@ -127,7 +130,11 @@ export default function LabIdentitySection({
           identity.keys.signing.privateKey,
         );
         if (!logoRes.ok) {
-          throw new Error(`Saved the name, but the logo upload failed (HTTP ${logoRes.status})`);
+          const { raw } = await describeLabWriteError(logoRes);
+          console.warn("[LabIdentitySection] lab logo upload failed:", raw);
+          throw new Error(
+            `Saved the name, but the logo upload failed (${raw}).`,
+          );
         }
         // Re-point the existing-logo preview at the freshly uploaded one.
         setLogo(null);

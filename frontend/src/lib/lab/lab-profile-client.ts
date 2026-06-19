@@ -102,6 +102,42 @@ export async function updateLabProfile(
 }
 
 /**
+ * Turns a failed head-signed lab write Response into an actionable message that
+ * states the real reason, and returns the raw relay error string for logging so
+ * a live test can pin down WHICH gate rejected the write. The relay bodies are
+ * stable strings from requireHeadSig / the lab DO (see relay/src/worker.ts):
+ *   - 404 "lab does not exist"       -> the genesis publish never landed.
+ *   - 401 "stale or missing issuedAt"-> the device clock is too far off.
+ *   - 401 "bad head signature"       -> this device is not the lab's head key.
+ * Reads the body at most once; safe to call on any non-ok Response.
+ */
+export async function describeLabWriteError(
+  res: Response,
+): Promise<{ message: string; raw: string }> {
+  let raw = "";
+  try {
+    const j = (await res.json()) as { error?: unknown };
+    if (typeof j.error === "string") raw = j.error;
+  } catch {
+    // Body was not JSON (proxy error page, empty body). Fall back to the status.
+  }
+  let message: string;
+  if (res.status === 404 || raw === "lab does not exist") {
+    message =
+      "Your lab is not saved on the server yet, so its details could not be updated. Reconnect your folder and try again in a moment.";
+  } else if (raw === "stale or missing issuedAt") {
+    message =
+      "Your computer's clock is too far off, so the server rejected the change. Set the clock to update automatically, then save again.";
+  } else if (raw === "bad head signature") {
+    message =
+      "This device is not recognized as the lab head, so it cannot change the lab details. Sign in on the device that created the lab.";
+  } else {
+    message = `Could not save (HTTP ${res.status}${raw ? ", " + raw : ""}).`;
+  }
+  return { message, raw: raw || `HTTP ${res.status}` };
+}
+
+/**
  * HEAD side. Uploads a lab logo. The raw image bytes are the POST body; the
  * content-type is the Content-Type header. The signature + issuedAt ride in the
  * query string so the body stays the raw image. Signs

@@ -23,6 +23,7 @@ import {
   updateLabProfile,
   uploadLabLogo,
   labLogoUrl,
+  describeLabWriteError,
 } from "./lab-profile-client";
 
 function headKeys() {
@@ -172,5 +173,90 @@ describe("labLogoUrl", () => {
     const url = labLogoUrl("lab-1");
     expect(url).toContain("https://relay.test/lab/logo?lab=lab-1");
     expect(url).toMatch(/[?&]t=\d+/);
+  });
+});
+
+describe("updateLabProfile key continuity", () => {
+  // Regression for the live-demo "Settings will not save the lab name" report:
+  // the relay verifies the profile write against the head_pubkey it stored at
+  // lab create. So a save signed by the SAME head key must verify, and a save
+  // signed by ANY OTHER key must NOT, which is exactly the relay's
+  // "bad head signature" rejection. This pins that contract client-side.
+  it("verifies under the head key but not under a different key", async () => {
+    const head = headKeys();
+    const stranger = headKeys();
+    let body = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        body = init.body as string;
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }),
+    );
+    await updateLabProfile(
+      "lab-1",
+      { labName: "Lab", piTitle: "Dr.", piDisplay: "PI" },
+      head.priv,
+    );
+    const sent = JSON.parse(body) as { issuedAt: number; signature: string };
+    const msg = `lab-profile\nlab-1\nLab\nDr.\nPI\n${sent.issuedAt}`;
+    expect(verify(sent.signature, msg, bytesToHex(head.pub))).toBe(true);
+    expect(verify(sent.signature, msg, bytesToHex(stranger.pub))).toBe(false);
+  });
+
+  it("stamps a fresh issuedAt inside the relay replay window", async () => {
+    const before = Date.now();
+    let body = "";
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (_url: string, init: RequestInit) => {
+        body = init.body as string;
+        return new Response(JSON.stringify({ ok: true }), { status: 200 });
+      }),
+    );
+    await updateLabProfile(
+      "lab-1",
+      { labName: "Lab", piTitle: "", piDisplay: "" },
+      headKeys().priv,
+    );
+    const sent = JSON.parse(body) as { issuedAt: number };
+    expect(sent.issuedAt).toBeGreaterThanOrEqual(before);
+    expect(sent.issuedAt).toBeLessThanOrEqual(Date.now());
+  });
+});
+
+describe("describeLabWriteError", () => {
+  it("maps a 404 to the not-published-yet message", async () => {
+    const res = new Response(JSON.stringify({ error: "lab does not exist" }), {
+      status: 404,
+    });
+    const { message, raw } = await describeLabWriteError(res);
+    expect(raw).toBe("lab does not exist");
+    expect(message).toContain("not saved on the server yet");
+  });
+
+  it("maps a stale issuedAt 401 to the clock message", async () => {
+    const res = new Response(
+      JSON.stringify({ error: "stale or missing issuedAt" }),
+      { status: 401 },
+    );
+    const { message, raw } = await describeLabWriteError(res);
+    expect(raw).toBe("stale or missing issuedAt");
+    expect(message).toContain("clock");
+  });
+
+  it("maps a bad head signature 401 to the wrong-device message", async () => {
+    const res = new Response(JSON.stringify({ error: "bad head signature" }), {
+      status: 401,
+    });
+    const { message } = await describeLabWriteError(res);
+    expect(message).toContain("not recognized as the lab head");
+  });
+
+  it("falls back to the status when the body is not JSON", async () => {
+    const res = new Response("<html>502</html>", { status: 502 });
+    const { message, raw } = await describeLabWriteError(res);
+    expect(raw).toBe("HTTP 502");
+    expect(message).toContain("502");
   });
 });

@@ -31,8 +31,19 @@ export interface TrackCallbacks {
   onHandleClaimed?: (handle: string) => void;
   /** Capture the lab identity so LabCreateResume can provision on return. */
   onLabCaptured?: (result: LabStepResult) => void;
-  /** Prefill for the PI display name on the lab step. */
-  defaultPiDisplay?: string;
+  /**
+   * Prefill for the PI display name on the lab step. A getter (not a bare
+   * string) so the host can return the handle claimed DURING the wizard, after
+   * the track was built.
+   */
+  defaultPiDisplay?: string | (() => string);
+}
+
+/** Resolve the defaultPiDisplay hook, which may be a string or a live getter. */
+function resolveDefaultPiDisplay(
+  hook: string | (() => string) | undefined,
+): string | undefined {
+  return typeof hook === "function" ? hook() : hook;
 }
 
 /** Solo researcher, free account: sign in, handle, profile, folder. */
@@ -148,7 +159,7 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
         skippable: false,
         render: (c) => (
           <LabStep
-            defaultPiDisplay={cb.defaultPiDisplay}
+            defaultPiDisplay={resolveDefaultPiDisplay(cb.defaultPiDisplay)}
             onSubmit={(result) => {
               cb.onLabCaptured?.(result);
               c.next();

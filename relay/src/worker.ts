@@ -4046,10 +4046,20 @@ export class LabRecordDO {
     return this.json({ ok: true }, 200);
   }
 
-  /** Verifies a head-signed control request (list/dismiss) against the stored
-   *  head_pubkey over the given canonical message, within a freshness window so a
-   *  captured request cannot be replayed indefinitely. Returns null on success
-   *  or a Response to reject. */
+  /** The replay window for head-signed lab CONTROL requests (profile update,
+   *  accept list/dismiss). These are cosmetic or idempotent, so the window is the
+   *  device-clock-skew tolerance, not a tight replay bound: a brand-new lab head
+   *  whose machine clock is more than a few minutes off was getting every save
+   *  rejected with 401 while create + invite-accept (which bypass freshness)
+   *  worked, which read as "the lab name will not save". An hour absorbs ordinary
+   *  unsynced-clock drift while still bounding replay of a captured request.
+   *  Security-sensitive routes (grants, revokes) keep the tight isFresh window. */
+  private static readonly HEAD_CONTROL_SKEW_MS = 60 * 60 * 1000;
+
+  /** Verifies a head-signed control request (profile/list/dismiss) against the
+   *  stored head_pubkey over the given canonical message, within a clock-skew
+   *  tolerant window so a captured request cannot be replayed indefinitely.
+   *  Returns null on success or a Response to reject. */
   private requireHeadSig(
     message: string,
     sigHex: string,
@@ -4057,7 +4067,11 @@ export class LabRecordDO {
   ): Response | null {
     const headPubkey = this.metaGet("head_pubkey");
     if (headPubkey === null) return this.json({ error: "lab does not exist" }, 404);
-    if (typeof issuedAt !== "number" || Math.abs(Date.now() - issuedAt) > 5 * 60 * 1000) {
+    if (
+      typeof issuedAt !== "number" ||
+      !Number.isFinite(issuedAt) ||
+      Math.abs(Date.now() - issuedAt) > LabRecordDO.HEAD_CONTROL_SKEW_MS
+    ) {
       return this.json({ error: "stale or missing issuedAt" }, 401);
     }
     if (!this.verifySig(sigHex, message, headPubkey)) {

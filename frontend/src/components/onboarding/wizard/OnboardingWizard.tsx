@@ -40,6 +40,10 @@ import {
 import { buildOrgTrack } from "./tracks-org";
 import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
 import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
+import {
+  stashLabBranding,
+  stashLabLogo,
+} from "@/lib/onboarding/lab-branding-stash";
 
 export type WizardSelection =
   | "solo-local"
@@ -71,6 +75,10 @@ export default function OnboardingWizard({
   // The org id created in the org name step, captured so close can route to the
   // portal once the org exists.
   const orgIdRef = useRef<string>("");
+  // The handle claimed in the handle step, captured so the lab step can prefill
+  // the PI display name with it (the track is built once, before the claim, so
+  // the lab step reads this ref lazily via the defaultPiDisplay getter).
+  const handleRef = useRef<string>("");
 
   const isOrg = selection === "org-dept" || selection === "org-inst";
 
@@ -81,7 +89,26 @@ export default function OnboardingWizard({
       case "solo-free":
         return buildSoloFreeTrack();
       case "pi-create":
-        return buildPiCreateTrack();
+        // Bridge the captured lab identity to the deferred provisioning: the lab
+        // is not created until LabCreateResume runs (after the folder connects),
+        // so the name / title / display / logo are stashed here and consumed
+        // there. Without this the branding was dropped and the lab was created
+        // nameless, which re-fired the setup prompt and fell back to the
+        // head's username.
+        return buildPiCreateTrack({
+          onHandleClaimed: (h) => {
+            handleRef.current = h;
+          },
+          defaultPiDisplay: () => handleRef.current,
+          onLabCaptured: (result) => {
+            stashLabBranding({
+              labName: result.labName,
+              piTitle: result.piTitle,
+              piDisplay: result.piDisplay,
+            });
+            stashLabLogo(result.logo);
+          },
+        });
       case "org-dept":
         return buildOrgTrack("department", {
           onOrgCreated: (id) => {
