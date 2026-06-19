@@ -18,17 +18,11 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useState } from "react";
 import BeakerBot from "@/components/BeakerBot";
 import Wordmark from "@/components/Wordmark";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-
-// The query flag the OAuth callback carries (mirrors SharingSetupWizard's
-// CLAIM_QUERY_PARAM). Its presence means the page reloaded through the provider
-// redirect, so the wizard must mount immediately to resume keygen + publish.
-const CLAIM_QUERY_PARAM = "sharingClaim";
 
 export default function RequireAccountGate({
   username,
@@ -39,17 +33,13 @@ export default function RequireAccountGate({
   /** Called once the claim publishes, so the shell can re-read identity and release. */
   onClaimed: () => void;
 }) {
-  const searchParams = useSearchParams();
-  const resuming = !!searchParams?.get(CLAIM_QUERY_PARAM);
-  // Auto-open the wizard when resuming from the OAuth redirect so its own resume
-  // effect runs without a second click; otherwise wait for the user to start.
-  const [wizardOpen, setWizardOpen] = useState(resuming);
+  // The wizard here only STARTS a claim (provider choose / email entry). When a
+  // provider redirect returns with ?sharingClaim, AppShell skips this gate so the
+  // global SharingClaimResume finishes keygen + publish; the identity-written
+  // event then releases the gate. The inline email-OTP path completes here and
+  // calls onClaimed directly.
+  const [wizardOpen, setWizardOpen] = useState(false);
   const { disconnect } = useFileSystem();
-
-  // If the resume param appears after mount (client-side nav back), open then.
-  useEffect(() => {
-    if (resuming) setWizardOpen(true);
-  }, [resuming]);
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-surface-sunken px-6">

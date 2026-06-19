@@ -470,14 +470,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // there is no OAuth claim path to complete, in demo/capture, and never block
   // while the identity read is still resolving (status only becomes "ready"
   // after the async read settles, and a stalled read falls back to "none").
-  const mustClaimAccount = shouldGateForClaim({
-    requireAccount: isRequireAccountEnabled(),
-    oauthPublishAvailable: isOAuthPublishAvailable(),
-    hasConnectedUser: !!currentUser,
-    isDemoOrCapture: isDemoOrWikiCapture(),
-    identityStatus: identity.status,
-    published: identity.published,
-  });
+  //
+  // CRITICAL: skip the gate while a claim is actively resuming (?sharingClaim /
+  // ?sharingEmail in the URL). During that window the normal shell must render
+  // so the global SharingClaimResume below mounts and finishes keygen + publish.
+  // The gate's own panel cannot resume a claim, so blocking here would loop the
+  // user back to the claim screen after every OAuth round-trip.
+  const claimResuming =
+    !!searchParams?.get("sharingClaim") || !!searchParams?.get("sharingEmail");
+  const mustClaimAccount =
+    !claimResuming &&
+    shouldGateForClaim({
+      requireAccount: isRequireAccountEnabled(),
+      oauthPublishAvailable: isOAuthPublishAvailable(),
+      hasConnectedUser: !!currentUser,
+      isDemoOrCapture: isDemoOrWikiCapture(),
+      identityStatus: identity.status,
+      published: identity.published,
+    });
   if (mustClaimAccount && currentUser) {
     return (
       <RequireAccountGate

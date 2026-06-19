@@ -32,6 +32,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUser } from "./useCurrentUser";
 import {
   readSharingIdentity,
+  SHARING_IDENTITY_WRITTEN_EVENT,
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
 import { hasIdentity } from "@/lib/sharing/identity/storage";
@@ -183,6 +184,23 @@ export function useSharingIdentity(): UseSharingIdentityResult {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  // Re-read when any sharing-identity write lands (claim, rotate, restore) so
+  // every live instance stays in sync across components. This is what lets the
+  // require-account gate release the moment a claim publishes, instead of
+  // waiting for a remount.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onWritten = (e: Event) => {
+      const detail = (e as CustomEvent<{ username?: string }>).detail;
+      if (!detail?.username || detail.username === currentUser) {
+        void refresh();
+      }
+    };
+    window.addEventListener(SHARING_IDENTITY_WRITTEN_EVENT, onWritten);
+    return () =>
+      window.removeEventListener(SHARING_IDENTITY_WRITTEN_EVENT, onWritten);
+  }, [currentUser, refresh]);
 
   return {
     status,
