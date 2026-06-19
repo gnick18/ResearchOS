@@ -53,6 +53,7 @@ import {
 } from "react";
 import { useRouter } from "next/navigation";
 import BeakerBot from "@/components/BeakerBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons/registry";
 import MarketingFooter from "@/components/MarketingFooter";
@@ -817,13 +818,10 @@ export default function WelcomePage({
                 aria-hidden
                 className="relative drop-shadow-[0_14px_30px_rgba(26,160,230,0.34)]"
               >
-                {/* Static hero mascot: the living idle (subtle breathe / blink /
-                    gaze) without the on-load wave or greeting bubble. */}
-                <BeakerBot
-                  pose="idle"
-                  alive
-                  className="h-28 w-28 text-brand-sky md:h-32 md:w-32"
-                />
+                {/* Canonical welcome mascot: the same bubble-blowing hero the
+                    entry front door leads with, so the marketing hero matches
+                    every login and onboarding surface. */}
+                <WelcomeMascot />
               </div>
 
               <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-sky-50 px-3.5 py-1.5 text-meta font-semibold text-sky-700">

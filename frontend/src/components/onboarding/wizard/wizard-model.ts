@@ -13,12 +13,25 @@
 
 import type { ReactNode } from "react";
 
+/**
+ * Where the shell's persistent canonical mascot anchors for a given step. The
+ * mascot is the SAME size on every step; only this anchor changes, so the shell
+ * slides him between positions as the user advances rather than resizing him.
+ * Defaults to "top-center".
+ */
+export type WizardMascotAnchor = "top-center" | "top-right" | "top-left";
+
 /** A single step in a track. */
 export interface WizardStep {
   /** Stable id for the step (used as a React key and for step lookups). */
   id: string;
   /** Short label shown in the progress indicator (e.g. "Sign in", "Handle"). */
   label: string;
+  /**
+   * Anchor for the shell's persistent mascot on this step. Omitting it keeps him
+   * top-center. Varying it across steps makes him slide between positions.
+   */
+  mascotAnchor?: WizardMascotAnchor;
   /**
    * Whether this step may be skipped. The shell shows a Skip link only when
    * true. The skip rules come from the spec's per-step skip table; a step that

@@ -16,7 +16,7 @@ import { useSyncExternalStore } from "react";
 import type { LabSessionController } from "@/lib/lab/lab-session";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
-import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useLabWorkMirror } from "@/hooks/useLabWorkMirror";
 
@@ -84,7 +84,7 @@ export function LabSignInGate({
       <div className="light-scope fixed inset-0 flex items-center justify-center bg-white z-50">
         <LandingBackdrop />
         <div className="relative z-10 flex flex-col items-center gap-4 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
-          <IntroBubbleBot size="sm" />
+          <WelcomeMascot />
           <p className="text-body text-foreground text-center">{message}</p>
           {stalled && (
             <div className="border-t border-border pt-3 mt-1 w-full text-center">
@@ -117,7 +117,7 @@ export function LabSignInGate({
       <LandingBackdrop />
       <div className="relative z-10 flex flex-col gap-5 p-8 rounded-xl bg-surface-raised border border-border shadow-lg max-w-sm w-full mx-4">
         <div className="flex flex-col items-center gap-2 text-center">
-          <IntroBubbleBot size="sm" />
+          <WelcomeMascot />
           <h1 className="text-heading font-semibold text-foreground">
             Sign in to your lab
           </h1>

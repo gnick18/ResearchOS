@@ -61,7 +61,7 @@ import UserAvatar from "@/components/UserAvatar";
 import UserColorPickerPopup from "@/components/UserColorPickerPopup";
 import Tooltip from "@/components/Tooltip";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
-import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import VersionBadge from "@/components/VersionBadge";
 import DevForceLandingButton from "@/components/DevForceLandingButton";
 import DevPairBypassButton from "@/components/DevPairBypassButton";
@@ -1498,7 +1498,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
             and the landing share one hero mark. */}
         <div className="text-center mb-8">
           <div className="mb-4 flex justify-center">
-            <IntroBubbleBot size="sm" />
+            <WelcomeMascot />
           </div>
           <h1 className="text-display font-extrabold tracking-tight text-brand-ink mb-2">ResearchOS</h1>
           <p className="text-foreground-muted">Select your account to continue</p>

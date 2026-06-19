@@ -15,7 +15,7 @@
 import { useState } from "react";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import Reveal from "@/components/marketing/Reveal";
-import BeakerBot from "@/components/BeakerBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import LabIdentityFields, {
   resolvePiTitle,
   type LabIdentityValue,
@@ -68,23 +68,19 @@ export default function LabSetupStep({
     <div className="relative flex min-h-screen items-center justify-center px-4 py-10">
       <MarketingBackdrop tone="soft" />
       <Reveal once className="relative z-10 w-full max-w-lg">
-        <div className="rounded-2xl border border-border bg-surface/95 p-8 shadow-lg backdrop-blur">
-          <div className="mb-6 flex items-center gap-4">
-            <BeakerBot
-              pose="cheering"
-              animated
-              className="h-14 w-14 shrink-0 text-sky-500"
-              ariaLabel="BeakerBot, the ResearchOS assistant"
-            />
-            <div>
-              <h1 className="text-heading font-semibold text-foreground">
-                Set up your lab
-              </h1>
-              <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
-                Give your lab an identity. Your members will see this when they
-                join and while they work.
-              </p>
-            </div>
+        <div className="relative rounded-2xl border border-border bg-surface/95 p-8 shadow-lg backdrop-blur">
+          {/* Canonical mascot peeking over the card corner, the same size as
+              every other welcome surface, repositioned (not resized) so the
+              dense card keeps its room. */}
+          <WelcomeMascot placement="peek-top-right" />
+          <div className="mb-6">
+            <h1 className="text-heading font-semibold text-foreground">
+              Set up your lab
+            </h1>
+            <p className="mt-1 text-meta text-foreground-muted leading-relaxed">
+              Give your lab an identity. Your members will see this when they
+              join and while they work.
+            </p>
           </div>
 
           <LabIdentityFields

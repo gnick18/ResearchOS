@@ -8,7 +8,7 @@ import {
   fetchAllProjectsIncludingShared,
 } from "@/lib/local-api";
 import AppShell from "@/components/AppShell";
-import BeakerBot from "@/components/BeakerBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -174,11 +174,7 @@ export default function HomePage() {
           lands (brand refresh, 2026-06-11). */}
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="flex flex-col items-center text-center">
-          <BeakerBot
-            pose="waving"
-            ariaLabel="ResearchOS BeakerBot"
-            className="h-16 w-16 text-brand-sky"
-          />
+          <WelcomeMascot ariaLabel="ResearchOS BeakerBot" />
           <p className="mt-3 text-heading font-extrabold text-brand-ink dark:text-foreground">
             Welcome back{currentUser ? `, ${currentUser}` : ""}
           </p>

@@ -1,0 +1,36 @@
+/* Slide layer for the wizard's single persistent mascot. The same canonical
+   WelcomeMascot is mounted once here and patrols the top of the screen, sliding
+   horizontally between per-step anchors as the user advances. He keeps his size;
+   only his position changes. Sits below the top chrome so he never covers the
+   progress indicator or the close control.
+
+   No em-dashes, no emojis, no mid-sentence colons. */
+
+.slideLayer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 72px;
+  height: 0;
+  pointer-events: none;
+  z-index: 20;
+}
+
+.slideBot {
+  position: absolute;
+  left: var(--mascot-left, 50%);
+  top: 0;
+  transform: translateX(-50%);
+  /* The cross-step move. Transitioning the percentage left makes him glide
+     between anchors when the active step changes. */
+  transition: left 640ms cubic-bezier(0.22, 0.61, 0.18, 1);
+  /* Re-enable clicks on the mascot itself so the heart easter egg still fires,
+     while the rest of the layer stays click-through for the form below. */
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slideBot {
+    transition: none;
+  }
+}

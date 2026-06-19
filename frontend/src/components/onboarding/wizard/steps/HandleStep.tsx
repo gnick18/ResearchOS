@@ -11,7 +11,6 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState } from "react";
-import BeakerBot from "@/components/BeakerBot";
 
 export interface HandleStepProps {
   /** Advance to the next step once the handle is claimed. */
@@ -94,14 +93,6 @@ export default function HandleStep({
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">
-      <div className="mb-3 h-16 w-16">
-        <BeakerBot
-          pose="idle"
-          alive
-          className="h-full w-full text-sky-400"
-          ariaLabel="BeakerBot"
-        />
-      </div>
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
         Claim your handle
       </h1>

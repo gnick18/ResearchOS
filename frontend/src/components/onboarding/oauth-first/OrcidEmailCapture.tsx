@@ -34,7 +34,7 @@ import {
   WarningIcon,
 } from "@/components/sharing/icons";
 
-import { IntroBubbleBot } from "./IntroBubbleBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import LandingBackdrop from "./LandingBackdrop";
 
 type Step = "email" | "code";
@@ -160,7 +160,7 @@ export default function OrcidEmailCapture({
 
         <div className="relative z-[1] flex w-full max-w-sm flex-col">
           <div className="mb-3 flex flex-col items-center text-center">
-            <IntroBubbleBot size="lg" />
+            <WelcomeMascot />
             <div className="mt-3 flex items-center gap-2">
               <OrcidIcon className="h-5 w-5" />
               <h1 className="text-[22px] font-extrabold tracking-tight text-brand-ink">

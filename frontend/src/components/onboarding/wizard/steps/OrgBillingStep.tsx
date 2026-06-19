@@ -9,7 +9,6 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import BeakerBot from "@/components/BeakerBot";
 import type { OrgKind } from "./OrgNameStep";
 
 export interface OrgBillingStepProps {
@@ -23,14 +22,6 @@ export default function OrgBillingStep({ kind, onFinish }: OrgBillingStepProps) 
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-col items-center text-center">
-      <div className="mb-3 h-16 w-16">
-        <BeakerBot
-          pose="idle"
-          alive
-          className="h-full w-full text-sky-400"
-          ariaLabel="BeakerBot"
-        />
-      </div>
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
         Billing
       </h1>

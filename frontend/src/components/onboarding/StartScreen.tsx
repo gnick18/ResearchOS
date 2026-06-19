@@ -16,7 +16,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import BeakerBot from "@/components/BeakerBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import SharingProviderButtons, {
   type SharingProvider,
@@ -59,7 +59,7 @@ export function StartScreen({
   return (
     <div className="relative min-h-screen w-full bg-surface flex flex-col items-center justify-center px-6 py-12">
       <div className="w-full max-w-md flex flex-col items-center text-center">
-        <BeakerBot pose="waving" className="w-36 h-36 mb-4 text-sky-500" />
+        <WelcomeMascot className="mb-4" />
         <h1 className="text-2xl font-extrabold text-foreground">
           {returning ? "Welcome back" : "Welcome to ResearchOS"}
         </h1>

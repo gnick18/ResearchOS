@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { fileService } from "@/lib/file-system/file-service";
 import BetaNotice from "@/components/BetaNotice";
-import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
 import { useTheme } from "@/lib/theme/use-theme";
 import type { LoadingStage } from "@/lib/file-system/file-system-context";
@@ -116,7 +116,7 @@ export default function StagedLoadingScreen({
             in place of the old gradient-square spinner. It loops, so it fits any
             load duration, and the progress bar below still signals real motion. */}
         <div className="mb-6 flex justify-center">
-          <IntroBubbleBot size="lg" />
+          <WelcomeMascot />
         </div>
 
         {/* Indeterminate progress bar that runs on the compositor thread so it

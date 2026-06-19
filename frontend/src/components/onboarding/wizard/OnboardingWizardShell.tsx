@@ -21,13 +21,33 @@ import { signOut } from "next-auth/react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import {
   initWizardNav,
   wizardNavReducer,
   wizardProgress,
   type WizardTrack,
   type WizardStepControls,
+  type WizardMascotAnchor,
 } from "./wizard-model";
+import mascotStyles from "./OnboardingWizardShell.module.css";
+
+// Horizontal anchor positions for the persistent mascot. translateX(-50%) in the
+// CSS centers him on each point, so these are the on-screen centers he slides
+// between. Tuned to stay clear of the screen edges on desktop widths.
+const ANCHOR_LEFT: Record<WizardMascotAnchor, string> = {
+  "top-center": "50%",
+  "top-right": "78%",
+  "top-left": "22%",
+};
+
+// Default per-step anchor when a step does not declare one. Cycling these makes
+// him slide on every advance, even for tracks that never set mascotAnchor.
+const ANCHOR_CYCLE: WizardMascotAnchor[] = [
+  "top-center",
+  "top-right",
+  "top-left",
+];
 
 export interface OnboardingWizardShellProps {
   /** The active track (ordered steps). */
@@ -105,6 +125,11 @@ export default function OnboardingWizardShell({
   // Once terminal, render nothing (the host is routing away).
   if (nav.done || nav.closed || !step) return null;
 
+  // The mascot is the SAME size on every step; only this anchor changes, so the
+  // slide layer glides him between positions as the user advances.
+  const anchor: WizardMascotAnchor =
+    step.mascotAnchor ?? ANCHOR_CYCLE[nav.index % ANCHOR_CYCLE.length];
+
   return (
     <div
       className="light-scope relative isolate flex min-h-screen w-full flex-col bg-white text-foreground"
@@ -112,6 +137,22 @@ export default function OnboardingWizardShell({
     >
       <div className="pointer-events-none absolute inset-0 -z-10">
         <LandingBackdrop />
+      </div>
+
+      {/* Persistent canonical mascot. Mounted once and lifted out of the step
+          bodies so he stays put across step changes and slides between anchors
+          instead of remounting (or resizing) per step. */}
+      <div className={mascotStyles.slideLayer} aria-hidden={false}>
+        <div
+          className={mascotStyles.slideBot}
+          data-testid="wizard-mascot"
+          data-anchor={anchor}
+          style={
+            { "--mascot-left": ANCHOR_LEFT[anchor] } as React.CSSProperties
+          }
+        >
+          <WelcomeMascot />
+        </div>
       </div>
 
       {/* Top chrome: progress + close. */}

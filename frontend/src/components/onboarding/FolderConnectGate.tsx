@@ -35,9 +35,8 @@ import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import BetaDonationButton from "@/components/BetaDonationButton";
 import FeedbackModal from "@/components/FeedbackModal";
-import BeakerBot from "@/components/BeakerBot";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
-import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
+import WelcomeMascot from "@/components/onboarding/WelcomeMascot";
 import { Icon } from "@/components/icons";
 import PickerWalkthroughModal from "@/components/picker-walkthrough/PickerWalkthroughModal";
 import RiseCredentialsStamp from "@/components/RiseCredentialsStamp";
@@ -381,15 +380,10 @@ export default function FolderConnectGate({
             floats in the right margin; on smaller screens it stacks above. */}
         <div className="mb-6 flex flex-col items-center lg:fixed lg:top-6 lg:right-6 lg:left-auto lg:mb-0 lg:w-64 lg:z-40">
           <div
-            className="mb-2 flex h-24 w-24 items-center justify-center"
+            className="mb-2 flex justify-center"
             data-testid="gate-beakerbot"
           >
-            <BeakerBot
-              pose="idle"
-              alive
-              className="h-full w-full text-sky-300"
-              ariaLabel="BeakerBot"
-            />
+            <WelcomeMascot />
           </div>
           <div className="relative w-full max-w-xs">
             <div
@@ -676,7 +670,7 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
   return (
     <div className="text-center mb-8">
       <div className="mb-4 flex justify-center">
-        <IntroBubbleBot size="sm" />
+        <WelcomeMascot />
       </div>
       <h1 className="text-display font-extrabold tracking-tight text-brand-ink">
         ResearchOS

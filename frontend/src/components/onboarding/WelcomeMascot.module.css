@@ -1,0 +1,70 @@
+/* WelcomeMascot wrapper styling. The mascot mark, its living drift/tilt/breathe,
+   and the rising bubbles all come from IntroBubbleBot; this module only adds the
+   one-shot settle-in entrance and the static peek placements that dense screens
+   use to keep the canonical size while moving him to an edge. The wizard shell
+   owns its own slide layer for the cross-step move.
+
+   No em-dashes, no emojis, no mid-sentence colons. */
+
+.mascot {
+  position: relative;
+  display: inline-block;
+  width: max-content;
+}
+
+/* One-shot settle-in on mount. Runs on a dedicated inner element so its
+   transform never collides with IntroBubbleBot's ambient motion or with an
+   outer peek transform. */
+.enter {
+  animation: mascotEnter 560ms cubic-bezier(0.22, 0.61, 0.18, 1) both;
+}
+
+@keyframes mascotEnter {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* Peek placements keep the canonical size and push him to an edge so he peeks in
+   rather than shrinking. The consumer marks the nearest positioned ancestor
+   relative. */
+.peekTop {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -55%);
+}
+
+.peekTopRight {
+  position: absolute;
+  right: 0;
+  top: 0;
+  transform: translate(26%, -46%);
+}
+
+.peekTopLeft {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-26%, -46%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .enter {
+    animation: mascotFade 320ms ease both;
+  }
+}
+
+@keyframes mascotFade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}

@@ -12,7 +12,6 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import BeakerBot from "@/components/BeakerBot";
 import SharingProviderButtons from "@/components/sharing/SharingProviderButtons";
 import type { SharingProvider } from "@/components/sharing/SharingProviderButtons";
 import { startOAuthFirstSignIn } from "@/lib/sharing/oauth-first-signin";
@@ -77,14 +76,6 @@ export default function SignInStep({
 
   return (
     <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">
-      <div className="mb-3 h-16 w-16">
-        <BeakerBot
-          pose="idle"
-          alive
-          className="h-full w-full text-sky-400"
-          ariaLabel="BeakerBot"
-        />
-      </div>
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
         {heading}
       </h1>
