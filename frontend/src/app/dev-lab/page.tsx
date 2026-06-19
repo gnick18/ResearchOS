@@ -26,7 +26,7 @@ import { ed25519, x25519 } from "@noble/curves/ed25519.js";
 // Phase 8a: a FRESH lab id. The old 74a805c6 lab predates the email binding, so
 // its head has no emailHashEnc and a login would (correctly) hard-reject. This
 // lab is created WITH the head binding so the happy path goes live.
-const LAB_ID = "8a000000-b1d1-4e00-9000-000000000001";
+const LAB_ID = "8a000000-b1d1-4e00-9000-000000000002";
 
 const btn: React.CSSProperties = {
   padding: "10px 16px", fontSize: 15, color: "white", border: "none",
@@ -219,9 +219,10 @@ export default function DevLabPage() {
   // must reload for the new account_type to take effect, then open /lab-overview.
   const makeMeLabHead = () => run("lab-head", async () => {
     if (!currentUser) return "no current user";
-    await patchUserSettings(currentUser, { account_type: "lab_head" });
+    await patchUserSettings(currentUser, { account_type: "lab_head", lab_id: LAB_ID });
     return (
-      `ACCOUNT TYPE set to lab_head for ${currentUser} ✓\n` +
+      `ACCOUNT TYPE set to lab_head + lab_id=${LAB_ID.slice(0, 8)} for ${currentUser} ✓\n` +
+      `  (lab_id is what the copilot's lab-scoped read resolves the lab from.)\n` +
       `  Now RELOAD this page (or any page), then open /lab-overview and ask\n` +
       `  BeakerBot e.g. "give me a lab pulse" or "summarize spending".`
     );
