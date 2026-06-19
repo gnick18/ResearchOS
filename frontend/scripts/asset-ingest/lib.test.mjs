@@ -1,7 +1,7 @@
 // Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory, tablerCategory, scidrawCategory, servierCategory, swissbiopicsCategory, ebiCategory } from "./lib.mjs";
 
 test("classifyLicense: allowed set", () => {
   for (const [s, id] of [
@@ -148,4 +148,153 @@ test("sanitizeSvg: neutralizes external href but keeps internal #refs", () => {
   assert.ok(!/evil\.test/.test(svg), "external href neutralized");
   assert.ok(/href="#frag"/.test(svg), "internal #ref kept");
   assert.ok(/url\(#grad\)/.test(svg), "gradient ref kept");
+});
+
+// ---------------------------------------------------------------------------
+// New mapper tests: Servier, SwissBioPics, EMBL-EBI.
+
+test("servierCategory: PPTX topic slugs map to curated leaves", () => {
+  assert.equal(servierCategory("Blood-immunology"), "Blood & immunology");
+  assert.equal(servierCategory("Nucleic-acids"), "Nucleic acids");
+  assert.equal(servierCategory("Genetics"), "Genetics");
+  assert.equal(servierCategory("Intracellular-components"), "Intracellular components");
+  assert.equal(servierCategory("Cell-membrane"), "Cell membrane");
+  assert.equal(servierCategory("Receptors-channels"), "Receptors & channels");
+  assert.equal(servierCategory("Oncology"), "Oncology");
+  assert.equal(servierCategory("Tissues"), "Tissues");
+  assert.equal(servierCategory("Microbiology-cell-culture"), "Microbiology");
+  assert.equal(servierCategory("Infectiology"), "Microbiology");
+  assert.equal(servierCategory("Parasitology"), "Parasites");
+  assert.equal(servierCategory("Nervous-system"), "Neuroscience");
+  assert.equal(servierCategory("Heart-physiology"), "Human physiology");
+  assert.equal(servierCategory("Chemistry"), "Chemistry");
+  assert.equal(servierCategory("Lab-apparatus"), "Lab apparatus");
+  assert.equal(servierCategory("Paraclinical-exams"), "Imaging");
+  assert.equal(servierCategory("Animals"), "Animals");
+  assert.equal(servierCategory("People"), "People");
+  assert.equal(servierCategory("Scientific-graphs"), "Scientific graphs");
+  assert.equal(servierCategory("General-items"), "General");
+  // Unknown slug falls through to General.
+  assert.equal(servierCategory("Something-unknown"), "General");
+});
+
+test("servierCategory: CC-BY license is allowed + requires attribution", () => {
+  // Confirm the license used in the Servier adapter passes the policy gate.
+  const lic = classifyLicense("https://creativecommons.org/licenses/by/4.0/");
+  assert.equal(lic.id, "CC-BY");
+  assert.equal(lic.allowed, true);
+  assert.equal(lic.attribution, true);
+});
+
+test("formatCredit: servier uses the Servier Medical Art project name", () => {
+  const c = formatCredit({
+    source: "servier",
+    title: "Heart anatomy",
+    creator: "Servier Medical Art",
+    license: "CC-BY",
+    sourceUrl: "https://smart.servier.com",
+  });
+  assert.match(c, /Servier Medical Art/);
+  assert.match(c, /Heart anatomy/);
+  assert.match(c, /\(CC-BY\)/);
+  // No em-dash in the credit.
+  assert.ok(!c.includes("—"), "no em-dash");
+});
+
+test("swissbiopicsCategory: cell names map to curated leaves", () => {
+  assert.equal(swissbiopicsCategory("Animal_cells"), "Cell types");
+  assert.equal(swissbiopicsCategory("Bacteria1M_rod"), "Bacteria & archaea");
+  assert.equal(swissbiopicsCategory("Bacteria2M_coccus"), "Bacteria & archaea");
+  assert.equal(swissbiopicsCategory("Archaea_cells"), "Bacteria & archaea");
+  assert.equal(swissbiopicsCategory("Fungal_cells"), "Fungi");
+  assert.equal(swissbiopicsCategory("Yeast_cells"), "Fungi");
+  assert.equal(swissbiopicsCategory("Plant_cells"), "Plants & algae");
+  assert.equal(swissbiopicsCategory("Neuron_cells"), "Cell types");
+  assert.equal(swissbiopicsCategory("Muscle_cells"), "Cell types");
+  assert.equal(swissbiopicsCategory("Eukaryota_cells"), "Cell types");
+  assert.equal(swissbiopicsCategory("Trypanosoma"), "Parasites");
+  assert.equal(swissbiopicsCategory("Apicomplexa_cells"), "Parasites");
+  // Default fallback.
+  assert.equal(swissbiopicsCategory("Spermatozoa_cell"), "Cell types");
+});
+
+test("formatCredit: swissbiopics credits SIB with CC-BY", () => {
+  const c = formatCredit({
+    source: "swissbiopics",
+    title: "Animal cells",
+    creator: "SIB Swiss Institute of Bioinformatics",
+    license: "CC-BY",
+    sourceUrl: "https://www.swissbiopics.org",
+  });
+  assert.match(c, /SwissBioPics/);
+  assert.match(c, /SIB Swiss Institute of Bioinformatics/);
+  assert.match(c, /\(CC-BY\)/);
+});
+
+test("ebiCategory: species names map to correct organism leaves", () => {
+  // Mammals.
+  assert.equal(ebiCategory("species", "human"), "Mammals");
+  assert.equal(ebiCategory("species", "mouse"), "Mammals");
+  assert.equal(ebiCategory("species", "rat"), "Mammals");
+  assert.equal(ebiCategory("species", "pig"), "Mammals");
+  // Birds.
+  assert.equal(ebiCategory("species", "chicken"), "Birds");
+  assert.equal(ebiCategory("species", "finch"), "Birds");
+  // Fish.
+  assert.equal(ebiCategory("species", "zebrafish"), "Fishes");
+  assert.equal(ebiCategory("species", "pufferfish"), "Fishes");
+  // Insects.
+  assert.equal(ebiCategory("species", "fly"), "Insects");
+  assert.equal(ebiCategory("species", "mosquito"), "Insects");
+  // Arachnids.
+  assert.equal(ebiCategory("species", "spider"), "Arachnids");
+  assert.equal(ebiCategory("species", "tick"), "Arachnids");
+  // Molluscs.
+  assert.equal(ebiCategory("species", "snail"), "Molluscs");
+  // Microbes.
+  assert.equal(ebiCategory("species", "ecoli"), "Microbiology");
+  assert.equal(ebiCategory("species", "yeast"), "Microbiology");
+  assert.equal(ebiCategory("species", "virus"), "Microbiology");
+  // Worms.
+  assert.equal(ebiCategory("species", "c-elegans"), "Worms");
+  // Plants.
+  assert.equal(ebiCategory("species", "barley"), "Plants & algae");
+  assert.equal(ebiCategory("species", "rice"), "Plants & algae");
+  // Unknown species -> Animals (conservative fallback).
+  assert.equal(ebiCategory("species", "unknown-critter"), "Animals");
+});
+
+test("ebiCategory: conceptual and format dirs map to bioinformatics leaves", () => {
+  assert.equal(ebiCategory("conceptual", "dna"), "Nucleic acids");
+  assert.equal(ebiCategory("conceptual", "proteins"), "Peptides");
+  assert.equal(ebiCategory("conceptual", "chemical"), "Chemistry");
+  assert.equal(ebiCategory("conceptual", "ontology"), "Bioinformatics");
+  assert.equal(ebiCategory("fileformats", "FASTA"), "Bioinformatics");
+  assert.equal(ebiCategory("fileformats", "BAM"), "Bioinformatics");
+  assert.equal(ebiCategory("chemistry", "direction_left"), "Chemistry");
+  assert.equal(ebiCategory("functional", "analyse"), "Scientific graphs");
+  assert.equal(ebiCategory("generic", "something"), "General");
+});
+
+test("formatCredit: ebi carries CC-BY-SA in the credit label", () => {
+  // This is the critical orchestrator requirement: CC-BY-SA must appear in
+  // the formatted credit string so downstream citation tools see the SA term.
+  const c = formatCredit({
+    source: "ebi",
+    title: "human",
+    creator: "EMBL-EBI",
+    license: "CC-BY-SA",
+    sourceUrl: "https://github.com/ebiwd/EBI-Icon-fonts/blob/v1.3/source/species/human.svg",
+  });
+  assert.match(c, /EMBL-EBI/);
+  assert.match(c, /CC-BY-SA/);
+  assert.match(c, /human/);
+});
+
+test("classifyLicense: CC-BY-SA 4.0 is allowed with attribution and share-alike id", () => {
+  // Confirms the license used by EMBL-EBI passes the ingest gate AND carries the right id.
+  const lic = classifyLicense("https://creativecommons.org/licenses/by-sa/4.0/");
+  assert.equal(lic.id, "CC-BY-SA");
+  assert.equal(lic.allowed, true);
+  assert.equal(lic.attribution, true);
 });

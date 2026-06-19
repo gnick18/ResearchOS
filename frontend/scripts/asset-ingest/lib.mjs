@@ -84,6 +84,18 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // SciDraw is CC-BY; credit the drawing authors + SciDraw + the DOI when present.
     return `${title} by ${who}. SciDraw. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "servier") {
+    // Servier Medical Art is CC BY 4.0; credit the project by its full name.
+    return `${title}. Servier Medical Art. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "swissbiopics") {
+    // SwissBioPics is CC BY 4.0; credit SIB and the SwissBioPics project.
+    return `${title}. SwissBioPics by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "ebi") {
+    // EMBL-EBI Icon Fonts SVGs are CC BY-SA 4.0; credit EMBL-EBI and note the SA term.
+    return `${title}. EMBL-EBI Icon Fonts by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
@@ -175,6 +187,135 @@ export function scidrawCategory(raw) {
   if (/chemi|molecul|reaction|compound/.test(t)) return "Chemistry";
   if (/apparatus|equipment|instrument|microscope|lab|syringe|tube|pipette|flask|beaker|vial|plate|dish|tip|centrifuge|cuvette|well/.test(t)) return "Lab apparatus";
   if (/plot|chart|data/.test(t)) return "Scientific graphs";
+  return "General";
+}
+
+// ---------------------------------------------------------------------------
+// New source category mappers (Servier, SwissBioPics, EMBL-EBI).
+
+/** Servier Medical Art PPTX topic slug (e.g. "Blood-immunology") -> curated taxonomy leaf.
+ *  The slug is derived from the PPTX filename: "SMART-Blood-immunology.pptx" -> "Blood-immunology". */
+const SERVIER_CATEGORY = {
+  "blood-immunology": "Blood & immunology",
+  "nucleic-acids": "Nucleic acids",
+  "genetics": "Genetics",
+  "intracellular-components": "Intracellular components",
+  "cell-membrane": "Cell membrane",
+  "receptors-channels": "Receptors & channels",
+  "oncology": "Oncology",
+  "tissues": "Tissues",
+  "microbiology-cell-culture": "Microbiology",
+  "infectiology": "Microbiology",
+  "parasitology": "Parasites",
+  "nervous-system": "Neuroscience",
+  "neural-cells": "Neuroscience",
+  "bones": "Human physiology",
+  "bone-structure": "Human physiology",
+  "bone-fractures": "Human physiology",
+  "arteries-physiology": "Human physiology",
+  "arteries-pathophysiology": "Human physiology",
+  "arteries-atherothrombosis": "Human physiology",
+  "heart-physiology": "Human physiology",
+  "heart-pathophysiology": "Human physiology",
+  "lymphatic-system": "Human physiology",
+  "urinary-system": "Human physiology",
+  "veins": "Human physiology",
+  "respiratory-system": "Human physiology",
+  "digestive-system": "Human physiology",
+  "endocrinology": "Human physiology",
+  "diabetes": "Human physiology",
+  "reproduction": "Human physiology",
+  "dermatology": "Human physiology",
+  "ophthalmology": "Human physiology",
+  "ent": "Human physiology",
+  "embryology": "Cell types",
+  "muscles": "Human physiology",
+  "lipids": "Chemistry",
+  "chemistry": "Chemistry",
+  "drugs": "Chemistry",
+  "lab-apparatus": "Lab apparatus",
+  "medical-acts": "Procedures",
+  "medical-equipment": "Lab apparatus",
+  "emergency-equipment": "Lab apparatus",
+  "paraclinical-exams": "Imaging",
+  "risk-factors": "Human physiology",
+  "animals": "Animals",
+  "dietetics": "General",
+  "general-items": "General",
+  "people": "People",
+  "scientific-graphs": "Scientific graphs",
+  "world-maps": "General",
+};
+export function servierCategory(slug) {
+  const k = (slug || "").toLowerCase().replace(/\s+/g, "-");
+  return SERVIER_CATEGORY[k] || "General";
+}
+
+/** SwissBioPics image name (e.g. "Animal_cells", "Bacteria2M_rod") -> curated taxonomy leaf. */
+export function swissbiopicsCategory(name) {
+  const t = (name || "").toLowerCase();
+  if (/^bacteria|^archaea|^mollicutes/.test(t)) return "Bacteria & archaea";
+  if (/^fung|^yeast|^pombe/.test(t)) return "Fungi";
+  if (/^animal|^muscle|^epithelial|^neuron|^photoreceptor|^egg|^spermatozoa|^cnidocyte|^host/.test(t)) return "Cell types";
+  if (/^plant|^chlamydomona/.test(t)) return "Plants & algae";
+  if (/^eukaryota/.test(t)) return "Cell types";
+  if (/^trypanosoma|^apicomplexa/.test(t)) return "Parasites";
+  return "Intracellular components";
+}
+
+/** EMBL-EBI Icon Fonts source directory + filename -> curated taxonomy leaf.
+ *  dir is the subdirectory name within source/ (e.g. "species", "fileformats"). */
+const EBI_SPECIES_MAMMALS = new Set([
+  "alpaca", "armadillo", "bat", "cat", "chimpanzee", "cow", "dog", "dolphin", "elephant",
+  "ferret", "goat", "gorilla", "guinea-pig", "hedgehog", "horse", "human", "kangaroo-rat",
+  "marmoset", "monkey", "monodelphis", "mouse", "mouse-lemur", "orangutan", "papio", "pig",
+  "platypus", "rabbit", "rat", "sheep", "shrew", "squirrel", "wallaby",
+]);
+const EBI_SPECIES_BIRDS = new Set(["chicken", "finch"]);
+const EBI_SPECIES_FISH = new Set(["pufferfish", "ray", "zebrafish"]);
+const EBI_SPECIES_INSECTS = new Set(["bee", "fly", "louse", "mosquito"]);
+const EBI_SPECIES_ARACHNIDS = new Set(["scorpion", "spider", "tick"]);
+const EBI_SPECIES_MOLLUSCS = new Set(["snail"]);
+const EBI_SPECIES_MICROBES = new Set(["amoeba", "aspergillus", "diatom", "ecoli", "fungus", "plasmodium", "virus", "yeast"]);
+const EBI_SPECIES_WORMS = new Set(["c-elegans"]);
+const EBI_SPECIES_PLANTS = new Set(["barley", "brachypodium", "brassica", "corn", "glycinemax", "grapes", "plant", "rice", "tomatoes"]);
+const EBI_SPECIES_REPTILES = new Set(["anolis"]);
+const EBI_SPECIES_AMPHIBIANS = new Set(["frog"]);
+
+export function ebiCategory(dir, name) {
+  if (dir === "species") {
+    if (EBI_SPECIES_MAMMALS.has(name)) return "Mammals";
+    if (EBI_SPECIES_BIRDS.has(name)) return "Birds";
+    if (EBI_SPECIES_FISH.has(name)) return "Fishes";
+    if (EBI_SPECIES_INSECTS.has(name)) return "Insects";
+    if (EBI_SPECIES_ARACHNIDS.has(name)) return "Arachnids";
+    if (EBI_SPECIES_MOLLUSCS.has(name)) return "Molluscs";
+    if (EBI_SPECIES_MICROBES.has(name)) return "Microbiology";
+    if (EBI_SPECIES_WORMS.has(name)) return "Worms";
+    if (EBI_SPECIES_PLANTS.has(name)) return "Plants & algae";
+    if (EBI_SPECIES_REPTILES.has(name)) return "Reptiles";
+    if (EBI_SPECIES_AMPHIBIANS.has(name)) return "Amphibians";
+    return "Animals";
+  }
+  if (dir === "conceptual") {
+    if (/dna|rna|nucleic/.test(name)) return "Nucleic acids";
+    if (/protein|structure/.test(name)) return "Peptides";
+    if (/chemical|chem/.test(name)) return "Chemistry";
+    if (/ontology|systems|expression|literature|cross-domain/.test(name)) return "Bioinformatics";
+    return "Bioinformatics";
+  }
+  if (dir === "fileformats") return "Bioinformatics";
+  if (dir === "chemistry") return "Chemistry";
+  if (dir === "functional") {
+    if (/database|submit|download|browse/.test(name)) return "Bioinformatics";
+    if (/analyse|compare|filter|graph/.test(name)) return "Scientific graphs";
+    if (/sequence|dna|protein/.test(name)) return "Molecular biology";
+    return "General";
+  }
+  if (dir === "generic") {
+    if (/database|data/.test(name)) return "Bioinformatics";
+    return "General";
+  }
   return "General";
 }
 
