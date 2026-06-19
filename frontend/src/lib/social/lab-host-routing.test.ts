@@ -187,10 +187,34 @@ describe("resolveAppOriginLabRedirect (app-origin -> subdomain 308)", () => {
     ).toBe("https://smithlab.research-os.com/results/figure-2");
   });
 
-  it("normalizes a mixed-case first segment to the canonical slug host", () => {
-    expect(
-      resolveAppOriginLabRedirect({ host: APP, pathname: "/Smith_Lab", enabled: true }),
-    ).toBe("https://smith-lab.research-os.com");
+  it("does NOT redirect a root STATIC FILE (the frappe-gantt.css regression)", () => {
+    // The matcher excludes .svg/.png but not .css/.txt/.xml/.json, so these reach
+    // the middleware. The first segment has a dot, so it must pass through. An
+    // earlier normalizeSlug-first version turned "frappe-gantt.css" into the
+    // slug-shaped "frappe-gantt-css" and 308ed it to a phantom subdomain, breaking
+    // the Gantt stylesheet + robots/sitemap/manifest in prod.
+    for (const p of [
+      "/frappe-gantt.css",
+      "/robots.txt",
+      "/sitemap.xml",
+      "/manifest.json",
+      "/sw.js",
+      "/something.map",
+    ]) {
+      expect(
+        resolveAppOriginLabRedirect({ host: APP, pathname: p, enabled: true }),
+      ).toBeNull();
+    }
+  });
+
+  it("does NOT redirect a mixed-case / underscored path (not a real lab link)", () => {
+    // A real lab citation link uses the stored, already-lowercase slug, so anything
+    // needing normalization is not a lab link and must pass through (no rescue).
+    for (const p of ["/Smith_Lab", "/SmithLab", "/lab_one"]) {
+      expect(
+        resolveAppOriginLabRedirect({ host: APP, pathname: p, enabled: true }),
+      ).toBeNull();
+    }
   });
 
   it("never redirects a reserved app route (so the app keeps working)", () => {
