@@ -15,14 +15,15 @@ import { describe, it, expect, vi } from "vitest";
 // import graph, while the registry/read-my-work path resolves fine).
 vi.mock("@/lib/lab/lab-scoped-read", () => ({ readLabMembersWork: vi.fn() }));
 vi.mock("@/lib/lab/lab-index-search", () => ({ searchLabIndex: vi.fn() }));
-// Phase 2: stub local-api so the default instance wiring does not pull the real
-// API into the module graph during tests.
+// Phase 2 + 3: stub local-api so the default instance wiring does not pull
+// the real API into the module graph during tests.
 vi.mock("@/lib/local-api", () => ({
   oneOnOnesApi: { list: vi.fn(), create: vi.fn() },
   labApi: { getOneOnOneActionItems: vi.fn(), getOneOnOneNotes: vi.fn() },
   checkinRotationsApi: { getForSpace: vi.fn() },
   checkinOnboardingApi: { createForSpace: vi.fn() },
   idpsApi: { getStatusForMember: vi.fn() },
+  purchasesApi: { listFundingAccounts: vi.fn() },
 }));
 
 import {
@@ -32,6 +33,8 @@ import {
   makePrepOneOnOneTool,
   makeLabMeetingPrepTool,
   makeOnboardMemberTool,
+  makeGrantTaggedRollupTool,
+  makeProgressReportScaffoldTool,
   LAB_HEAD_TOOLS,
   type LabPulseDeps,
   type FindAcrossLabDeps,
@@ -39,6 +42,8 @@ import {
   type PrepOneOnOneDeps,
   type LabMeetingPrepDeps,
   type OnboardMemberDeps,
+  type GrantTaggedRollupDeps,
+  type ProgressReportScaffoldDeps,
 } from "../lab-head";
 
 // ---------------------------------------------------------------------------
@@ -441,7 +446,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly six tools in the expected order", () => {
+  it("exports exactly eight tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -450,6 +455,8 @@ describe("LAB_HEAD_TOOLS", () => {
       "prep_one_on_one",
       "lab_meeting_prep",
       "onboard_member",
+      "grant_tagged_rollup",
+      "progress_report_scaffold",
     ]);
   });
 
@@ -870,5 +877,469 @@ describe("onboard_member", () => {
     const res = (await tool.execute({ member: "" })) as Record<string, unknown>;
     expect(res.ok).toBe(false);
     expect(deps.createOneOnOne).not.toHaveBeenCalled();
+  });
+});
+
+// ===========================================================================
+// Phase 3: Grants tools
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Helpers for Phase 3 tests
+// ---------------------------------------------------------------------------
+
+function makeFundingAccount(
+  id: number,
+  name: string,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    name,
+    description: null,
+    total_budget: 100000,
+    award_number: null,
+    funder_name: null,
+    award_title: null,
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// grant_tagged_rollup
+// ---------------------------------------------------------------------------
+
+describe("grant_tagged_rollup", () => {
+  it("counts direct-linked projects and purchases for a grant", async () => {
+    const GRANT_ID = 42;
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Project directly linked to grant 42.
+              makeRecord("project", "p1", {
+                id: 1,
+                name: "Sequencing Project",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(5),
+              }),
+              // Project NOT linked to this grant.
+              makeRecord("project", "p2", {
+                id: 2,
+                name: "Other Project",
+                funding_account_id: 99,
+                updated_at: isoAgo(5),
+              }),
+              // Purchase directly linked to grant 42.
+              makeRecord("purchase_item", "pu1", {
+                item_name: "Reagent A",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(3),
+              }),
+              // Purchase linked to a different grant.
+              makeRecord("purchase_item", "pu2", {
+                item_name: "Reagent B",
+                funding_account_id: 99,
+                updated_at: isoAgo(3),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NIH R01")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    expect(res.hasGrant).toBe(true);
+    expect(res.hasLab).toBe(true);
+    const grant = res.grant as Record<string, unknown>;
+    expect(grant.id).toBe(GRANT_ID);
+    expect(grant.name).toBe("NIH R01");
+    const totals = res.totals as Record<string, number>;
+    expect(totals.projects).toBe(1);
+    expect(totals.purchases).toBe(1);
+    expect(totals.tasks).toBe(0);
+  });
+
+  it("reverse-maps tasks through their project_id to the grant", async () => {
+    const GRANT_ID = 7;
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "bob",
+            records: [
+              // Project linked to grant 7 with numeric id=10.
+              makeRecord("project", "p10", {
+                id: 10,
+                name: "Lab Infrastructure",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(2),
+              }),
+              // Task in project 10 -- should be counted via reverse-map.
+              makeRecord("task", "t1", {
+                name: "Order columns",
+                project_id: 10,
+                updated_at: isoAgo(1),
+              }),
+              // Task in a different project -- should NOT be counted.
+              makeRecord("task", "t2", {
+                name: "Unrelated task",
+                project_id: 99,
+                updated_at: isoAgo(1),
+              }),
+              // task_experiment in project 10 -- also reverse-mapped.
+              makeRecord("task_experiment", "te1", {
+                name: "Gel electrophoresis",
+                project_id: 10,
+                updated_at: isoAgo(1),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NSF Grant")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    expect(res.hasGrant).toBe(true);
+    const totals = res.totals as Record<string, number>;
+    expect(totals.projects).toBe(1);
+    // task t1 + task_experiment te1 both reverse-map to grant 7.
+    expect(totals.tasks).toBe(2);
+  });
+
+  it("provides a per-member breakdown", async () => {
+    const GRANT_ID = 5;
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("project", "p1", {
+                id: 1,
+                name: "Alice Project",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(3),
+              }),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord("purchase_item", "pu1", {
+                item_name: "Tubes",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(2),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "Lab Grant")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    const members = res.members as Array<Record<string, number | string>>;
+    const alice = members.find((m) => m.owner === "alice");
+    const bob = members.find((m) => m.owner === "bob");
+    expect(alice?.projects).toBe(1);
+    expect(alice?.purchases).toBe(0);
+    expect(bob?.projects).toBe(0);
+    expect(bob?.purchases).toBe(1);
+  });
+
+  it("degrades to hasGrant:false when the grant id is not found", async () => {
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () => makeReadResult([{ owner: "alice", records: [] }]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(1, "Some Grant")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: 999 })) as Record<string, unknown>;
+    expect(res.hasGrant).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("degrades to hasLab:false when readWork fails", async () => {
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(42, "NIH R01")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: 42 })) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("tasks from a different owner do not cross-contaminate via project_id", async () => {
+    // Alice has project id=1 linked to grant 7. Bob also has a task with
+    // project_id=1, but Bob's project 1 is NOT linked to the grant. The
+    // reverse-map must be per-owner so Bob's task is not counted.
+    const GRANT_ID = 7;
+    const deps: GrantTaggedRollupDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("project", "p1", {
+                id: 1,
+                name: "Grant Project",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(2),
+              }),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              // Bob's project 1 is NOT linked to the grant.
+              makeRecord("project", "p1b", {
+                id: 1,
+                name: "Bob's Other Project",
+                funding_account_id: null,
+                updated_at: isoAgo(2),
+              }),
+              // Bob's task in project 1 -- should NOT be counted because
+              // Bob's project 1 has no grant link.
+              makeRecord("task", "t1", {
+                name: "Bob's task",
+                project_id: 1,
+                updated_at: isoAgo(1),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NSF Grant")] as never,
+    };
+    const tool = makeGrantTaggedRollupTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    // Only Alice's project counts; Bob's task must not be reverse-mapped.
+    expect(totals.projects).toBe(1);
+    expect(totals.tasks).toBe(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// progress_report_scaffold
+// ---------------------------------------------------------------------------
+
+describe("progress_report_scaffold", () => {
+  it("aggregates accomplishments (experiments + results) within the period", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("experiment", "e1", {
+                title: "Western blot",
+                updated_at: isoAgo(10),
+              }),
+              makeRecord("result_sheet", "r1", {
+                updated_at: isoAgo(5),
+              }),
+              // Outside period: 400 days ago.
+              makeRecord("experiment", "e_old", {
+                title: "Old experiment",
+                updated_at: isoAgo(400),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const sections = res.sections as Record<string, unknown>;
+    const acc = sections.accomplishments as Record<string, unknown>;
+    // e1 is in period; e_old (400 days ago) is outside the default 365-day window.
+    expect(acc.experiments).toBe(1);
+    expect(acc.results).toBe(1);
+    // Title from e1 is captured.
+    expect((acc.titles as string[]).includes("Western blot")).toBe(true);
+  });
+
+  it("aggregates products section for depositable output types", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("sequence", "s1", { name: "GFP sequence", updated_at: isoAgo(5) }),
+              makeRecord("molecule", "m1", { name: "Ethanol", updated_at: isoAgo(3) }),
+              makeRecord("method", "me1", { name: "RNA extraction", updated_at: isoAgo(2) }),
+              // Not a depositable output type.
+              makeRecord("task", "t1", { name: "Some task", updated_at: isoAgo(1) }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const sections = res.sections as Record<string, unknown>;
+    const products = sections.products as Record<string, unknown>;
+    const counts = products.counts as Record<string, number>;
+    expect(counts.sequence).toBe(1);
+    expect(counts.molecule).toBe(1);
+    expect(counts.method).toBe(1);
+    // The products note about deposits is always present.
+    expect(typeof products.note).toBe("string");
+    expect((products.note as string).length).toBeGreaterThan(10);
+  });
+
+  it("participants section has a per-member breakdown", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("experiment", "e1", { updated_at: isoAgo(5) }),
+              makeRecord("result_sheet", "r1", { updated_at: isoAgo(3) }),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord("experiment", "e2", { updated_at: isoAgo(2) }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const sections = res.sections as Record<string, unknown>;
+    const participants = sections.participants as Record<string, unknown>;
+    const members = participants.members as Array<Record<string, unknown>>;
+    const alice = members.find((m) => m.owner === "alice");
+    const bob = members.find((m) => m.owner === "bob");
+    expect(alice?.experiments).toBe(1);
+    expect(alice?.results).toBe(1);
+    expect(bob?.experiments).toBe(1);
+    expect(bob?.results).toBe(0);
+  });
+
+  it("narrows to grant-tagged records when grantId is given", async () => {
+    const GRANT_ID = 3;
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "carol",
+            records: [
+              // Project linked to the grant.
+              makeRecord("project", "p1", {
+                id: 1,
+                name: "Grant Project",
+                funding_account_id: GRANT_ID,
+                updated_at: isoAgo(5),
+              }),
+              // Experiment in that project (reverse-mapped).
+              makeRecord("task_experiment", "te1", {
+                name: "PCR run",
+                project_id: 1,
+                updated_at: isoAgo(4),
+              }),
+              // Experiment in a different project (NOT grant-tagged).
+              makeRecord("task_experiment", "te2", {
+                name: "Unrelated run",
+                project_id: 99,
+                updated_at: isoAgo(3),
+              }),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NIH R01")] as never,
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const grant = res.grant as Record<string, unknown>;
+    expect(grant.id).toBe(GRANT_ID);
+    const sections = res.sections as Record<string, unknown>;
+    const acc = sections.accomplishments as Record<string, unknown>;
+    // Only te1 (reverse-mapped to the grant) should count; te2 is not grant-tagged.
+    expect(acc.experiments).toBe(1);
+  });
+
+  it("uses the default period (365 days) when args are omitted", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    // periodStart and periodEnd should be ISO strings.
+    expect(typeof res.periodStart).toBe("string");
+    expect(typeof res.periodEnd).toBe("string");
+    // periodStart should be approximately 365 days before periodEnd.
+    const start = new Date(res.periodStart as string).getTime();
+    const end = new Date(res.periodEnd as string).getTime();
+    const diffDays = (end - start) / (1000 * 60 * 60 * 24);
+    expect(diffDays).toBeGreaterThan(364);
+    expect(diffDays).toBeLessThan(366);
+  });
+
+  it("falls back to defaults when ISO strings are invalid", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    // Pass invalid dates; the tool should not throw and should use defaults.
+    const res = (await tool.execute({
+      periodStart: "not-a-date",
+      periodEnd: "also-bad",
+    })) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    expect(typeof res.periodStart).toBe("string");
+    expect(typeof res.periodEnd).toBe("string");
+  });
+
+  it("degrades to hasLab:false when readWork fails", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+
+  it("the note string on the top-level result is always present", async () => {
+    const deps: ProgressReportScaffoldDeps = {
+      readWork: async () =>
+        makeReadResult([{ owner: "alice", records: [] }]),
+      listFundingAccounts: async () => [],
+    };
+    const tool = makeProgressReportScaffoldTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(typeof res.note).toBe("string");
+    expect((res.note as string).length).toBeGreaterThan(10);
   });
 });

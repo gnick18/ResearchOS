@@ -27,6 +27,7 @@ import {
   checkinRotationsApi,
   checkinOnboardingApi,
   idpsApi,
+  purchasesApi,
 } from "@/lib/local-api";
 import type {
   OneOnOne,
@@ -34,6 +35,7 @@ import type {
   Note,
   CheckinRotation,
   CheckinOnboarding,
+  FundingAccount,
 } from "@/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -939,15 +941,581 @@ export const onboardMemberTool = makeOnboardMemberTool({
     checkinOnboardingApi.createForSpace(spaceId),
 });
 
+// ===========================================================================
+// Phase 3: Grants tools
+// ===========================================================================
+//
+// Two tools support the PI's grant-reporting work: grant_tagged_rollup returns
+// every lab record tagged to a specific grant (direct links on projects and
+// purchases, plus tasks reverse-mapped through their project), and
+// progress_report_scaffold assembles an RPPR-style scaffold over a date window.
+//
+// The tool owns every number and every record link. The model only narrates.
+// The tool NEVER claims significance or impact. The PI writes the narrative.
+//
+// Audit path: both tools call readLabMembersWork (readWork) which writes an
+// audit entry to each member's log. The fundingAccounts read is the PI's own
+// local store -- no additional audit entry is written for that fetch.
+//
+// Markdown sheets (result_sheet, notes_sheet): parseRecord returns null for
+// these because they are UTF-8 prose, not JSON. For counts that is fine
+// (we count by recordType regardless of parse success). When we need a title
+// from a markdown sheet, we decode the plaintext as UTF-8 and take the first
+// non-empty line; we do not assume JSON.
+//
+// dmsp_compliance is NOT built: no deposit-record infrastructure exists.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Helpers -- Phase 3
+// ---------------------------------------------------------------------------
+
+/**
+ * Decode a Uint8Array as UTF-8 and return the first non-empty trimmed line.
+ * Used to extract a title from markdown sheets (result_sheet, notes_sheet)
+ * where parseRecord returns null. Returns null when the buffer is empty or
+ * has no non-empty line.
+ */
+function firstMarkdownLine(plain: Uint8Array): string | null {
+  try {
+    const text = new TextDecoder().decode(plain);
+    for (const line of text.split("\n")) {
+      const trimmed = line.replace(/^#+\s*/, "").trim();
+      if (trimmed) return trimmed;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Return a display-friendly title from a record. Tries JSON title/name first
+ * (via parseRecord), then falls back to firstMarkdownLine for sheets.
+ */
+function recordTitle(
+  plain: Uint8Array,
+  recordType: string,
+): string | null {
+  const parsed = parseRecord(plain);
+  if (parsed) {
+    const t =
+      (parsed.title as string | undefined) ??
+      (parsed.name as string | undefined);
+    if (t) return t;
+  }
+  // Markdown sheets carry no JSON title; try first heading line.
+  if (recordType === "result_sheet" || recordType === "notes_sheet") {
+    return firstMarkdownLine(plain);
+  }
+  return null;
+}
+
+/**
+ * Return true when a record's best timestamp falls within the window
+ * [windowStart, windowEnd]. Both boundaries are inclusive.
+ */
+function isWithinWindow(
+  rec: Record<string, unknown>,
+  windowStart: Date,
+  windowEnd: Date,
+): boolean {
+  const stamp =
+    (rec.updated_at as string | undefined) ??
+    (rec.updatedAt as string | undefined) ??
+    (rec.created_at as string | undefined);
+  if (!stamp) return false;
+  const d = new Date(stamp);
+  if (isNaN(d.getTime())) return false;
+  return d.getTime() >= windowStart.getTime() && d.getTime() <= windowEnd.getTime();
+}
+
+// ---------------------------------------------------------------------------
+// Dep types -- Phase 3
+// ---------------------------------------------------------------------------
+
+export interface GrantTaggedRollupDeps {
+  readWork: typeof readLabMembersWork;
+  listFundingAccounts: () => Promise<FundingAccount[]>;
+}
+
+export interface ProgressReportScaffoldDeps {
+  readWork: typeof readLabMembersWork;
+  listFundingAccounts: () => Promise<FundingAccount[]>;
+}
+
+// ---------------------------------------------------------------------------
+// grant_tagged_rollup (factory)
+// ---------------------------------------------------------------------------
+
+export function makeGrantTaggedRollupTool(
+  deps: GrantTaggedRollupDeps,
+): AiTool {
+  return {
+    name: "grant_tagged_rollup",
+    description:
+      "Roll up all lab records tagged to a specific grant (funding account). Returns direct-linked projects and purchases, plus tasks reverse-mapped through their project's grant link. Produces a per-member breakdown and a flat recordLinks list. Read-only. Lab-head only. The tool supplies counts and record links; the PI writes narrative and the model never claims significance.",
+    parameters: {
+      type: "object",
+      properties: {
+        grantId: {
+          type: "number",
+          description:
+            "The funding account id to roll up (required). Find ids via the Funding section or by asking which grants exist.",
+        },
+      },
+      required: ["grantId"],
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const grantId =
+        typeof args.grantId === "number" ? args.grantId : null;
+      if (grantId === null) {
+        return {
+          hasGrant: false,
+          note: "grantId is required and must be a number.",
+        };
+      }
+
+      // Resolve the funding account from the PI's own store (no audit entry).
+      let accounts: FundingAccount[];
+      try {
+        accounts = await deps.listFundingAccounts();
+      } catch {
+        accounts = [];
+      }
+      const grant = accounts.find((a) => a.id === grantId) ?? null;
+      if (!grant) {
+        return {
+          hasGrant: false,
+          note: `No funding account with id ${grantId} was found. Check the grant id and try again.`,
+        };
+      }
+
+      // Audited lab-scoped read.
+      const workResult = await deps.readWork({});
+      if (!workResult.ok || workResult.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      // Per-member aggregation.
+      //
+      // Grant-G project ids are PER-OWNER because numeric ids live in each
+      // user's local folder and may collide across users. We track
+      // (owner, project_id) pairs via a Map<owner, Set<project_id>>.
+      //
+      // Task reverse-map: a task belongs to grant G when its project_id is
+      // in the set of grant-G project ids for the SAME owner.
+      //
+      // Purchase direct-link: a purchase (recordType "purchase" or
+      // "purchase_item") carries funding_account_id directly.
+
+      interface RecordLink {
+        owner: string;
+        recordType: string;
+        recordId: string;
+        title: string | null;
+      }
+
+      interface MemberBreakdown {
+        owner: string;
+        projects: number;
+        tasks: number;
+        purchases: number;
+        readError: string | null;
+      }
+
+      const recordLinks: RecordLink[] = [];
+      const memberBreakdowns: MemberBreakdown[] = [];
+
+      let totalProjects = 0;
+      let totalTasks = 0;
+      let totalPurchases = 0;
+
+      for (const member of workResult.members) {
+        // Pass 1: collect grant-G project ids for this owner.
+        const grantProjectIds = new Set<number>();
+        for (const r of member.records) {
+          if (r.recordType === "project") {
+            const parsed = parseRecord(r.plaintext);
+            if (
+              parsed &&
+              (parsed.funding_account_id as number | null | undefined) ===
+                grantId
+            ) {
+              const pid = parsed.id as number | undefined;
+              if (typeof pid === "number") grantProjectIds.add(pid);
+            }
+          }
+        }
+
+        let mProjects = 0;
+        let mTasks = 0;
+        let mPurchases = 0;
+
+        // Pass 2: collect all grant-tagged records.
+        for (const r of member.records) {
+          const type = r.recordType;
+
+          if (type === "project") {
+            const parsed = parseRecord(r.plaintext);
+            if (
+              parsed &&
+              (parsed.funding_account_id as number | null | undefined) ===
+                grantId
+            ) {
+              mProjects += 1;
+              recordLinks.push({
+                owner: member.owner,
+                recordType: type,
+                recordId: r.recordId,
+                title: recordTitle(r.plaintext, type),
+              });
+            }
+          } else if (type === "task" || type === "list_task" || type === "task_experiment") {
+            // Tasks reverse-map through project_id -> grant.
+            const parsed = parseRecord(r.plaintext);
+            if (parsed) {
+              const pid = parsed.project_id as number | undefined | null;
+              if (typeof pid === "number" && grantProjectIds.has(pid)) {
+                mTasks += 1;
+                recordLinks.push({
+                  owner: member.owner,
+                  recordType: type,
+                  recordId: r.recordId,
+                  title: recordTitle(r.plaintext, type),
+                });
+              }
+            }
+          } else if (type === "purchase" || type === "purchase_item") {
+            // Purchases carry funding_account_id directly.
+            const parsed = parseRecord(r.plaintext);
+            if (
+              parsed &&
+              (parsed.funding_account_id as number | null | undefined) ===
+                grantId
+            ) {
+              mPurchases += 1;
+              recordLinks.push({
+                owner: member.owner,
+                recordType: type,
+                recordId: r.recordId,
+                title: recordTitle(r.plaintext, type),
+              });
+            }
+          }
+        }
+
+        totalProjects += mProjects;
+        totalTasks += mTasks;
+        totalPurchases += mPurchases;
+
+        memberBreakdowns.push({
+          owner: member.owner,
+          projects: mProjects,
+          tasks: mTasks,
+          purchases: mPurchases,
+          readError: member.error ?? null,
+        });
+      }
+
+      return {
+        hasGrant: true,
+        hasLab: true,
+        grant: {
+          id: grant.id,
+          name: grant.name,
+          awardNumber: grant.award_number ?? null,
+          funderName: grant.funder_name ?? null,
+          awardTitle: grant.award_title ?? null,
+        },
+        totals: {
+          projects: totalProjects,
+          tasks: totalTasks,
+          purchases: totalPurchases,
+        },
+        members: memberBreakdowns,
+        recordLinks,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// progress_report_scaffold (factory)
+// ---------------------------------------------------------------------------
+
+// Depositable output record types for the "products" RPPR section. These are
+// the record types that represent lab outputs which could eventually be
+// deposited externally. deposit/zenodo_deposit are NOT listed here because
+// deposit tracking is external to ResearchOS (see the products note string).
+const DEPOSITABLE_OUTPUT_TYPES = new Set([
+  "datahub",
+  "sequence",
+  "phylo",
+  "molecule",
+  "method",
+]);
+
+export function makeProgressReportScaffoldTool(
+  deps: ProgressReportScaffoldDeps,
+): AiTool {
+  return {
+    name: "progress_report_scaffold",
+    description:
+      "Assemble an RPPR-style progress report scaffold for a grant period. Aggregates accomplishments (experiments + result sheets), products (depositable outputs), and participant counts from the lab's synced records within the date window. Optionally restricts to records tagged to a specific grant. The tool supplies counts, record titles, and a section structure; it NEVER writes narrative and NEVER claims significance or impact. The PI writes the narrative. Lab-head only. Read-only.",
+    parameters: {
+      type: "object",
+      properties: {
+        grantId: {
+          type: "number",
+          description:
+            "Optional. When given, restrict to records tagged to this funding account id. When omitted, covers the whole lab.",
+        },
+        periodStart: {
+          type: "string",
+          description:
+            "ISO 8601 date string for the start of the reporting period (inclusive). Default is 365 days before periodEnd.",
+        },
+        periodEnd: {
+          type: "string",
+          description:
+            "ISO 8601 date string for the end of the reporting period (inclusive). Default is now.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      // Resolve the reporting period.
+      const now = new Date();
+      let periodEnd = now;
+      if (typeof args.periodEnd === "string" && args.periodEnd.trim()) {
+        const parsed = new Date(args.periodEnd.trim());
+        if (!isNaN(parsed.getTime())) periodEnd = parsed;
+      }
+      let periodStart = new Date(periodEnd.getTime() - 365 * 24 * 60 * 60 * 1000);
+      if (typeof args.periodStart === "string" && args.periodStart.trim()) {
+        const parsed = new Date(args.periodStart.trim());
+        if (!isNaN(parsed.getTime())) periodStart = parsed;
+      }
+
+      const grantId =
+        typeof args.grantId === "number" ? args.grantId : null;
+
+      // Resolve the funding account when grantId is given.
+      let grant: {
+        id: number;
+        name: string;
+        awardNumber: string | null;
+        funderName: string | null;
+        awardTitle: string | null;
+      } | null = null;
+
+      if (grantId !== null) {
+        let accounts: FundingAccount[];
+        try {
+          accounts = await deps.listFundingAccounts();
+        } catch {
+          accounts = [];
+        }
+        const fa = accounts.find((a) => a.id === grantId) ?? null;
+        if (!fa) {
+          return {
+            hasLab: false,
+            note: `No funding account with id ${grantId} was found. Check the grant id and try again.`,
+          };
+        }
+        grant = {
+          id: fa.id,
+          name: fa.name,
+          awardNumber: fa.award_number ?? null,
+          funderName: fa.funder_name ?? null,
+          awardTitle: fa.award_title ?? null,
+        };
+      }
+
+      // Audited lab-scoped read.
+      const workResult = await deps.readWork({});
+      if (!workResult.ok || workResult.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      // Section accumulators.
+      // accomplishments: experiments + result_sheets
+      let accomplishmentsExperiments = 0;
+      let accomplishmentsResults = 0;
+      const accomplishmentTitles: string[] = [];
+
+      // products: depositable outputs
+      const productCounts: Record<string, number> = {};
+      const productTitles: string[] = [];
+
+      // participants: per-member counts
+      const participantBreakdown: Array<{
+        owner: string;
+        experiments: number;
+        results: number;
+        readError: string | null;
+      }> = [];
+
+      let totalRecordsInPeriod = 0;
+
+      for (const member of workResult.members) {
+        // For grant filtering: build grant-G project id set for this owner.
+        let grantProjectIds: Set<number> | null = null;
+        if (grantId !== null) {
+          grantProjectIds = new Set<number>();
+          for (const r of member.records) {
+            if (r.recordType === "project") {
+              const parsed = parseRecord(r.plaintext);
+              if (
+                parsed &&
+                (parsed.funding_account_id as number | null | undefined) ===
+                  grantId
+              ) {
+                const pid = parsed.id as number | undefined;
+                if (typeof pid === "number") grantProjectIds.add(pid);
+              }
+            }
+          }
+        }
+
+        let mExperiments = 0;
+        let mResults = 0;
+
+        for (const r of member.records) {
+          const type = r.recordType;
+
+          // Determine if this record belongs to the grant (when filtering).
+          if (grantId !== null && grantProjectIds !== null) {
+            // Direct grant link on the record.
+            const parsed = parseRecord(r.plaintext);
+            const directMatch =
+              parsed &&
+              (parsed.funding_account_id as number | null | undefined) ===
+                grantId;
+            // Reverse-map for tasks.
+            const taskMatch =
+              (type === "task" ||
+                type === "list_task" ||
+                type === "task_experiment") &&
+              parsed !== null &&
+              typeof (parsed.project_id as unknown) === "number" &&
+              grantProjectIds.has(parsed.project_id as number);
+            if (!directMatch && !taskMatch) continue;
+          }
+
+          // Period window filter.
+          // Markdown sheets do not parse as JSON, so we attempt a direct
+          // UTF-8 decode for their timestamp instead of using parseRecord.
+          // For JSON records we already have parsed above; for markdown sheets
+          // we re-attempt a JSON parse (which returns null) and then skip the
+          // isWithinWindow check, defaulting to include them in the period
+          // (they are undated by design). Better to over-count than silently
+          // drop result sheets from reports.
+          const parsed = parseRecord(r.plaintext);
+          if (parsed) {
+            if (!isWithinWindow(parsed, periodStart, periodEnd)) continue;
+          }
+          // Records with no parseable JSON and no timestamp fall through:
+          // we include them in the section counts when grant filtering allows.
+          // This means undated markdown sheets are included; the PI can note
+          // which titles are present and decide their relevance.
+
+          totalRecordsInPeriod += 1;
+
+          if (type === "experiment" || type === "task_experiment") {
+            accomplishmentsExperiments += 1;
+            mExperiments += 1;
+            const title = recordTitle(r.plaintext, type);
+            if (title) accomplishmentTitles.push(title);
+          } else if (type === "result_sheet" || type === "result") {
+            accomplishmentsResults += 1;
+            mResults += 1;
+            const title = recordTitle(r.plaintext, type);
+            if (title) accomplishmentTitles.push(title);
+          } else if (DEPOSITABLE_OUTPUT_TYPES.has(type)) {
+            productCounts[type] = (productCounts[type] ?? 0) + 1;
+            const title = recordTitle(r.plaintext, type);
+            if (title) productTitles.push(title);
+          }
+        }
+
+        participantBreakdown.push({
+          owner: member.owner,
+          experiments: mExperiments,
+          results: mResults,
+          readError: member.error ?? null,
+        });
+      }
+
+      return {
+        hasLab: true,
+        grant,
+        periodStart: periodStart.toISOString(),
+        periodEnd: periodEnd.toISOString(),
+        totals: {
+          recordsInPeriod: totalRecordsInPeriod,
+          accomplishmentsExperiments,
+          accomplishmentsResults,
+          products: Object.values(productCounts).reduce((s, n) => s + n, 0),
+        },
+        sections: {
+          accomplishments: {
+            experiments: accomplishmentsExperiments,
+            results: accomplishmentsResults,
+            titles: accomplishmentTitles.slice(0, 20),
+          },
+          products: {
+            counts: productCounts,
+            titles: productTitles.slice(0, 20),
+            note: "This section lists depositable output records that exist in ResearchOS. Deposit tracking and DOI assignment happen outside ResearchOS (Zenodo, Figshare, etc.). This section does not confirm that any output has been deposited or assigned a DOI.",
+          },
+          participants: {
+            members: participantBreakdown,
+          },
+        },
+        note: "The tool supplies counts, record links, and section structure. The PI writes all narrative. No significance or impact is claimed here.",
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instances (real deps) -- Phase 3
+// ---------------------------------------------------------------------------
+
+export const grantTaggedRollupTool = makeGrantTaggedRollupTool({
+  readWork: readLabMembersWork,
+  listFundingAccounts: () => purchasesApi.listFundingAccounts(),
+});
+
+export const progressReportScaffoldTool = makeProgressReportScaffoldTool({
+  readWork: readLabMembersWork,
+  listFundingAccounts: () => purchasesApi.listFundingAccounts(),
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 /**
- * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship). All read-only
- * tools go through the audited lab-scoped read / index-search engines.
- * onboard_member is the one consented action (non-destructive). Surfaced on the
- * /lab-overview BeakerBot mount, not in the global research-shell tool set.
+ * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship + Phase 3
+ * grants). All read-only tools go through the audited lab-scoped read /
+ * index-search engines. onboard_member is the one consented action
+ * (non-destructive). Surfaced on the /lab-overview BeakerBot mount, not in
+ * the global research-shell tool set.
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
@@ -956,13 +1524,16 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   prepOneOnOneTool,
   labMeetingPrepTool,
   onboardMemberTool,
+  grantTaggedRollupTool,
+  progressReportScaffoldTool,
 ];
 
 /**
  * The full scope BeakerBot runs with on the lab-overview surface: the lab-head
  * tools plus the coordination tools (propose-plan, ask-user) so it can clarify
  * and sequence. NOT the research-shell read/action tools, which are own-only
- * and do not apply here.
+ * and do not apply here. LAB_HEAD_SCOPE_TOOLS auto-includes any tool added
+ * to LAB_HEAD_TOOLS.
  */
 export const LAB_HEAD_SCOPE_TOOLS: AiTool[] = [
   ...LAB_HEAD_TOOLS,
@@ -987,9 +1558,13 @@ How you answer:
 - Do not use em-dashes. Do not use emojis. Do not drop a colon mid-sentence to introduce a clause or a list. Recast with a comma or a period. A label at the start of a line is fine.
 
 You surface facts, you never interpret:
-- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep) and answer only from what it returned. The tool owns every number; you relay it.
+- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts. You do not know any of it from memory.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
+
+Grants and reporting:
+- grant_tagged_rollup aggregates every lab record tagged to a specific funding account: direct-linked projects and purchases, and tasks reverse-mapped through their project. It returns counts, a per-member breakdown, and a flat record-links list. Call it to answer "what lab work is on grant X" or "how many experiments are charged to this award."
+- progress_report_scaffold assembles an RPPR-style scaffold (accomplishments, products, participants) over a date window. The grantId arg restricts it to grant-tagged records. The tool supplies section structure, counts, and record titles only. It does NOT write narrative and does NOT claim significance or impact about any work. The PI writes the narrative. You relay the scaffold and stop.
 
 The no-interpretation rule is absolute:
 - "Stalled" means a record has seen no update in the configured window (deterministic, a calendar fact). You report the count and the threshold; the PI judges what it means for each person.
