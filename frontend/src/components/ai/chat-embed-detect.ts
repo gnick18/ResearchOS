@@ -12,7 +12,12 @@
 //
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
-import { parseObjectEmbed, type EmbedDescriptor } from "@/lib/references";
+import {
+  parseObjectEmbed,
+  parseSettingEmbed,
+  type EmbedDescriptor,
+  type SettingEmbedDescriptor,
+} from "@/lib/references";
 
 /** A minimal hast node shape. We only need a few fields to detect the lone-link
  *  case; unknown extra fields are silently ignored. */
@@ -52,6 +57,31 @@ export function loneEmbedFromChatParagraph(
   const href = el.properties?.href;
   const descriptor = parseObjectEmbed(typeof href === "string" ? href : null);
   if (!descriptor || !descriptor.isEmbed) return null;
+
+  return { descriptor, caption: chatHastText(el).trim() };
+}
+
+/** If the paragraph node is a lone SETTING embed link (`ros-setting:<key>`),
+ *  return its SettingEmbedDescriptor and the link-text caption so the renderer can
+ *  swap it for the SettingControlWidget. Additive sibling of
+ *  loneEmbedFromChatParagraph; the object-embed path is unchanged. Returns null
+ *  for any paragraph that is not exactly one setting-embed link. */
+export function loneSettingEmbedFromChatParagraph(
+  node: ChatHastNode | undefined,
+): { descriptor: SettingEmbedDescriptor; caption: string } | null {
+  if (!node || !Array.isArray(node.children)) return null;
+
+  const meaningful = node.children.filter(
+    (c) => !(c.type === "text" && /^\s*$/.test(c.value ?? "")),
+  );
+  if (meaningful.length !== 1) return null;
+
+  const el = meaningful[0];
+  if (el.type !== "element" || el.tagName !== "a") return null;
+
+  const href = el.properties?.href;
+  const descriptor = parseSettingEmbed(typeof href === "string" ? href : null);
+  if (!descriptor) return null;
 
   return { descriptor, caption: chatHastText(el).trim() };
 }

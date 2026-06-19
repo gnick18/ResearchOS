@@ -186,6 +186,7 @@ import {
   findCollaboratorsTool,
   shareWithResearcherTool,
 } from "./network-tools";
+import { readSettingTool, updateSettingTool } from "./settings-tools";
 import type { AiTool } from "./types";
 
 // The read-only toolset, read-only with respect to the user's data. Exported on
@@ -426,6 +427,11 @@ export const READ_ONLY_TOOLS: AiTool[] = [
   // the result. Returns [] cleanly when no one matches or the directory is dark.
   // Used as the front door for share_with_researcher below.
   findCollaboratorsTool,
+  // read_setting reads one of the user's app settings (their UserSettings) and
+  // reports its value + safety tier. Read is broad over any non-internal key; an
+  // internal bookkeeping key returns a "not a user setting" note. Read-only, it
+  // never writes. The WRITE half (update_setting) is gated and lives below.
+  readSettingTool,
 ];
 
 // The action toolset. Each tool here carries action: true and goes through the
@@ -638,6 +644,13 @@ export const ACTION_TOOLS: AiTool[] = [
   // the navigation assist and the consent preview. Recipient must be a
   // find_collaborators fingerprint or an email the user themselves typed.
   shareWithResearcherTool,
+  // update_setting (action: true, isDestructive false) changes ONE safe user
+  // preference via patchUserSettings. The tiering is enforced by a HARD WRITE-LIST
+  // in settings-tools.ts, not by prompt text: a sensitive key (account type, lab
+  // membership, purchasing) or any off-schema key (billing, security) is NEVER
+  // written and returns a handoff to the settings page. On a safe write it renders
+  // the live control inline so the user's tap is the real commit.
+  updateSettingTool,
 ];
 
 // The coordination toolset. These tools neither read the user's data nor act on

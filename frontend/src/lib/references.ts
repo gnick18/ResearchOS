@@ -434,6 +434,96 @@ export function isBlockEmbedMarkdown(markdown: string): boolean {
   return descriptor?.isEmbed === true;
 }
 
+// ── Setting embed (BeakerBot inline settings, additive new kind) ────────────
+//
+// A SETTING embed is NOT an object route. It carries a UserSettings key (and,
+// for an enum, an option list) so the chat renderer can swap a lone setting
+// embed for a live SettingControlWidget. It rides its own scheme,
+// `ros-setting:<key>`, kept deliberately distinct from the object-embed `#ros=`
+// fragment grammar so existing object embeds are byte-for-byte unchanged and the
+// two parsers never confuse each other. This is purely a FORMAT + PARSER, no
+// rendering and no persistence, exactly like the object-embed layer above.
+
+/** The scheme prefix for a setting embed link. */
+const SETTING_EMBED_SCHEME = "ros-setting:";
+
+/** A parsed setting embed. `key` is the UserSettings key. `options`, when present,
+ *  is the enum option list the widget renders (value + label pairs). `isEmbed` is
+ *  always true (a setting link is always a block control, never an inline chip). */
+export interface SettingEmbedDescriptor {
+  kind: "setting";
+  key: string;
+  options?: { value: string; label: string }[];
+  isEmbed: true;
+}
+
+/** Build a setting embed href for a key, e.g. `ros-setting:dateFormat`. An enum's
+ *  option list is encoded in the query so a deep-linked widget can render without
+ *  re-deriving it, `ros-setting:dateFormat?opts=MDY|MM%2FDD%2FYYYY,DMY|...`. The
+ *  options are optional, the widget can also resolve them from the shared
+ *  classifier, so a bare `ros-setting:<key>` is fully valid. */
+export function buildSettingEmbedHref(
+  key: string,
+  options?: { value: string; label: string }[],
+): string {
+  const base = `${SETTING_EMBED_SCHEME}${encodeURIComponent(key)}`;
+  if (!options || options.length === 0) return base;
+  const encoded = options
+    .map((o) => `${encodeURIComponent(o.value)}|${encodeURIComponent(o.label)}`)
+    .join(",");
+  return `${base}?opts=${encoded}`;
+}
+
+/** Recognize a setting embed link. Returns the descriptor, or null for any href
+ *  that is not a `ros-setting:` link. Tolerant of an absent / malformed option
+ *  list (it just yields no options). */
+export function parseSettingEmbed(
+  href: string | null | undefined,
+): SettingEmbedDescriptor | null {
+  if (!href) return null;
+  const raw = href.trim();
+  if (!raw.toLowerCase().startsWith(SETTING_EMBED_SCHEME)) return null;
+  const rest = raw.slice(SETTING_EMBED_SCHEME.length);
+  const qIdx = rest.indexOf("?");
+  const keyPart = qIdx >= 0 ? rest.slice(0, qIdx) : rest;
+  const query = qIdx >= 0 ? rest.slice(qIdx + 1) : "";
+  let key: string;
+  try {
+    key = decodeURIComponent(keyPart);
+  } catch {
+    key = keyPart;
+  }
+  if (!key) return null;
+
+  let options: { value: string; label: string }[] | undefined;
+  if (query) {
+    const params = new URLSearchParams(query);
+    const opts = params.get("opts");
+    if (opts) {
+      const parsed = opts
+        .split(",")
+        .map((pair) => {
+          const [v, l] = pair.split("|");
+          if (v == null) return null;
+          const value = safeDecode(v);
+          const label = l != null ? safeDecode(l) : value;
+          return { value, label };
+        })
+        .filter((o): o is { value: string; label: string } => o !== null);
+      if (parsed.length > 0) options = parsed;
+    }
+  }
+  return { kind: "setting", key, options, isEmbed: true };
+}
+
+function safeDecode(v: string): string {
+  try {
+    return decodeURIComponent(v);
+  } catch {
+    return v;
+  }
+}
+
 /** Swap only the view of an object-embed href, preserving type, id, and every opt
  *  (region / rows / cols / analysis / plot / pin / ref / size hints). Rebuilds
  *  through buildObjectEmbedHref so the byte form matches a freshly built embed of

@@ -58,7 +58,11 @@ import {
   type SlashCommand,
 } from "@/lib/ai/slash-commands";
 import { parseObjectDeepLink, parseObjectEmbed } from "@/lib/references";
-import { loneEmbedFromChatParagraph, type ChatHastNode } from "./chat-embed-detect";
+import {
+  loneEmbedFromChatParagraph,
+  loneSettingEmbedFromChatParagraph,
+  type ChatHastNode,
+} from "./chat-embed-detect";
 import type {
   StepApprovalRequest,
   TransformApprovalRequest,
@@ -72,6 +76,10 @@ import BeakerBotCanvas from "./BeakerBotCanvas";
 // resolves a record set.
 const RecordSetWidget = lazy(() => import("./RecordSetWidget"));
 const SummaryReportWidget = lazy(() => import("./SummaryReportWidget"));
+// SettingControlWidget renders a live inline control for a lone `ros-setting:<key>`
+// embed (BeakerBot inline settings). Lazy so the settings store + control never
+// load until a turn actually surfaces a setting embed.
+const SettingControlWidget = lazy(() => import("./SettingControlWidget"));
 // SmartDataWizard (the Phase 4 Smart Data Binding wizard) is mounted inline when a
 // suggest_tree_overlays turn finds joinable tables. Lazy so the phylo widget never
 // loads until a turn actually surfaces one. Named export, so adapt to default.
@@ -129,6 +137,21 @@ const ASSISTANT_MD_COMPONENTS: Components = {
     const lone = loneEmbedFromChatParagraph(node as unknown as ChatHastNode);
     if (lone) {
       return <ObjectEmbed descriptor={lone.descriptor} caption={lone.caption} />;
+    }
+    // A lone `ros-setting:<key>` embed renders as the live inline control instead
+    // of prose, the same lone-embed path the object embeds use. Additive.
+    const setting = loneSettingEmbedFromChatParagraph(
+      node as unknown as ChatHastNode,
+    );
+    if (setting) {
+      return (
+        <Suspense fallback={null}>
+          <SettingControlWidget
+            settingKey={setting.descriptor.key}
+            options={setting.descriptor.options}
+          />
+        </Suspense>
+      );
     }
     return <p {...props}>{children}</p>;
   },
