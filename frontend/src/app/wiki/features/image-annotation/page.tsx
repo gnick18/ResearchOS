@@ -15,7 +15,7 @@ export default function ImageAnnotationFeaturePage() {
         to know which band is the product, which colony you picked, which cell
         in the field is the one you counted. ResearchOS gives you a drawing
         surface for exactly that, and it treats your raw image as something you
-        don't ever want corrupted.
+        don&apos;t ever want corrupted.
       </p>
 
       <Screenshot
@@ -31,7 +31,7 @@ export default function ImageAnnotationFeaturePage() {
       <h2>The raw image is never modified</h2>
       <p>
         This is the part worth understanding before anything else. When you
-        annotate an image, ResearchOS doesn't flatten your shapes into the
+        annotate an image, ResearchOS doesn&apos;t flatten your shapes into the
         photo. The original file stays byte-for-byte identical on disk. Your
         markup is written to a small companion file next to it, called a
         sidecar, named <code>Images/{"{filename}"}.annot.json</code>. A gel

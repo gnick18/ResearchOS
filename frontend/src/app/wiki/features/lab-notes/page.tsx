@@ -11,12 +11,12 @@ export default function LabNotesFeaturePage() {
     >
       <h2>What this page is for</h2>
       <p>
-        Notes are where a lot of the lab's day-to-day record actually lives,
+        Notes are where a lot of the lab&apos;s day-to-day record actually lives,
         recipes, measurements, plasmid names, the running log of what happened at
-        the bench. A member's own notes sit on their Workbench. A PI often wants
-        to read across the whole lab's notes without hunting through each
-        person's projects. Browse lab notes is that single stream, every
-        member's notes in one view, the PI's own included.
+        the bench. A member&apos;s own notes sit on their Workbench. A PI often wants
+        to read across the whole lab&apos;s notes without hunting through each
+        person&apos;s projects. Browse lab notes is that single stream, every
+        member&apos;s notes in one view, the PI&apos;s own included.
       </p>
       <Callout variant="info" title="Where you reach it">
         Navigate directly to <code>/lab-notes</code>, or follow the link from
@@ -31,19 +31,19 @@ export default function LabNotesFeaturePage() {
       <p>
         The page is gated on the lab head (PI) account type. A member or solo
         researcher who lands on the URL directly is sent back home before any
-        lab data loads, so the whole-lab notes view is the PI's alone. For the
+        lab data loads, so the whole-lab notes view is the PI&apos;s alone. For the
         role itself, see <Link href="/wiki/features/lab-head">PI</Link>.
       </p>
 
       <h2>How browsing and editing work</h2>
       <p>
-        The list shows every member's notes. Opening one follows the same
+        The list shows every member&apos;s notes. Opening one follows the same
         look-first, edit-only-if-you-mean-to flow as experiments.
       </p>
       <Steps>
         <Step>
           <strong>Open it read-only.</strong> Clicking a note opens it in the
-          note popup in review mode. You can read any member's note without
+          note popup in review mode. You can read any member&apos;s note without
           changing it.
         </Step>
         <Step>
@@ -54,9 +54,9 @@ export default function LabNotesFeaturePage() {
           for the rest of the browser session without being asked again.
         </Step>
         <Step>
-          <strong>The change stays the member's.</strong> Your edit is written
-          back to the member who owns the note, not copied to you, and it's
-          captured in the audit trail so the lab head touching someone else's
+          <strong>The change stays the member&apos;s.</strong> Your edit is written
+          back to the member who owns the note, not copied to you, and it&apos;s
+          captured in the audit trail so the lab head touching someone else&apos;s
           note leaves a record.
         </Step>
       </Steps>
@@ -71,7 +71,7 @@ export default function LabNotesFeaturePage() {
       <h2>Where to go next</h2>
       <ul>
         <li>
-          For the lab head's landing page this surface hangs off, see{" "}
+          For the lab head&apos;s landing page this surface hangs off, see{" "}
           <Link href="/wiki/features/lab-overview">Lab Overview</Link>.
         </li>
         <li>

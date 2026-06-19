@@ -44,6 +44,7 @@
  * vector markup in a file not in the baseline. All glyphs come from <Icon>.
  */
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 
@@ -990,7 +991,7 @@ export default function AiPage() {
           className="scroll-mt-6 border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-16 sm:px-12"
         >
           <Reveal className="mx-auto max-w-[1000px]">
-            <Kicker>// metered at cost, never a markup</Kicker>
+            <Kicker>{"// metered at cost, never a markup"}</Kicker>
             <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
               No subscription, no seat fees, you see every token
             </h2>
@@ -1069,13 +1070,13 @@ export default function AiPage() {
                 <p className="mt-3 border-t border-dashed border-[#cfe0f3] pt-3 text-meta leading-relaxed text-[#64748b]">
                   About 15 tasks free, no card needed.
                 </p>
-                <a
+                <Link
                   href="/pricing#ai-pricing"
                   className="mt-4 inline-flex items-center gap-1.5 text-body font-bold text-brand-action transition-colors hover:text-brand-ink"
                 >
                   See exactly how it&apos;s priced
                   <span aria-hidden>&rarr;</span>
-                </a>
+                </Link>
               </div>
             </div>
           </Reveal>
@@ -1112,24 +1113,24 @@ export default function AiPage() {
                 <Icon name="ask" className="h-4 w-4" />
                 Try BeakerBot free
               </button>
-              <a
+              <Link
                 href="/demo"
                 data-testid="ai-cta-demo"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 Explore the live demo
                 <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </div>
             <p className="mt-6 text-meta text-[#94a3b8]">
               Free and open source. The AI is the one optional metered feature,
               priced near cost.{" "}
-              <a
+              <Link
                 href="/pricing#ai-pricing"
                 className="font-semibold text-brand-action hover:text-brand-ink"
               >
                 See the pricing <span aria-hidden>&rarr;</span>
-              </a>
+              </Link>
             </p>
           </Reveal>
         </section>

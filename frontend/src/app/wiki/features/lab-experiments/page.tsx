@@ -11,13 +11,13 @@ export default function LabExperimentsFeaturePage() {
     >
       <h2>What this page is for</h2>
       <p>
-        A member's own{" "}
+        A member&apos;s own{" "}
         <Link href="/wiki/features/experiments">Workbench</Link> only shows their
         work. A PI usually needs the opposite, the whole lab in one list, so they
         can check on an experiment without asking the member to share it or
         knowing which project it lives under. Browse lab experiments is that
-        list. It pulls every member's experiments into a single view, the PI's
-        own included, so the lab's bench work all sits in one place.
+        list. It pulls every member&apos;s experiments into a single view, the PI&apos;s
+        own included, so the lab&apos;s bench work all sits in one place.
       </p>
       <Callout variant="info" title="Where you reach it">
         Navigate directly to <code>/lab-experiments</code>, or follow the link
@@ -30,9 +30,9 @@ export default function LabExperimentsFeaturePage() {
       <h2>Who can open it</h2>
       <p>
         The page is gated on the lab head (PI) account type. If a member or solo
-        researcher lands on the URL directly, they're sent back home before any
-        lab data loads, so there's no way to reach another person's experiments
-        through this route without the PI role. For the role itself and how it's
+        researcher lands on the URL directly, they&apos;re sent back home before any
+        lab data loads, so there&apos;s no way to reach another person&apos;s experiments
+        through this route without the PI role. For the role itself and how it&apos;s
         granted, see <Link href="/wiki/features/lab-head">PI</Link>.
       </p>
 
@@ -46,7 +46,7 @@ export default function LabExperimentsFeaturePage() {
           <strong>Open it read-only.</strong> Clicking a card opens the full
           experiment in the same popup the Workbench uses, with Details, Lab
           Notes, Method, and Results, but in review mode. Nothing you do here
-          changes the record, so you can read a member's work freely.
+          changes the record, so you can read a member&apos;s work freely.
         </Step>
         <Step>
           <strong>Edit as the lab head.</strong> If you need to correct
@@ -56,10 +56,10 @@ export default function LabExperimentsFeaturePage() {
           for the rest of the browser session without being asked again.
         </Step>
         <Step>
-          <strong>The change stays the member's.</strong> Your edit is written
-          back to the member who owns the experiment, not copied to you, and it's
-          captured in the audit trail so there's a record of the lab head
-          touching someone else's work.
+          <strong>The change stays the member&apos;s.</strong> Your edit is written
+          back to the member who owns the experiment, not copied to you, and it&apos;s
+          captured in the audit trail so there&apos;s a record of the lab head
+          touching someone else&apos;s work.
         </Step>
       </Steps>
       <Callout variant="warning" title="Editing is deliberate, not the default">
@@ -73,7 +73,7 @@ export default function LabExperimentsFeaturePage() {
       <h2>Where to go next</h2>
       <ul>
         <li>
-          For the lab head's landing page that this surface hangs off, see{" "}
+          For the lab head&apos;s landing page that this surface hangs off, see{" "}
           <Link href="/wiki/features/lab-overview">Lab Overview</Link>.
         </li>
         <li>

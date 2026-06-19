@@ -3060,12 +3060,12 @@ function LabArchivesSection() {
           </button>
         }
         footer={
-          <a
+          <Link
             href="/wiki/integrations/labarchives#exporting-from-labarchives"
             className="inline-flex items-center gap-1 text-meta text-blue-600 dark:text-blue-300 hover:text-blue-700 underline"
           >
             How to export from LabArchives →
-          </a>
+          </Link>
         }
       />
       {elnImportOpen && (

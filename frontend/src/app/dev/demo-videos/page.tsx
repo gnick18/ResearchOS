@@ -38,7 +38,7 @@ export default function DemoVideoStudioPage() {
               <span className="text-title font-semibold text-foreground">
                 {clip.label}
               </span>
-              <span className="text-meta text-foreground-muted">// {clip.hook}</span>
+              <span className="text-meta text-foreground-muted">{"// "}{clip.hook}</span>
             </div>
             <p className="mt-1 text-body text-foreground-muted">{clip.summary}</p>
             <div className="mt-3 flex items-center justify-between">

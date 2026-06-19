@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Callout from "@/components/wiki/Callout";
 import WikiPage from "@/components/wiki/WikiPage";
 import DataFlowExplainer from "@/components/data-flow/DataFlowExplainer";
@@ -56,7 +57,7 @@ export default function HowYourDataAndPrivacyWorkPage() {
         Your folder never uploads, the app works offline, and there is no
         ResearchOS server holding your research. Want a backup? Copy the folder.
         Want to leave? Delete it. The full, verifiable version of this claim
-        lives on the <a href="/wiki/security">Security</a> page.
+        lives on the <Link href="/wiki/security">Security</Link> page.
       </Callout>
 
       {/* 2. THE THREE CLOUD TOUCHES */}
@@ -261,7 +262,7 @@ export default function HowYourDataAndPrivacyWorkPage() {
         because your institution already runs one. The on-disk format is written
         to be sync-friendly with atomic writes, so a sync mid-write can never
         corrupt it. The{" "}
-        <a href="/wiki/shared-lab-accounts">Shared Lab Accounts</a> guides walk
+        <Link href="/wiki/shared-lab-accounts">Shared Lab Accounts</Link> guides walk
         through setting each provider to keep files on the device.
       </Callout>
 
@@ -293,7 +294,7 @@ export default function HowYourDataAndPrivacyWorkPage() {
         cost. Storage is sold at roughly what it costs us, not as a markup to
         profit from. We do not make money holding your data. The honest, full
         breakdown of the model is on{" "}
-        <a href="/wiki/trust/how-we-fund-it">How it stays free</a>.
+        <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link>.
       </p>
 
       {/* 9. THE SPENDING BRAKE */}
@@ -460,11 +461,11 @@ export default function HowYourDataAndPrivacyWorkPage() {
       <p>
         For the audit-grade version of the local-first claim, including how to
         watch the network yourself in DevTools, read the{" "}
-        <a href="/wiki/security">Security</a> page. For the account tiers and
+        <Link href="/wiki/security">Security</Link> page. For the account tiers and
         what each one unlocks, see{" "}
-        <a href="/wiki/getting-started/accounts">Account tiers</a>. For the
+        <Link href="/wiki/getting-started/accounts">Account tiers</Link>. For the
         funding model in full, see{" "}
-        <a href="/wiki/trust/how-we-fund-it">How it stays free</a>.
+        <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link>.
       </p>
     </WikiPage>
   );

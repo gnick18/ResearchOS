@@ -32,7 +32,7 @@ export default function HomeFeaturePage() {
         </li>
       </ul>
       <Callout variant="info" title="No dashboard to curate">
-        There's no add-widget palette, no drag-to-arrange canvas, and no
+        There&apos;s no add-widget palette, no drag-to-arrange canvas, and no
         per-user dashboard layout to keep in sync anymore. Everyone gets one
         designed landing surface for their role, and the same{" "}
         <Link href="/wiki/features/experiments">Daily Tasks sidebar</Link> runs
@@ -43,12 +43,12 @@ export default function HomeFeaturePage() {
       <p>
         For a member or solo researcher, the landing surface is the Workbench
         with its <strong>Projects</strong> tab selected. The grid shows a card
-        per project with the project's color dot, a percent-complete progress
+        per project with the project&apos;s color dot, a percent-complete progress
         bar, and small count chips (experiments, list tasks, and sequences once
         you have any). Click a card to open that project (see{" "}
         <Link href="/wiki/features/projects">Project Surface</Link> for the
         Overview, Results, Methods, Goals, and Activity walkthrough). The
-        Workbench's other tabs (Experiments, Notes, Lists) sit alongside
+        Workbench&apos;s other tabs (Experiments, Notes, Lists) sit alongside
         Projects in the same view. A <strong>Check-ins</strong> tab also appears
         for anyone in at least one active 1:1; a lab head always sees it.
       </p>
@@ -67,7 +67,7 @@ export default function HomeFeaturePage() {
       <Steps>
         <Step>
           Open the <strong>Projects</strong> tab on the{" "}
-          <Link href="/wiki/features/experiments">Workbench</Link> (it's where
+          <Link href="/wiki/features/experiments">Workbench</Link> (it&apos;s where
           you already are when you land).
         </Step>
         <Step>
@@ -77,7 +77,7 @@ export default function HomeFeaturePage() {
         <Step>
           Press <strong>Create</strong>. The modal closes and leaves you right
           where you were, with the new card already in the grid (creating a
-          project doesn't jump you into it). The project's color then carries
+          project doesn&apos;t jump you into it). The project&apos;s color then carries
           through everywhere it appears, like the bar on the Gantt.
         </Step>
       </Steps>
@@ -103,7 +103,7 @@ export default function HomeFeaturePage() {
       <Callout variant="info" title="Want a lab-wide roll-up?">
         Sharing a single project is the right tool when one labmate wants to
         follow along on one specific project. For a single surface that rolls
-        up every member's activity, today's events, and pending approvals at
+        up every member&apos;s activity, today&apos;s events, and pending approvals at
         once, a PI uses the curated{" "}
         <Link href="/wiki/features/lab-overview">Lab Overview</Link> instead.
       </Callout>

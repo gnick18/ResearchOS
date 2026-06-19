@@ -1,3 +1,4 @@
+import Link from "next/link";
 import Callout from "@/components/wiki/Callout";
 import WikiPage from "@/components/wiki/WikiPage";
 
@@ -29,12 +30,12 @@ export default function TrustPage() {
         ResearchOS reads and writes a folder you pick on your own computer.
         There is no database we control, so there is nothing for us to lose,
         sell, or get breached.{" "}
-        <a href="/wiki/trust/how-your-data-and-privacy-work">
+        <Link href="/wiki/trust/how-your-data-and-privacy-work">
           How your data and privacy work
-        </a>{" "}
+        </Link>{" "}
         walks through it with a clickable explainer, including the three ways
         work can be shared and why all of this keeps the tool cheap. The{" "}
-        <a href="/wiki/security">Security</a> section is the audit-grade
+        <Link href="/wiki/security">Security</Link> section is the audit-grade
         version, including the narrow exceptions and how to verify it in your
         browser.
       </p>
@@ -45,7 +46,7 @@ export default function TrustPage() {
         on every commit, against the peer-reviewed reference tools the field
         already relies on (Biopython, primer3, pydna). The numbers cannot
         silently drift, because a drift fails the build.{" "}
-        <a href="/wiki/trust/method-validation">Method validation</a>{" "}
+        <Link href="/wiki/trust/method-validation">Method validation</Link>{" "}
         explains how, and links to the public agreement page.
       </p>
 
@@ -54,7 +55,7 @@ export default function TrustPage() {
         ResearchOS is licensed under AGPLv3, which means a lab can read the
         whole thing, fork it, and self-host it. The project also credits and
         thanks the open-source work it builds on.{" "}
-        <a href="/wiki/trust/open-source">Open source and license</a> covers
+        <Link href="/wiki/trust/open-source">Open source and license</Link> covers
         what the license gives you and where the credits live.
       </p>
 
@@ -65,7 +66,7 @@ export default function TrustPage() {
         pay-for-what-you-use, a small base fee plus your usage at a fair markup,
         with storage at roughly cost, so the tool stays reachable for
         low-resource labs.{" "}
-        <a href="/wiki/trust/how-we-fund-it">How it stays free</a> explains
+        <Link href="/wiki/trust/how-we-fund-it">How it stays free</Link> explains
         the model honestly.
       </p>
 

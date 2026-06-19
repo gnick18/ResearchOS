@@ -81,8 +81,8 @@ export default function BeakerBotFeaturePage() {
         filters by prefix and substring match over names, sorted by recency. Selecting
         a row stages the object as an attached reference that travels with your
         message. BeakerBot reads the attached reference and can call the matching
-        read tool to fetch the object&apos;s content, so you can write "Summarize
-        @my qPCR method" or "Make a bar chart from @glucose growth table" and the
+        read tool to fetch the object&apos;s content, so you can write &quot;Summarize
+        @my qPCR method&quot; or &quot;Make a bar chart from @glucose growth table&quot; and the
         assistant resolves to the real object without ambiguity. Keyboard navigation
         (up and down arrows, Enter to select, Escape to close) keeps focus in the
         composer while you arrow through results.
@@ -97,28 +97,28 @@ export default function BeakerBotFeaturePage() {
       </p>
       <ul>
         <li>
-          <strong>/summarize</strong> prefills "Summarize " and is the entry point
+          <strong>/summarize</strong> prefills &quot;Summarize &quot; and is the entry point
           for structural roll-ups of experiments, notes, purchases, projects, or
           inventory.
         </li>
         <li>
-          <strong>/plot</strong> prefills "Make a chart from " for generating a
+          <strong>/plot</strong> prefills &quot;Make a chart from &quot; for generating a
           Data Hub figure from a table.
         </li>
         <li>
-          <strong>/cite</strong> prefills "Generate a citation for " to format a
+          <strong>/cite</strong> prefills &quot;Generate a citation for &quot; to format a
           reference for a method, note, or sequence.
         </li>
         <li>
-          <strong>/digest</strong> prefills "Give me a lab digest for " for the
+          <strong>/digest</strong> prefills &quot;Give me a lab digest for &quot; for the
           cross-type week-in-review across experiments, notes, and purchases.
         </li>
         <li>
-          <strong>/setup</strong> prefills "Set up an experiment from " to create an
+          <strong>/setup</strong> prefills &quot;Set up an experiment from &quot; to create an
           experiment, attach a method, and scaffold tasks in one approved action.
         </li>
         <li>
-          <strong>/draft</strong> prefills "Draft a note about " for a gated
+          <strong>/draft</strong> prefills &quot;Draft a note about &quot; for a gated
           write-to-note flow.
         </li>
       </ul>
@@ -326,7 +326,7 @@ export default function BeakerBotFeaturePage() {
         the macro a name (which becomes its /token in the slash menu), write a
         description, reorder steps, toggle individual steps off (kept but skipped at
         run time), or remove steps entirely. A step whose args captured a date at
-        recording time shows a "fixed date" marker so deterministic replay is
+        recording time shows a &quot;fixed date&quot; marker so deterministic replay is
         transparent rather than invisible.
       </p>
       <p>
@@ -371,7 +371,7 @@ export default function BeakerBotFeaturePage() {
         what the user currently has open and, when relevant, what is selected, for
         example the Data Hub analysis the user is looking at or the phylogenetic
         tree they have open in the Studio. BeakerBot reads this snapshot at the
-        start of every turn. When you say "this" or "the t-test" or "this result",
+        start of every turn. When you say &quot;this&quot; or &quot;the t-test&quot; or &quot;this result&quot;,
         BeakerBot resolves to the selected item directly from the context rather than
         asking for clarification. If no context matches your request, it falls back
         to asking through button choices rather than guessing.
@@ -425,7 +425,7 @@ export default function BeakerBotFeaturePage() {
         writing.
       </p>
       <p>
-        Period filters use a token ("this_week", "last_month", "this_quarter") that
+        Period filters use a token (&quot;this_week&quot;, &quot;last_month&quot;, &quot;this_quarter&quot;) that
         the engine resolves to exact dates. Owner and project filters accept plain
         names; the engine tolerates case differences and small typos. You never have
         to look up a user ID or a project ID.
@@ -552,8 +552,8 @@ export default function BeakerBotFeaturePage() {
       <h2>Smart Data Binding (chat door)</h2>
       <p>
         When you ask BeakerBot about adding metadata or annotations to a
-        phylogenetic tree (for example "what data can I overlay on this tree" or
-        "annotate this tree with the location column"), BeakerBot calls{" "}
+        phylogenetic tree (for example &quot;what data can I overlay on this tree&quot; or
+        &quot;annotate this tree with the location column&quot;), BeakerBot calls{" "}
         <code>suggest_tree_overlays</code>. This tool ranks the Data Hub tables in
         your folder by how many of the tree&apos;s tip labels they can join, and
         opens the Smart Data Binding wizard inline below the reply. The wizard lets
@@ -596,10 +596,10 @@ export default function BeakerBotFeaturePage() {
       <h2>User preferences</h2>
       <p>
         You can tell BeakerBot standing preferences it should apply by default:
-        "remember that I always use Phusion polymerase" or "my default buffer is
-        10x CutSmart". BeakerBot stores these with <code>remember_preference</code>
+        &quot;remember that I always use Phusion polymerase&quot; or &quot;my default buffer is
+        10x CutSmart&quot;. BeakerBot stores these with <code>remember_preference</code>
         and applies them without being reminded on subsequent turns. You can retract
-        a preference with "forget that" or "stop remembering X". Only preferences
+        a preference with &quot;forget that&quot; or &quot;stop remembering X&quot;. Only preferences
         you explicitly state are stored; BeakerBot never infers or invents one.
       </p>
 
@@ -619,7 +619,7 @@ export default function BeakerBotFeaturePage() {
       <p>
         BeakerBot can navigate to any page in ResearchOS, read the interactive
         elements on that page, and spotlight a control with a highlight bubble. This
-        means you can ask "where do I add a method?" and BeakerBot scrolls to and
+        means you can ask &quot;where do I add a method?&quot; and BeakerBot scrolls to and
         highlights the New Method button rather than describing where it is in
         prose. When a control you want is on a different page, BeakerBot navigates
         first and then highlights. It reads the live page rather than guessing from
