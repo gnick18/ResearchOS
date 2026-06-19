@@ -1,7 +1,7 @@
 // Unit tests for the ingest lib. Run: `node --test scripts/asset-ingest/lib.test.mjs`.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyLicense, formatCredit, sanitizeSvg } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory, healthiconsCategory } from "./lib.mjs";
 
 test("classifyLicense: allowed set", () => {
   for (const [s, id] of [
@@ -76,6 +76,25 @@ test("formatCredit: per-source format", () => {
   });
   assert.match(h, /Health Icons by Resolve to Save Lives/);
   assert.match(h, /\(MIT\)/);
+});
+
+test("category mappers land on existing curated leaves (never bare source slugs)", () => {
+  // Reactome -> taxonomy leaves; unknown -> General.
+  assert.equal(reactomeCategory("protein"), "Molecular biology");
+  assert.equal(reactomeCategory("receptor"), "Receptors & channels");
+  assert.equal(reactomeCategory("transporter"), "Receptors & channels");
+  assert.equal(reactomeCategory("cell_element"), "Intracellular components");
+  assert.equal(reactomeCategory("cell type"), "Cell types"); // space or underscore
+  assert.equal(reactomeCategory("compound"), "Chemistry");
+  assert.equal(reactomeCategory("arrow"), "General");
+  assert.equal(reactomeCategory("nonsense"), "General");
+  // Health Icons -> taxonomy leaves; life-stuff -> General.
+  assert.equal(healthiconsCategory("blood"), "Blood & immunology");
+  assert.equal(healthiconsCategory("body"), "Human physiology");
+  assert.equal(healthiconsCategory("devices"), "Lab apparatus");
+  assert.equal(healthiconsCategory("ppe"), "Safety symbols");
+  assert.equal(healthiconsCategory("zoonoses"), "Microbiology");
+  assert.equal(healthiconsCategory("vehicles"), "General");
 });
 
 test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {

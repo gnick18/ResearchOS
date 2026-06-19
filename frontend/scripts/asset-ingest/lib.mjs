@@ -75,6 +75,55 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
 
+// ---------------------------------------------------------------------------
+// Category taxonomy mapping. The grouped sidebar (asset-library.ts) renders the
+// LOCKED 9-section taxonomy by EXACT curated leaf name, so each source's raw
+// category strings must be mapped onto those existing leaves (anything unmapped
+// falls into "Other"). The raw category is retained as a search tag so keyword +
+// semantic search still match the source's own vocabulary.
+
+/** Reactome icon category (lowercase slug) -> curated taxonomy leaf. */
+const REACTOME_CATEGORY = {
+  protein: "Molecular biology",
+  compound: "Chemistry",
+  therapeutic: "Chemistry",
+  cell_element: "Intracellular components",
+  cell_type: "Cell types",
+  receptor: "Receptors & channels",
+  transporter: "Receptors & channels",
+  human_tissue: "Tissues",
+  arrow: "General",
+  background: "General",
+};
+export function reactomeCategory(raw) {
+  const k = (raw || "").toLowerCase().replace(/\s+/g, "_");
+  return REACTOME_CATEGORY[k] || "General";
+}
+
+/** Health Icons folder name -> curated taxonomy leaf. */
+const HEALTHICONS_CATEGORY = {
+  blood: "Blood & immunology",
+  body: "Human physiology",
+  conditions: "Human physiology",
+  contraceptives: "Human physiology",
+  exercise: "Human physiology",
+  specialties: "Human physiology",
+  devices: "Lab apparatus",
+  diagnostics: "Imaging",
+  graphs: "Scientific graphs",
+  medications: "Chemistry",
+  emotions: "People",
+  people: "People",
+  ppe: "Safety symbols",
+  symbols: "Safety symbols",
+  zoonoses: "Microbiology",
+  // nutrition / objects / places / shapes / typography / vehicles -> General
+};
+export function healthiconsCategory(raw) {
+  const k = (raw || "").toLowerCase().replace(/\s+/g, "_");
+  return HEALTHICONS_CATEGORY[k] || "General";
+}
+
 /**
  * Sanitize an SVG for safe embedding while KEEPING per-fill structure intact:
  *  - strip <script>, on* handlers, external refs (xlink to http), <foreignObject>.

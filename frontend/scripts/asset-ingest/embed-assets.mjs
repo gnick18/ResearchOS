@@ -95,7 +95,10 @@ async function main() {
   console.log(`[embed] ${count} assets, model ${MODEL} (${DIMS}-d), batch ${BATCH}`);
 
   // Lazy import so the dep is only needed when actually embedding.
-  const { pipeline } = await import("@xenova/transformers");
+  // The repo migrated the client to @huggingface/transformers v3 (same MiniLM model
+  // + onnxruntime backend); keep this build script on the same backend so the
+  // precomputed vectors match what the browser produces for live queries.
+  const { pipeline } = await import("@huggingface/transformers");
   const extractor = await pipeline("feature-extraction", MODEL);
 
   // f16 matrix, row-major count x DIMS.

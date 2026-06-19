@@ -21,7 +21,7 @@
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { classifyLicense, formatCredit, sanitizeSvg } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, reactomeCategory } from "./lib.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const BUNDLE = join(ROOT, "out", "bundle");
@@ -100,7 +100,9 @@ for (const path of iconPaths) {
     const { svg, fills, hasViewBox } = sanitizeSvg(await r.text());
     const title = m.name || stId;
     const creator = m.designer || m.curator || "Reactome";
-    const category = m.category ? m.category.replace(/[_-]+/g, " ") : "icon";
+    const rawCat = m.category || null;                 // e.g. "protein", "receptor"
+    const category = reactomeCategory(rawCat);          // -> curated taxonomy leaf
+    const rawCatWords = rawCat ? rawCat.replace(/[_-]+/g, " ") : null;
     const sourceUrl = `https://reactome.org/content/detail/${stId}`;
     const asset = {
       uid: `reactome:${stId}`,
@@ -114,7 +116,8 @@ for (const path of iconPaths) {
       sourceUrl,
       credit: formatCredit({ source: "reactome", title, creator, license: LICENSE.id, sourceUrl }),
       svgPath: `assets/reactome/${stId}.svg`,
-      tags: [category, ...(m.orcid ? [] : [])].filter(Boolean),
+      // Keep the curated leaf + the source's own category word as search tags.
+      tags: [...new Set([category, rawCatWords, "reactome"].filter(Boolean))],
       category,
       fills,
       hasViewBox,

@@ -17,7 +17,7 @@
 import { writeFileSync, mkdirSync, readFileSync, existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
-import { classifyLicense, formatCredit, sanitizeSvg } from "./lib.mjs";
+import { classifyLicense, formatCredit, sanitizeSvg, healthiconsCategory } from "./lib.mjs";
 
 const ROOT = dirname(fileURLToPath(import.meta.url));
 const BUNDLE = join(ROOT, "out", "bundle");
@@ -67,7 +67,8 @@ for (const path of entries) {
     const { svg, fills, hasViewBox } = sanitizeSvg(await r.text());
     const sourceId = `${style}__${category}__${name}`.replace(/[^A-Za-z0-9_.-]+/g, "-");
     const title = name.replace(/[_-]+/g, " ").trim();
-    const cat = category.replace(/[_-]+/g, " ");
+    const rawCat = category.replace(/[_-]+/g, " ");   // the source folder, e.g. "blood"
+    const cat = healthiconsCategory(category);          // -> curated taxonomy leaf
     const sourceUrl = `https://healthicons.org/icons/${encodeURIComponent(name)}`;
     const asset = {
       uid: `healthicons:${sourceId}`,
@@ -81,7 +82,8 @@ for (const path of entries) {
       sourceUrl,
       credit: formatCredit({ source: "healthicons", title, creator: "Resolve to Save Lives", license: LICENSE.id, sourceUrl }),
       svgPath: `assets/healthicons/${sourceId}.svg`,
-      tags: [cat, style].filter(Boolean),
+      // Curated leaf + the source's own folder word + style as search tags.
+      tags: [...new Set([cat, rawCat, style, "health"].filter(Boolean))],
       category: cat,
       fills,
       hasViewBox,
