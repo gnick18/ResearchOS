@@ -509,12 +509,17 @@ export default function TransparencyTabs({ domains }: { domains: DomainReport[] 
   if (!active) return null;
 
   return (
-    <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8">
-      <aside className="md:sticky md:top-6 md:self-start">
+    {/* On desktop the rail and the panel scroll independently: the grid is
+        bound to the viewport height and each column owns its own vertical scroll,
+        so a long panel never drags the rail away and the rail can reach its own
+        lower groups without moving the panel. On phones it stays natural flow
+        (the rail is a horizontal strip above the panel). */}
+    <div className="grid gap-6 md:grid-cols-[15rem_minmax(0,1fr)] md:gap-8 md:h-[calc(100vh-7rem)]">
+      <aside className="md:h-full md:overflow-y-auto md:pr-1">
         <TransparencyRail domains={domains} activeId={active.id} onSelect={setActiveId} />
       </aside>
 
-      <div role="tabpanel" className="min-w-0">
+      <div role="tabpanel" className="min-w-0 md:h-full md:overflow-y-auto md:pr-2">
         <DomainPanel domain={active} />
       </div>
     </div>
