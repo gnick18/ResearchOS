@@ -1,11 +1,9 @@
 import type { Metadata } from "next";
-import { headers } from "next/headers";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
 import {
   isLabByoSitesEnabled,
-  isLabSitesComOriginEnabled,
   isLabSitesEnabled,
 } from "@/lib/social/config";
 import {
@@ -14,7 +12,6 @@ import {
   listPublishedPages,
 } from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
-import { labSlugFromHost } from "@/lib/social/lab-byo";
 import { getByoSiteByOwner } from "@/lib/social/lab-byo-db";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
@@ -150,31 +147,12 @@ export default async function LabSitePublicPage({
     hasByo,
   } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
-  // Origin cutover: when the research-os.com move is live (runtime flag), the
-  // canonical home is the per-lab subdomain. Any hit NOT already on the lab's own
-  // subdomain (an old research-os.app/<slug> link, a deployment URL, etc) 301s to
-  // the subdomain for citation continuity. This uses ONLY runtime state (the flag
-  // + the Host), no build-inlined NEXT_PUBLIC value, so it survives a cached
-  // rebuild. The flag is production-scoped, so local dev and preview (flag off)
-  // keep rendering the path form in place, and a request already on
-  // <slug>.research-os.com renders normally (onSubdomain true, no loop).
-  if (isLabSitesComOriginEnabled()) {
-    const host = (await headers()).get("host");
-    const onSubdomain = labSlugFromHost(host) === slug;
-    if (!onSubdomain) {
-      // A cross-origin redirect from a Server Component render returns a 200
-      // client-side fallback, not a real 308, so hop through a same-origin route
-      // handler (api/social/lab-site/goto) that issues the true 308 to the
-      // subdomain. The slug is already DB-gated above (decision === render), so the
-      // handler is just the cross-origin mechanism.
-      const gotoParams = new URLSearchParams({ slug });
-      if (normPath) gotoParams.set("path", normPath);
-      console.log("[lab301-diag2] about to permanentRedirect", slug);
-      permanentRedirect(`/api/social/lab-site/goto?${gotoParams.toString()}`);
-      // SENTINEL: must never print. If it does, the NEXT_REDIRECT throw was caught.
-      console.log("[lab301-diag2] AFTER permanentRedirect (throw swallowed!)", slug);
-    }
-  }
+  // Origin cutover note: the research-os.com move 308s an old research-os.app/<slug>
+  // link to the per-lab subdomain for citation continuity. That redirect lives in
+  // middleware (proxy.ts, resolveAppOriginLabRedirect), NOT here: a Server Component
+  // redirect to an external cross-origin URL renders a 200 client-side fallback (the
+  // app gate then wins and shows the welcome page), never a real 3xx. So by the time
+  // this route renders for a lab slug, the request is already on the subdomain.
   // Resolve the frozen baked-block snapshots (Phase 3b). The public reader has no
   // local workspace, so the page renders these FROZEN snapshots instead of live
   // embeds. parseSnapshotBundle is defensive, a null / malformed column yields an

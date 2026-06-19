@@ -98,6 +98,29 @@ export function isStandaloneLocalKeypairCreateVisible(opts: {
  *
  * `identityStatus` mirrors useSharingIdentity's SharingIdentityStatus; it is a
  * plain string union here so this policy module stays dependency-light.
+ *
+ * AUTO-CLAIM PHASE 1 (2026-06-19, D1/D3/D7): the gate now also fires for an
+ * ALREADY SIGNED-IN user who entered a fresh folder with no usable identity (the
+ * "dead zone"). Under the multi-folder deferred-mint path a signed-in user enters
+ * with NO keypair on purpose (status "none"), but every Share button is gated on
+ * identity-ready, so Share is hidden AND the old gate (which required
+ * `hasCloudSession === false`) never fired for them. They could neither share nor
+ * reach setup except via a buried Settings card. So we add a second branch that
+ * holds a signed-in user (`hasCloudSession === true`) at the gate when their
+ * identity is not yet established (status "none"), letting the wizard mint the
+ * keypair, show the recovery code, and publish using the existing session.
+ *
+ * NO-LOOP GUARD: the new signed-in branch fires ONLY on status "none", NEVER on
+ * "ready". This is the crucial difference from the loop the signed-out branch
+ * guards against. Publishing can lag a signed-in user (the directory write is
+ * async and writes the sidecar email only on success), so gating a signed-in
+ * "ready" user on `!published` would loop forever. Instead, the moment auto-claim
+ * mints the keypair the status flips "none" -> "ready", this branch stops firing,
+ * and the gate releases even before the publish lands (publish then completes or
+ * retries in the background, same as the signed-out branch). "needs-restore" (the
+ * key lives on another device) is left OUT of the signed-in branch on purpose:
+ * that is the cross-device restore case (S3), out of Phase 1 scope, so its
+ * behavior is unchanged here.
  */
 export function shouldGateForClaim(opts: {
   requireAccount: boolean;
@@ -108,13 +131,30 @@ export function shouldGateForClaim(opts: {
   published: boolean;
   hasCloudSession: boolean | null;
 }): boolean {
-  return (
+  // Shared preconditions for either branch. These encode the no-soft-lock
+  // invariant: require-account on, a real OAuth claim path exists, a user is
+  // connected, and this is not a demo / wiki-capture preview.
+  const baseGate =
     opts.requireAccount &&
     opts.oauthPublishAvailable &&
     opts.hasConnectedUser &&
-    !opts.isDemoOrCapture &&
+    !opts.isDemoOrCapture;
+  if (!baseGate) return false;
+
+  // Branch 1 (existing): a signed-OUT local-only account (ready keypair, no
+  // email binding) is held until they sign in to claim. `hasCloudSession === false`
+  // is a definite no-session read; null (in flight) never gates so a hung read
+  // cannot soft-lock.
+  const signedOutLocalOnly =
     opts.identityStatus === "ready" &&
     !opts.published &&
-    opts.hasCloudSession === false
-  );
+    opts.hasCloudSession === false;
+
+  // Branch 2 (auto-claim, new): a signed-IN user with no usable identity yet
+  // (the deferred-mint dead zone). Fires only on status "none", never "ready",
+  // so it cannot loop on a lagging publish (see the NO-LOOP GUARD note above).
+  const signedInNoIdentity =
+    opts.hasCloudSession === true && opts.identityStatus === "none";
+
+  return signedOutLocalOnly || signedInNoIdentity;
 }

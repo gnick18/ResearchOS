@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 import { isLabSitesComOriginEnabled, isLabSitesEnabled } from "@/lib/social/config";
-import { resolveLabHostRequest } from "@/lib/social/lab-byo";
+import { resolveLabHostRequest, resolveAppOriginLabRedirect } from "@/lib/social/lab-byo";
 
 /**
  * Maintenance-mode gate (Next.js "proxy" file convention, formerly middleware)
@@ -41,10 +41,11 @@ export function proxy(req: NextRequest): NextResponse {
   // lab domain when the cutover flag is on, so it is a no-op on the app origin and
   // while the flag is off. Runs before everything else so the lab origin never
   // falls through to the dev gate or the maintenance rewrite.
+  const comOriginEnabled = isLabSitesEnabled() && isLabSitesComOriginEnabled();
   const labAction = resolveLabHostRequest({
     host: req.headers.get("host"),
     pathname,
-    enabled: isLabSitesEnabled() && isLabSitesComOriginEnabled(),
+    enabled: comOriginEnabled,
   });
   if (labAction.kind !== "passthrough") {
     switch (labAction.kind) {
@@ -76,6 +77,25 @@ export function proxy(req: NextRequest): NextResponse {
   // do NO middleware work (never dev-gated, never maintenance-rewritten).
   if (pathname === "/api" || pathname.startsWith("/api/")) {
     return NextResponse.next();
+  }
+
+  // App-origin to lab-subdomain 308 (research-os.com cutover, citation continuity).
+  // An old research-os.app/<slug> link gets a TRUE 308 to <slug>.research-os.com.
+  // This lives here, not the [labSlug] page, because a Server Component redirect to
+  // an external URL renders a 200 client-side fallback (the gate then shows the
+  // welcome page), never a real 3xx. resolveAppOriginLabRedirect returns null unless
+  // the cutover is on, the host is the app origin, and the first path segment is a
+  // claimable lab slug (slug-shaped + NOT a RESERVED app route), so real app routes
+  // are never redirected. Query is preserved.
+  const labRedirect = resolveAppOriginLabRedirect({
+    host: req.headers.get("host"),
+    pathname,
+    enabled: comOriginEnabled,
+  });
+  if (labRedirect) {
+    const target = new URL(labRedirect);
+    target.search = req.nextUrl.search;
+    return NextResponse.redirect(target, 308);
   }
 
   // Hard-gate the internal /dev/* tree in any DEPLOYED build. NODE_ENV is

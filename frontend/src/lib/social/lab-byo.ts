@@ -28,6 +28,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { hostedAssetId } from "./lab-site-hosted";
+import { RESERVED_SLUGS, normalizeSlug } from "./slug-registry";
 
 // ---------------------------------------------------------------------------
 // Per-lab BYO identifiers (R2 key namespace + billing asset id)
@@ -353,6 +354,52 @@ export function isLabPublicHost(args: {
   if (!args.enabled) return false;
   const slug = labSlugFromHost(args.host);
   return slug !== null && !RESERVED_LAB_SUBDOMAINS.has(slug);
+}
+
+/**
+ * App-origin to lab-subdomain redirect decision for the research-os.com cutover.
+ *
+ * On the APP origin (research-os.app) an old research-os.app/<slug> citation link
+ * should 308 to <slug>.research-os.com. This MUST live in middleware (proxy.ts), not
+ * the [labSlug] page: a Server Component redirect()/permanentRedirect() to an
+ * external cross-origin URL renders a 200 client-side fallback (the gate then wins
+ * and shows the welcome page), never a real HTTP 3xx, so the page can never issue
+ * this redirect. Middleware NextResponse.redirect issues a true 308 before any page
+ * or client gate renders.
+ *
+ * Returns the absolute redirect target (path only, the caller appends the query), or
+ * null when the request must NOT be redirected:
+ *   - the cutover is disabled (so flag-off / local / preview is a no-op),
+ *   - the Host is already a lab subdomain (owned by resolveLabHostRequest),
+ *   - the first path segment is empty or not a clean slug label, or
+ *   - the first segment is a RESERVED app route / word (RESERVED_SLUGS, drift-tested
+ *     against the real app routes), so a real app route is NEVER redirected.
+ *
+ * The slug registry guarantees a real lab slug is never a reserved segment, so real
+ * labs redirect and app routes pass through. An unclaimed slug-shaped path harmlessly
+ * 308s to a subdomain that 404s (same outcome as the app 404 it would otherwise get).
+ * Keyed off the same labSlugFromHost / RESERVED_SLUGS single sources as the rest of
+ * lab routing, so custom lab domains can extend it later with no new literal here.
+ */
+export function resolveAppOriginLabRedirect(args: {
+  host: string | null | undefined;
+  pathname: string;
+  enabled: boolean;
+}): string | null {
+  if (!args.enabled) return null;
+  // Only on the app origin. A lab subdomain is owned by resolveLabHostRequest.
+  if (labSlugFromHost(args.host) !== null) return null;
+  const path = args.pathname.replace(/^\/+/, "");
+  if (path === "") return null;
+  const firstSeg = path.split("/")[0] ?? "";
+  const slug = normalizeSlug(firstSeg);
+  // Must be a clean slug label and NOT a reserved app route / word.
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) return null;
+  if (RESERVED_SLUGS.has(slug)) return null;
+  // Preserve the sub-path after the slug (original case); the slug itself is
+  // normalized to its canonical lowercase form for the subdomain host.
+  const rest = path.slice(firstSeg.length);
+  return `${labSiteOrigin(slug)}${rest}`;
 }
 
 // ---------------------------------------------------------------------------

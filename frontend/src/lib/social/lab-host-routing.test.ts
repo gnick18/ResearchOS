@@ -13,7 +13,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { resolveLabHostRequest, isLabPublicHost } from "./lab-byo";
+import {
+  resolveLabHostRequest,
+  isLabPublicHost,
+  resolveAppOriginLabRedirect,
+} from "./lab-byo";
 import { normalizePagePath } from "./lab-site";
 
 const HOST = "fakeyeast-lab.research-os.com";
@@ -153,6 +157,79 @@ describe("isLabPublicHost (client gate bypass)", () => {
       const isLabOrigin = action.kind !== "passthrough";
       expect(isLabPublicHost({ host, enabled: true })).toBe(isLabOrigin);
     }
+  });
+});
+
+describe("resolveAppOriginLabRedirect (app-origin -> subdomain 308)", () => {
+  const APP = "research-os.app";
+  // The middleware uses this to 308 an old research-os.app/<slug> link to the
+  // subdomain. It must redirect real lab slugs, never a reserved app route, and be
+  // inert off-flag / on a subdomain.
+  it("is null when the cutover is disabled", () => {
+    expect(
+      resolveAppOriginLabRedirect({ host: APP, pathname: "/smithlab", enabled: false }),
+    ).toBeNull();
+  });
+
+  it("redirects a real lab slug on the app origin to its subdomain", () => {
+    expect(
+      resolveAppOriginLabRedirect({ host: APP, pathname: "/smithlab", enabled: true }),
+    ).toBe("https://smithlab.research-os.com");
+  });
+
+  it("preserves the sub-path after the slug", () => {
+    expect(
+      resolveAppOriginLabRedirect({
+        host: APP,
+        pathname: "/smithlab/results/figure-2",
+        enabled: true,
+      }),
+    ).toBe("https://smithlab.research-os.com/results/figure-2");
+  });
+
+  it("normalizes a mixed-case first segment to the canonical slug host", () => {
+    expect(
+      resolveAppOriginLabRedirect({ host: APP, pathname: "/Smith_Lab", enabled: true }),
+    ).toBe("https://smith-lab.research-os.com");
+  });
+
+  it("never redirects a reserved app route (so the app keeps working)", () => {
+    for (const p of [
+      "/",
+      "/datahub",
+      "/settings",
+      "/api/whatever",
+      "/network",
+      "/figures",
+      "/about",
+      "/admin",
+      "/demo",
+      "/lab-overview",
+    ]) {
+      expect(
+        resolveAppOriginLabRedirect({ host: APP, pathname: p, enabled: true }),
+      ).toBeNull();
+    }
+  });
+
+  it("is null on a lab subdomain (resolveLabHostRequest owns that)", () => {
+    expect(
+      resolveAppOriginLabRedirect({
+        host: "smithlab.research-os.com",
+        pathname: "/results",
+        enabled: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("agrees with RESERVED route handling: a reserved-vs-real split", () => {
+    // A reserved segment passes through (null), a non-reserved slug redirects.
+    expect(
+      resolveAppOriginLabRedirect({ host: APP, pathname: "/inventory", enabled: true }),
+    ).toBeNull();
+    expect(
+      resolveAppOriginLabRedirect({ host: APP, pathname: "/castellanos-lab", enabled: true }),
+    ).toBe("https://castellanos-lab.research-os.com");
   });
 });
 

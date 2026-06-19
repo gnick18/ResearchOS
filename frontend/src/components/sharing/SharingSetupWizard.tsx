@@ -83,6 +83,17 @@ interface SharingSetupWizardProps {
    *  links) passes "email-enter" to skip the provider chooser and land straight
    *  on email entry. */
   initialStep?: "choose" | "email-enter";
+  /**
+   * Auto-claim with the EXISTING signed-in session (auto-claim Phase 1, D3). When
+   * true the wizard reads the live OAuth session on open and, if a verified email
+   * is present, skips the provider chooser entirely and lands straight on keygen +
+   * the recovery-code step, binding with the session already in hand. No second
+   * OAuth redirect, since the user is already signed in. If no session email is
+   * found (the session lapsed, or an ORCID session that returns no email), the
+   * wizard falls back to the normal chooser / email path so the user is never
+   * stranded. Used by RequireAccountGate for the signed-in dead-zone case.
+   */
+  autoClaim?: boolean;
 }
 
 // The query flag the OAuth callbackUrl carries so we know the page reloaded
@@ -111,6 +122,7 @@ export default function SharingSetupWizard({
   onComplete,
   onClose,
   initialStep = "choose",
+  autoClaim = false,
 }: SharingSetupWizardProps) {
   const [step, setStep] = useState<Step>(initialStep);
   const [verifiedVia, setVerifiedVia] = useState<VerifiedVia>(null);
@@ -237,6 +249,58 @@ export default function SharingSetupWizard({
       cancelled = true;
     };
   }, []);
+
+  // Auto-claim with the existing session (auto-claim Phase 1, D3). When the
+  // caller opens the wizard in autoClaim mode the user is ALREADY signed in, so
+  // we reuse that live session instead of bouncing back through the provider.
+  // We read the session email once and, if present, jump straight to keygen +
+  // the recovery-code step with verifiedVia "google" (the oauth-bind route
+  // ignores the provider, so "google" stands in for "verified via the live
+  // OAuth session"). No second signIn() redirect.
+  //
+  // Fallbacks keep this from ever stranding the user: a session with no email
+  // (lapsed, or ORCID which returns none) leaves the wizard on the chooser, and
+  // the ?sharingClaim resume effect above is mutually exclusive with this one
+  // (autoClaim openings carry no ?sharingClaim flag), so they never both fire.
+  const autoClaimRan = useRef(false);
+  useEffect(() => {
+    if (!autoClaim) return;
+    if (typeof window === "undefined") return;
+    if (autoClaimRan.current) return;
+    // Do not auto-route when resuming a provider redirect; that effect owns the
+    // resume and would race this one.
+    const url = new URL(window.location.href);
+    if (url.searchParams.get(CLAIM_QUERY_PARAM) === "1") return;
+    autoClaimRan.current = true;
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/session", {
+          headers: { accept: "application/json" },
+        });
+        const session = (await res.json()) as {
+          user?: { email?: string | null; name?: string | null } | null;
+        } | null;
+        if (cancelled) return;
+        const sessionEmail = session?.user?.email;
+        const sessionName = session?.user?.name;
+        if (sessionName) setDisplayName(sessionName);
+        if (sessionEmail) {
+          setEmail(sessionEmail);
+          setVerifiedVia("google");
+          setStep("generate");
+        }
+        // No session email leaves the wizard on the chooser, a safe place to
+        // finish setup by another method rather than a dead end.
+      } catch {
+        // A failed session read just leaves the user on the chooser to retry.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [autoClaim]);
 
   // Probe for an EXISTING local identity once on mount. If this user already has
   // a sealed keypair (sidecar recoveryBlob) AND it is unlocked on this device
