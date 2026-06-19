@@ -42,6 +42,10 @@ export interface LayerItem {
   ref: ElementRef;
   label: string;
   icon: IconName;
+  /** Whether this element is currently locked. */
+  locked?: boolean;
+  /** Whether this element is currently hidden. */
+  hidden?: boolean;
 }
 
 export type RailSection =
@@ -78,6 +82,8 @@ export default function FigureLeftRail({
   selectedKeys,
   onSelectLayer,
   onReorderLayer,
+  onToggleLock,
+  onToggleHide,
   onAddShape,
   onUseTemplate,
 }: {
@@ -95,6 +101,8 @@ export default function FigureLeftRail({
   selectedKeys: Set<string>;
   onSelectLayer: (ref: ElementRef) => void;
   onReorderLayer: (ref: ElementRef, dir: "up" | "down") => void;
+  onToggleLock: (ref: ElementRef) => void;
+  onToggleHide: (ref: ElementRef) => void;
   onAddShape: (kind: ShapeKind) => void;
   onUseTemplate: (t: FigureTemplate) => void;
 }) {
@@ -222,6 +230,8 @@ export default function FigureLeftRail({
             selectedKeys={selectedKeys}
             onSelect={onSelectLayer}
             onReorder={onReorderLayer}
+            onToggleLock={onToggleLock}
+            onToggleHide={onToggleHide}
           />
         )}
       </div>
@@ -760,11 +770,15 @@ function LayersPanel({
   selectedKeys,
   onSelect,
   onReorder,
+  onToggleLock,
+  onToggleHide,
 }: {
   layers: LayerItem[];
   selectedKeys: Set<string>;
   onSelect: (ref: ElementRef) => void;
   onReorder: (ref: ElementRef, dir: "up" | "down") => void;
+  onToggleLock: (ref: ElementRef) => void;
+  onToggleHide: (ref: ElementRef) => void;
 }) {
   return (
     <>
@@ -781,15 +795,33 @@ function LayersPanel({
             return (
               <div
                 key={key}
-                className={`flex items-center gap-1 rounded-lg border px-1.5 py-1 text-meta ${sel ? "border-brand-action bg-brand-action/10" : "border-border hover:border-brand-action"}`}
+                className={`flex items-center gap-0.5 rounded-lg border px-1 py-1 text-meta ${sel ? "border-brand-action bg-brand-action/10" : "border-border hover:border-brand-action"} ${it.hidden ? "opacity-50" : ""}`}
               >
                 <button
                   type="button"
                   onClick={() => onSelect(it.ref)}
-                  className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+                  className="flex min-w-0 flex-1 items-center gap-1.5 px-0.5 text-left"
                 >
                   <Icon name={it.icon} className="h-3.5 w-3.5 shrink-0 text-foreground-muted" />
                   <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                </button>
+                {/* Eye toggle: hide / show this element. */}
+                <button
+                  type="button"
+                  title={it.hidden ? "Show" : "Hide"}
+                  onClick={() => onToggleHide(it.ref)}
+                  className="shrink-0 text-foreground-faint hover:text-foreground"
+                >
+                  <Icon name={it.hidden ? "eyeOff" : "eye"} className="h-3.5 w-3.5" />
+                </button>
+                {/* Lock toggle: lock / unlock this element. Locked shows filled. */}
+                <button
+                  type="button"
+                  title={it.locked ? "Unlock" : "Lock"}
+                  onClick={() => onToggleLock(it.ref)}
+                  className={`shrink-0 hover:text-foreground ${it.locked ? "text-brand-action" : "text-foreground-faint"}`}
+                >
+                  <Icon name="lock" className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
