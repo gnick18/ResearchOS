@@ -11,7 +11,7 @@ import AssetLibraryLanding from "@/components/library/AssetLibraryLanding";
  * connected folder so anyone can browse before signing in.
  */
 export const metadata: Metadata = {
-  title: "Open scientific icon library | ResearchOS",
+  title: "Open scientific icon library",
   description:
     "Thousands of openly licensed scientific icons and silhouettes, free to use and remix. Search, recolor, and drop them into a figure with citations handled for you. CC0, CC-BY, and CC-BY-SA only.",
 };

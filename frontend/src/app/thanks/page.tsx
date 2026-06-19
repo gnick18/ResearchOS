@@ -17,7 +17,7 @@ import ThanksPage from "@/components/thanks/ThanksPage";
  * `/sponsors` redirects here (src/app/sponsors/page.tsx).
  */
 export const metadata: Metadata = {
-  title: "Thanks | ResearchOS",
+  title: "Thanks",
   description:
     "ResearchOS is free and open because of the people who fund it and the open-source projects it is built on. Sponsor it on GitHub, and see what it stands on.",
 };

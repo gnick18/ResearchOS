@@ -16,7 +16,7 @@ import PrivacyPolicy from "@/components/privacy/PrivacyPolicy";
  * intentionally excluded from the wiki-coverage map.
  */
 export const metadata: Metadata = {
-  title: "Privacy policy | ResearchOS",
+  title: "Privacy policy",
   description:
     "ResearchOS keeps your research data on your own computer. This plain-English privacy policy explains what that means, the one place it changes (optional sharing), and how we handle the little we store.",
 };

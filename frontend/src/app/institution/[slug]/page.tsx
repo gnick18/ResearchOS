@@ -32,7 +32,7 @@ export async function generateMetadata({
     (await resolveInstitution(slug))?.canonicalName ??
     humanizeInstitutionSlug(slug);
   return {
-    title: `${name} | ResearchOS`,
+    title: name,
     description: `Researchers at ${name} on ResearchOS. A public, opt-in directory of listed researchers with verified institutional identities, never an email address.`,
   };
 }

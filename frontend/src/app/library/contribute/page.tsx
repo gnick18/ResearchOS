@@ -25,7 +25,7 @@ const CONTRIBUTE_ENABLED =
  * the IA is visible; the wizard itself lands with Part 3.
  */
 export const metadata: Metadata = {
-  title: "Contribute an icon | ResearchOS open library",
+  title: "Contribute an icon",
   description:
     "Add your own scientific icons to the open library under an open license, with tags and a citation. Bulk upload and bulk tagging make a whole set quick.",
 };

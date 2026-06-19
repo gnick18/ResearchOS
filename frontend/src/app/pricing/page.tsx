@@ -23,7 +23,7 @@ import { isAiBillingEnabled, isBillingEnabled } from "@/lib/billing/config";
  * Voice: no em-dashes, no emojis, no mid-sentence colons.
  */
 export const metadata: Metadata = {
-  title: "Pricing | ResearchOS",
+  title: "Pricing",
   description:
     "The ResearchOS local notebook is free and open source forever. Paid plans are pay-for-what-you-use, a small base fee plus your actual cloud usage, with a cap you set. Solo, Lab, and Department, plus a separate metered AI assistant and storage at roughly cost.",
 };
