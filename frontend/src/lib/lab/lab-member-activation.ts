@@ -15,6 +15,42 @@ import { canonicalizeEmail } from "@/lib/sharing/directory/email";
 import { getLabRemote } from "./lab-do-client";
 import { openLabKeyCopy } from "./lab-key";
 import type { DataKeyState } from "./lab-deferred-seal";
+import { LAB_AS_FOLDER_ENABLED } from "./lab-as-folder-config";
+import { provisionMemberFolder } from "./provision-member-folder";
+
+/**
+ * Lab-as-folder (P1). Record this member's membership for `labId`.
+ *
+ * Flag ON: provision (or reuse) a MANAGED OPFS member folder, write
+ * account_type=member + lab_id into THAT folder, register it in the account
+ * remembered set, and switch to it. The CURRENT folder is left untouched (this is
+ * the fix for the Emile-test bug where joining a lab overwrote the joiner's own
+ * folder's lab_id). On any provisioning failure we fall back to the legacy write
+ * so the member is never left un-activated.
+ *
+ * Flag OFF: BYTE-IDENTICAL to before. patchUserSettings sets lab_id on the
+ * CURRENT folder (the legacy single-lab_id behavior). account_type is not touched
+ * (a member is the default), exactly as the prior code did.
+ *
+ * @param labName optional cosmetic name cached on the new folder's switcher label.
+ */
+async function recordMemberActivation(
+  username: string,
+  labId: string,
+  labName?: string,
+): Promise<void> {
+  if (!LAB_AS_FOLDER_ENABLED) {
+    await patchUserSettings(username, { lab_id: labId });
+    return;
+  }
+  const result = await provisionMemberFolder({ labId, username, labName });
+  if (!result.ok) {
+    // Never trap the member un-activated. If OPFS is unavailable or provisioning
+    // failed, fall back to the legacy write on the current folder so the lab gate
+    // can still activate. This degrades to today's behavior, not a dead end.
+    await patchUserSettings(username, { lab_id: labId });
+  }
+}
 
 export type EnterLabResult =
   | { entered: true; labId: string }
@@ -38,8 +74,11 @@ export async function checkAndEnterLab(params: {
   labId: string;
   username: string;
   identity: StoredIdentity;
+  /** Optional cosmetic lab name, cached on the managed member folder's switcher
+   *  label when the lab-as-folder flag is on. Ignored when the flag is off. */
+  labName?: string;
 }): Promise<EnterLabResult> {
-  const { labId, username, identity } = params;
+  const { labId, username, identity, labName } = params;
 
   let remote;
   try {
@@ -79,9 +118,11 @@ export async function checkAndEnterLab(params: {
     };
   }
 
-  // Approved + sealed to us. Set lab_id; useLabSession live-reads the write and
-  // the gate activates. We do not touch account_type (a member is the default).
-  await patchUserSettings(username, { lab_id: labId });
+  // Approved + sealed to us. Record membership; useLabSession live-reads the
+  // resulting settings write and the gate activates. Flag-off this is the legacy
+  // lab_id set on the current folder; flag-on it provisions a managed member
+  // folder and switches to it (see recordMemberActivation).
+  await recordMemberActivation(username, labId, labName);
   return { entered: true, labId };
 }
 
@@ -127,8 +168,12 @@ export async function enterLabViaToken(params: {
    *  The caller knows this from the directory bind state; it only distinguishes
    *  the two pending messages and never gates the open attempt. */
   hasPublishedKey: boolean;
+  /** Optional cosmetic lab name, cached on the managed member folder's switcher
+   *  label when the lab-as-folder flag is on. Ignored when the flag is off. */
+  labName?: string;
 }): Promise<TokenEnterResult> {
-  const { labId, username, oauthEmail, identity, hasPublishedKey } = params;
+  const { labId, username, oauthEmail, identity, hasPublishedKey, labName } =
+    params;
   const rosterKey = canonicalizeEmail(oauthEmail);
 
   let remote;
@@ -166,6 +211,6 @@ export async function enterLabViaToken(params: {
     };
   }
 
-  await patchUserSettings(username, { lab_id: labId });
+  await recordMemberActivation(username, labId, labName);
   return { entered: true, labId };
 }

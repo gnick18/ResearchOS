@@ -21,6 +21,8 @@ import { Icon } from "@/components/icons/Icon";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
+import { folderLabLabel } from "@/lib/file-system/folder-lab-label";
+import { LAB_AS_FOLDER_ENABLED } from "@/lib/lab/lab-as-folder-config";
 
 /** Format a lastOpenedAt timestamp as a short, calm relative string. */
 function relativeOpened(ts: number): string {
@@ -277,7 +279,22 @@ export default function FolderSwitcher({
                     )}
                   </span>
                   <span className="block truncate text-meta text-foreground-muted">
-                    {isActive ? "Active folder" : relativeOpened(f.lastOpenedAt)}
+                    {/* Lab-as-folder (P1): when the feature is ON, show the
+                        cached lab identity (Solo / "X - head" / "Y - member") so
+                        the switcher reads as a lab switcher, followed by the
+                        active / last-opened status. When the flag is OFF the line
+                        is byte-identical to before the feature ("Active folder" /
+                        relative time), so a pre-feature folder set is unchanged. */}
+                    {LAB_AS_FOLDER_ENABLED ? (
+                      <>
+                        {folderLabLabel(f)} &middot;{" "}
+                        {isActive ? "Active" : relativeOpened(f.lastOpenedAt)}
+                      </>
+                    ) : isActive ? (
+                      "Active folder"
+                    ) : (
+                      relativeOpened(f.lastOpenedAt)
+                    )}
                   </span>
                 </span>
               </button>

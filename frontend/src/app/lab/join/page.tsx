@@ -418,6 +418,10 @@ export default function LabJoinPage() {
         labId: invite.labId,
         username: currentUser,
         identity,
+        // Cosmetic label for the managed member folder when lab-as-folder is on
+        // (ignored when off). Prefer the relay profile, then the invite's name.
+        labName:
+          profile?.labName || invite.labName || `${invite.headUsername}'s lab`,
       });
       if (r.entered) {
         clearStashedInvite();
