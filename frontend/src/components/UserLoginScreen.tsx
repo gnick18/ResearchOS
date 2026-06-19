@@ -581,7 +581,9 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setError(null);
     try {
       const [usersResponse, mainUserResponse] = await Promise.all([
-        usersApi.list(),
+        // Identity chooser: only real local accounts, never materialized
+        // co-members (a lone member must not be offered to sign in as their PI).
+        usersApi.listLocalIdentities(),
         usersApi.getMainUser()
       ]);
       setUsers(usersResponse.users);

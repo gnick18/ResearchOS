@@ -10160,7 +10160,25 @@ export const usersApi = {
     const currentUser = await getCurrentUser();
     return { users, current_user: currentUser || "" };
   },
-  
+
+  // Identity surfaces (the account-selection picker) want ONLY real local
+  // accounts a person can actually sign in as. Materialized co-members are relay
+  // roster scaffolds written into a member's own folder so People, colors, and
+  // attribution light up, they are NOT local identities and must never appear in
+  // the "who are you" chooser (a lone member would otherwise be offered to sign
+  // in as their PI). This is `list()` plus the materialized_member filter; the
+  // broad `list()` deliberately keeps the full roster for display, sharing, and
+  // assignment surfaces.
+  listLocalIdentities: async (): Promise<{ users: string[]; current_user: string }> => {
+    const { users, current_user } = await usersApi.list();
+    if (users.length === 0) return { users, current_user };
+    const meta = await readAllUserMetadata();
+    return {
+      users: users.filter((name) => !meta[name]?.materialized_member),
+      current_user,
+    };
+  },
+
   login: async (username: string): Promise<{ status: string; current_user: string }> => {
     clearCurrentUserCache();
     // Account-settings cache is keyed by identity, but a user switch on the same

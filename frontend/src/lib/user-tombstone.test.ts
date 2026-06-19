@@ -177,6 +177,70 @@ describe("usersApi.delete — tombstone register", () => {
   });
 });
 
+describe("usersApi.listLocalIdentities — materialized co-member exclusion", () => {
+  // The identity chooser (UserLoginScreen) must only offer real local accounts
+  // a person can sign in as. A lab member's folder materializes co-member
+  // scaffolds (the PI + labmates) for People/colors/attribution display, with a
+  // `materialized_member` flag in _user_metadata.json. Those are NOT identities
+  // and must never appear in the "who are you" picker (the live finding: a lone
+  // member was offered to sign in as their PI). The broad usersApi.list keeps
+  // returning the full roster for display + sharing surfaces.
+  it("excludes materialized co-members while the broad list keeps them", async () => {
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "viewer",
+      "emile",
+      "_user_metadata.json",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        viewer: { color: "#1283C9", created_at: "2026-06-19T00:00:00.000Z" },
+        emile: {
+          color: "#5B47D6",
+          created_at: "2026-06-19T00:00:00.000Z",
+          materialized_member: true,
+        },
+      },
+    });
+
+    // The broad roster still shows both (display/sharing surfaces need the PI).
+    const broad = await usersApi.list();
+    expect(broad.users).toEqual(["emile", "viewer"]);
+
+    // The identity chooser shows only the real local account.
+    const identities = await usersApi.listLocalIdentities();
+    expect(identities.users).toEqual(["viewer"]);
+  });
+
+  it("still hides tombstoned users in the identity chooser too", async () => {
+    const { fileService } = await import("./file-system/file-service");
+    (fileService.listDirectories as ReturnType<typeof vi.fn>).mockResolvedValue([
+      "viewer",
+      "ghost",
+      "emile",
+      "_user_metadata.json",
+    ]);
+    memFs.set("users/_user_metadata.json", {
+      users: {
+        viewer: { color: "#1283C9", created_at: "2026-06-19T00:00:00.000Z" },
+        ghost: {
+          color: "#ef4444",
+          created_at: "2026-06-19T00:00:00.000Z",
+          deleted_at: "2026-06-18T00:00:00.000Z",
+        },
+        emile: {
+          color: "#5B47D6",
+          created_at: "2026-06-19T00:00:00.000Z",
+          materialized_member: true,
+        },
+      },
+    });
+
+    const identities = await usersApi.listLocalIdentities();
+    expect(identities.users).toEqual(["viewer"]);
+  });
+});
+
 describe("usersApi.getMainUser — per-folder storage + tombstone validation", () => {
   // Bug 2 fix 2026-05-23 (login bug fix manager): Main user moved from
   // a per-machine IndexedDB key (`research-os-main-user`) into the
