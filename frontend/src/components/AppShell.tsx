@@ -495,9 +495,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       hasCloudSession,
     });
   if (mustClaimAccount && currentUser) {
+    // Auto-claim (Phase 1, D3): when the gate fired for an ALREADY signed-in user
+    // (the deferred-mint dead zone), the gate reuses the live session and goes
+    // straight to keygen + the recovery code, with no provider to choose. A
+    // signed-out user (hasCloudSession === false) still sees the manual sign-in
+    // card. hasCloudSession is true here only on the new signed-in branch of
+    // shouldGateForClaim, so this read alone distinguishes the two cases.
     return (
       <RequireAccountGate
         username={currentUser}
+        autoClaim={hasCloudSession === true}
         onClaimed={() => void identity.refresh()}
       />
     );

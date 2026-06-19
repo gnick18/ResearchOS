@@ -163,4 +163,102 @@ describe("shouldGateForClaim (app-wide require-account gate)", () => {
       false,
     );
   });
+
+  // Auto-claim Phase 1 (2026-06-19): the signed-in dead-zone branch. A signed-in
+  // user who enters a fresh folder has NO keypair yet (status "none") because the
+  // mint is deferred, so Share is hidden and the old gate (which required
+  // hasCloudSession === false) never fired. The new branch holds them so the
+  // wizard can auto-mint + show the recovery code using the existing session.
+  describe("signed-in dead-zone branch (auto-claim Phase 1)", () => {
+    it("BLOCKS a signed-in user with no usable identity yet (status none), the dead zone", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "none",
+        }),
+      ).toBe(true);
+    });
+
+    it("does NOT block a signed-in user once the identity is ready (NO LOOP on a lagging publish)", () => {
+      // The crucial no-loop guard: a signed-in "ready" user whose publish has not
+      // landed (published false) must NOT be gated, or the gate would loop forever
+      // since publishing writes the sidecar email only on success. Auto-claim
+      // flips status none -> ready, which is exactly what releases the gate.
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "ready",
+          published: false,
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block a signed-in user awaiting cross-device restore (needs-restore is Phase 2, unchanged)", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "needs-restore",
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block a signed-in user while the identity read is still loading", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "loading",
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block the signed-in 'none' case when require-account is off (kill switch, byte-identical flag-off)", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          requireAccount: false,
+          hasCloudSession: true,
+          identityStatus: "none",
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block the signed-in 'none' case in demo / wiki-capture", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          isDemoOrCapture: true,
+          hasCloudSession: true,
+          identityStatus: "none",
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block the signed-in 'none' case with no OAuth claim path (no-auth build, never soft-locks)", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          oauthPublishAvailable: false,
+          hasCloudSession: true,
+          identityStatus: "none",
+        }),
+      ).toBe(false);
+    });
+
+    it("does NOT block a SIGNED-OUT user at status none (only the signed-in branch covers none; the signed-out branch still requires ready)", () => {
+      // Guards the asymmetry: status "none" gates ONLY when signed in. A
+      // signed-out user at "none" has no session to reuse, so the signed-out
+      // branch (which requires "ready") is the correct path and this must not fire.
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: false,
+          identityStatus: "none",
+        }),
+      ).toBe(false);
+    });
+  });
 });

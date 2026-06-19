@@ -27,18 +27,33 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 export default function RequireAccountGate({
   username,
   onClaimed,
+  autoClaim = false,
 }: {
   /** The folder-local username whose account is being claimed. */
   username: string;
   /** Called once the claim publishes, so the shell can re-read identity and release. */
   onClaimed: () => void;
+  /**
+   * Auto-claim with the existing session (auto-claim Phase 1, D3). True when the
+   * gate fired for an ALREADY signed-in user who landed in the deferred-mint dead
+   * zone (no keypair yet). In that case there is no provider to choose, so we
+   * open the wizard immediately in autoClaim mode and it reuses the live session,
+   * going straight to keygen + the recovery code. The signed-out branch leaves
+   * this false and shows the manual "Continue with sign-in" card below.
+   */
+  autoClaim?: boolean;
 }) {
   // The wizard here only STARTS a claim (provider choose / email entry). When a
   // provider redirect returns with ?sharingClaim, AppShell skips this gate so the
   // global SharingClaimResume finishes keygen + publish; the identity-written
   // event then releases the gate. The inline email-OTP path completes here and
-  // calls onClaimed directly.
-  const [wizardOpen, setWizardOpen] = useState(false);
+  // calls onClaimed directly. In autoClaim mode the wizard opens automatically
+  // and reuses the existing session (no provider choose, no second redirect).
+  //
+  // D3 (auto / no friction): seed wizardOpen from autoClaim so an already
+  // signed-in user lands in the wizard on the first render with nothing to click.
+  // A signed-out user starts with it closed and opens it via the sign-in button.
+  const [wizardOpen, setWizardOpen] = useState(autoClaim);
   const { disconnect } = useFileSystem();
 
   return (
@@ -55,25 +70,29 @@ export default function RequireAccountGate({
           <Wordmark size="sm" textOnly />
         </div>
         <h1 className="mt-4 text-heading font-extrabold text-foreground">
-          Finish creating your account
+          {autoClaim ? "Setting up your account" : "Finish creating your account"}
         </h1>
         <p className="mt-2 text-body text-foreground-muted leading-relaxed">
-          Your account is your identity and your sharing setup, one and the same.
-          Sign in once to claim it. Your work stays encrypted on your own machine
-          and your private key never leaves this device. This is also what lets
-          colleagues find you and lets you join a lab.
+          {autoClaim
+            ? "You are signed in, so we are setting up this folder's identity now using your existing sign-in. We will show you a recovery code to save in a moment. Your work stays encrypted on your own machine and your private key never leaves this device."
+            : "Your account is your identity and your sharing setup, one and the same. Sign in once to claim it. Your work stays encrypted on your own machine and your private key never leaves this device. This is also what lets colleagues find you and lets you join a lab."}
         </p>
-        <button
-          type="button"
-          onClick={() => setWizardOpen(true)}
-          className="ros-btn-raise mt-6 w-full rounded-xl bg-brand-action px-4 py-2.5 text-body font-semibold text-white"
-        >
-          Continue with sign-in
-        </button>
+        {!autoClaim && (
+          <button
+            type="button"
+            onClick={() => setWizardOpen(true)}
+            className="ros-btn-raise mt-6 w-full rounded-xl bg-brand-action px-4 py-2.5 text-body font-semibold text-white"
+          >
+            Continue with sign-in
+          </button>
+        )}
+        {/* Escape from every state (no soft lock). Always visible, including in
+            autoClaim mode where the wizard opens on top, so a user can always
+            back out to a different folder. */}
         <button
           type="button"
           onClick={() => void disconnect()}
-          className="mt-3 text-meta text-foreground-muted underline-offset-2 hover:underline"
+          className={`${autoClaim ? "mt-6" : "mt-3"} text-meta text-foreground-muted underline-offset-2 hover:underline`}
         >
           Use a different folder
         </button>
@@ -82,6 +101,7 @@ export default function RequireAccountGate({
       {wizardOpen && (
         <SharingSetupWizard
           username={username}
+          autoClaim={autoClaim}
           onComplete={() => {
             // Re-read identity; once it reads as published the shell releases.
             onClaimed();
