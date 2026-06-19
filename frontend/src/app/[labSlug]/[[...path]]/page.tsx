@@ -106,6 +106,18 @@ export default async function LabSitePublicPage({
   // rebuild. The flag is production-scoped, so local dev and preview (flag off)
   // keep rendering the path form in place, and a request already on
   // <slug>.research-os.com renders normally (onSubdomain true, no loop).
+  // TEMP DEBUG (Blocker 2 diag, remove after): why does the node route skip the
+  // 301 while the edge proxy serves the subdomain off the same flag?
+  console.log(
+    "[lab301-diag]",
+    JSON.stringify({
+      slug,
+      enabled: isLabSitesComOriginEnabled(),
+      LAB_SITES_ENABLED: process.env.LAB_SITES_ENABLED ?? null,
+      LAB_SITES_COM_ORIGIN: process.env.LAB_SITES_COM_ORIGIN ?? null,
+      host: (await headers()).get("host"),
+    }),
+  );
   if (isLabSitesComOriginEnabled()) {
     const host = (await headers()).get("host");
     const onSubdomain = labSlugFromHost(host) === slug;
