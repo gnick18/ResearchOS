@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 300" role="img" aria-label="fakeGFP output by promoter strength">
+  <rect width="520" height="300" fill="#fffdf8"/>
+  <text x="20" y="30" font-family="sans-serif" font-size="15" font-weight="700" fill="#15243b">fakeGFP output by promoter strength</text>
+  <rect x="80" y="200" width="70" height="50" rx="5" fill="#e08a2b"/>
+  <rect x="190" y="150" width="70" height="100" rx="5" fill="#e08a2b"/>
+  <rect x="300" y="110" width="70" height="140" rx="5" fill="#e08a2b"/>
+  <rect x="410" y="80" width="70" height="170" rx="5" fill="#e08a2b"/>
+  <text x="115" y="270" font-family="sans-serif" font-size="12" fill="#5b6b86" text-anchor="middle">weak</text>
+  <text x="225" y="270" font-family="sans-serif" font-size="12" fill="#5b6b86" text-anchor="middle">medium</text>
+  <text x="335" y="270" font-family="sans-serif" font-size="12" fill="#5b6b86" text-anchor="middle">strong</text>
+  <text x="445" y="270" font-family="sans-serif" font-size="12" fill="#5b6b86" text-anchor="middle">v. strong</text>
+</svg>

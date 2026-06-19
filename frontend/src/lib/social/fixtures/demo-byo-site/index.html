@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FakeYeast 2026, paper companion</title>
+    <link rel="stylesheet" href="assets/style.css" />
+  </head>
+  <body>
+    <header class="hero">
+      <p class="kicker">Paper companion, bring your own site</p>
+      <h1>Engineering FakeYeast for tunable fakeGFP output</h1>
+      <p class="byline">The Castellanos Lab, FakeYeast 2026 (fabricated for the demo)</p>
+    </header>
+
+    <main>
+      <section class="card">
+        <h2>Abstract</h2>
+        <p>
+          This is a fully custom static site the lab built itself and hosts on
+          its own slug. It is the same paper as the native companion page, shown
+          here as a bring your own bundle so a prospective lab head can see that
+          one lab can publish both a ResearchOS authored site and its own static
+          site from a single handle.
+        </p>
+      </section>
+
+      <section class="card">
+        <h2>Interactive figure</h2>
+        <p>
+          A real paper companion would mount its own charts and widgets here. The
+          point of the demo is the hosting path, served from a separate sandboxed
+          domain so the lab JavaScript stays isolated from the authed app.
+        </p>
+        <div id="figure" class="figure" aria-label="fakeGFP output by strain"></div>
+        <p class="cap">Figure 1. fakeGFP output rises with promoter strength.</p>
+      </section>
+
+      <footer class="foot">
+        <p>All strains, results, and figures are fabricated for the demo.</p>
+      </footer>
+    </main>
+
+    <script src="assets/app.js"></script>
+  </body>
+</html>
