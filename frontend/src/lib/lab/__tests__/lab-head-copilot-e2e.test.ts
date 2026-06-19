@@ -156,6 +156,17 @@ function emptySource(): LabWorkSource {
     listResultSheets: none,
     listNotesSheets: none,
     listDeposits: none,
+    // Mentorship / check-in / announcement record types (added by the lab-view
+    // pull lane). The read tools this file drives do not consume them, so they
+    // stay empty here.
+    listOneOnOnes: none,
+    listOneOnOneActionItems: none,
+    listIdps: none,
+    listWeeklyGoals: none,
+    listCheckinCompacts: none,
+    listCheckinOnboarding: none,
+    listCheckinRotations: none,
+    listAnnouncements: none,
   };
 }
 
