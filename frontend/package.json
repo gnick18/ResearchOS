@@ -10,10 +10,10 @@
     "url": "https://rise.wisc.edu/"
   },
   "scripts": {
+    "build": "next build",
     "dev": "next dev",
     "build:duckdb-bundle": "node scripts/build-duckdb-bundle.mjs",
     "prebuild": "node ../scripts/check-wiki-coverage.mjs --ci && node ../scripts/build-wiki-content.mjs && node ../scripts/build-wiki-search-index.mjs --quiet && node ../scripts/build-demo-zip.mjs && node ../scripts/build-ai-helper.mjs && node ../scripts/check-ai-helper.mjs && node ../scripts/build-open-source-credits.mjs",
-    "build": "next build",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -32,7 +32,11 @@
     "ai-helper:check": "node ../scripts/check-ai-helper.mjs",
     "ai-helper:refresh": "node ../scripts/build-ai-helper.mjs && (cd .. && git add frontend/public/ai-helper 2>/dev/null; git diff --cached --quiet || git commit -m 'AI Helper: refresh prompts (auto)')",
     "credits:build": "node ../scripts/build-open-source-credits.mjs",
-    "credits:check": "node ../scripts/build-open-source-credits.mjs --check"
+    "credits:check": "node ../scripts/build-open-source-credits.mjs --check",
+    "preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
+    "upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
+    "cf-typegen": "wrangler types --env-interface CloudflareEnv cloudflare-env.d.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1059.0",
@@ -44,6 +48,7 @@
     "@codemirror/state": "6.6.0",
     "@codemirror/view": "6.43.0",
     "@duckdb/duckdb-wasm": "1.29.0",
+    "@huggingface/transformers": "^3.8.1",
     "@lezer/common": "1.5.2",
     "@lezer/highlight": "1.2.3",
     "@lezer/markdown": "1.6.4",
@@ -51,6 +56,7 @@
     "@noble/ciphers": "^2.2.0",
     "@noble/curves": "^2.2.0",
     "@noble/hashes": "^2.2.0",
+    "@opennextjs/cloudflare": "^1.19.11",
     "@rdkit/rdkit": "2025.3.4-1.0.0",
     "@react-pdf/renderer": "^4.5.1",
     "@scure/bip39": "^2.2.0",
@@ -67,7 +73,6 @@
     "@tanstack/react-virtual": "^3.14.2",
     "@upstash/ratelimit": "^2.0.8",
     "@upstash/redis": "^1.38.0",
-    "@huggingface/transformers": "^3.8.1",
     "@vercel/analytics": "^2.0.1",
     "apache-arrow": "^21.1.0",
     "d3-hierarchy": "3.1.2",
@@ -149,7 +154,8 @@
     "rehype-stringify": "^10.0.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "wrangler": "^4.102.0"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

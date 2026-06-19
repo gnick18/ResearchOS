@@ -246,7 +246,7 @@ export default function DepartmentsPage() {
               </h2>
               <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
                 A department keeps a web home for each of its labs at
-                researchos.app and gives every lab the same builder to publish the
+                research-os.app and gives every lab the same builder to publish the
                 supplemental data behind their papers. Readers open citable
                 companion pages with live interactive dataset viewers, and the
                 department keeps the addresses in order so no lab has to wrangle
@@ -286,7 +286,7 @@ export default function DepartmentsPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#aedcb0]" />
                 </span>
                 <span className="ml-2 flex-1 truncate rounded-md border border-[#dce6f1] bg-white px-3 py-1 text-meta text-[#64748b]">
-                  researchos.app/biochem-dept
+                  research-os.app/biochem-dept
                 </span>
               </div>
               <div className="p-5">
@@ -317,7 +317,7 @@ export default function DepartmentsPage() {
                           {row.lab}
                         </div>
                         <div className="truncate text-meta text-[#94a3b8]">
-                          researchos.app/{row.slug}
+                          research-os.app/{row.slug}
                         </div>
                       </div>
                       <span aria-hidden className="text-brand-action">

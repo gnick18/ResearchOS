@@ -1,10 +1,10 @@
 {
-  "generatedAt": "2026-06-16T01:06:06.841Z",
+  "generatedAt": "2026-06-19T16:09:19.438Z",
   "appVersion": "0.75.0",
-  "dependencyCount": 84,
+  "dependencyCount": 85,
   "licenseCounts": {
     "Apache-2.0": 18,
-    "MIT": 53,
+    "MIT": 54,
     "BSD-3-Clause": 2,
     "ISC": 8,
     "(MIT AND BSD)": 1,
@@ -41,7 +41,7 @@
         {
           "name": "marked",
           "note": "Fast Markdown to HTML for previews.",
-          "version": "18.0.4",
+          "version": "18.0.3",
           "license": "MIT",
           "repo": "https://github.com/markedjs/marked"
         },
@@ -125,7 +125,7 @@
         {
           "name": "frappe-gantt",
           "note": "The project Gantt timeline.",
-          "version": "1.2.2",
+          "version": "1.0.4",
           "license": "MIT",
           "repo": "https://github.com/frappe/gantt"
         },
@@ -139,28 +139,28 @@
         {
           "name": "idb-keyval",
           "note": "A tiny IndexedDB layer for offline-first storage.",
-          "version": "6.2.4",
+          "version": "6.2.2",
           "license": "Apache-2.0",
           "repo": "https://github.com/jakearchibald/idb-keyval"
         },
         {
           "name": "zustand",
           "note": "Lightweight global state.",
-          "version": "5.0.13",
+          "version": "5.0.11",
           "license": "MIT",
           "repo": "https://github.com/pmndrs/zustand"
         },
         {
           "name": "@tanstack/react-query",
           "note": "Data fetching, caching, and sync.",
-          "version": "5.100.14",
+          "version": "5.90.21",
           "license": "MIT",
           "repo": "https://github.com/TanStack/query"
         },
         {
           "name": "date-fns",
           "note": "Date math without the heavyweight library.",
-          "version": "4.3.0",
+          "version": "4.1.0",
           "license": "MIT",
           "repo": "https://github.com/date-fns/date-fns"
         },
@@ -245,13 +245,13 @@
   "dependencies": [
     {
       "name": "@aws-sdk/client-s3",
-      "version": "3.1059.0",
+      "version": "3.1062.0",
       "license": "Apache-2.0",
       "repo": "https://github.com/aws/aws-sdk-js-v3"
     },
     {
       "name": "@aws-sdk/s3-request-presigner",
-      "version": "3.1059.0",
+      "version": "3.1062.0",
       "license": "Apache-2.0",
       "repo": "https://github.com/aws/aws-sdk-js-v3"
     },
@@ -346,6 +346,12 @@
       "repo": "https://github.com/paulmillr/noble-hashes"
     },
     {
+      "name": "@opennextjs/cloudflare",
+      "version": "1.19.11",
+      "license": "MIT",
+      "repo": "https://github.com/opennextjs/opennextjs-cloudflare"
+    },
+    {
       "name": "@rdkit/rdkit",
       "version": "2025.3.4-1.0.0",
       "license": "BSD-3-Clause",
@@ -419,13 +425,13 @@
     },
     {
       "name": "@tanstack/react-query",
-      "version": "5.100.14",
+      "version": "5.90.21",
       "license": "MIT",
       "repo": "https://github.com/TanStack/query"
     },
     {
       "name": "@tanstack/react-virtual",
-      "version": "3.14.2",
+      "version": "3.14.3",
       "license": "MIT",
       "repo": "https://github.com/TanStack/virtual"
     },
@@ -497,7 +503,7 @@
     },
     {
       "name": "date-fns",
-      "version": "4.3.0",
+      "version": "4.1.0",
       "license": "MIT",
       "repo": "https://github.com/date-fns/date-fns"
     },
@@ -533,7 +539,7 @@
     },
     {
       "name": "frappe-gantt",
-      "version": "1.2.2",
+      "version": "1.0.4",
       "license": "MIT",
       "repo": "https://github.com/frappe/gantt"
     },
@@ -545,7 +551,7 @@
     },
     {
       "name": "idb-keyval",
-      "version": "6.2.4",
+      "version": "6.2.2",
       "license": "Apache-2.0",
       "repo": "https://github.com/jakearchibald/idb-keyval"
     },
@@ -563,19 +569,19 @@
     },
     {
       "name": "ketcher-core",
-      "version": "3.12.0",
+      "version": "3.14.0",
       "license": "Apache-2.0",
       "repo": "https://github.com/epam/ketcher"
     },
     {
       "name": "ketcher-react",
-      "version": "3.12.0",
+      "version": "3.14.0",
       "license": "Apache-2.0",
       "repo": "https://github.com/epam/ketcher"
     },
     {
       "name": "ketcher-standalone",
-      "version": "3.12.0",
+      "version": "3.14.0",
       "license": "Apache-2.0",
       "repo": "https://github.com/epam/ketcher"
     },
@@ -599,7 +605,7 @@
     },
     {
       "name": "marked",
-      "version": "18.0.4",
+      "version": "18.0.3",
       "license": "MIT",
       "repo": "https://github.com/markedjs/marked"
     },
@@ -743,7 +749,7 @@
     },
     {
       "name": "zustand",
-      "version": "5.0.13",
+      "version": "5.0.11",
       "license": "MIT",
       "repo": "https://github.com/pmndrs/zustand"
     }

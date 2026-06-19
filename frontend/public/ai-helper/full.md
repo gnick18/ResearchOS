@@ -142,6 +142,10 @@ Edits on the experiment page modify the snapshot only. Source method stays canon
 Verbatim copy of `frontend/src/lib/types.ts`. Comments in the source file are the authoritative documentation for each field.
 
 ```typescript
+// The canonical sequence figure-style spec lives in a neutral leaf module so this
+// declarations file stays cycle-free (figure-style imports nothing).
+import type { SequenceMapStyle } from "./sequences/figure-style";
+
 // ── Shared Access Types ─────────────────────────────────────────────────────
 
 /**
@@ -639,6 +643,18 @@ export interface SubTask {
 
 // ── Task Method Attachments ───────────────────────────────────────────────────
 
+// Gathered-reagent checklist state, synced from the companion phone read mode.
+// `checks` is keyed by `${stepIndex}:${checkIndex}` (the phone's parsed reagent
+// checklist), so the count is authoritative even though the laptop does not
+// re-parse the method into the same checks. `total` is how many checks the
+// method has, for a "gatheredCount of total" display.
+export interface MethodGatheredChecks {
+  checks: Record<string, boolean>;
+  gatheredCount: number;
+  total: number;
+  at: string; // ISO timestamp of the last phone sync
+}
+
 export interface TaskMethodAttachment {
   method_id: number;
   // Explicit owner of the referenced method. `null` = same user as the task
@@ -674,6 +690,13 @@ export interface TaskMethodAttachment {
   cell_culture_schedule: string | null;
   // Variation notes - markdown content documenting method variations for this experiment
   variation_notes: string | null;  // Markdown string with timestamped entries
+  // Gathered-reagent checklist state synced from the companion phone. The phone
+  // ticks reagents off as they are gathered at the bench and syncs the FULL map
+  // (last-write-wins), so this is overwritten, never merged. Lives on the
+  // attachment like the other per-experiment snapshots, never on the source
+  // method. Optional so existing attachments without it read as "nothing
+  // gathered yet". See MethodGatheredChecks.
+  gathered_checks?: MethodGatheredChecks | null;
   // Compound method per-child snapshot bundle - JSON string of
   // CompoundSnapshotPayload (only meaningful when the attached method's
   // method_type === "compound"). Bundles per-child snapshot blobs keyed by
@@ -1586,6 +1609,14 @@ export interface StorageNode {
 
   notes: string | null;
 
+  /**
+   * Marks a location that lives OUTSIDE the scanned/drawn room (a closet, a cold
+   * room down the hall, a shared facility). External locations are never pinned
+   * on the room map; they show in an "External storage" list section instead.
+   * Inherited by descendants. Defaults to false.
+   */
+  is_external?: boolean;
+
   owner: string;
   shared_with: SharedUser[]; // the location tree is typically whole-lab shared
   created_by: string | null;
@@ -1603,6 +1634,7 @@ export interface StorageNodeCreate {
   box_rows?: number | null;
   box_cols?: number | null;
   notes?: string | null;
+  is_external?: boolean;
   /** Defaults to whole-lab edit when omitted (design §6.1). */
   shared_with?: SharedUser[];
   created_by?: string | null;
@@ -1616,8 +1648,81 @@ export interface StorageNodeUpdate {
   box_rows?: number | null;
   box_cols?: number | null;
   notes?: string | null;
+  is_external?: boolean;
   shared_with?: SharedUser[];
   // Auto-stamped by `storageNodesApi.update`.
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+// ── Lab map (2D spatial floorplan, spatial inventory Phase C) ─────────────────
+/**
+ * `LabMapPin` — one marker on the 2D room map. `nodeId` links it to a StorageNode
+ * (so "where is item X" resolves item -> stock -> its node -> that node's pin on
+ * the map), or is null for a free-standing label pin. `x`/`y` are normalized
+ * 0..1 across the plan area, so a pin survives any display size or export scale.
+ */
+export interface LabMapPin {
+  id: string; // stable client-generated id (keying + edits)
+  nodeId: number | null; // a StorageNode this pin marks, or null for a free label
+  label: string | null; // free label (when nodeId is null) or a display override
+  x: number; // 0..1 across the plan width
+  y: number; // 0..1 across the plan height
+  /** Optional photo of this physical spot (a downscaled raster data URL), shown
+   *  next to the pin when someone locates an item ("show me where it is"). Doubles
+   *  as the slot for a future RoomPlan-derived render. Null when none. */
+  image: string | null;
+}
+
+/**
+ * `LabMapPlan` — the floorplan backdrop the pins sit on. `"blank"` is a plain
+ * gridded canvas (drop pins, draw nothing); `"image"` shows an uploaded or
+ * RoomPlan-derived floorplan at `imagePath`. `aspect` = width / height of the
+ * plan area so the canvas keeps shape across devices.
+ */
+export interface LabMapPlan {
+  kind: "blank" | "image";
+  imagePath: string | null;
+  /** The floor plan as inline SVG markup (vector floor plans, v1). Rendered as
+   *  the Room map backdrop on laptop + phone; published in the inventory snapshot.
+   *  Null = a blank gridded canvas. Raster import is a later enhancement. */
+  imageData: string | null;
+  aspect: number; // width / height, default 1.5
+}
+
+/**
+ * `LabMap` — the lab's 2D spatial map. One per lab, whole-lab shared. The
+ * canonical `{ plan, pins }` object every capture method (manual drop now, a
+ * RoomPlan flatten later) feeds; the phone renders it read-only. Sharing +
+ * attribution mirror `StorageNode`.
+ */
+export interface LabMap {
+  id: number;
+  name: string;
+  plan: LabMapPlan;
+  pins: LabMapPin[];
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+  is_shared_with_me?: boolean; // read-time overlay, never persisted
+  shared_permission?: "view" | "edit";
+}
+
+export interface LabMapCreate {
+  name?: string;
+  plan?: LabMapPlan;
+  pins?: LabMapPin[];
+  shared_with?: SharedUser[];
+  created_by?: string | null;
+}
+
+export interface LabMapUpdate {
+  name?: string;
+  plan?: LabMapPlan;
+  pins?: LabMapPin[];
+  shared_with?: SharedUser[];
   last_edited_by?: string;
   last_edited_at?: string;
 }
@@ -2675,6 +2780,60 @@ export interface FundingSummary {
   uncategorized_spent: number;
 }
 
+// ── Deposit tracking ────────────────────────────────────────────────────────
+//
+// Deposit records (deposit-tracking bot, 2026-06-18). Per-user store at
+// `users/<owner>/deposits/<id>.json`. One record per guided-deposit handoff:
+// the user has downloaded the bundle and is uploading to the repository; the
+// DOI is null until the repository mints it and the user pastes it back.
+//
+// No em-dashes, no emojis.
+
+export interface Deposit {
+  id: number;
+  /** The deposited experiment id, or null for a project-level deposit. */
+  task_id: number | null;
+  /** The deposited project id, or null for a single-experiment deposit. */
+  project_id: number | null;
+  repository: "zenodo" | "figshare" | "other";
+  /** Snapshot of the deposited item title at deposit time. */
+  title: string | null;
+  /** DOI minted by the repository; null until the user pastes it in. */
+  doi: string | null;
+  /** Permanent concept DOI bridging versions (Zenodo only); null until known. */
+  concept_doi: string | null;
+  /** 1, 2, 3, ... for re-deposited versions of the same item; null when unknown. */
+  version_sequence: number | null;
+  /** Back-link to the previous Deposit record in the chain; null for v1. */
+  prior_version_id: number | null;
+  /** ISO timestamp; set to now at handoff (the user is depositing right now). */
+  deposited_at: string | null;
+  /** ISO timestamp; record creation. */
+  created_at: string;
+  owner: string;
+  shared_with: SharedUser[];
+  created_by: string | null;
+  last_edited_by?: string;
+  last_edited_at?: string;
+}
+
+export interface DepositCreate {
+  task_id?: number | null;
+  project_id?: number | null;
+  repository: "zenodo" | "figshare" | "other";
+  title?: string | null;
+  doi?: string | null;
+  concept_doi?: string | null;
+}
+
+export interface DepositUpdate {
+  doi?: string | null;
+  concept_doi?: string | null;
+  deposited_at?: string | null;
+  version_sequence?: number | null;
+  prior_version_id?: number | null;
+}
+
 // ── File-system shapes ──────────────────────────────────────────────────────
 
 export interface GitHubTreeItem {
@@ -3720,6 +3879,12 @@ export interface SequenceMeta {
   added_at: string;
   /** Molecule kind, derived from the GenBank LOCUS on create. */
   seq_type: SeqType;
+  /**
+   * Canonical figure-map style for this sequence (the publication look used in
+   * the figure composer). Additive + optional, mirrors PhyloMeta.figure. Absent =
+   * the renderer's defaults; a figure panel can still override per-panel on top.
+   */
+  figure?: SequenceMapStyle;
 
   // Cross-boundary provenance. Additive + optional, set ONLY on a sequence that
   // arrived through a cross-boundary share (sequence-transfer.ts importSequence).
@@ -3880,6 +4045,8 @@ export interface SequenceUpdate {
   organism?: string;
   tax_id?: string;
   tax_lineage?: SequenceTaxonNode[];
+  /** Canonical figure-map style; persisted to the meta sidecar. */
+  figure?: SequenceMapStyle;
 }
 
 // ── Custom Calculator Builder (Phase 1, 2026-06-10) ──────────────────────────
@@ -5354,6 +5521,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Getting Started | `/wiki/getting-started` |
 | Account tiers | `/wiki/getting-started/accounts` |
 | Browser Requirements | `/wiki/getting-started/browser-requirements` |
+| Why pages load once | `/wiki/getting-started/why-pages-load` |
 | Connecting Your Folder | `/wiki/getting-started/connecting-your-folder` |
 | Converting to single-user | `/wiki/getting-started/converting-to-single-user` |
 | Creating a User | `/wiki/getting-started/creating-a-user` |
@@ -5375,12 +5543,18 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | The Markdown Editor | `/wiki/features/markdown-editor` |
 | Version History | `/wiki/features/version-history` |
 | Use any AI with your data | `/wiki/features/ai-helper` |
+| BeakerBot assistant | `/wiki/features/beakerbot` |
 | Methods Library | `/wiki/features/methods` |
 | PCR Protocols | `/wiki/features/pcr` |
 | Template Library | `/wiki/features/method-catalog` |
 | Sequences | `/wiki/features/sequences` |
 | Data Hub | `/wiki/features/datahub` |
 | Chemistry | `/wiki/features/chemistry` |
+| Phylogenetics | `/wiki/features/phylo` |
+| Figure Composer | `/wiki/features/figures` |
+| Researcher network | `/wiki/features/network` |
+| Open icon library | `/wiki/features/library` |
+| Researcher directory | `/wiki/features/researchers` |
 | Cloning | `/wiki/features/cloning` |
 | Restriction digest | `/wiki/features/restriction-digest` |
 | Lab calculators | `/wiki/features/lab-calculators` |
@@ -5416,6 +5590,16 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Trash & History | `/wiki/features/trash` |
 | Notifications & Inbox | `/wiki/features/notifications` |
 | Feedback | `/wiki/features/feedback` |
+| Reading your statistics | `/wiki/stats` |
+| Effect sizes and confidence intervals | `/wiki/stats/effect-sizes` |
+| ANOVA, post-hoc, and two-way | `/wiki/stats/anova` |
+| Repeated measures and nested designs | `/wiki/stats/repeated-measures` |
+| Correlation and regression | `/wiki/stats/correlation-and-regression` |
+| Dose-response curves | `/wiki/stats/dose-response` |
+| Survival curves and hazard ratios | `/wiki/stats/survival` |
+| Contingency tables and odds ratios | `/wiki/stats/contingency` |
+| ROC curves and AUC | `/wiki/stats/roc-auc` |
+| Outlier tests | `/wiki/stats/outliers` |
 | Integrations | `/wiki/integrations` |
 | Calendar Feeds | `/wiki/integrations/calendar-feeds` |
 | LabArchives | `/wiki/integrations/labarchives` |
@@ -5425,6 +5609,7 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 | Depositing to a repository | `/wiki/compliance/depositing-to-a-repository` |
 | Security | `/wiki/security` |
 | Trust | `/wiki/trust` |
+| How your data and privacy work | `/wiki/trust/how-your-data-and-privacy-work` |
 | Method validation | `/wiki/trust/method-validation` |
 | Open source and license | `/wiki/trust/open-source` |
 | How it stays free | `/wiki/trust/how-we-fund-it` |
@@ -5432,9 +5617,9 @@ Flat index of every wiki page (extracted from `WIKI_NAV` in `frontend/src/lib/wi
 ## §11 Build metadata
 
 - **Variant:** `full`
-- **Helper version:** `22`
-- **Schema hash:** `c4e7e2607df88fe03a59ecd4fc6abbd0ce23bda8ee3740bb6d82a9495580a395`
-- **Built at:** `2026-06-13T03:36:54.248Z`
-- **Built from commit:** `d72e58425566528dc97d47fd34e9666a047b4309`
+- **Helper version:** `24`
+- **Schema hash:** `7b180d058b7b0e11d61ffcc014ccc9de7d37f5e6dd7564a16bee65fe7f7a0f47`
+- **Built at:** `2026-06-19T06:17:30.376Z`
+- **Built from commit:** `54fed83e8947c374cc22833dfb28428eb486baea`
 
 _Generated by `scripts/build-ai-helper.mjs`. Do not edit by hand — run `npm run --prefix frontend ai-helper:refresh` to rebuild and commit._

@@ -1,6 +1,6 @@
 // Unified slug registry, pure library (lab-domains Phase 1).
 //
-// Every paying lab gets researchos.app/<labslug>. Slugs live in ONE global
+// Every paying lab gets research-os.app/<labslug>. Slugs live in ONE global
 // namespace shared with @handles and institution slugs, so a lab can never claim
 // a value that already routes somewhere (a top-level page, a researcher handle,
 // an institution). This module is the PURE, DB-free core: normalization, the
@@ -13,7 +13,7 @@
 /**
  * What kind of thing owns a slug in the unified namespace. Every row in the
  * registry is exactly one of these:
- *   - lab         a paying lab's companion-site slug (researchos.app/<labslug>)
+ *   - lab         a paying lab's companion-site slug (research-os.app/<labslug>)
  *   - handle      a researcher @handle (account_profiles.handle), seeded so a
  *                 lab cannot claim a name a person already uses
  *   - institution a derived institution slug (verified email domain), seeded
@@ -36,7 +36,7 @@ export const SLUG_MAX_LENGTH = 30;
 //
 // Derived 2026-06-16 by listing every top-level directory under
 // frontend/src/app (each is a Next.js App-Router route segment, so the URL
-// researchos.app/<segment> already resolves to that page and MUST NOT be
+// research-os.app/<segment> already resolves to that page and MUST NOT be
 // claimable as a lab slug), then adding a set of system words that are not yet
 // routes but we want to keep free (auth, ops, docs, vanity). The app-dir list
 // was captured with:
@@ -55,7 +55,7 @@ export const SLUG_MAX_LENGTH = 30;
 
 /**
  * Every top-level App-Router route segment under frontend/src/app as of
- * 2026-06-16. Each resolves at researchos.app/<segment>, so none can be a lab
+ * 2026-06-16. Each resolves at research-os.app/<segment>, so none can be a lab
  * slug. Kept as a frozen literal (not read from the filesystem at runtime,
  * because this is a pure browser-safe module) and guarded by a drift test.
  */

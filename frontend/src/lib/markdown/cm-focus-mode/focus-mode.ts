@@ -60,8 +60,11 @@ export function typewriterScrollExtension(): Extension {
   return ViewPlugin.fromClass(
     class {
       private lastHead = -1;
+      private frame = 0;
+      private readonly view: EditorView;
 
       constructor(view: EditorView) {
+        this.view = view;
         this.lastHead = view.state.selection.main.head;
       }
 
@@ -75,42 +78,48 @@ export function typewriterScrollExtension(): Extension {
         // away from the caret is never snapped back.
         if (!update.docChanged && !headMoved) return;
         // Selection-set events that are not from the user (e.g. a programmatic
-        // reconcile dispatch) still carry a head move; that is fine — we re-pin
+        // reconcile dispatch) still carry a head move; that is fine, we re-pin
         // the line on any genuine caret relocation.
 
-        // Defer to a microtask so the new line geometry is laid out before we
-        // measure + scroll (avoids pinning to the pre-edit position).
-        const view = update.view;
-        view.requestMeasure({
-          read: () => {
-            const scrollerHeight = view.scrollDOM.clientHeight;
-            // yMargin so big that scrollIntoView centers the line near the
-            // target ratio: CM scrolls the minimum needed to satisfy the
-            // margin on the leading edge. A margin of (1 - ratio) * height
-            // above and (ratio) * height below pins the line at `ratio` from
-            // the top. We pass the larger of the two as a symmetric margin and
-            // let the explicit y "start" alignment do the rest below.
-            return { scrollerHeight, head: view.state.selection.main.head };
-          },
-          write: ({ scrollerHeight, head }) => {
-            if (scrollerHeight <= 0) return;
-            const reduced = prefersReducedMotion();
-            // Place the active line at TYPEWRITER_SCROLL_RATIO from the top: a
-            // top margin of ratio*height keeps that much space above the line.
-            const yMargin = Math.max(0, Math.round(scrollerHeight * TYPEWRITER_SCROLL_RATIO));
-            view.dispatch({
-              effects: EditorView.scrollIntoView(head, {
-                y: "start",
-                yMargin,
-              }),
-              // No animation flag is set; CM6 scrollIntoView is an instant jump,
-              // which is the correct (non-motion) behavior for reduced-motion
-              // users and acceptable for everyone (the line just "stays put").
-              scrollIntoView: false,
-            });
-            void reduced; // explicit: instant scroll already honors reduced-motion
-          },
+        // CRITICAL: do NOT scroll synchronously here, and do NOT dispatch from a
+        // requestMeasure callback. CM6 runs measure callbacks inside the update/
+        // layout cycle, so calling view.dispatch() from one re-enters the update
+        // and throws "Calls to EditorView.update are not allowed while an update
+        // is in progress" (hit by clicking into the editor mid-update). Instead
+        // defer the scroll to the next animation frame, which runs AFTER the
+        // current update + layout settle, so the geometry is still correct.
+        this.scheduleScroll();
+      }
+
+      private scheduleScroll() {
+        if (this.frame) return; // already queued for this frame; coalesce edits
+        this.frame = requestAnimationFrame(() => {
+          this.frame = 0;
+          const view = this.view;
+          const scrollerHeight = view.scrollDOM.clientHeight;
+          if (scrollerHeight <= 0) return;
+          const head = view.state.selection.main.head;
+          // Place the active line at TYPEWRITER_SCROLL_RATIO from the top: a top
+          // margin of ratio*height keeps that much space above the line.
+          const yMargin = Math.max(
+            0,
+            Math.round(scrollerHeight * TYPEWRITER_SCROLL_RATIO),
+          );
+          const reduced = prefersReducedMotion();
+          view.dispatch({
+            effects: EditorView.scrollIntoView(head, { y: "start", yMargin }),
+            // No animation flag is set; CM6 scrollIntoView is an instant jump,
+            // the correct (non-motion) behavior for reduced-motion users and
+            // acceptable for everyone (the line just "stays put").
+            scrollIntoView: false,
+          });
+          void reduced; // explicit: instant scroll already honors reduced-motion
         });
+      }
+
+      destroy() {
+        // Cancel a pending scroll so we never dispatch into a destroyed view.
+        if (this.frame) cancelAnimationFrame(this.frame);
       }
     },
   );

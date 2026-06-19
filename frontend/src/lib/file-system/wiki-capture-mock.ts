@@ -388,7 +388,7 @@ const STICKY_DEMO_MODE_KEYS: readonly string[] = [DEMO_MODE_KEY] as const;
  *
  *  Unlike the wiki-capture flag, this has **no** production / localhost
  *  guard — the whole point is to let a public Vercel visitor explore
- *  ResearchOS at `researchos.app/demo`. */
+ *  ResearchOS at `research-os.app/demo`. */
 export function getDemoMode(): boolean {
   if (typeof window === "undefined") return false;
   try {

@@ -6,6 +6,7 @@ export * from "./trash-types";
 export * from "./trash-paths";
 export * from "./trash-settings";
 export {
+  ALL_ENTITY_TYPES,
   readTrashIndex,
   readOrRebuildTrashIndex,
   buildTrashIndexFromDisk,

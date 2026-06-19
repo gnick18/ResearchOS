@@ -4,3 +4,14 @@
 
 # ROR registry asset: hosted on R2, never committed (scripts/upload-institution-registry.mjs)
 /public/institution-registry.json
+
+# OpenNext
+.open-next
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+
+.env*
+!.env.example

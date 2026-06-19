@@ -31,10 +31,15 @@ import type {
 
 const REBUILD_THRESHOLD = 0.05;
 
-/** All entity types we walk when rebuilding from disk. Notes only for
- *  R1; the trash directories for other types may not exist yet — the
- *  walker tolerates missing directories. */
-const ALL_ENTITY_TYPES: TrashEntityType[] = [
+/** All entity types we walk when rebuilding from disk. The walker tolerates
+ *  missing directories (a type's `_trash/<type>/` folder may not exist yet).
+ *
+ *  This doubles as the canonical runtime enumeration of `TrashEntityType` —
+ *  the type is compile-time only, so anything that needs to iterate every
+ *  trashable type at runtime (e.g. the /trash page's section-coverage guard)
+ *  reads this list. Keep it exhaustive: an omission here silently drops that
+ *  type's entries on an index rebuild. */
+export const ALL_ENTITY_TYPES: TrashEntityType[] = [
   "note",
   "task",
   "method",
@@ -53,6 +58,15 @@ const ALL_ENTITY_TYPES: TrashEntityType[] = [
   // chem-trash bot (2026-06-11): molecules land in `_trash/molecules/` as a
   // single embedded `.json` record (Molfile inside), same as sequences above.
   "molecule",
+  // inventory/storage rebuild fix (2026-06-15): inventory items, stocks, and
+  // the StorageNode location tree are standard single-JSON trash records, but
+  // were never added to this rebuild walker — so a from-disk index rebuild
+  // (divergence > threshold) silently DROPPED their entries, the same loss the
+  // sequence note above warns about. They are appended to the index on delete,
+  // so they only vanish on a rebuild; listing them here closes that gap.
+  "inventory_item",
+  "inventory_stock",
+  "storage_node",
 ];
 
 /** Read the index from disk. Returns an empty index when the file is
