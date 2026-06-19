@@ -50,41 +50,50 @@ function skips(track: ReturnType<typeof buildSoloFreeTrack>) {
 }
 
 describe("buildSoloFreeTrack", () => {
-  it("has sign-in, handle, profile, folder in order", () => {
+  it("has sign-in, handle, profile, folder, preferred-name in order", () => {
     expect(ids(buildSoloFreeTrack())).toEqual([
       "sign-in",
       "handle",
       "profile",
       "folder",
+      "preferred-name",
     ]);
   });
 
-  it("makes sign-in, handle, and folder required; only profile skippable", () => {
+  it("makes sign-in, handle, and folder required; profile + preferred-name skippable", () => {
     // Go-live: the folder step is unskippable (no folder = no app). The demo
-    // escape FolderStep renders is the only way past it without connecting.
-    expect(skips(buildSoloFreeTrack())).toEqual([false, false, true, false]);
+    // escape FolderStep renders is the only way past it without connecting. The
+    // preferred-name closer is a skippable nicety (never a soft-lock).
+    expect(skips(buildSoloFreeTrack())).toEqual([
+      false,
+      false,
+      true,
+      false,
+      true,
+    ]);
   });
 });
 
 describe("buildSoloLocalTrack", () => {
-  it("is a single folder-only step (no sign in / handle / profile)", () => {
+  it("is a folder step plus the skippable preferred-name closer", () => {
     const track = buildSoloLocalTrack();
-    expect(ids(track)).toEqual(["folder"]);
+    expect(ids(track)).toEqual(["folder", "preferred-name"]);
   });
 
-  it("the lone folder step is required (go-live: no folder = no app)", () => {
-    expect(skips(buildSoloLocalTrack())).toEqual([false]);
+  it("the folder step is required (go-live: no folder = no app); name is skippable", () => {
+    expect(skips(buildSoloLocalTrack())).toEqual([false, true]);
   });
 });
 
 describe("buildPiCreateTrack", () => {
-  it("appends a non-skippable lab-setup step before the folder", () => {
+  it("appends a non-skippable lab-setup step before the folder, then the name closer", () => {
     expect(ids(buildPiCreateTrack())).toEqual([
       "sign-in",
       "handle",
       "profile",
       "lab-setup",
       "folder",
+      "preferred-name",
     ]);
   });
 
@@ -95,6 +104,7 @@ describe("buildPiCreateTrack", () => {
       true,
       false,
       false,
+      true,
     ]);
   });
 

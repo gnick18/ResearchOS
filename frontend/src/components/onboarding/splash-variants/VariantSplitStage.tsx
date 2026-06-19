@@ -1,9 +1,12 @@
 // Splash variant B -- "Split Stage".
 //
 // Concept: an editorial, asymmetric, confident layout. A left-aligned hero
-// column carries the personalized greeting at the top of the type hierarchy
-// ("Welcome back," small + uppercase, then the name set very large), with the
-// ResearchOS wordmark as a tight lockup beneath it. The BeakerBot mascot is a
+// column carries the personalized greeting at the top of the type hierarchy (a
+// short contextual line small + uppercase in the "Welcome back" slot, varying by
+// time of day + how busy the day looks, then the user's preferred name set very
+// large, honorific-stripped so it never reads "Dr"), with the ResearchOS wordmark
+// as a tight lockup beneath it. There is no speech bubble; the greeting role lives
+// entirely in that top line. The BeakerBot mascot is a
 // large graphic anchor on the right, drawing on + filling as a visual rhyme to
 // the loading state. Instead of a giant percent counter, a single brand-sky
 // hairline progress meter sweeps along the very bottom edge of the stage as the
@@ -28,8 +31,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { SplashBeaker } from "@/components/animations/SplashBeaker";
-import BeakerSpeech from "@/components/beakerbot/BeakerSpeech";
-import { buildReturningLines } from "@/lib/beakerbot/entry-lines";
+import { buildSplashHeadline } from "@/lib/beakerbot/entry-lines";
 import { readUserStats } from "@/lib/beakerbot/user-stats-cache";
 import {
   INK,
@@ -38,7 +40,7 @@ import {
   SKY,
   SplashVariantProps,
   WORDMARK_GRADIENT,
-  firstName,
+  resolveGreetingName,
   prefersReducedMotion,
 } from "./shared";
 
@@ -47,9 +49,12 @@ const FILL_MS = 1500;
 export function VariantSplitStage({
   onComplete,
   userName,
+  preferredName,
   replayKey = 0,
 }: SplashVariantProps) {
-  const name = firstName(userName);
+  // An explicit preferred name ("call me Grant") wins; else the honorific-stripped
+  // first name of the display name, so "Dr. Grant Nickles" greets as "Grant".
+  const name = resolveGreetingName({ preferredName, displayName: userName });
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {
@@ -60,19 +65,16 @@ export function VariantSplitStage({
   // a replay remounts fresh). The OS preference does not change mid-splash.
   const [reduced] = useState(prefersReducedMotion);
 
-  // Tier-B returning lines. Seeded empty on server/first render (SSR-safe),
-  // populated after mount when localStorage and the current hour are available.
-  const [returningLines, setReturningLines] = useState<string[]>([]);
+  // The short contextual top-line headline (the "Welcome back" slot for a
+  // returning user). Seeded with a deterministic default so the server + first
+  // client render match (SSR-safe); the hour + stats are only available post-mount
+  // (localStorage + the local clock), so the contextual line fills in via an
+  // effect. New users (no name) show "Welcome to" instead, decided at render.
+  const [headline, setHeadline] = useState("Welcome back");
   useEffect(() => {
     const hour = new Date().getHours();
     const stats = userName ? readUserStats(userName) : null;
-    const lines = buildReturningLines({
-      name: firstName(userName),
-      hour,
-      stats,
-      now: Date.now(),
-    });
-    setReturningLines(lines);
+    setHeadline(buildSplashHeadline({ hour, stats }));
   }, [userName]);
   const [meter, setMeter] = useState(() => (prefersReducedMotion() ? 1 : 0));
   const [leaving, setLeaving] = useState(false);
@@ -91,9 +93,8 @@ export function VariantSplitStage({
     return () => window.removeEventListener("keydown", onKey);
   }, [finish]);
 
-  // reduced-motion short path. Still lingers a couple of seconds so the
-  // BeakerSpeech line (shown at once under reduced motion, after its ~1.2s
-  // initial delay) is on screen long enough to read before the exit.
+  // reduced-motion short path. Lingers a couple of seconds so the greeting +
+  // name are on screen long enough to read before the exit.
   useEffect(() => {
     if (!reduced) return;
     const t = window.setTimeout(finish, 2600);
@@ -118,11 +119,10 @@ export function VariantSplitStage({
 
   const handleFill = () => {
     if (reduced) return;
-    // Linger long enough for the BeakerSpeech greeting/fact to type in and be
-    // read before the lift-and-fade. The bubble waits ~1.2s, types in, then
-    // holds ~3s, so its first line finishes around 4.9s after mount; the beaker
-    // fill completes near 1.7s, so this hold carries the stage to roughly 5.3s.
-    // The exit still lands when the beaker is upright (never mid-tip).
+    // Linger after the beaker fills so the greeting + name are read before the
+    // lift-and-fade. The beaker fill completes near 1.7s; this hold carries the
+    // stage to roughly 4.7s. The exit still lands when the beaker is upright
+    // (never mid-tip).
     const HOLD = 3000;
     window.setTimeout(() => setLeaving(true), HOLD);
     window.setTimeout(finish, HOLD + 620);
@@ -194,7 +194,7 @@ export function VariantSplitStage({
               animation: reduced ? "none" : "splitRise .7s cubic-bezier(.16,.84,.24,1) both",
             }}
           >
-            {name ? "Welcome back" : "Welcome to"}
+            {name ? headline : "Welcome to"}
           </div>
 
           <div
@@ -252,21 +252,6 @@ export function VariantSplitStage({
                 OS
               </span>
             </div>
-          )}
-
-          {/* Tier-B speech bubble. Only shown after mount (returningLines is
-              seeded empty on first render), so it never causes a hydration
-              mismatch. The beaker is in the RIGHT column so the bubble sits in
-              the left hero column with side="left" -- the notch points RIGHT
-              toward the beaker across the grid gap. Width is fit-content so
-              short lines make a short bubble. */}
-          {returningLines.length > 0 && (
-            <BeakerSpeech
-              lines={returningLines}
-              tinted
-              side="left"
-              className="mt-6"
-            />
           )}
         </div>
 

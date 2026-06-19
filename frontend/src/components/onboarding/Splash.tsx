@@ -17,12 +17,25 @@ export interface SplashProps {
   onComplete: () => void;
   /** The signed-in user's name. When set, a "Welcome back, <name>" greets them. */
   userName?: string;
+  /**
+   * The user's preferred / greeting name, account-scoped. When set it wins over
+   * the display name's first word, so the greeting reads "Grant" rather than the
+   * honorific "Dr". Optional; the splash degrades to the honorific-stripped first
+   * name when absent.
+   */
+  preferredName?: string;
 }
 
-export function Splash({ onComplete, userName }: SplashProps) {
+export function Splash({ onComplete, userName, preferredName }: SplashProps) {
   // Production mounts the splash once per day, so a stable (default) replayKey is
   // correct here; only the dev page bumps it to force a replay without remount.
-  return <VariantSplitStage onComplete={onComplete} userName={userName} />;
+  return (
+    <VariantSplitStage
+      onComplete={onComplete}
+      userName={userName}
+      preferredName={preferredName}
+    />
+  );
 }
 
 export default Splash;

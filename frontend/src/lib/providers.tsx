@@ -524,6 +524,14 @@ function AppContent({ children }: { children: ReactNode }) {
     entryActionThisLoad,
   );
 
+  // The user's preferred / greeting name (account-scoped, elevated over folder
+  // local), read for the launch splash so it greets "Grant" rather than the
+  // display-name first word. undefined until resolved; the splash falls back to
+  // the honorific-stripped first name when absent.
+  const [preferredName, setPreferredName] = useState<string | undefined>(
+    undefined,
+  );
+
   // Onboarding wizard (NEXT_PUBLIC_ONBOARDING_WIZARD): when on, the chooser's
   // bottom-zone org-admin entry routes into the standalone, folderless org
   // wizard (Track 3). Held in state for this load. The org wizard is fully
@@ -560,6 +568,32 @@ function AppContent({ children }: { children: ReactNode }) {
       queryClient.invalidateQueries();
     }
   }, [currentUser, queryClient]);
+
+  // Resolve the preferred / greeting name for the launch splash from the EFFECTIVE
+  // settings (the account-scoped value elevated over folder-local). Lazy-imported
+  // so the settings module stays out of the provider's static graph. Best-effort;
+  // the splash greets by the honorific-stripped first name when this is absent.
+  useEffect(() => {
+    if (!currentUser) {
+      setPreferredName(undefined);
+      return;
+    }
+    let alive = true;
+    void (async () => {
+      try {
+        const { readEffectiveUserSettings } = await import(
+          "@/lib/settings/user-settings"
+        );
+        const s = await readEffectiveUserSettings(currentUser);
+        if (alive) setPreferredName(s.preferredName ?? undefined);
+      } catch {
+        // Settings unreadable: leave undefined, splash falls back to first name.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentUser]);
 
   // No forced first-visit redirect to /welcome (removed 2026-06-10, Grant). A
   // fresh visitor now lands on the OAuth-first landing directly, which already
@@ -1274,6 +1308,7 @@ function AppContent({ children }: { children: ReactNode }) {
         {!splashSeen && !isDemoOrWikiCapture() && (
           <Splash
             userName={currentUser ?? undefined}
+            preferredName={preferredName}
             onComplete={() => {
               try {
                 localStorage.setItem(SPLASH_DAY_KEY, localDayStamp());

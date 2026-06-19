@@ -30,7 +30,7 @@ import {
   MUTED,
   RAINBOW_CSS,
   SplashVariantProps,
-  firstName,
+  resolveGreetingName,
   prefersReducedMotion,
 } from "./shared";
 
@@ -39,9 +39,10 @@ const FILL_MS = 1450;
 export function VariantBloom({
   onComplete,
   userName,
+  preferredName,
   replayKey = 0,
 }: SplashVariantProps) {
-  const name = firstName(userName);
+  const name = resolveGreetingName({ preferredName, displayName: userName });
   const doneRef = useRef(false);
   const onCompleteRef = useRef(onComplete);
   useEffect(() => {

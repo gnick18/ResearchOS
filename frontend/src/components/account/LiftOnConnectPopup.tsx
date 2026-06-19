@@ -108,6 +108,7 @@ async function readFolderPrefs(
       >;
     }
     prefs.displayName = s.displayName;
+    prefs.preferredName = s.preferredName;
     prefs.defaultLandingTab = s.defaultLandingTab;
     prefs.visibleTabs = s.visibleTabs;
   } catch {

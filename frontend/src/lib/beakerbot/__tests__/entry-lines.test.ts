@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildEntryGreetingLines,
   buildReturningLines,
+  buildSplashHeadline,
   type UserStatsSummary,
 } from "../entry-lines";
 
@@ -132,6 +133,28 @@ describe("buildReturningLines", () => {
   it("incorporates the name into the greeting when provided", () => {
     const lines = buildReturningLines({
       name: "Alice",
+      hour: 9,
+      stats: null,
+      now: NOW,
+    });
+    expect(lines[0]).toBe("Good morning, Alice.");
+  });
+
+  it("prefers an explicit preferred name over the passed-in name", () => {
+    const lines = buildReturningLines({
+      name: "Dr",
+      preferredName: "Grant",
+      hour: 9,
+      stats: null,
+      now: NOW,
+    });
+    expect(lines[0]).toBe("Good morning, Grant.");
+  });
+
+  it("falls back to the name when the preferred name is blank", () => {
+    const lines = buildReturningLines({
+      name: "Alice",
+      preferredName: "   ",
       hour: 9,
       stats: null,
       now: NOW,
@@ -296,5 +319,46 @@ describe("buildReturningLines", () => {
     const lines = buildReturningLines({ hour: 9, stats, now: NOW });
     expect(lines).toContain("12,500 notes and counting.");
     expect(lines).toContain("You wrote about 8,200 words last week.");
+  });
+});
+
+// ─── Splash headline (the short contextual top line) ─────────────────────────
+
+describe("buildSplashHeadline", () => {
+  it("greets by time of day when the day is quiet", () => {
+    expect(buildSplashHeadline({ hour: 8, stats: null })).toBe("Good morning");
+    expect(buildSplashHeadline({ hour: 14, stats: null })).toBe("Good afternoon");
+    expect(buildSplashHeadline({ hour: 20, stats: null })).toBe("Good evening");
+  });
+
+  it("uses the time-of-day boundaries (noon, 6pm)", () => {
+    expect(buildSplashHeadline({ hour: 11, stats: null })).toBe("Good morning");
+    expect(buildSplashHeadline({ hour: 12, stats: null })).toBe("Good afternoon");
+    expect(buildSplashHeadline({ hour: 17, stats: null })).toBe("Good afternoon");
+    expect(buildSplashHeadline({ hour: 18, stats: null })).toBe("Good evening");
+  });
+
+  it("nods to a late-night session regardless of load", () => {
+    const busy: UserStatsSummary = { updatedAt: NOW, tasks: 9 };
+    expect(buildSplashHeadline({ hour: 23, stats: null })).toBe("Midnight oil?");
+    expect(buildSplashHeadline({ hour: 2, stats: busy })).toBe("Midnight oil?");
+    expect(buildSplashHeadline({ hour: 4, stats: null })).toBe("Midnight oil?");
+  });
+
+  it("calls out a busy morning / midday from open tasks + experiments", () => {
+    const busy: UserStatsSummary = { updatedAt: NOW, tasks: 2, experiments: 2 };
+    expect(buildSplashHeadline({ hour: 8, stats: busy })).toBe("Busy day ahead");
+    const lots: UserStatsSummary = { updatedAt: NOW, tasks: 5 };
+    expect(buildSplashHeadline({ hour: 10, stats: lots })).toBe("Busy day ahead");
+  });
+
+  it("does not call the evening a day still ahead even when busy", () => {
+    const busy: UserStatsSummary = { updatedAt: NOW, tasks: 6 };
+    expect(buildSplashHeadline({ hour: 19, stats: busy })).toBe("Good evening");
+  });
+
+  it("stays with the plain greeting below the busy threshold", () => {
+    const light: UserStatsSummary = { updatedAt: NOW, tasks: 1, experiments: 1 };
+    expect(buildSplashHeadline({ hour: 9, stats: light })).toBe("Good morning");
   });
 });

@@ -120,6 +120,15 @@ export interface AccountScopedSettings {
   /** The user's display name (null = use the folder name). */
   displayName?: string | null;
   /**
+   * The user's preferred / greeting name ("call me Grant"). Account-scoped so the
+   * answer to "what do you like to be called?" follows the user across folders +
+   * devices. When set, every greeting surface (the welcome-back splash, BeakerBot)
+   * uses it over the display name's first word, so a "Dr. Grant Nickles" display
+   * name still greets as "Grant" rather than the honorific "Dr". null / absent =
+   * no preferred name, fall back to the honorific-stripped first name.
+   */
+  preferredName?: string | null;
+  /**
    * The default landing tab href, as an ACCOUNT DEFAULT. A folder can still
    * override it locally (the merge only seeds it when the folder has not set its
    * own), so a class folder keeps its own landing choice.

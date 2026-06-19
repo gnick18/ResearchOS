@@ -24,6 +24,7 @@ import HandleStep from "./steps/HandleStep";
 import ProfileStep from "./steps/ProfileStep";
 import LabStep, { type LabStepResult } from "./steps/LabStep";
 import FolderStep from "./steps/FolderStep";
+import PreferredNameStep from "./steps/PreferredNameStep";
 
 /** Optional hooks the host passes to capture step output. */
 export interface TrackCallbacks {
@@ -92,6 +93,16 @@ export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
         skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
       },
+      {
+        id: "preferred-name",
+        label: "Your name",
+        // Lightweight closer: BeakerBot asks what to call the user and saves it as
+        // their preferred greeting name. Skippable, so it never soft-locks the
+        // flow, and placed AFTER the folder so the folder-local save lands on a
+        // connected folder (the account-scoped copy rides along when its flag is on).
+        skippable: true,
+        render: (c) => <PreferredNameStep onSaved={c.next} />,
+      },
     ],
   };
 }
@@ -110,6 +121,15 @@ export function buildSoloLocalTrack(): WizardTrack {
         // FolderStep renders. (Was skippable in the pre-go-live wizard.)
         skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
+      },
+      {
+        id: "preferred-name",
+        label: "Your name",
+        // Same lightweight, skippable greeting-name closer as the other tracks.
+        // Local-only has no account, so the name stays folder-local here, which
+        // still gives a friendlier in-folder greeting.
+        skippable: true,
+        render: (c) => <PreferredNameStep onSaved={c.next} />,
       },
     ],
   };
@@ -175,6 +195,15 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
         // FolderStep renders. (Was skippable in the pre-go-live wizard.)
         skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
+      },
+      {
+        id: "preferred-name",
+        label: "Your name",
+        // Lightweight, skippable greeting-name closer (see the solo-free track).
+        // After the folder so the folder-local save lands on a connected folder;
+        // the account-scoped copy rides along when its flag is on.
+        skippable: true,
+        render: (c) => <PreferredNameStep onSaved={c.next} />,
       },
     ],
   };
