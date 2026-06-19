@@ -334,6 +334,58 @@ export default function OpenSourceCredits() {
               </ul>
             </section>
 
+            {/* ── Scientific illustration & icon libraries ── */}
+            <section className="mb-14">
+              <h2 className="mb-2 text-heading font-semibold text-foreground">
+                Scientific illustration and icon libraries
+              </h2>
+              <p className="mb-6 text-body text-foreground-muted">
+                The open scientific-art communities below built the asset corpus
+                the figure composer draws on. Every icon in the library carries
+                its own per-image license; the{" "}
+                <a
+                  href="/library"
+                  className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+                >
+                  asset library
+                </a>{" "}
+                page is the canonical credit home for individual images.
+              </p>
+              <ul className="space-y-3">
+                {[
+                  { name: "PhyloPic", license: "CC0 / CC-BY / CC-BY-SA per image", url: "https://www.phylopic.org" },
+                  { name: "Bioicons", license: "CC0 / CC-BY / CC-BY-SA / MIT", url: "https://bioicons.com" },
+                  { name: "Reactome Icon Library", license: "CC-BY 4.0", url: "https://reactome.org/icon-lib" },
+                  { name: "Health Icons", license: "MIT", url: "https://healthicons.org" },
+                  { name: "Tabler Icons", license: "MIT", url: "https://tabler.io/icons" },
+                  { name: "Devicon", license: "MIT; logos are trademarks of their owners", url: "https://devicon.dev" },
+                  { name: "SciDraw", license: "CC-BY 4.0", url: "https://scidraw.io" },
+                  { name: "janosh/diagrams", license: "MIT", url: "https://github.com/janosh/diagrams" },
+                  { name: "Electrical Symbol Library", license: "CC0", url: "https://github.com/basverdoes/ElectricalSymbolLibrary" },
+                  { name: "Arcadia Science Drawing Open", license: "CC0", url: "https://zenodo.org/records/17203578" },
+                  { name: "DBCLS Togo Picture Gallery", license: "CC-BY 4.0", url: "https://togotv.dbcls.jp/en/pics.html" },
+                  { name: "SwissBioPics", license: "CC-BY 4.0", url: "https://www.swissbiopics.org" },
+                  { name: "EMBL-EBI Icon Fonts", license: "Apache-2.0 / CC-BY-SA 4.0", url: "https://github.com/ebiwd/EBI-Icon-fonts" },
+                ].map((lib) => (
+                  <li
+                    key={lib.name}
+                    className="flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-4 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <a
+                      href={lib.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-title font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
+                    >
+                      {lib.name}
+                      <ExternalIcon />
+                    </a>
+                    <LicensePill license={lib.license} />
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             {/* ── Full dependency list (collapsible) ── */}
             <section className="mb-6">
               <button

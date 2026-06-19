@@ -47,6 +47,17 @@ const ASSET_CONTRIBUTE_ENABLED =
 const SOURCE_LABELS: Record<string, string> = {
   phylopic: "PhyloPic",
   bioicons: "Bioicons",
+  reactome: "Reactome Icon Library",
+  healthicons: "Health Icons",
+  tabler: "Tabler Icons",
+  devicon: "Devicon",
+  scidraw: "SciDraw",
+  "janosh-diagrams": "Janosh Diagrams",
+  electricalsymbollib: "Electrical Symbol Library",
+  arcadia: "Arcadia Science",
+  togopic: "DBCLS Togo Picture Gallery",
+  swissbiopics: "SwissBioPics",
+  ebi: "EMBL-EBI Icon Fonts",
   community: "Community",
 };
 
