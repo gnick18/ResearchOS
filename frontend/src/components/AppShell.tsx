@@ -63,6 +63,13 @@ import { useRunningTimerCount } from "@/lib/timers/laptop-timers";
 import { usePhonePaired } from "@/hooks/usePhonePaired";
 import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
 import SharingClaimResume from "@/components/sharing/SharingClaimResume";
+import RequireAccountGate from "@/components/account/RequireAccountGate";
+import { useSharingIdentity } from "@/hooks/useSharingIdentity";
+import {
+  isRequireAccountEnabled,
+  shouldGateForClaim,
+} from "@/lib/account/require-account";
+import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
 import LabGenesisPublishRetry from "@/components/lab/LabGenesisPublishRetry";
@@ -93,6 +100,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // settings rail badge by key, so this is not an extra fetch.
   const pendingRequests = useLabPendingRequests();
   const { currentUser } = useFileSystem();
+  // Require-account enforcement (require-account-ironclad, 2026-06-18). A
+  // connected user whose account is local-only (a keypair with no verified-email
+  // binding, status "ready" + not published) is held at the claim gate before
+  // the app renders. Guarded so it never soft-locks: only when require-account
+  // is on, an OAuth claim path actually exists, and not in demo/capture. The
+  // identity hook is called unconditionally here to keep hook order stable.
+  const identity = useSharingIdentity();
   const userColors = useUserColors(currentUser ?? "");
   const baseColor = userColors.primary;
   // Onboarding v3 §10: feature_picks is the primary tab-visibility
@@ -449,6 +463,29 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           : `linear-gradient(to right, ${stop1}, ${stop2})`,
       }
     : undefined;
+
+  // Hold a local-only account at the claim gate before the app renders. All
+  // hooks above have run, so this early return keeps hook order stable. The
+  // guards encode the no-soft-lock rule: skip when require-account is off, when
+  // there is no OAuth claim path to complete, in demo/capture, and never block
+  // while the identity read is still resolving (status only becomes "ready"
+  // after the async read settles, and a stalled read falls back to "none").
+  const mustClaimAccount = shouldGateForClaim({
+    requireAccount: isRequireAccountEnabled(),
+    oauthPublishAvailable: isOAuthPublishAvailable(),
+    hasConnectedUser: !!currentUser,
+    isDemoOrCapture: isDemoOrWikiCapture(),
+    identityStatus: identity.status,
+    published: identity.published,
+  });
+  if (mustClaimAccount && currentUser) {
+    return (
+      <RequireAccountGate
+        username={currentUser}
+        onClaimed={() => void identity.refresh()}
+      />
+    );
+  }
 
   return (
     <div className="h-screen flex flex-col bg-surface-sunken">

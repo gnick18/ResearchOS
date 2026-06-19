@@ -5,6 +5,7 @@ import {
   isRequireAccountEnabled,
   isLocalPathVisible,
   isStandaloneLocalKeypairCreateVisible,
+  shouldGateForClaim,
 } from "./require-account";
 
 describe("isRequireAccountEnabled", () => {
@@ -14,24 +15,26 @@ describe("isRequireAccountEnabled", () => {
     else process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = orig;
   });
 
-  it("is off by default when unset", () => {
+  it("is ON by default when unset (account=identity=sharing is the model)", () => {
     delete process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT;
-    expect(isRequireAccountEnabled()).toBe(false);
+    expect(isRequireAccountEnabled()).toBe(true);
   });
 
-  it("is on only for the explicit truthy values", () => {
+  it("stays on for the explicit truthy values and any non-disable value", () => {
     process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "1";
     expect(isRequireAccountEnabled()).toBe(true);
     process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "true";
     expect(isRequireAccountEnabled()).toBe(true);
+    process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "yes";
+    expect(isRequireAccountEnabled()).toBe(true);
+    process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "";
+    expect(isRequireAccountEnabled()).toBe(true);
   });
 
-  it("is off for any other value", () => {
+  it("is off ONLY for the explicit disable values (kill switch)", () => {
     process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "0";
     expect(isRequireAccountEnabled()).toBe(false);
-    process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "yes";
-    expect(isRequireAccountEnabled()).toBe(false);
-    process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "";
+    process.env.NEXT_PUBLIC_REQUIRE_ACCOUNT = "false";
     expect(isRequireAccountEnabled()).toBe(false);
   });
 });
@@ -91,5 +94,60 @@ describe("isStandaloneLocalKeypairCreateVisible (keypair stays, standalone entry
         oauthPublishAvailable: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldGateForClaim (app-wide require-account gate)", () => {
+  const blocking = {
+    requireAccount: true,
+    oauthPublishAvailable: true,
+    hasConnectedUser: true,
+    isDemoOrCapture: false,
+    identityStatus: "ready" as const,
+    published: false,
+  };
+
+  it("blocks a connected local-only (ready, unpublished) account when all conditions hold", () => {
+    expect(shouldGateForClaim(blocking)).toBe(true);
+  });
+
+  it("does NOT block a published account (already claimed)", () => {
+    expect(shouldGateForClaim({ ...blocking, published: true })).toBe(false);
+  });
+
+  it("does NOT block while the identity read is unresolved or not ready", () => {
+    expect(shouldGateForClaim({ ...blocking, identityStatus: "loading" })).toBe(
+      false,
+    );
+    expect(shouldGateForClaim({ ...blocking, identityStatus: "none" })).toBe(
+      false,
+    );
+    expect(
+      shouldGateForClaim({ ...blocking, identityStatus: "needs-restore" }),
+    ).toBe(false);
+  });
+
+  it("does NOT block when require-account is off (kill switch)", () => {
+    expect(shouldGateForClaim({ ...blocking, requireAccount: false })).toBe(
+      false,
+    );
+  });
+
+  it("does NOT block when no OAuth claim path exists (no-auth build, never soft-locks)", () => {
+    expect(
+      shouldGateForClaim({ ...blocking, oauthPublishAvailable: false }),
+    ).toBe(false);
+  });
+
+  it("does NOT block in demo / wiki-capture (the app is being previewed)", () => {
+    expect(shouldGateForClaim({ ...blocking, isDemoOrCapture: true })).toBe(
+      false,
+    );
+  });
+
+  it("does NOT block when there is no connected user", () => {
+    expect(shouldGateForClaim({ ...blocking, hasConnectedUser: false })).toBe(
+      false,
+    );
   });
 });
