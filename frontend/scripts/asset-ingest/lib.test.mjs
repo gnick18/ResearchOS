@@ -53,6 +53,29 @@ test("formatCredit: per-source format", () => {
   assert.match(c, /Strix aluco by T\. Michael Keesey/);
   assert.match(c, /PhyloPic/);
   assert.match(c, /\(CC-BY\)/);
+
+  // Reactome Icon Library credits the icon designer (CC BY 4.0 requires attribution).
+  const r = formatCredit({
+    source: "reactome",
+    title: "Mitochondrial protein",
+    creator: "Cristoffer Sevilla",
+    license: "CC-BY",
+    sourceUrl: "https://reactome.org/content/detail/R-ICO-013019",
+  });
+  assert.match(r, /Mitochondrial protein by Cristoffer Sevilla/);
+  assert.match(r, /Reactome Icon Library/);
+  assert.match(r, /\(CC-BY\)/);
+
+  // Health Icons are MIT; courtesy credit retains the project notice.
+  const h = formatCredit({
+    source: "healthicons",
+    title: "lungs",
+    creator: "Resolve to Save Lives",
+    license: "MIT",
+    sourceUrl: "https://healthicons.org/icons/lungs",
+  });
+  assert.match(h, /Health Icons by Resolve to Save Lives/);
+  assert.match(h, /\(MIT\)/);
 });
 
 test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {

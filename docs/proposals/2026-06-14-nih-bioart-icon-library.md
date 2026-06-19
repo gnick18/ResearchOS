@@ -152,17 +152,20 @@ drops anything outside the allowed-license set and logs the drop.
 |---|---|---|---|---|---|
 | NIH BioArt | PD / CC-BY / CC-BY-SA (exclude NC/ND) | yes | 2,000+ | SVG | ID enumeration + scrape (section 4) |
 | Servier Medical Art (SMART) | CC-BY 4.0 (uniform) | yes | ~3,000 | SVG | gold-standard medical art; attribute, not for logos |
-| BioIcons | per-icon: CC0 / CC-BY / CC-BY-SA / MIT / BSD | yes | 2,829 | SVG | filter per-icon by license tag (shown per icon) |
+| BioIcons | per-icon: CC0 / CC-BY / CC-BY-SA / MIT / BSD | yes | 2,829 | SVG | **ADAPTER BUILT** (`ingest-bioicons.mjs`); flat manifest |
 | SciDraw | CC-BY default ("unless stated otherwise") | yes | hundreds | SVG | verify the per-drawing exceptions |
-| PhyloPic | per-image: CC0 / PD / CC-BY / CC-BY-SA (some NC -> exclude) | yes (filtered) | 12,483 | SVG | has a clean v2 API; great for phylo + organisms |
+| PhyloPic | per-image: CC0 / PD / CC-BY / CC-BY-SA (some NC -> exclude) | yes (filtered) | 12,483 | SVG | **ADAPTER BUILT** (`ingest-phylopic.mjs`); clean v2 API |
+| Reactome Icon Library | CC BY 4.0 (uniform) | yes | 2,569 | SVG | **ADAPTER BUILT** (`ingest-reactome.mjs`); molecular/cellular/pathway icons (proteins, receptors, transporters, compounds, cell types/elements, tissues, arrows); SVGs from the official GitHub repo joined to ContentService per-icon designer attribution. 220 EHLD pathway diagrams also available (same repo/license) = the "larger BioRender-style assemblies" |
+| Health Icons | MIT (whole repo) | yes | ~1,524 | SVG | **ADAPTER BUILT** (`ingest-healthicons.mjs`); medical / public-health glyphs (body, devices, conditions, specialties, diagnostics, medications, people, symbols) in filled + outline; single GitHub repo, raw SVG; mostly single-fill (single-tint) |
 
 Net of the allowed subset across these: **~20,000+ legally-clean, citation-complete
 SVG assets.** All carry creator + license, so the auto-credits engine handles them
 uniformly. (And every later source plugs into the SAME library + recolor + credits.)
 
 **Future candidates (need vetting before ingest):** DBCLS / TogoTV (CC-BY biology
-illustrations), Reactome + WikiPathways (CC0 / CC-BY *pathway diagrams* = the "larger
-BioRender-style assemblies"), open-access **CC-BY paper figures** (attribution to the
+illustrations), WikiPathways (CC0 / CC-BY *pathway diagrams* = the "larger
+BioRender-style assemblies"; Reactome's pathway-diagram side is already covered by the
+built adapter's EHLD set), open-access **CC-BY paper figures** (attribution to the
 paper authors; extraction is delicate), Wikimedia Commons biology category (per-file
 mixed; harder). **Hard excludes:** BioRender (proprietary), Flaticon / Freepik, The
 Noun Project free tier (effectively non-commercial), any NC / ND / "free but no

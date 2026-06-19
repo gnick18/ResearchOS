@@ -63,6 +63,14 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
   if (source === "bioicons") {
     return `${title} by ${who}. Bioicons. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "reactome") {
+    // Reactome Icon Library is CC BY 4.0; credit the icon designer + Reactome.
+    return `${title} by ${who}. Reactome Icon Library. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "healthicons") {
+    // Health Icons are MIT / public-domain; courtesy credit retains the project notice.
+    return `${title}. Health Icons by Resolve to Save Lives. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
