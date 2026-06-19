@@ -26,7 +26,12 @@ export const markdownSanitizeSchema: SanitizeOptions = {
   tagNames: [...(defaultSchema.tagNames ?? []), "u"],
   protocols: {
     ...defaultSchema.protocols,
-    href: ["http", "https", "mailto", "tel"],
+    // ros-setting is an inert app-internal marker scheme (ros-setting:dateFormat)
+    // that the BeakerBot chat upgrades to a live setting control. It navigates
+    // nowhere, so it is not an exfiltration or script vector like data:/javascript:.
+    // Allowed so the sanitizer does not strip the href before the embed detector
+    // reads it. Other embeds use relative #ros= urls and need no scheme here.
+    href: ["http", "https", "mailto", "tel", "ros-setting"],
     src: ["http", "https"],
     cite: ["http", "https"],
     longDesc: ["http", "https"],
