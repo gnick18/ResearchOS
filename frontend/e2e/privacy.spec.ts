@@ -168,18 +168,31 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
   test.setTimeout(120_000);
 
   /**
-   * Open the unified Share dialog through the REAL UI: search → click an
-   * EXPERIMENT card the current user OWNS → click the share button → return
-   * the candidate `<select>` (data-tour-target="share-dialog-user-row").
+   * Open the unified Share dialog through the REAL UI and return the lab-share
+   * candidate `<select>` options (data-tour-target="share-dialog-user-row").
+   *
+   * The path mirrors what a user actually does, against the CURRENT chrome:
+   *   search → click an EXPERIMENT card the current user OWNS → open the popup's
+   *   "More actions" overflow → click Share → switch to the "In your lab" tab →
+   *   read the candidate dropdown.
    *
    * Notes on why this is shaped the way it is:
    *  - The Share button (`task-popup-share-button`) only renders for owned,
-   *    experiment-style task popups: `!readOnly && !task.is_shared_with_me`.
-   *    The LIST-task popup variant has no share button, so we must open an
-   *    experiment, not a list task.
-   *  - `ShareDialog` loads its candidate users asynchronously (`usersApi.list`
-   *    fires in a useEffect on open), so we wait until the select has at least
-   *    one real `@user` option before reading.
+   *    experiment-style task popups (`!readOnly && !task.is_shared_with_me`) AND
+   *    when the current user has a "ready" sharing identity (canShare). The
+   *    fixture seeds that identity via ?seedSharingIdentity=1 (see the per-test
+   *    navigations below). The LIST-task popup variant has no share button, so
+   *    we open an experiment, not a list task.
+   *  - The Share row lives inside the popup header's "More actions" overflow
+   *    (HeaderOverflowMenu, testid `task-header-overflow`), which mounts its rows
+   *    only while open, so we open it before clicking Share.
+   *  - The Share button opens UnifiedShareDialog, which has two tabs. The
+   *    per-person candidate dropdown is on the "In your lab" tab; the dialog can
+   *    default to the "Outside your lab" tab (when the lab-profile roster reads
+   *    empty), so we click the lab tab explicitly. The candidate `<select>` is
+   *    the existing ShareDialog body, which loads its users asynchronously
+   *    (`usersApi.list` in a useEffect), so we wait for at least one real
+   *    `@user` option before reading.
    */
   async function readShareCandidates(
     page: Page,
@@ -192,11 +205,26 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     await card.waitFor({ state: "visible", timeout: 10_000 });
     await card.click();
 
+    // Share lives in the popup header's "More actions" overflow menu, which only
+    // mounts its rows while open.
+    const overflow = page
+      .locator('[data-testid="task-header-overflow"]')
+      .first();
+    await overflow.waitFor({ state: "visible", timeout: 10_000 });
+    await overflow.click();
+
     const shareBtn = page.locator(
       '[data-tour-target="task-popup-share-button"]',
     );
     await shareBtn.waitFor({ state: "visible", timeout: 10_000 });
     await shareBtn.click();
+
+    // UnifiedShareDialog opens; the candidate dropdown is on the "In your lab"
+    // tab, which is not always the default tab. Select it explicitly.
+    await page
+      .locator('[data-tour-target="share-dialog"]')
+      .waitFor({ state: "visible", timeout: 10_000 });
+    await page.getByRole("tab", { name: "In your lab" }).click();
 
     const userSelect = page.locator(
       '[data-tour-target="share-dialog-user-row"]',
@@ -220,20 +248,21 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
       .filter((t) => t.startsWith("@"));
   }
 
-  // TODO(sharing): un-skip once the wikiCapture fixture seeds a sharing identity.
-  // These two assert the Share dialog's candidate list, but the Share button is
-  // gated on canShare (a "ready" sharing identity = a wrapped-keypair sidecar
-  // users/<user>/_sharing_identity.json + the device's unlocked private key).
-  // The fixture seeds users + shared records but NOT an identity, so on a fresh
-  // environment (CI) the button never appears and readShareCandidates times out.
-  // They only ever passed locally on a browser that already had a real identity
-  // saved. Fix = seed a fake-but-valid identity for alex/morgan in the fixture
-  // (sharing lane), then drop these .skip calls. The read-side gate test above
-  // does NOT need an identity and stays active. Tracked separately.
-  test.skip("alex's share dialog offers the live members and never the owner", async ({
+  // The Share button is gated on canShare (a "ready" sharing identity = a
+  // wrapped-keypair sidecar users/<user>/_sharing_identity.json + the device's
+  // unlocked private key). The base fixture seeds users + shared records but NO
+  // identity, so it boots in solo mode and the button never renders. These two
+  // tests opt into a fake-but-valid identity for the active fixture user via
+  // ?seedSharingIdentity=1 (handled in wiki-capture-mock's install), which mints
+  // a LOCAL identity through the real createLocalIdentity path so the button
+  // renders on a fresh environment (CI included). The read-side gate tests above
+  // deliberately do NOT pass the param, so they stay in solo mode.
+  test("alex's share dialog offers the live members and never the owner", async ({
     page,
   }) => {
-    await page.goto("/search?wikiCapture=1", { waitUntil: "domcontentloaded" });
+    await page.goto("/search?wikiCapture=1&seedSharingIdentity=1", {
+      waitUntil: "domcontentloaded",
+    });
     const candidates = await readShareCandidates(page, ALEX_OWN_EXPERIMENT);
 
     // The bug that SHIPPED was a live member wrongly MISSING from this list.
@@ -257,13 +286,13 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     expect(candidates).not.toContain("@sam");
   });
 
-  // TODO(sharing): un-skip with the alex case above (same seeded-identity gap).
-  test.skip("morgan's share dialog offers the live members and never the owner", async ({
+  test("morgan's share dialog offers the live members and never the owner", async ({
     page,
   }) => {
-    await page.goto("/search?wikiCapture=1&fixtureUser=morgan", {
-      waitUntil: "domcontentloaded",
-    });
+    await page.goto(
+      "/search?wikiCapture=1&fixtureUser=morgan&seedSharingIdentity=1",
+      { waitUntil: "domcontentloaded" },
+    );
     const candidates = await readShareCandidates(page, MORGAN_OWN_EXPERIMENT);
 
     // Live members must be offerable (the wrongly-missing-user guard).

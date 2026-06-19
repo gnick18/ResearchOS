@@ -35,6 +35,8 @@ import {
   buildSeedUndoWindow,
 } from "./wiki-capture-loro-vc-seed";
 import { rebaseDemoDates, isDemoLab } from "../demo/rebase";
+import { createLocalIdentity } from "../sharing/identity/storage";
+import type { KdfParams } from "../sharing/identity/backup";
 
 /** Watermarked fake PNGs that ship inside `frontend/public/demo-data/`.
  *  At fixture install time we fetch each one and seed it into the mock's
@@ -612,6 +614,36 @@ export function isUnlockSessionMode(): boolean {
   }
 }
 
+/** Fast Argon2id params for the fixture sharing-identity seed below. PROD
+ *  params (t:3, m:65536) make the in-browser wrap a heavy, blocking op
+ *  (hundreds of ms); the fixture only needs a STRUCTURALLY valid wrapped blob,
+ *  not a brute-force-resistant one, so we use the same light params the
+ *  identity unit tests use. Never reached for a real user (wiki-capture-gated). */
+const FIXTURE_IDENTITY_KDF_PARAMS: KdfParams = { t: 1, m: 256, p: 1, dkLen: 32 };
+
+/** True when the URL opts into seeding a sharing identity for the active
+ *  fixture user (`?seedSharingIdentity=1`) AND wiki-capture mode is active.
+ *
+ *  The default fixture seeds users + shared records but NO sharing identity, so
+ *  it boots in SOLO mode and the unified Share button (gated on a "ready"
+ *  identity via useAccountCapabilities -> canShare) does not render. Every
+ *  existing demo / wiki screenshot relies on that solo default, so the identity
+ *  seed is strictly opt-in. Only the privacy share-dialog e2e spec passes this
+ *  param. Hard-gated to wiki-capture (dev / localhost) so the public /demo can
+ *  never trigger it and flip into account mode. SSR-safe. */
+export function wantsFixtureSharingIdentity(): boolean {
+  if (typeof window === "undefined") return false;
+  if (!isWikiCaptureMode()) return false;
+  try {
+    return (
+      new URLSearchParams(window.location.search).get("seedSharingIdentity") ===
+      "1"
+    );
+  } catch {
+    return false;
+  }
+}
+
 /** Tutorial-mode probe.
  *
  *  After the V3 rip (Phase B 2026-05-22) there is no tutorial overlay
@@ -978,6 +1010,29 @@ export async function installWikiCaptureFixture(
     await storeDirectoryHandle(fakeHandle);
   } catch (err) {
     console.warn("[wiki-capture-mock] IndexedDB seed failed:", err);
+  }
+
+  // ── Sharing-identity seed (privacy e2e share-dialog candidate tests) ───────
+  // The unified Share button is gated on a "ready" sharing identity (canShare ->
+  // useSharingIdentity status "ready"), which needs BOTH a sidecar carrying a
+  // wrapped keypair (recoveryBlob) AND this device's unlocked private key. The
+  // base fixture seeds neither, so by default it stays in SOLO mode and the
+  // Share button never renders (the solo default every existing wiki / demo
+  // screenshot depends on). When ?seedSharingIdentity=1 is set (privacy spec
+  // only), mint a fake-but-valid LOCAL identity for the ACTIVE fixture user via
+  // the REAL production path (createLocalIdentity), which writes the
+  // recoveryBlob-bearing sidecar AND parks the unlocked key in the session, so
+  // hasIdentity() is true and the status resolves to "ready". FAST KDF params
+  // keep the in-browser Argon2id wrap well under the test's boot budget. Only
+  // the active user needs an identity: share CANDIDATES come from
+  // _user_metadata.json and need none. Gated to wiki-capture (dev / localhost),
+  // so real users and the public /demo never reach it.
+  if (signIn && wantsFixtureSharingIdentity()) {
+    try {
+      await createLocalIdentity(fixtureUser, FIXTURE_IDENTITY_KDF_PARAMS);
+    } catch (err) {
+      console.warn("[wiki-capture-mock] sharing-identity seed failed:", err);
+    }
   }
 
   // Fetch the demo-lab PNGs from `public/demo-data/` and seed them into
