@@ -77,7 +77,7 @@ bucket_name = "researchos-lab-data"
 # Then set the resulting id below.
 [[kv_namespaces]]
 binding = "LAB_MEMBERSHIP_INDEX"
-id = "REPLACE_WITH_KV_NAMESPACE_ID"
+id = "4a853f473b4d4aa491db61f267f14606"
 
 # new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
 # DO class (SQLite-backed DOs are the current default storage backend).
