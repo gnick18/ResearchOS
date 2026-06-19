@@ -110,6 +110,8 @@ import SequenceConfirmDialog, {
 } from "./SequenceConfirmDialog";
 import FeaturesPanel from "./FeaturesPanel";
 import SequenceDisplayStrip from "./SequenceDisplayStrip";
+import SequenceBottomBarV2, { SeqSelectionChip } from "./SequenceBottomBarV2";
+import { SEQ_BOTTOM_BAR_V2 } from "@/lib/sequences/seq-bottom-bar-v2-config";
 import FeatureEditorDialog, {
   type FeatureEditorRequest,
 } from "./FeatureEditorDialog";
@@ -5858,6 +5860,18 @@ export default function SequenceEditView({
             </div>
           </div>
         ) : null}
+        {/* seq-bottom-bar bot (v2 flag ON). Contextual selection chip: appears
+            as an absolute overlay at the bottom-left of the canvas area only
+            when there is an active selection. Invisible otherwise so the canvas
+            stays uncluttered. */}
+        {SEQ_BOTTOM_BAR_V2 ? (
+          <SeqSelectionChip
+            readout={readout}
+            canExtractRegion={canExtractRegion}
+            onExtractRegion={onCreateSequenceFromRegion && !readOnly ? handleExtractRegion : null}
+            readOnly={readOnly}
+          />
+        ) : null}
       </div>
 
       {/* sequence editor master (redesign, two-zone chrome). THE PINNED BOTTOM
@@ -5883,144 +5897,43 @@ export default function SequenceEditView({
           rests in that band instead of over the tabs. bg-surface here only
           colors the padded band (every inner row already paints bg-surface).
           Mirrors SequenceOperationsRail's pb-24 clearance for the same bar. */}
-      <div className="shrink-0 border-t border-border bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))]">
-        {/* 1. Show display strip. Always live now (the canvas it controls is
-            always visible, even behind an open flyout). */}
-        <SequenceDisplayStrip
-          view={view}
-          onViewChange={setView}
-          circular={doc.circular}
-          featureTypes={featureTypes}
-          disabled={false}
-        />
-
-        {/* 2. Coordinate / zoom cluster. Always the live cluster for the active
-            canvas mode (linear coordinate bar, circular zoom control, or the Map
-            "whole molecule" indicator). */}
-        {isLinearViewer ? (
-          <SequenceCoordinateBar
-            seqLength={doc.seq.length}
-            window={overviewWindow}
-            zoom={linearZoom}
-            onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
-            onScrollToBp={scrollMainToBp}
-            // nav polish bot — in Map view the molecule is shown whole, so the
-            // window cluster (slider / bp-in-view / readout / minimap) is stale;
-            // collapse it to a "Whole molecule (N bp)" indicator.
-            mapMode={canvasMode === "map"}
-            // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
-            // field until the true visible window has been measured.
-            measured={windowMeasured}
-          />
-        ) : canvasMode === "map" ? (
-          // circular molecule in Map view: the ring IS the whole-molecule map,
-          // so the circular zoom slider is irrelevant. Calm indicator.
-          <div className="flex items-center gap-2 bg-surface px-3 py-2 text-meta text-foreground-muted">
-            <svg
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.8"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="h-3.5 w-3.5 text-foreground-muted"
-              aria-hidden="true"
-            >
-              <circle cx="12" cy="12" r="8" />
-              <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
-            </svg>
-            <span>
-              Whole molecule
-              <span className="ml-1 font-mono text-foreground">
-                ({doc.seq.length.toLocaleString()} bp)
-              </span>
-            </span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
-            <SequenceZoomControl
-              axis="circular"
-              zoom={view.circularZoom}
-              onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
-            />
-          </div>
-        )}
-
-        {/* 3. The constant tabs spine. Find (left), the view tabs, then the live
-            coordinate readout + the taxonomy footer (right). */}
-        <div className="flex items-center gap-2 bg-surface px-1.5 py-0.5">
-          {/* sequence editor master (redesign, two-zone chrome). The FIND control,
-              left of the tabs. Opens the same inline Find box (Cmd F) the keyboard
-              and right-click menu open. Go To, Select All / Range / Invert, and
-              the case changes stay in the right-click menu + keyboard. */}
-          <Tooltip label="Find in this sequence (Cmd F)">
-            <button
-              type="button"
-              onClick={openFind}
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
-            >
-              <svg
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2.2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className="h-3.5 w-3.5"
-                aria-hidden="true"
-              >
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-              <span>Find</span>
-            </button>
-          </Tooltip>
-
-          <SequenceTabBar
-            active={canvasMode}
+      {SEQ_BOTTOM_BAR_V2 ? (
+        /* seq-bottom-bar bot — V2: one slim row replaces the three stacked rows.
+           The Display popover holds the overlay toggles. Circular/Linear toggle
+           stays visible in the right cluster. Zoom is passed as a render slot.
+           The "Search your work" BeakerSearchBottomBar is hidden by passing
+           hideBottomSearchBar={true} up to the page (see SequenceEditPage). */
+        <div className="shrink-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
+          <SequenceBottomBarV2
+            canvasMode={canvasMode}
             openFlyout={openFlyout}
-            onChange={selectCanvas}
+            onCanvasChange={selectCanvas}
             onToggleFlyout={toggleFlyout}
             featureCount={doc.features.length}
             primerCount={primerCount}
-            position="bottom"
+            view={view}
+            onViewChange={setView}
+            circular={doc.circular}
+            featureTypes={featureTypes}
+            onFind={openFind}
+            zoomSlot={
+              isLinearViewer ? (
+                <SequenceZoomControl
+                  axis="linear"
+                  zoom={linearZoom}
+                  onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
+                />
+              ) : canvasMode === "map" ? null : (
+                <SequenceZoomControl
+                  axis="circular"
+                  zoom={view.circularZoom}
+                  onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
+                />
+              )
+            }
           />
-
-          {/* Live selection readout (left of this group) + the compact taxonomy
-              affordance, pushed to the far right of the spine. */}
-          <div className="ml-auto flex min-w-0 items-center gap-4 pr-2 text-meta text-foreground-muted">
-            <span
-              role="status"
-              aria-live="polite"
-              className="flex items-center gap-4"
-            >
-              <SelectionReadoutContent readout={readout} />
-            </span>
-            {/* sequences / extract-locus — pull the selected feature (carries its
-                strand) or the active base range out as a new standalone library
-                sequence. Sits with the live selection readout so the cut and its
-                bounds read together on camera. Self-hides unless the page wired
-                the create callback (read-only / embedded surfaces omit it). */}
-            {onCreateSequenceFromRegion && !readOnly ? (
-              <Tooltip
-                label={
-                  canExtractRegion
-                    ? "Make a new sequence from the selected feature or range"
-                    : "Select a feature or a range to extract it as a new sequence"
-                }
-              >
-                <button
-                  type="button"
-                  data-testid="seq-extract-region-btn"
-                  onClick={handleExtractRegion}
-                  disabled={!canExtractRegion}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-sunken disabled:hover:text-foreground-muted"
-                >
-                  <Icon name="cut" className="h-3.5 w-3.5" />
-                  <span>Extract</span>
-                </button>
-              </Tooltip>
-            ) : null}
+          {/* Lineage footer sits below the slim bar so taxonomy is still visible */}
+          <div className="flex items-center justify-end border-t border-border bg-surface px-3 py-0.5">
             <SequenceLineageFooter
               organism={sequence.organism}
               taxId={sequence.tax_id}
@@ -6029,7 +5942,156 @@ export default function SequenceEditView({
             />
           </div>
         </div>
-      </div>
+      ) : (
+        /* seq-bottom-bar bot — V1 (legacy): three stacked rows, unchanged. */
+        <div className="shrink-0 border-t border-border bg-surface pb-[calc(5rem+env(safe-area-inset-bottom))]">
+          {/* 1. Show display strip. Always live now (the canvas it controls is
+              always visible, even behind an open flyout). */}
+          <SequenceDisplayStrip
+            view={view}
+            onViewChange={setView}
+            circular={doc.circular}
+            featureTypes={featureTypes}
+            disabled={false}
+          />
+
+          {/* 2. Coordinate / zoom cluster. Always the live cluster for the active
+              canvas mode (linear coordinate bar, circular zoom control, or the Map
+              "whole molecule" indicator). */}
+          {isLinearViewer ? (
+            <SequenceCoordinateBar
+              seqLength={doc.seq.length}
+              window={overviewWindow}
+              zoom={linearZoom}
+              onZoomChange={(z) => setView((v) => ({ ...v, linearZoom: z }))}
+              onScrollToBp={scrollMainToBp}
+              // nav polish bot — in Map view the molecule is shown whole, so the
+              // window cluster (slider / bp-in-view / readout / minimap) is stale;
+              // collapse it to a "Whole molecule (N bp)" indicator.
+              mapMode={canvasMode === "map"}
+              // seq polish batch bot — FIX 3: hold the bp readout / bp-in-view
+              // field until the true visible window has been measured.
+              measured={windowMeasured}
+            />
+          ) : canvasMode === "map" ? (
+            // circular molecule in Map view: the ring IS the whole-molecule map,
+            // so the circular zoom slider is irrelevant. Calm indicator.
+            <div className="flex items-center gap-2 bg-surface px-3 py-2 text-meta text-foreground-muted">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3.5 w-3.5 text-foreground-muted"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="8" />
+                <path d="M12 4v3M20 12h-3M12 20v-3M4 12h3" />
+              </svg>
+              <span>
+                Whole molecule
+                <span className="ml-1 font-mono text-foreground">
+                  ({doc.seq.length.toLocaleString()} bp)
+                </span>
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3 bg-surface px-3 py-1.5">
+              <SequenceZoomControl
+                axis="circular"
+                zoom={view.circularZoom}
+                onZoomChange={(z) => setView((v) => ({ ...v, circularZoom: z }))}
+              />
+            </div>
+          )}
+
+          {/* 3. The constant tabs spine. Find (left), the view tabs, then the live
+              coordinate readout + the taxonomy footer (right). */}
+          <div className="flex items-center gap-2 bg-surface px-1.5 py-0.5">
+            {/* sequence editor master (redesign, two-zone chrome). The FIND control,
+                left of the tabs. Opens the same inline Find box (Cmd F) the keyboard
+                and right-click menu open. Go To, Select All / Range / Invert, and
+                the case changes stay in the right-click menu + keyboard. */}
+            <Tooltip label="Find in this sequence (Cmd F)">
+              <button
+                type="button"
+                onClick={openFind}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-3.5 w-3.5"
+                  aria-hidden="true"
+                >
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+                <span>Find</span>
+              </button>
+            </Tooltip>
+
+            <SequenceTabBar
+              active={canvasMode}
+              openFlyout={openFlyout}
+              onChange={selectCanvas}
+              onToggleFlyout={toggleFlyout}
+              featureCount={doc.features.length}
+              primerCount={primerCount}
+              position="bottom"
+            />
+
+            {/* Live selection readout (left of this group) + the compact taxonomy
+                affordance, pushed to the far right of the spine. */}
+            <div className="ml-auto flex min-w-0 items-center gap-4 pr-2 text-meta text-foreground-muted">
+              <span
+                role="status"
+                aria-live="polite"
+                className="flex items-center gap-4"
+              >
+                <SelectionReadoutContent readout={readout} />
+              </span>
+              {/* sequences / extract-locus — pull the selected feature (carries its
+                  strand) or the active base range out as a new standalone library
+                  sequence. Sits with the live selection readout so the cut and its
+                  bounds read together on camera. Self-hides unless the page wired
+                  the create callback (read-only / embedded surfaces omit it). */}
+              {onCreateSequenceFromRegion && !readOnly ? (
+                <Tooltip
+                  label={
+                    canExtractRegion
+                      ? "Make a new sequence from the selected feature or range"
+                      : "Select a feature or a range to extract it as a new sequence"
+                  }
+                >
+                  <button
+                    type="button"
+                    data-testid="seq-extract-region-btn"
+                    onClick={handleExtractRegion}
+                    disabled={!canExtractRegion}
+                    className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-surface-sunken px-2.5 py-1 text-meta font-semibold text-foreground-muted transition-colors hover:bg-surface hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-surface-sunken disabled:hover:text-foreground-muted"
+                  >
+                    <Icon name="cut" className="h-3.5 w-3.5" />
+                    <span>Extract</span>
+                  </button>
+                </Tooltip>
+              ) : null}
+              <SequenceLineageFooter
+                organism={sequence.organism}
+                taxId={sequence.tax_id}
+                lineage={sequence.tax_lineage}
+                onExploreInTree={onExploreInTree}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Confirmation dialog for Cut / chunk-delete / Paste / feature delete. */}
       <SequenceConfirmDialog request={confirm} />
