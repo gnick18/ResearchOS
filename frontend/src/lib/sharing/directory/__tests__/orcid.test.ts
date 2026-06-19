@@ -140,12 +140,14 @@ describe("resolveEmailHash", () => {
   });
 
   it("returns the ORCID-resolved hash for an ORCID session", async () => {
-    // resolveEmailHash calls ensureOrcidSchema (2 sql calls: CREATE TABLE +
-    // CREATE INDEX) then getEmailHashByOrcid (1 sql call). Queue 3 responses:
-    // the first two are consumed by ensureOrcidSchema, the third is the row.
+    // resolveEmailHash calls ensureOrcidSchema (3 sql calls: CREATE TABLE +
+    // CREATE INDEX + ALTER TABLE ADD COLUMN email_enc) then getEmailHashByOrcid
+    // (1 sql call). Queue 4 responses: the first three are consumed by
+    // ensureOrcidSchema, the fourth is the row.
     const tag = sharedTag as unknown as ReturnType<typeof vi.fn>;
     tag.mockResolvedValueOnce([]); // CREATE TABLE
     tag.mockResolvedValueOnce([]); // CREATE INDEX
+    tag.mockResolvedValueOnce([]); // ALTER TABLE ADD COLUMN email_enc
     tag.mockResolvedValueOnce([{ email_hash: "orcid-resolved-hash" }]);
     await withDb(async () => {
       const result = await resolveEmailHash(
@@ -156,10 +158,11 @@ describe("resolveEmailHash", () => {
   });
 
   it("returns null when the ORCID session has no matching link", async () => {
-    // Same 3-call sequence; the SELECT returns empty (no link found).
+    // Same 4-call sequence; the SELECT returns empty (no link found).
     const tag = sharedTag as unknown as ReturnType<typeof vi.fn>;
     tag.mockResolvedValueOnce([]); // CREATE TABLE
     tag.mockResolvedValueOnce([]); // CREATE INDEX
+    tag.mockResolvedValueOnce([]); // ALTER TABLE ADD COLUMN email_enc
     tag.mockResolvedValueOnce([]); // SELECT — empty
     await withDb(async () => {
       const result = await resolveEmailHash(

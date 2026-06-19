@@ -401,3 +401,28 @@ export function parseInstitutionSlug(slug: unknown): string | null {
   if (/^[.-]|[.-]$|\.\./.test(trimmed)) return null;
   return trimmed;
 }
+
+/** The fields the ORCID email-capture verify route carries. */
+export interface OrcidEmailVerifyBody {
+  email: string;
+  otp: string;
+}
+
+/**
+ * Validates the ORCID email-capture verify body, `{ email, otp }`. The ORCID
+ * capture step has NO key material and NO signature (unlike parseVerifyBody), the
+ * ORCID session itself is the account-side proof and the OTP proves the user
+ * controls the email. Requires a plausible email and a 6-digit numeric OTP.
+ * Returns null on any shape failure so the route returns a single generic error.
+ */
+export function parseOrcidEmailVerifyBody(
+  body: unknown,
+): OrcidEmailVerifyBody | null {
+  if (typeof body !== "object" || body === null) return null;
+  const b = body as Record<string, unknown>;
+  if (!isNonEmptyString(b.email)) return null;
+  const email = b.email.trim();
+  if (!EMAIL_RE.test(email)) return null;
+  if (!isNonEmptyString(b.otp) || !OTP_RE.test(b.otp)) return null;
+  return { email, otp: b.otp };
+}

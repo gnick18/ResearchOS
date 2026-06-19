@@ -21,7 +21,7 @@ import AccountFirstRedirect, {
 } from "@/components/account/AccountFirstRedirect";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import WelcomePage from "@/components/welcome/WelcomePage";
-import { signIn } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -37,6 +37,8 @@ import AutoErrorConfirmHost from "@/components/AutoErrorConfirmHost";
 import { Splash } from "@/components/onboarding/Splash";
 import { OAuthFirstLanding } from "@/components/onboarding/oauth-first/OAuthFirstLanding";
 import { WelcomeBackSignIn } from "@/components/onboarding/oauth-first/WelcomeBackSignIn";
+import OrcidEmailCapture from "@/components/onboarding/oauth-first/OrcidEmailCapture";
+import { useOrcidNeedsEmail } from "@/components/onboarding/oauth-first/useOrcidNeedsEmail";
 import SyncPausedIndicator from "@/components/SyncPausedIndicator";
 import {
   AccountTierChooser,
@@ -535,6 +537,16 @@ function AppContent({ children }: { children: ReactNode }) {
   // unconditionally (rules of hooks) but is cheap and inert otherwise.
   const hasCloudSession = useHasCloudSession();
 
+  // ORCID-login email-capture (section 18.7). ORCID OIDC returns no email, so a
+  // fresh ORCID sign-in lands with an orcidId but no session email, which breaks
+  // the account flow (it keys on a verified email). This resolves to true only
+  // for a signed-in ORCID session that has no email on file; the routing branch
+  // below then sends the visitor to OrcidEmailCapture ahead of the folder/account
+  // gates instead of dropping them into the broken no-email state. Null while in
+  // flight, false (the common case) for every non-ORCID session, so the whole
+  // path is inert for Google / Microsoft / GitHub / LinkedIn / email users.
+  const orcidNeedsEmail = useOrcidNeedsEmail();
+
   useEffect(() => {
     if (currentUser) {
       queryClient.invalidateQueries();
@@ -843,6 +855,50 @@ function AppContent({ children }: { children: ReactNode }) {
             // re-renders in a close loop. Closing drops to the app root in its
             // current state (limited if no folder), never a hard-trap.
             clearOnboardingWizardReturn();
+          }}
+        />
+      </QueryClientProvider>
+    );
+  }
+
+  // ORCID-login email-capture (section 18.7). An ORCID sign-in carries no email,
+  // so the session has an orcidId but no account identity, which breaks every
+  // downstream gate that keys on a verified email (the account flow, the
+  // oauth-bind, billing). When the session is ORCID with no email on file, route
+  // HERE first to capture and verify one, then bind it to the ORCID iD so future
+  // ORCID logins resolve it transparently. Rendered ABOVE the account-first
+  // redirect and the folder gate so the no-email ORCID case never falls into the
+  // broken account state below. Inert for every non-ORCID provider
+  // (orcidNeedsEmail is false), and held while the check is in flight (null) only
+  // when there is otherwise no app session yet, so a signed-in folder user is not
+  // blocked. Once the email is captured, OrcidEmailCapture refreshes the session
+  // and calls onClose, which re-runs this render with an email present so the flow
+  // falls through to the normal account/folder gates.
+  if (
+    orcidNeedsEmail === true &&
+    !isConnected &&
+    !currentUser &&
+    !needsInitialization &&
+    !isDemoOrWikiCapture() &&
+    !signInInFlight
+  ) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <OrcidEmailCapture
+          onDone={() => {
+            // The binding is written and the session refreshed. Reload to the app
+            // root (dropping any lingering provider-return query marker) so every
+            // session reader (the account flow, oauth-bind, billing) picks up the
+            // now-populated email cleanly and the flow falls through to the normal
+            // account/folder gates.
+            window.location.assign("/");
+          }}
+          onUseDifferentMethod={() => {
+            // Back out to use a provider that returns an email instead of
+            // finishing ORCID capture. signOut clears the ORCID session and lands
+            // back on the front door, so the sign-in picker is reachable again
+            // (a visible escape, never a soft-lock).
+            void signOut({ callbackUrl: "/" });
           }}
         />
       </QueryClientProvider>

@@ -13,6 +13,11 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
+import {
+  decryptOrcidEmail,
+  encryptOrcidEmail,
+} from "@/lib/sharing/directory/orcid-email-crypto";
+
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
 /**
@@ -272,9 +277,15 @@ export async function appendKeyHistory(
  * because the table is standalone (no FK), but call order is consistent with
  * the routes that use it.
  *
- * The ORCID iD is a public identifier stored as-is. The table never holds a
- * plaintext email, only the peppered email hash, so it is consistent with the
- * privacy posture of the rest of the directory.
+ * The ORCID iD is a public identifier stored as-is. email_hash is the peppered
+ * (non-reversible) directory key, consistent with the privacy posture of the
+ * rest of the directory. email_enc is the SAME email encrypted at rest under the
+ * server ORCID_EMAIL_ENC_KEY (AES-256-GCM, see orcid-email-crypto.ts), the only
+ * recoverable representation, needed because ORCID OIDC returns no email and a
+ * future ORCID login must resolve the account's plaintext email to key billing
+ * and the session on it. email_enc is nullable so a row predating the column (or
+ * a hash-only link written by the legacy verify path) still reads cleanly, the
+ * resolver simply treats a null as "no recoverable email yet".
  */
 export async function ensureOrcidSchema(): Promise<void> {
   const sql = getSql();
@@ -289,6 +300,8 @@ export async function ensureOrcidSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_orcid_links_email_hash
       ON directory_orcid_links(email_hash)
   `;
+  // Additive migration for the encrypted-email column on older tables. Idempotent.
+  await sql`ALTER TABLE directory_orcid_links ADD COLUMN IF NOT EXISTS email_enc text`;
 }
 
 /**
@@ -324,6 +337,62 @@ export async function getEmailHashByOrcid(
   `) as Array<{ email_hash: string }>;
   if (rows.length === 0) return null;
   return rows[0].email_hash;
+}
+
+/**
+ * Stores the verified email for an ORCID iD, writing BOTH representations in one
+ * upsert, the peppered email_hash (the non-reversible directory key, computed by
+ * the caller via hashEmail) and email_enc (the same email encrypted at rest under
+ * ORCID_EMAIL_ENC_KEY). The caller MUST have proven the user controls this email
+ * (the OTP step) before calling, this function does not verify ownership.
+ *
+ * The plaintext email is encrypted here and is never logged. On conflict (the
+ * user re-verifies, or changes their primary email) both columns are overwritten,
+ * so a re-bind stays consistent and a future ORCID login resolves the new email.
+ * The email is encrypted with a fresh random IV inside encryptOrcidEmail, so the
+ * stored ciphertext differs even when the email is unchanged.
+ */
+export async function storeOrcidEmail(
+  orcidId: string,
+  canonicalEmail: string,
+  emailHash: string,
+): Promise<void> {
+  const sql = getSql();
+  const emailEnc = encryptOrcidEmail(canonicalEmail);
+  await sql`
+    INSERT INTO directory_orcid_links (orcid_id, email_hash, email_enc)
+    VALUES (${orcidId}, ${emailHash}, ${emailEnc})
+    ON CONFLICT (orcid_id) DO UPDATE SET
+      email_hash = EXCLUDED.email_hash,
+      email_enc  = EXCLUDED.email_enc
+  `;
+}
+
+/**
+ * Resolves the recoverable plaintext email for an ORCID iD, or null when no link
+ * exists, the link predates email_enc (hash-only), or the stored blob fails to
+ * decrypt (a tampered value or a key rotation). This is what the auth jwt
+ * callback and the capture-status route call to populate the session email on a
+ * future ORCID login. Exact primary-key match only, never a prefix or LIKE.
+ *
+ * Decryption failures collapse to null (decryptOrcidEmail returns null), so an
+ * unreadable binding is treated like a missing one, the user re-captures rather
+ * than hitting a 500. The plaintext is never logged.
+ */
+export async function lookupEmailByOrcid(
+  orcidId: string,
+): Promise<string | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT email_enc
+    FROM directory_orcid_links
+    WHERE orcid_id = ${orcidId}
+    LIMIT 1
+  `) as Array<{ email_enc: string | null }>;
+  if (rows.length === 0) return null;
+  const enc = rows[0].email_enc;
+  if (!enc) return null;
+  return decryptOrcidEmail(enc);
 }
 
 // ---------------------------------------------------------------------------
