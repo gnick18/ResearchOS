@@ -2636,7 +2636,16 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
         {sessionStatus === "authenticated" && !isDemoOrWikiCapture() && (
           <button
             type="button"
-            onClick={() => void signOut({ callbackUrl: "/" })}
+            onClick={async () => {
+              // Full exit (Grant 2026-06-19): Sign out clears the sharing
+              // session AND disconnects the folder, returning to the landing
+              // page, rather than dropping only the OAuth session and stranding
+              // the user on the still-connected folder's account chooser (which
+              // read as broken). disconnect() is a safe no-op if no folder is
+              // connected. signOut redirects to "/", now a clean landing.
+              await disconnect();
+              void signOut({ callbackUrl: "/" });
+            }}
             className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
             data-testid="login-sign-out"
           >

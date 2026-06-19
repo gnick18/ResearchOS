@@ -695,6 +695,7 @@ function BrandHeader({ subtitle }: { subtitle: string }) {
  *  "Read the setup guide" link points at the folder-connecting guide. Report
  *  Bug + Support this project are threaded into the shared footer. */
 function GateFooter({ onBugReport }: { onBugReport: () => void }) {
+  const { disconnect } = useFileSystem();
   return (
     <div className="mt-6 flex flex-col items-center gap-2">
       <Link
@@ -705,7 +706,13 @@ function GateFooter({ onBugReport }: { onBugReport: () => void }) {
       </Link>
       <button
         type="button"
-        onClick={() => void signOut({ callbackUrl: "/" })}
+        onClick={async () => {
+          // Full exit (Grant 2026-06-19): clear the sharing session AND
+          // disconnect the folder so Sign out returns to the landing, never a
+          // half-state. disconnect() is a safe no-op if no folder is connected.
+          await disconnect();
+          void signOut({ callbackUrl: "/" });
+        }}
         className="text-foreground-muted hover:text-foreground text-meta transition-colors underline underline-offset-2"
         data-testid="gate-sign-out"
       >
