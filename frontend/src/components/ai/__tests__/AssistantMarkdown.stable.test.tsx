@@ -11,14 +11,18 @@ import { useEffect, useState } from "react";
 import { render, screen, act } from "@testing-library/react";
 
 const mountSpy = vi.fn();
-vi.mock("@/components/embeds/ObjectEmbed", () => ({
-  default: () => {
+vi.mock("@/components/embeds/ObjectEmbed", () => {
+  // Named with an uppercase identifier so it reads as a React component (the
+  // rules-of-hooks lint requires the useEffect below to live in a component or
+  // a custom hook, not an anonymous `default` arrow).
+  function MockObjectEmbed() {
     useEffect(() => {
       mountSpy();
     }, []);
     return <div data-testid="emb" />;
-  },
-}));
+  }
+  return { default: MockObjectEmbed };
+});
 
 import { AssistantMarkdown } from "../BeakerBotConversation";
 

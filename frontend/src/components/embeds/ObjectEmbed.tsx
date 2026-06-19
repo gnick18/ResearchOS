@@ -365,20 +365,14 @@ function PinFooter({
   );
 }
 
-export default function ObjectEmbed({
-  descriptor,
-  caption,
-  basePath,
-  figureLabel,
-  onViewChange,
-  pinContext,
-  onEditMarkdown,
-}: EmbedRendererProps) {
+export default function ObjectEmbed(props: EmbedRendererProps) {
+  const { descriptor, caption, basePath, onEditMarkdown } = props;
   // P7-2 transclusion. A note embed with view "transclude" renders a live section
   // of another note, recursion-guarded. It is NOT pinnable or view-switchable in
-  // v1, so it short-circuits the whole pin / stale / view-switch machinery below
-  // and renders inside the same quiet figure frame. Hooks above this point are not
-  // yet declared, so this early return precedes them (no conditional-hook hazard).
+  // v1, so it short-circuits the whole pin / stale / view-switch machinery and
+  // renders inside the same quiet figure frame. This dispatcher declares no hooks,
+  // so the early return is legal; the pin machinery lives in PinnableObjectEmbed,
+  // which always mounts its hooks unconditionally.
   if (descriptor.type === "note" && descriptor.view === "transclude") {
     return (
       <figure
@@ -405,6 +399,18 @@ export default function ObjectEmbed({
     );
   }
 
+  return <PinnableObjectEmbed {...props} />;
+}
+
+function PinnableObjectEmbed({
+  descriptor,
+  caption,
+  basePath,
+  figureLabel,
+  onViewChange,
+  pinContext,
+  onEditMarkdown,
+}: EmbedRendererProps) {
   const Renderer = EMBED_RENDERERS[descriptor.type];
 
   // A pinned embed renders its FROZEN snapshot, not live. The pin id rides the

@@ -81,16 +81,23 @@ export interface ProgressEntertainerProps {
   onCancel?: () => void;
 }
 
-export default function ProgressEntertainer({
+export default function ProgressEntertainer(props: ProgressEntertainerProps) {
+  // Decorative pop-up gate. Flip POPUP_ANIMATIONS_ENABLED in
+  // lib/animations/popup-gate.ts to restore the entertainer scenes. This
+  // dispatcher declares no hooks, so the flag short-circuit is legal; the scene
+  // machinery lives in ProgressEntertainerInner, which always mounts its hooks
+  // unconditionally.
+  if (!POPUP_ANIMATIONS_ENABLED) return null;
+  return <ProgressEntertainerInner {...props} />;
+}
+
+function ProgressEntertainerInner({
   open,
   title,
   subtitle,
   progress,
   onCancel,
 }: ProgressEntertainerProps) {
-  // Decorative pop-up gate. Flip POPUP_ANIMATIONS_ENABLED in
-  // lib/animations/popup-gate.ts to restore the entertainer scenes.
-  if (!POPUP_ANIMATIONS_ENABLED) return null;
   // Drive the centrifuge scene as a looping entertainer. Each time
   // the scene's onComplete fires, bump iterationKey + flip active off
   // and back on so the scene restarts. iterationKey is keyed onto the
