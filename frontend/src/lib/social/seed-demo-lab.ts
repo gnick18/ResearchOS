@@ -21,6 +21,16 @@
 
 import { readFile } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+
+// This module's own directory, resolved at runtime from import.meta.url. We must
+// NOT use `new URL("./fixtures/<dir>/", import.meta.url)` for a fixtures DIRECTORY:
+// Turbopack statically analyzes that literal and tries to resolve the trailing-
+// slash directory as an asset, which fails the whole build ("Module not found").
+// Deriving the dir from import.meta.url at runtime + joining the relative path is
+// opaque to the bundler, so it compiles, and the (flag-gated) seeder still reads
+// the checked-in fixtures from disk on the server.
+const MODULE_DIR = dirname(fileURLToPath(import.meta.url));
 
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import {
@@ -74,15 +84,13 @@ export interface DemoSeedDeps {
 
 /** Read a checked-in BYO bundle file from fixtures/demo-byo-site/<relPath>. */
 async function readFixtureFile(relPath: string): Promise<Uint8Array> {
-  const dir = fileURLToPath(new URL("./fixtures/demo-byo-site/", import.meta.url));
-  const buf = await readFile(`${dir}${relPath}`);
+  const buf = await readFile(join(MODULE_DIR, "fixtures", "demo-byo-site", relPath));
   return new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
 }
 
 /** Read a checked-in figure SVG from the fixtures/figures/ folder by file name. */
 async function readFigureFile(svgFile: string): Promise<string> {
-  const dir = fileURLToPath(new URL("./fixtures/figures/", import.meta.url));
-  return readFile(`${dir}${svgFile}`, "utf8");
+  return readFile(join(MODULE_DIR, "fixtures", "figures", svgFile), "utf8");
 }
 
 const DEFAULT_DEPS: DemoSeedDeps = {
