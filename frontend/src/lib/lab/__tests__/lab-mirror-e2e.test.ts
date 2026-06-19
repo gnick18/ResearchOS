@@ -124,6 +124,13 @@ function emptySource(): LabWorkSource {
     listResultSheets: none,
     listNotesSheets: none,
     listDeposits: none,
+    listOneOnOnes: none,
+    listOneOnOneActionItems: none,
+    listIdps: none,
+    listWeeklyGoals: none,
+    listCheckinCompacts: none,
+    listCheckinOnboarding: none,
+    listCheckinRotations: none,
   };
 }
 

@@ -37,6 +37,7 @@ import type {
   InventoryItem,
   InventoryStock,
   Deposit,
+  WeeklyGoal,
 } from "@/lib/types";
 import { sequencesApi } from "@/lib/local-api";
 import { phyloApi } from "@/lib/phylo/api";
@@ -46,6 +47,15 @@ import {
   readDataHubMirror,
 } from "@/lib/loro/datahub-sidecar-store";
 import { fileService } from "@/lib/file-system/file-service";
+import {
+  OneOnOneStore,
+  OneOnOneActionItemStore,
+} from "@/lib/one-on-one/store";
+import { IdpStore } from "@/lib/idp/store";
+import { LAB_AS_FOLDER_ENABLED } from "./lab-as-folder-config";
+import { CheckinCompactStore } from "@/lib/checkins/compact-store";
+import { CheckinOnboardingStore } from "@/lib/checkins/onboarding-store";
+import { CheckinRotationStore } from "@/lib/checkins/rotation-store";
 import type { LabWorkSource, OwnedRecord } from "./lab-work-enumerate";
 
 // ---------------------------------------------------------------------------
@@ -69,6 +79,12 @@ import type { LabWorkSource, OwnedRecord } from "./lab-work-enumerate";
  * Sequences, phylo trees, molecules, and datahub documents each use their own
  * dedicated API/store rather than a raw JsonStore.
  *
+ * P2 mentorship / check-in coverage: one-on-ones, action items, IDPs, weekly
+ * goals, compacts, onboarding checklists, and rotations each route through their
+ * dedicated per-user store (OneOnOneStore / IdpStore / Checkin*Store), all of
+ * which expose listAllForUser(owner). These were OMITTED by the original mirror,
+ * so the member pull could never serve the entire 1:1 domain until now.
+ *
  * The member-push case always calls with owner === the current user, but the
  * same owner-scoped reads also support a future cross-owner read (PI pulling
  * a member's records).
@@ -81,6 +97,17 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
   const inventoryItemsStore = new JsonStore<InventoryItem>("inventory_items");
   const inventoryStocksStore = new JsonStore<InventoryStock>("inventory_stocks");
   const depositsLocalStore = new JsonStore<Deposit>("deposits");
+  // P2 multi-lab relay-pull: the mentorship / check-in stores. These are
+  // string-keyed per-user stores (crypto.randomUUID ids), except weeklyGoals
+  // which is a numeric JsonStore. Each record carries owner + shared_with so
+  // pullLabView's per-record shared_with gate handles member visibility.
+  const oneOnOnesStore = new OneOnOneStore();
+  const oneOnOneActionItemsStore = new OneOnOneActionItemStore();
+  const idpsStore = new IdpStore();
+  const weeklyGoalsLocalStore = new JsonStore<WeeklyGoal>("weekly_goals");
+  const checkinCompactsStore = new CheckinCompactStore();
+  const checkinOnboardingStore = new CheckinOnboardingStore();
+  const checkinRotationsStore = new CheckinRotationStore();
 
   return {
     listTasks(owner: string): Promise<OwnedRecord[]> {
@@ -145,6 +172,46 @@ export function createLocalApiLabWorkSource(): LabWorkSource {
       // the cast to OwnedRecord[]. The raw persisted record has no volatile
       // fields, satisfying the canonical-bytes deduplication requirement.
       return depositsLocalStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    // P2 mentorship / check-in coverage. FLAG GATE (byte-identical-off): when
+    // LAB_AS_FOLDER_ENABLED is off, every new type returns [] so the enumerator
+    // produces the EXACT same LabWorkRecord[] it did before P2, and the mirror
+    // pushes nothing new. The additions are completely inert with the flag off.
+    listOneOnOnes(owner: string): Promise<OwnedRecord[]> {
+      // OneOnOne lacks an index signature; route through unknown. id is a
+      // crypto.randomUUID string, which the enumerator stringifies verbatim.
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return oneOnOnesStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listOneOnOneActionItems(owner: string): Promise<OwnedRecord[]> {
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return oneOnOneActionItemsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listIdps(owner: string): Promise<OwnedRecord[]> {
+      // IDP is trainee-owned. The RAW persisted record is pushed verbatim (the
+      // section blanking in normalizeIdpForViewer is a READ-time concern applied
+      // by the consumer, not the mirror). pullLabView only surfaces it to a
+      // non-owner when shared_with names them, so the mentor read still depends
+      // on the trainee's explicit share, never on lab membership.
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return idpsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listWeeklyGoals(owner: string): Promise<OwnedRecord[]> {
+      // WeeklyGoal carries owner + shared_with. Numeric JsonStore id.
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return weeklyGoalsLocalStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listCheckinCompacts(owner: string): Promise<OwnedRecord[]> {
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return checkinCompactsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listCheckinOnboarding(owner: string): Promise<OwnedRecord[]> {
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return checkinOnboardingStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
+    },
+    listCheckinRotations(owner: string): Promise<OwnedRecord[]> {
+      if (!LAB_AS_FOLDER_ENABLED) return Promise.resolve([]);
+      return checkinRotationsStore.listAllForUser(owner) as unknown as Promise<OwnedRecord[]>;
     },
   };
 }

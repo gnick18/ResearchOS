@@ -19,6 +19,7 @@ import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop
 import { IntroBubbleBot } from "@/components/onboarding/oauth-first/IntroBubbleBot";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useLabWorkMirror } from "@/hooks/useLabWorkMirror";
+import { useLabViewPull } from "@/hooks/useLabViewPull";
 
 export function LabSignInGate({
   controller,
@@ -39,6 +40,12 @@ export function LabSignInGate({
   // Wire the four production sync triggers (on-live, periodic, focus,
   // on-write). Best-effort: errors are caught and logged, never surfaced here.
   useLabWorkMirror(controller);
+
+  // Multi-lab P2: the PULL companion. Materializes the relay-assembled
+  // shared-with-me lab view into the active member folder so the folder-bound
+  // consumers light up. Gated by LAB_AS_FOLDER_ENABLED inside the hook; with the
+  // flag off it is a complete no-op (byte-identical to today).
+  useLabViewPull(controller);
 
   // Escape hatch so the sign-in overlay can never soft-lock a user. If they
   // cannot or do not want to complete the lab OAuth (wrong folder, wrong

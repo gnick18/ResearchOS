@@ -99,6 +99,24 @@ export interface OwnedRecord {
  *   The id is a numeric counter; task_id / project_id / doi are the key payload
  *   fields. No volatile or runtime-derived fields may be added.
  *
+ * MENTORSHIP / CHECK-IN TYPES (P2 multi-lab relay-pull). The member PULL path
+ *   (pullLabView) can only return record types that the push side actually
+ *   mirrored. The original push omitted the entire one-on-one / check-in domain,
+ *   so a joined member could never see a shared 1:1, IDP, weekly goal, action
+ *   item, compact, onboarding, or rotation. These methods add that coverage.
+ *   Every record carries `owner` + `shared_with` already (the unified sharing
+ *   shape), so pullLabView's per-record shared_with gate enforces visibility
+ *   without any role-based read. RAW PERSISTED FORM, no volatile fields.
+ *
+ * listOneOnOnes: every OneOnOne (check-in space) record for `owner`.
+ * listOneOnOneActionItems: every OneOnOneActionItem record for `owner`.
+ * listIdps: every IDP record for `owner`. The trainee owns it; a mentor reads it
+ *   only when shared_with names them (per-record share, never by role).
+ * listWeeklyGoals: every WeeklyGoal record for `owner` (numeric id).
+ * listCheckinCompacts: every CheckinCompact record for `owner`.
+ * listCheckinOnboarding: every CheckinOnboarding record for `owner`.
+ * listCheckinRotations: every CheckinRotation record for `owner`.
+ *
  * OWNERSHIP: each method is called once per sync run for a single owner string.
  *   The adapter is responsible for mapping `owner` to the correct data scope.
  */
@@ -116,6 +134,13 @@ export interface LabWorkSource {
   listResultSheets(owner: string): Promise<OwnedRecord[]>;
   listNotesSheets(owner: string): Promise<OwnedRecord[]>;
   listDeposits(owner: string): Promise<OwnedRecord[]>;
+  listOneOnOnes(owner: string): Promise<OwnedRecord[]>;
+  listOneOnOneActionItems(owner: string): Promise<OwnedRecord[]>;
+  listIdps(owner: string): Promise<OwnedRecord[]>;
+  listWeeklyGoals(owner: string): Promise<OwnedRecord[]>;
+  listCheckinCompacts(owner: string): Promise<OwnedRecord[]>;
+  listCheckinOnboarding(owner: string): Promise<OwnedRecord[]>;
+  listCheckinRotations(owner: string): Promise<OwnedRecord[]>;
 }
 
 // ---------------------------------------------------------------------------
@@ -123,11 +148,13 @@ export interface LabWorkSource {
 // ---------------------------------------------------------------------------
 
 /**
- * The twelve record types that constitute "lab work" for PI-oversight purposes.
- * These are the stable recordType strings written to the R2 object key path.
- * Changing them would break the key schema and invalidate all pushed records.
- * The original five types appear first; subsequent types are appended in order
- * to preserve the existing key-schema ordering.
+ * The record types that constitute "lab work" for PI-oversight and member
+ * relay-pull purposes. These are the stable recordType strings written to the
+ * R2 object key path. Changing them would break the key schema and invalidate
+ * all pushed records. The original five types appear first; subsequent types are
+ * appended in order to preserve the existing key-schema ordering. The
+ * mentorship / check-in block (one_on_one .. checkin_rotation) is the P2
+ * multi-lab addition; it is appended last so no existing record-type key moves.
  */
 export type LabWorkType =
   | "task"
@@ -143,7 +170,14 @@ export type LabWorkType =
   | "datahub"
   | "result_sheet"
   | "notes_sheet"
-  | "deposit";
+  | "deposit"
+  | "one_on_one"
+  | "one_on_one_action_item"
+  | "idp"
+  | "weekly_goal"
+  | "checkin_compact"
+  | "checkin_onboarding"
+  | "checkin_rotation";
 
 /**
  * Ordered array of all twelve lab-work types. Iteration order determines the
@@ -166,6 +200,13 @@ export const LAB_WORK_TYPES: LabWorkType[] = [
   "result_sheet",
   "notes_sheet",
   "deposit",
+  "one_on_one",
+  "one_on_one_action_item",
+  "idp",
+  "weekly_goal",
+  "checkin_compact",
+  "checkin_onboarding",
+  "checkin_rotation",
 ];
 
 // ---------------------------------------------------------------------------
@@ -242,7 +283,7 @@ export async function enumerateLabWork(params: {
 }): Promise<LabWorkRecord[]> {
   const { owner, source } = params;
 
-  // Fetch all eleven record lists in parallel.
+  // Fetch every record list in parallel.
   const [
     tasks,
     notes,
@@ -257,6 +298,13 @@ export async function enumerateLabWork(params: {
     resultSheets,
     notesSheets,
     deposits,
+    oneOnOnes,
+    oneOnOneActionItems,
+    idps,
+    weeklyGoals,
+    checkinCompacts,
+    checkinOnboarding,
+    checkinRotations,
   ] = await Promise.all([
     source.listTasks(owner),
     source.listNotes(owner),
@@ -271,6 +319,13 @@ export async function enumerateLabWork(params: {
     source.listResultSheets(owner),
     source.listNotesSheets(owner),
     source.listDeposits(owner),
+    source.listOneOnOnes(owner),
+    source.listOneOnOneActionItems(owner),
+    source.listIdps(owner),
+    source.listWeeklyGoals(owner),
+    source.listCheckinCompacts(owner),
+    source.listCheckinOnboarding(owner),
+    source.listCheckinRotations(owner),
   ]);
 
   // Separate tasks from experiments by task_type.
@@ -300,6 +355,13 @@ export async function enumerateLabWork(params: {
     { type: "result_sheet", records: resultSheets },
     { type: "notes_sheet", records: notesSheets },
     { type: "deposit", records: deposits },
+    { type: "one_on_one", records: oneOnOnes },
+    { type: "one_on_one_action_item", records: oneOnOneActionItems },
+    { type: "idp", records: idps },
+    { type: "weekly_goal", records: weeklyGoals },
+    { type: "checkin_compact", records: checkinCompacts },
+    { type: "checkin_onboarding", records: checkinOnboarding },
+    { type: "checkin_rotation", records: checkinRotations },
   ];
 
   const result: LabWorkRecord[] = [];

@@ -50,6 +50,13 @@ function fakeSource(overrides: Partial<LabWorkSource> = {}): LabWorkSource {
     listResultSheets: overrides.listResultSheets ?? (async () => []),
     listNotesSheets: overrides.listNotesSheets ?? (async () => []),
     listDeposits: overrides.listDeposits ?? (async () => []),
+    listOneOnOnes: overrides.listOneOnOnes ?? (async () => []),
+    listOneOnOneActionItems: overrides.listOneOnOneActionItems ?? (async () => []),
+    listIdps: overrides.listIdps ?? (async () => []),
+    listWeeklyGoals: overrides.listWeeklyGoals ?? (async () => []),
+    listCheckinCompacts: overrides.listCheckinCompacts ?? (async () => []),
+    listCheckinOnboarding: overrides.listCheckinOnboarding ?? (async () => []),
+    listCheckinRotations: overrides.listCheckinRotations ?? (async () => []),
   };
 }
 
@@ -363,7 +370,7 @@ describe("enumerateLabWork", () => {
     expect(records).toEqual([]);
   });
 
-  it("LAB_WORK_TYPES array contains all fourteen expected types in order", () => {
+  it("LAB_WORK_TYPES array contains all expected types in order", () => {
     expect(LAB_WORK_TYPES).toEqual([
       "task",
       "experiment",
@@ -379,6 +386,14 @@ describe("enumerateLabWork", () => {
       "result_sheet",
       "notes_sheet",
       "deposit",
+      // P2 mentorship / check-in block, appended last so no existing key moves.
+      "one_on_one",
+      "one_on_one_action_item",
+      "idp",
+      "weekly_goal",
+      "checkin_compact",
+      "checkin_onboarding",
+      "checkin_rotation",
     ]);
   });
 
