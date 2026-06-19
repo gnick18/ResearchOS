@@ -99,7 +99,11 @@ async function main() {
   // + onnxruntime backend); keep this build script on the same backend so the
   // precomputed vectors match what the browser produces for live queries.
   const { pipeline } = await import("@huggingface/transformers");
-  const extractor = await pipeline("feature-extraction", MODEL);
+  // dtype:"q8" -> the quantized MiniLM (~23MB) the CLIENT also loads (its default
+  // q8 maps to onnx/model_quantized.onnx), so corpus + query vectors come from the
+  // SAME weights. v3's CPU default is fp32 (model.onnx, ~90MB) which both mismatches
+  // the client and times out the HF download.
+  const extractor = await pipeline("feature-extraction", MODEL, { dtype: "q8" });
 
   // f16 matrix, row-major count x DIMS.
   const half = new Uint16Array(count * DIMS);
