@@ -3,14 +3,27 @@ import { headers } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
-import { isLabSitesComOriginEnabled, isLabSitesEnabled } from "@/lib/social/config";
-import { getPage, getSiteBySlug } from "@/lib/social/lab-site-db";
+import {
+  isLabByoSitesEnabled,
+  isLabSitesComOriginEnabled,
+  isLabSitesEnabled,
+} from "@/lib/social/config";
+import {
+  getPage,
+  getSiteBySlug,
+  listPublishedPages,
+} from "@/lib/social/lab-site-db";
 import { normalizePagePath, resolvePublicPage } from "@/lib/social/lab-site";
 import { labSiteOrigin, labSlugFromHost } from "@/lib/social/lab-byo";
+import { getByoSiteByOwner } from "@/lib/social/lab-byo-db";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
 import { normalizeSlug } from "@/lib/social/slug-registry";
 import { getSlug } from "@/lib/social/slug-registry-db";
+import {
+  DEMO_LAB_CARD,
+  isDemoLabSlug,
+} from "@/lib/social/demo-lab";
 
 /**
  * Public lab companion-site route (lab-domains Phase 2, social lane).
@@ -49,20 +62,52 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
   const path = normalizePagePath(rawPath);
   const flagEnabled = isLabSitesEnabled();
   if (!flagEnabled) {
-    return { decision: { kind: "not-found" as const }, slug, path, page: null };
+    return {
+      decision: { kind: "not-found" as const },
+      slug,
+      path,
+      page: null,
+      publishedPages: [],
+      hasByo: false,
+    };
   }
-  // Look up the registry row, the site, and the page. A DB outage must not crash
-  // the public route; treat any failure as not-found so a 404 is the worst case.
+  // Look up the registry row, the site, the page, the published-page list, and
+  // the BYO state. A DB outage must not crash the public route; degrade to
+  // not-found for any failure so a 404 is the worst case (never a 500).
   let slugRow = null;
   let hasSite = false;
   let page = null;
+  let publishedPages: import("@/lib/social/lab-site-db").PublishedPageEntry[] =
+    [];
+  let hasByo = false;
   try {
     slugRow = await getSlug(slug);
     const site = slugRow ? await getSiteBySlug(slug) : null;
     hasSite = site !== null;
-    page = site ? await getPage(site.labOwnerKey, path) : null;
+    if (site) {
+      // Fetch the current page + the published list in parallel to keep latency
+      // minimal. The BYO check is conditional on the BYO flag so it is a no-op
+      // query when the flag is off.
+      const [pageResult, pagesResult, byoResult] = await Promise.all([
+        getPage(site.labOwnerKey, path),
+        listPublishedPages(site.labOwnerKey).catch(() => []),
+        isLabByoSitesEnabled()
+          ? getByoSiteByOwner(site.labOwnerKey).catch(() => null)
+          : Promise.resolve(null),
+      ]);
+      page = pageResult;
+      publishedPages = pagesResult;
+      hasByo = byoResult !== null;
+    }
   } catch {
-    return { decision: { kind: "not-found" as const }, slug, path, page: null };
+    return {
+      decision: { kind: "not-found" as const },
+      slug,
+      path,
+      page: null,
+      publishedPages: [],
+      hasByo: false,
+    };
   }
   const decision = resolvePublicPage({
     flagEnabled,
@@ -70,7 +115,7 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
     hasSite,
     page,
   });
-  return { decision, slug, path, page };
+  return { decision, slug, path, page, publishedPages, hasByo };
 }
 
 export async function generateMetadata({
@@ -96,7 +141,14 @@ export default async function LabSitePublicPage({
   params: Promise<RouteParams>;
 }) {
   const { labSlug, path } = await params;
-  const { decision, slug, path: normPath, page } = await resolve(labSlug, path);
+  const {
+    decision,
+    slug,
+    path: normPath,
+    page,
+    publishedPages,
+    hasByo,
+  } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
   // Origin cutover: when the research-os.com move is live (runtime flag), the
   // canonical home is the per-lab subdomain. Any hit NOT already on the lab's own
@@ -106,6 +158,18 @@ export default async function LabSitePublicPage({
   // rebuild. The flag is production-scoped, so local dev and preview (flag off)
   // keep rendering the path form in place, and a request already on
   // <slug>.research-os.com renders normally (onSubdomain true, no loop).
+  // TEMP DEBUG (Blocker 2 diag, remove after): why does the node route skip the
+  // 301 while the edge proxy serves the subdomain off the same flag?
+  console.log(
+    "[lab301-diag]",
+    JSON.stringify({
+      slug,
+      enabled: isLabSitesComOriginEnabled(),
+      LAB_SITES_ENABLED: process.env.LAB_SITES_ENABLED ?? null,
+      LAB_SITES_COM_ORIGIN: process.env.LAB_SITES_COM_ORIGIN ?? null,
+      host: (await headers()).get("host"),
+    }),
+  );
   if (isLabSitesComOriginEnabled()) {
     const host = (await headers()).get("host");
     const onSubdomain = labSlugFromHost(host) === slug;
@@ -124,6 +188,10 @@ export default async function LabSitePublicPage({
   // viewers (each embed falls back to its baked snapshot). When entries exist, the
   // matching embed renders the LIVE DuckDB-WASM viewer reading the Parquet on R2.
   const manifest = parseHostedManifest(page.hostedJson);
+  // Phase 1: demo-only lab profile. When the slug is the demo lab, pass the
+  // DEMO_LAB_CARD so LabIdentityHeader renders the rich lab header. Real labs
+  // get no header until Phase 4 adds a lab_sites profile column (Q4).
+  const demoCard = isDemoLabSlug(slug) ? DEMO_LAB_CARD : null;
   return (
     <LabSitePageView
       slug={slug}
@@ -131,6 +199,10 @@ export default async function LabSitePublicPage({
       bodyMd={page.bodyMd}
       snapshots={bundle.snapshots}
       hostedAssets={manifest.assets}
+      publishedPages={publishedPages}
+      currentPath={normPath}
+      hasByo={hasByo}
+      demoCard={demoCard}
     />
   );
 }

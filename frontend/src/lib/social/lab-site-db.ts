@@ -328,6 +328,64 @@ export async function getPage(
   return rows[0] ? rowToPage(rows[0]) : null;
 }
 
+/**
+ * A slim published-page entry used by the public nav and companion list. Only
+ * path and title are fetched (no body, no snapshots) to keep the list query
+ * light. Order follows the convention in lab-site-nav-order.ts: home first,
+ * then "people", then "papers/*", then the rest alphabetically by path.
+ */
+export interface PublishedPageEntry {
+  path: string;
+  title: string;
+}
+
+/**
+ * Returns the published pages for a lab, ordered for the public subnav (home,
+ * people, papers, rest). Defensive: an empty array on any DB error so the route
+ * degrades to "no nav" rather than 500. Read-only, no schema change.
+ *
+ * Callers pass the lab_owner_key resolved from the slug. This is the public
+ * page-listing read the Phase 1 spec mandates (section 3.2 of the build spec).
+ */
+export async function listPublishedPages(
+  labOwnerKey: string,
+): Promise<PublishedPageEntry[]> {
+  if (!labOwnerKey) return [];
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT path, title
+    FROM lab_site_pages
+    WHERE lab_owner_key = ${labOwnerKey} AND status = 'published'
+    ORDER BY path
+  `) as Array<{ path: string; title: string }>;
+  // Apply the convention-driven order (home, people, papers/*, rest).
+  return orderNavPages(rows.map((r) => ({ path: r.path, title: r.title })));
+}
+
+/**
+ * Applies the convention-driven public subnav order so it is unit-testable
+ * without a database. Home ("") always goes first; "people" second; any
+ * "papers/*" path third, sorted among themselves by path; then the rest
+ * alphabetically. The home path is the empty string ""; all others are
+ * normalized slash-joined segments.
+ */
+export function orderNavPages(
+  pages: PublishedPageEntry[],
+): PublishedPageEntry[] {
+  const rank = (path: string): number => {
+    if (path === "") return 0;
+    if (path === "people") return 1;
+    if (path === "papers" || path.startsWith("papers/")) return 2;
+    return 3;
+  };
+  return [...pages].sort((a, b) => {
+    const ra = rank(a.path);
+    const rb = rank(b.path);
+    if (ra !== rb) return ra - rb;
+    return a.path.localeCompare(b.path);
+  });
+}
+
 /** Lists all pages for a lab (any status), newest-updated first. The list does
  *  not carry snapshots_json bodies (the dashboard does not need them); rowToPage
  *  reads the column when present, but the SELECT here omits it to keep the list
