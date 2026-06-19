@@ -35,6 +35,9 @@ import {
   makeOnboardMemberTool,
   makeGrantTaggedRollupTool,
   makeProgressReportScaffoldTool,
+  makeReorderDigestTool,
+  makeSpendSummaryTool,
+  makeInventoryAuditTool,
   LAB_HEAD_TOOLS,
   type LabPulseDeps,
   type FindAcrossLabDeps,
@@ -44,6 +47,9 @@ import {
   type OnboardMemberDeps,
   type GrantTaggedRollupDeps,
   type ProgressReportScaffoldDeps,
+  type ReorderDigestDeps,
+  type SpendSummaryDeps,
+  type InventoryAuditDeps,
 } from "../lab-head";
 
 // ---------------------------------------------------------------------------
@@ -446,7 +452,7 @@ describe("lab_throughput", () => {
 // ---------------------------------------------------------------------------
 
 describe("LAB_HEAD_TOOLS", () => {
-  it("exports exactly eight tools in the expected order", () => {
+  it("exports exactly eleven tools in the expected order", () => {
     const names = LAB_HEAD_TOOLS.map((t) => t.name);
     expect(names).toEqual([
       "lab_pulse",
@@ -457,6 +463,9 @@ describe("LAB_HEAD_TOOLS", () => {
       "onboard_member",
       "grant_tagged_rollup",
       "progress_report_scaffold",
+      "reorder_digest",
+      "spend_summary",
+      "inventory_audit",
     ]);
   });
 
@@ -1341,5 +1350,736 @@ describe("progress_report_scaffold", () => {
     const res = (await tool.execute({})) as Record<string, unknown>;
     expect(typeof res.note).toBe("string");
     expect((res.note as string).length).toBeGreaterThan(10);
+  });
+});
+
+// ===========================================================================
+// Phase 4: Operations tools
+// ===========================================================================
+
+// ---------------------------------------------------------------------------
+// Helpers for Phase 4 tests
+// ---------------------------------------------------------------------------
+
+function makeInventoryItem(
+  id: number,
+  name: string,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    name,
+    category: "reagent",
+    vendor: null,
+    low_at_count: null,
+    owner: "alice",
+    ...overrides,
+  };
+}
+
+function makeInventoryStock(
+  id: number,
+  itemId: number,
+  containerCount: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    item_id: itemId,
+    container_count: containerCount,
+    status: "in_stock",
+    expiration_date: null,
+    location_text: null,
+    location_node_id: null,
+    ...overrides,
+  };
+}
+
+function makePurchaseRecord(
+  id: number,
+  itemName: string,
+  totalPrice: number,
+  overrides: Record<string, unknown> = {},
+): Record<string, unknown> {
+  return {
+    id,
+    item_name: itemName,
+    quantity: 1,
+    price_per_unit: totalPrice,
+    shipping_fees: 0,
+    total_price: totalPrice,
+    vendor: null,
+    order_status: "needs_ordering",
+    funding_account_id: null,
+    funding_string: null,
+    catalog_number: null,
+    category: null,
+    assigned_to: null,
+    updated_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// reorder_digest
+// ---------------------------------------------------------------------------
+
+describe("reorder_digest", () => {
+  it("flags LOW items by count threshold", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Item with low_at_count=5; current total=2, so LOW.
+              makeRecord("inventory", "i1", makeInventoryItem(1, "TRIS Buffer", {
+                low_at_count: 5,
+                vendor: "Sigma",
+              })),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 2)),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const totals = res.totals as Record<string, number>;
+    expect(totals.lowItems).toBe(1);
+    expect(totals.outItems).toBe(0);
+    const lowItems = res.lowItems as Array<Record<string, unknown>>;
+    expect(lowItems[0].name).toBe("TRIS Buffer");
+    expect(lowItems[0].count).toBe(2);
+    expect(lowItems[0].threshold).toBe(5);
+    expect(lowItems[0].vendor).toBe("Sigma");
+  });
+
+  it("flags LOW items via stock status 'low' even if above threshold", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Ethanol", {
+                low_at_count: null,
+              })),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 3, {
+                status: "low",
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.lowItems).toBe(1);
+    const lowItems = res.lowItems as Array<Record<string, unknown>>;
+    expect(lowItems[0].name).toBe("Ethanol");
+  });
+
+  it("flags OUT items when container_count sums to zero", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "GFP Antibody")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 0)),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.outItems).toBe(1);
+    expect(totals.lowItems).toBe(0);
+    const outItems = res.outItems as Array<Record<string, unknown>>;
+    expect(outItems[0].name).toBe("GFP Antibody");
+  });
+
+  it("flags OUT items via stock status 'empty'", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "DMSO")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 1, {
+                status: "empty",
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.outItems).toBe(1);
+  });
+
+  it("populates reorderQueue from purchases with order_status 'needs_ordering'", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Tips 200ul", 25, {
+                vendor: "Fisher",
+                assigned_to: "bob",
+                order_status: "needs_ordering",
+              })),
+              // "ordered" should NOT appear in the queue.
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Tubes 15ml", 15, {
+                order_status: "ordered",
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.pendingOrders).toBe(1);
+    const queue = res.reorderQueue as Array<Record<string, unknown>>;
+    expect(queue).toHaveLength(1);
+    expect(queue[0].itemName).toBe("Tips 200ul");
+    expect(queue[0].vendor).toBe("Fisher");
+    expect(queue[0].assignedTo).toBe("bob");
+  });
+
+  it("does not collide item ids across owners (per-owner isolation)", async () => {
+    // Alice and Bob both have item id=1, but Alice's is LOW and Bob's is fine.
+    const deps: ReorderDigestDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1a", makeInventoryItem(1, "Alice's Reagent", {
+                low_at_count: 10,
+              })),
+              makeRecord("inventory_stock", "s1a", makeInventoryStock(100, 1, 2)),
+            ],
+          },
+          {
+            owner: "bob",
+            records: [
+              makeRecord("inventory", "i1b", makeInventoryItem(1, "Bob's Reagent", {
+                low_at_count: 1,
+              })),
+              makeRecord("inventory_stock", "s1b", makeInventoryStock(200, 1, 5)),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    // Alice's item (count=2, threshold=10) is LOW; Bob's (count=5, threshold=1) is fine.
+    expect(totals.lowItems).toBe(1);
+    const lowItems = res.lowItems as Array<Record<string, unknown>>;
+    expect(lowItems[0].owner).toBe("alice");
+    expect(lowItems[0].name).toBe("Alice's Reagent");
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: ReorderDigestDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeReorderDigestTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// spend_summary
+// ---------------------------------------------------------------------------
+
+describe("spend_summary", () => {
+  it("separates placed vs pending spend", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Antibody", 100, {
+                order_status: "ordered",
+                updated_at: isoAgo(5),
+              })),
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Tips", 50, {
+                order_status: "needs_ordering",
+                updated_at: isoAgo(3),
+              })),
+              makeRecord("purchase", "pu3", makePurchaseRecord(3, "Columns", 200, {
+                order_status: "received",
+                updated_at: isoAgo(1),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(true);
+    const totals = res.totals as Record<string, number>;
+    // placed = ordered(100) + received(200) = 300
+    expect(totals.placed).toBe(300);
+    // pending = needs_ordering(50)
+    expect(totals.pending).toBe(50);
+    expect(totals.count).toBe(3);
+  });
+
+  it("filters by periodDays using isWithinDays", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              // Within 30-day window.
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Reagent A", 75, {
+                order_status: "ordered",
+                updated_at: isoAgo(10),
+              })),
+              // Outside 30-day window.
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Reagent B", 200, {
+                order_status: "ordered",
+                updated_at: isoAgo(60),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({ periodDays: 30 })) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.placed).toBe(75);
+    expect(totals.count).toBe(1);
+  });
+
+  it("provides byVendor breakdown", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Item A", 100, {
+                vendor: "Sigma",
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Item B", 50, {
+                vendor: "Sigma",
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+              makeRecord("purchase", "pu3", makePurchaseRecord(3, "Item C", 30, {
+                vendor: null,
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({ groupBy: "vendor" })) as Record<string, unknown>;
+    expect("byVendor" in res).toBe(true);
+    expect("byGrant" in res).toBe(false);
+    const byVendor = res.byVendor as Array<Record<string, unknown>>;
+    const sigma = byVendor.find((v) => v.vendor === "Sigma");
+    const unspec = byVendor.find((v) => v.vendor === "Unspecified");
+    expect(sigma?.total).toBe(150);
+    expect(sigma?.count).toBe(2);
+    expect(unspec?.total).toBe(30);
+  });
+
+  it("provides byGrant breakdown and resolves grant names", async () => {
+    const GRANT_ID = 7;
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Primers", 80, {
+                funding_account_id: GRANT_ID,
+                order_status: "ordered",
+                updated_at: isoAgo(2),
+              })),
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Tips", 20, {
+                funding_account_id: null,
+                order_status: "ordered",
+                updated_at: isoAgo(2),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NIH R01 GM123456")] as never,
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({ groupBy: "grant" })) as Record<string, unknown>;
+    expect("byGrant" in res).toBe(true);
+    expect("byVendor" in res).toBe(false);
+    const byGrant = res.byGrant as Array<Record<string, unknown>>;
+    const grantEntry = byGrant.find((g) => g.grantId === GRANT_ID);
+    expect(grantEntry?.grantName).toBe("NIH R01 GM123456");
+    expect(grantEntry?.total).toBe(80);
+    const noGrant = byGrant.find((g) => g.grantId === null);
+    expect(noGrant?.grantName).toBe("No grant");
+    expect(noGrant?.total).toBe(20);
+  });
+
+  it("provides both byVendor and byGrant when groupBy is 'both' (default)", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Item", 50, {
+                vendor: "Fisher",
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect("byVendor" in res).toBe(true);
+    expect("byGrant" in res).toBe(true);
+  });
+
+  it("restricts to a specific grantId when given", async () => {
+    const GRANT_ID = 3;
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Included", 100, {
+                funding_account_id: GRANT_ID,
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Excluded", 999, {
+                funding_account_id: 99,
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () =>
+        [makeFundingAccount(GRANT_ID, "NSF Grant")] as never,
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({ grantId: GRANT_ID })) as Record<string, unknown>;
+    const grant = res.grant as Record<string, unknown> | null;
+    expect(grant).not.toBeNull();
+    expect(grant?.id).toBe(GRANT_ID);
+    expect(grant?.name).toBe("NSF Grant");
+    const totals = res.totals as Record<string, number>;
+    expect(totals.placed).toBe(100);
+    expect(totals.count).toBe(1);
+  });
+
+  it("rounds money to two decimals", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("purchase", "pu1", makePurchaseRecord(1, "Item", 33.333, {
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+              makeRecord("purchase", "pu2", makePurchaseRecord(2, "Item2", 66.667, {
+                order_status: "ordered",
+                updated_at: isoAgo(1),
+              })),
+            ],
+          },
+        ]),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({ groupBy: "vendor" })) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    // 33.333 + 66.667 = 100.000; individual rounding then sum may vary slightly.
+    // The key check is that the total_price values were not left as floating garbage.
+    expect(totals.placed.toString().split(".")[1]?.length ?? 0).toBeLessThanOrEqual(2);
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: SpendSummaryDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+      listFundingAccounts: async () => [],
+    };
+
+    const tool = makeSpendSummaryTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// inventory_audit
+// ---------------------------------------------------------------------------
+
+describe("inventory_audit", () => {
+  it("flags stocks expiring within the window", async () => {
+    const soonIso = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString();
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "PCR Kit")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 2, {
+                expiration_date: soonIso,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    // Default 30-day window: 10 days from now is within it.
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.expiring).toBe(1);
+    const exp = res.expiring as Array<Record<string, unknown>>;
+    expect(exp[0].itemName).toBe("PCR Kit");
+    expect((exp[0].daysUntil as number)).toBeCloseTo(10, 0);
+  });
+
+  it("flags stocks already past their expiration date (daysUntil negative)", async () => {
+    const pastIso = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString();
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Old Enzyme")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 1, {
+                expiration_date: pastIso,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const exp = res.expiring as Array<Record<string, unknown>>;
+    expect(exp.length).toBeGreaterThanOrEqual(1);
+    expect((exp[0].daysUntil as number)).toBeLessThan(0);
+  });
+
+  it("flags stocks with status 'expired' even without expiration_date", async () => {
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Old Buffer")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 1, {
+                status: "expired",
+                expiration_date: null,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.expiring).toBe(1);
+  });
+
+  it("does not flag stocks expiring OUTSIDE the window", async () => {
+    // 60 days from now is outside the default 30-day window.
+    const farFuture = new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString();
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Fresh Reagent")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 3, {
+                expiration_date: farFuture,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({ expiringDays: 30 })) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.expiring).toBe(0);
+  });
+
+  it("flags out-of-stock items (zero total containers)", async () => {
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Empty Buffer")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 0)),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.outOfStock).toBeGreaterThanOrEqual(1);
+    const out = res.outOfStock as Array<Record<string, unknown>>;
+    expect(out.some((o) => o.itemName === "Empty Buffer")).toBe(true);
+  });
+
+  it("flags unlocated stocks (count > 0 and no location)", async () => {
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Floating Stock")),
+              // Has containers but no location.
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 3, {
+                location_text: null,
+                location_node_id: null,
+              })),
+              // This stock HAS a location -- should NOT be unlocated.
+              makeRecord("inventory_stock", "s2", makeInventoryStock(11, 1, 2, {
+                location_text: "Fridge A",
+                location_node_id: null,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.unlocated).toBe(1);
+    const unlocated = res.unlocated as Array<Record<string, unknown>>;
+    expect(unlocated[0].stockId).toBe(10);
+    expect(unlocated[0].itemName).toBe("Floating Stock");
+  });
+
+  it("does NOT flag unlocated stocks with zero containers", async () => {
+    // A stock with count=0 and no location is OUT, not unlocated (it has no real containers to place).
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Empty")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 0, {
+                location_text: null,
+                location_node_id: null,
+              })),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const totals = res.totals as Record<string, number>;
+    expect(totals.unlocated).toBe(0);
+  });
+
+  it("resolves item names from the same owner's item records", async () => {
+    const deps: InventoryAuditDeps = {
+      readWork: async () =>
+        makeReadResult([
+          {
+            owner: "alice",
+            records: [
+              makeRecord("inventory", "i1", makeInventoryItem(1, "Named Reagent")),
+              makeRecord("inventory_stock", "s1", makeInventoryStock(10, 1, 0)),
+            ],
+          },
+        ]),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    const out = res.outOfStock as Array<Record<string, unknown>>;
+    expect(out[0].itemName).toBe("Named Reagent");
+    expect(out[0].owner).toBe("alice");
+  });
+
+  it("degrades cleanly when readWork fails", async () => {
+    const deps: InventoryAuditDeps = {
+      readWork: async () => ({
+        ok: false as const,
+        error: "not a lab head",
+        members: [],
+      }),
+    };
+
+    const tool = makeInventoryAuditTool(deps);
+    const res = (await tool.execute({})) as Record<string, unknown>;
+    expect(res.hasLab).toBe(false);
+    expect(typeof res.note).toBe("string");
   });
 });

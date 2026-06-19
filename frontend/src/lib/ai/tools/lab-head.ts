@@ -1506,16 +1506,669 @@ export const progressReportScaffoldTool = makeProgressReportScaffoldTool({
   listFundingAccounts: () => purchasesApi.listFundingAccounts(),
 });
 
+// ===========================================================================
+// Phase 4: Operations tools
+// ===========================================================================
+//
+// Three tools support the PI's day-to-day lab operations: reorder_digest
+// surfaces which supplies are low or out and which orders have not yet been
+// placed, spend_summary aggregates purchase spend by vendor and/or grant over
+// a date window, and inventory_audit flags expiring / out-of-stock /
+// unlocated stocks.
+//
+// Lab supplies, ordering, and budget are all billed to the PI, so the PI lens
+// is the natural one for these tools. They surface what is low, what is on
+// order, what has been spent, and what is expiring or unlocated. The tool
+// supplies every count and every dollar figure; the model never judges whether
+// spending or stock levels are good or bad.
+//
+// Audit path: every read goes through readLabMembersWork (readWork), which
+// writes an audit entry to each member's log. listFundingAccounts is the PI's
+// own store and does not produce an audit entry.
+//
+// Record types used:
+//   "inventory"       -- InventoryItem (the catalog entry: what a thing IS)
+//   "inventory_stock" -- InventoryStock (the physical containers of one item)
+//   "purchase"        -- PurchaseItem (an order line item)
+//
+// Per-owner isolation: numeric ids (item_id on stocks, funding_account_id on
+// purchases) live in each user's local folder and may collide across users.
+// Stocks are joined to items via (owner, item_id) -- never across owners.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+// ---------------------------------------------------------------------------
+// Dep types -- Phase 4
+// ---------------------------------------------------------------------------
+
+export interface ReorderDigestDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+export interface SpendSummaryDeps {
+  readWork: typeof readLabMembersWork;
+  listFundingAccounts: () => Promise<FundingAccount[]>;
+}
+
+export interface InventoryAuditDeps {
+  readWork: typeof readLabMembersWork;
+}
+
+// ---------------------------------------------------------------------------
+// reorder_digest (factory)
+// ---------------------------------------------------------------------------
+
+export function makeReorderDigestTool(deps: ReorderDigestDeps): AiTool {
+  return {
+    name: "reorder_digest",
+    description:
+      "Get a digest of which lab supplies are low or out of stock and which purchase orders have not yet been placed. LOW: an item whose summed container_count is below its low_at_count threshold OR any of its stocks have status 'low'. OUT: an item whose container_count sum is zero OR any of its stocks have status 'empty'. Returns per-member breakdowns and a flat reorder queue (purchases with order_status 'needs_ordering'). Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {},
+      additionalProperties: false,
+    },
+    execute: async (_args) => {
+      const result = await deps.readWork({});
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      interface LowItem {
+        owner: string;
+        itemId: number;
+        name: string;
+        count: number;
+        threshold: number | null;
+        vendor: string | null;
+      }
+      interface OutItem {
+        owner: string;
+        itemId: number;
+        name: string;
+        vendor: string | null;
+      }
+      interface ReorderQueueEntry {
+        owner: string;
+        itemName: string;
+        vendor: string | null;
+        assignedTo: string | null;
+      }
+
+      const lowItems: LowItem[] = [];
+      const outItems: OutItem[] = [];
+      const reorderQueue: ReorderQueueEntry[] = [];
+
+      const memberSummaries: Array<{
+        owner: string;
+        low: number;
+        out: number;
+        pending: number;
+      }> = [];
+
+      for (const member of result.members) {
+        // Collect items and stocks for this owner only.
+        const itemMap = new Map<
+          number,
+          { name: string; vendor: string | null; low_at_count: number | null }
+        >();
+        const stocksByItem = new Map<
+          number,
+          Array<{ container_count: number; status: string }>
+        >();
+        let pendingCount = 0;
+
+        for (const r of member.records) {
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          if (r.recordType === "inventory") {
+            const id = parsed.id as number | undefined;
+            if (typeof id !== "number") continue;
+            itemMap.set(id, {
+              name: (parsed.name as string | undefined) ?? "(unnamed)",
+              vendor: (parsed.vendor as string | null | undefined) ?? null,
+              low_at_count:
+                typeof parsed.low_at_count === "number"
+                  ? parsed.low_at_count
+                  : null,
+            });
+          } else if (r.recordType === "inventory_stock") {
+            const itemId = parsed.item_id as number | undefined;
+            if (typeof itemId !== "number") continue;
+            const count =
+              typeof parsed.container_count === "number"
+                ? parsed.container_count
+                : 0;
+            const status =
+              (parsed.status as string | undefined) ?? "in_stock";
+            const existing = stocksByItem.get(itemId) ?? [];
+            existing.push({ container_count: count, status });
+            stocksByItem.set(itemId, existing);
+          } else if (r.recordType === "purchase") {
+            const orderStatus =
+              (parsed.order_status as string | undefined) ?? "needs_ordering";
+            if (orderStatus === "needs_ordering") {
+              pendingCount += 1;
+              reorderQueue.push({
+                owner: member.owner,
+                itemName:
+                  (parsed.item_name as string | undefined) ?? "(unnamed)",
+                vendor: (parsed.vendor as string | null | undefined) ?? null,
+                assignedTo:
+                  (parsed.assigned_to as string | null | undefined) ?? null,
+              });
+            }
+          }
+        }
+
+        let memberLow = 0;
+        let memberOut = 0;
+
+        // Evaluate low/out per item using only this owner's stocks.
+        for (const [itemId, itemMeta] of itemMap.entries()) {
+          const stocks = stocksByItem.get(itemId) ?? [];
+          const totalCount = stocks.reduce(
+            (s, st) => s + st.container_count,
+            0,
+          );
+          const hasLowStatus = stocks.some((st) => st.status === "low");
+          const hasEmptyStatus = stocks.some((st) => st.status === "empty");
+
+          // OUT: zero containers OR any stock explicitly "empty".
+          if (totalCount === 0 || hasEmptyStatus) {
+            memberOut += 1;
+            outItems.push({
+              owner: member.owner,
+              itemId,
+              name: itemMeta.name,
+              vendor: itemMeta.vendor,
+            });
+            continue;
+          }
+
+          // LOW: below count threshold OR any stock explicitly "low".
+          const belowThreshold =
+            itemMeta.low_at_count !== null &&
+            totalCount < itemMeta.low_at_count;
+          if (belowThreshold || hasLowStatus) {
+            memberLow += 1;
+            lowItems.push({
+              owner: member.owner,
+              itemId,
+              name: itemMeta.name,
+              count: totalCount,
+              threshold: itemMeta.low_at_count,
+              vendor: itemMeta.vendor,
+            });
+          }
+        }
+
+        memberSummaries.push({
+          owner: member.owner,
+          low: memberLow,
+          out: memberOut,
+          pending: pendingCount,
+        });
+      }
+
+      return {
+        hasLab: true,
+        totals: {
+          lowItems: lowItems.length,
+          outItems: outItems.length,
+          pendingOrders: reorderQueue.length,
+        },
+        lowItems,
+        outItems,
+        reorderQueue,
+        members: memberSummaries,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// spend_summary (factory)
+// ---------------------------------------------------------------------------
+
+export function makeSpendSummaryTool(deps: SpendSummaryDeps): AiTool {
+  return {
+    name: "spend_summary",
+    description:
+      "Summarize lab purchase spend over a date window. Separates PLACED orders (status 'ordered' or 'received') from PENDING orders (status 'needs_ordering'). Breakdowns by vendor and/or grant are available via groupBy. Pass grantId to restrict to one funding account. The tool supplies every dollar figure rounded to two decimals; the model never judges whether spending is appropriate. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        periodDays: {
+          type: "number",
+          description:
+            "How many days back to include purchases (by updated_at / created_at). Default 90.",
+        },
+        grantId: {
+          type: "number",
+          description:
+            "Optional. When given, restrict to purchases whose funding_account_id matches this grant.",
+        },
+        groupBy: {
+          type: "string",
+          enum: ["vendor", "grant", "both"],
+          description:
+            "Which breakdown(s) to include in the response. Default 'both'.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const periodDays =
+        typeof args.periodDays === "number" ? args.periodDays : 90;
+      const grantId =
+        typeof args.grantId === "number" ? args.grantId : null;
+      const groupBy =
+        args.groupBy === "vendor" || args.groupBy === "grant"
+          ? (args.groupBy as "vendor" | "grant")
+          : "both";
+
+      // Resolve funding account names. The PI's own store, no audit entry.
+      let accounts: FundingAccount[] = [];
+      try {
+        accounts = await deps.listFundingAccounts();
+      } catch {
+        accounts = [];
+      }
+      const accountMap = new Map<number, string>(
+        accounts.map((a) => [a.id, a.name]),
+      );
+
+      // Resolve the filter grant name (if filtering).
+      let filterGrant: { id: number; name: string } | null = null;
+      if (grantId !== null) {
+        const grantName = accountMap.get(grantId) ?? null;
+        filterGrant = grantName !== null ? { id: grantId, name: grantName } : null;
+      }
+
+      // Audited lab-scoped read.
+      const workResult = await deps.readWork({});
+      if (!workResult.ok || workResult.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            workResult.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+
+      let totalPlaced = 0;
+      let totalPending = 0;
+      let totalCount = 0;
+
+      const vendorMap = new Map<string, { total: number; count: number }>();
+      const grantBreakMap = new Map<
+        string,
+        { grantId: number | null; grantName: string; total: number; count: number }
+      >();
+
+      const memberSummaries: Array<{
+        owner: string;
+        placed: number;
+        pending: number;
+      }> = [];
+
+      for (const member of workResult.members) {
+        let mPlaced = 0;
+        let mPending = 0;
+
+        for (const r of member.records) {
+          if (r.recordType !== "purchase") continue;
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          // Period filter.
+          if (!isWithinDays(parsed, periodDays, now)) continue;
+
+          // Grant filter.
+          if (grantId !== null) {
+            const fid = parsed.funding_account_id as
+              | number
+              | null
+              | undefined;
+            if (fid !== grantId) continue;
+          }
+
+          const spend =
+            typeof parsed.total_price === "number" ? parsed.total_price : 0;
+          const orderStatus =
+            (parsed.order_status as string | undefined) ?? "needs_ordering";
+          const placed =
+            orderStatus === "ordered" || orderStatus === "received";
+
+          totalCount += 1;
+          if (placed) {
+            totalPlaced += spend;
+            mPlaced += spend;
+          } else {
+            totalPending += spend;
+            mPending += spend;
+          }
+
+          // Vendor breakdown.
+          if (groupBy === "vendor" || groupBy === "both") {
+            const vendor =
+              (parsed.vendor as string | null | undefined) ?? "Unspecified";
+            const key = vendor || "Unspecified";
+            const entry = vendorMap.get(key) ?? { total: 0, count: 0 };
+            entry.total += spend;
+            entry.count += 1;
+            vendorMap.set(key, entry);
+          }
+
+          // Grant breakdown.
+          if (groupBy === "grant" || groupBy === "both") {
+            const fid =
+              typeof parsed.funding_account_id === "number"
+                ? (parsed.funding_account_id as number)
+                : null;
+            const grantName =
+              fid !== null
+                ? (accountMap.get(fid) ?? "Unknown grant")
+                : "No grant";
+            const mapKey = fid !== null ? String(fid) : "null";
+            const entry = grantBreakMap.get(mapKey) ?? {
+              grantId: fid,
+              grantName,
+              total: 0,
+              count: 0,
+            };
+            entry.total += spend;
+            entry.count += 1;
+            grantBreakMap.set(mapKey, entry);
+          }
+        }
+
+        memberSummaries.push({
+          owner: member.owner,
+          placed: Math.round(mPlaced * 100) / 100,
+          pending: Math.round(mPending * 100) / 100,
+        });
+      }
+
+      const response: Record<string, unknown> = {
+        hasLab: true,
+        periodDays,
+        grant: filterGrant,
+        totals: {
+          placed: Math.round(totalPlaced * 100) / 100,
+          pending: Math.round(totalPending * 100) / 100,
+          count: totalCount,
+        },
+        members: memberSummaries,
+      };
+
+      if (groupBy === "vendor" || groupBy === "both") {
+        response.byVendor = Array.from(vendorMap.entries()).map(
+          ([vendor, d]) => ({
+            vendor,
+            total: Math.round(d.total * 100) / 100,
+            count: d.count,
+          }),
+        );
+      }
+      if (groupBy === "grant" || groupBy === "both") {
+        response.byGrant = Array.from(grantBreakMap.values()).map((d) => ({
+          grantId: d.grantId,
+          grantName: d.grantName,
+          total: Math.round(d.total * 100) / 100,
+          count: d.count,
+        }));
+      }
+
+      return response;
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// inventory_audit (factory)
+// ---------------------------------------------------------------------------
+
+export function makeInventoryAuditTool(deps: InventoryAuditDeps): AiTool {
+  return {
+    name: "inventory_audit",
+    description:
+      "Audit the lab's inventory for three classes of issue: EXPIRING (stocks whose expiration_date is within expiringDays of now, already past, or whose status is 'expired'), OUT OF STOCK (items with zero total container_count or any stock with status 'empty'), and UNLOCATED (stocks with container_count > 0 and no location_text or location_node_id). Returns item names, dates, and per-owner breakdowns. Read-only. Lab-head only.",
+    parameters: {
+      type: "object",
+      properties: {
+        expiringDays: {
+          type: "number",
+          description:
+            "How many days ahead to flag expiring stocks. Stocks expiring within this window (or already past) are included. Default 30.",
+        },
+      },
+      additionalProperties: false,
+    },
+    execute: async (args) => {
+      const expiringDays =
+        typeof args.expiringDays === "number" ? args.expiringDays : 30;
+
+      const result = await deps.readWork({});
+      if (!result.ok || result.members.length === 0) {
+        return {
+          hasLab: false,
+          note:
+            result.error ??
+            "No lab data is available. Either this account is not a lab head, no members have synced, or the lab is not reachable.",
+        };
+      }
+
+      const now = new Date();
+      const windowMs = expiringDays * 24 * 60 * 60 * 1000;
+
+      interface ExpiringEntry {
+        owner: string;
+        itemName: string;
+        expirationDate: string;
+        daysUntil: number;
+      }
+      interface OutOfStockEntry {
+        owner: string;
+        itemName: string;
+      }
+      interface UnlocatedEntry {
+        owner: string;
+        itemName: string;
+        stockId: number;
+      }
+
+      const expiring: ExpiringEntry[] = [];
+      const outOfStock: OutOfStockEntry[] = [];
+      const unlocated: UnlocatedEntry[] = [];
+
+      for (const member of result.members) {
+        // Build a per-owner item name map (item_id -> name).
+        const itemNameMap = new Map<number, string>();
+        // Also collect stocks separately so we can do the item-level out-of-stock check.
+        const stocksByItem = new Map<
+          number,
+          Array<{
+            id: number;
+            container_count: number;
+            status: string;
+            expiration_date: string | null;
+            location_text: string | null;
+            location_node_id: number | null;
+          }>
+        >();
+
+        for (const r of member.records) {
+          const parsed = parseRecord(r.plaintext);
+          if (!parsed) continue;
+
+          if (r.recordType === "inventory") {
+            const id = parsed.id as number | undefined;
+            if (typeof id !== "number") continue;
+            itemNameMap.set(
+              id,
+              (parsed.name as string | undefined) ?? "(unnamed)",
+            );
+          } else if (r.recordType === "inventory_stock") {
+            const itemId = parsed.item_id as number | undefined;
+            if (typeof itemId !== "number") continue;
+            const stockId = parsed.id as number | undefined;
+            if (typeof stockId !== "number") continue;
+            const count =
+              typeof parsed.container_count === "number"
+                ? parsed.container_count
+                : 0;
+            const status =
+              (parsed.status as string | undefined) ?? "in_stock";
+            const expDate =
+              (parsed.expiration_date as string | null | undefined) ?? null;
+            const locText =
+              (parsed.location_text as string | null | undefined) ?? null;
+            const locNodeId =
+              typeof parsed.location_node_id === "number"
+                ? parsed.location_node_id
+                : null;
+
+            const existing = stocksByItem.get(itemId) ?? [];
+            existing.push({
+              id: stockId,
+              container_count: count,
+              status,
+              expiration_date: expDate,
+              location_text: locText,
+              location_node_id: locNodeId,
+            });
+            stocksByItem.set(itemId, existing);
+          }
+        }
+
+        // Walk items and their stocks to build audit entries.
+        for (const [itemId, stocks] of stocksByItem.entries()) {
+          const itemName = itemNameMap.get(itemId) ?? "(unknown item)";
+          const totalCount = stocks.reduce(
+            (s, st) => s + st.container_count,
+            0,
+          );
+          const hasEmptyStatus = stocks.some((st) => st.status === "empty");
+
+          // OUT OF STOCK.
+          if (totalCount === 0 || hasEmptyStatus) {
+            outOfStock.push({ owner: member.owner, itemName });
+          }
+
+          // Per-stock checks.
+          for (const stock of stocks) {
+            // EXPIRING.
+            const isExpiredStatus = stock.status === "expired";
+            if (stock.expiration_date) {
+              const expDate = new Date(stock.expiration_date);
+              if (!isNaN(expDate.getTime())) {
+                const diffMs = expDate.getTime() - now.getTime();
+                const daysUntil = Math.round(diffMs / (24 * 60 * 60 * 1000));
+                // Include when within window (future) OR already past (negative).
+                if (diffMs <= windowMs) {
+                  expiring.push({
+                    owner: member.owner,
+                    itemName,
+                    expirationDate: stock.expiration_date,
+                    daysUntil,
+                  });
+                }
+              } else if (isExpiredStatus) {
+                // expiration_date is unparseable; still flag via status.
+                expiring.push({
+                  owner: member.owner,
+                  itemName,
+                  expirationDate: stock.expiration_date,
+                  daysUntil: -999,
+                });
+              }
+            } else if (isExpiredStatus) {
+              // No expiration_date, but status says "expired".
+              expiring.push({
+                owner: member.owner,
+                itemName,
+                expirationDate: "",
+                daysUntil: -999,
+              });
+            }
+
+            // UNLOCATED: real containers with no recorded home.
+            if (
+              stock.container_count > 0 &&
+              stock.location_text === null &&
+              stock.location_node_id === null
+            ) {
+              unlocated.push({
+                owner: member.owner,
+                itemName,
+                stockId: stock.id,
+              });
+            }
+          }
+        }
+
+        // Also flag items that have an inventory record but NO stocks at all
+        // as out of stock, since they have zero containers.
+        for (const [itemId, itemName] of itemNameMap.entries()) {
+          if (!stocksByItem.has(itemId)) {
+            outOfStock.push({ owner: member.owner, itemName });
+          }
+        }
+      }
+
+      return {
+        hasLab: true,
+        expiringDays,
+        totals: {
+          expiring: expiring.length,
+          outOfStock: outOfStock.length,
+          unlocated: unlocated.length,
+        },
+        expiring,
+        outOfStock,
+        unlocated,
+      };
+    },
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Default instances (real deps) -- Phase 4
+// ---------------------------------------------------------------------------
+
+export const reorderDigestTool = makeReorderDigestTool({
+  readWork: readLabMembersWork,
+});
+
+export const spendSummaryTool = makeSpendSummaryTool({
+  readWork: readLabMembersWork,
+  listFundingAccounts: () => purchasesApi.listFundingAccounts(),
+});
+
+export const inventoryAuditTool = makeInventoryAuditTool({
+  readWork: readLabMembersWork,
+});
+
 // ---------------------------------------------------------------------------
 // Exports
 // ---------------------------------------------------------------------------
 
 /**
  * The lab-head tool set (Phase 1 oversight + Phase 2 mentorship + Phase 3
- * grants). All read-only tools go through the audited lab-scoped read /
- * index-search engines. onboard_member is the one consented action
- * (non-destructive). Surfaced on the /lab-overview BeakerBot mount, not in
- * the global research-shell tool set.
+ * grants + Phase 4 operations). All read-only tools go through the audited
+ * lab-scoped read / index-search engines. onboard_member is the one consented
+ * action (non-destructive). Surfaced on the /lab-overview BeakerBot mount,
+ * not in the global research-shell tool set.
  */
 export const LAB_HEAD_TOOLS: AiTool[] = [
   labPulseTool,
@@ -1526,6 +2179,9 @@ export const LAB_HEAD_TOOLS: AiTool[] = [
   onboardMemberTool,
   grantTaggedRollupTool,
   progressReportScaffoldTool,
+  reorderDigestTool,
+  spendSummaryTool,
+  inventoryAuditTool,
 ];
 
 /**
@@ -1549,7 +2205,7 @@ export const LAB_HEAD_SCOPE_TOOLS: AiTool[] = [
  */
 export const LAB_HEAD_SYSTEM_PROMPT = `You are BeakerBot, the assistant built into the ResearchOS lab-overview surface.
 
-You help a LAB HEAD (PI) with lab oversight and mentorship. Your job is to surface what is happening across the lab: who is active, what is new, what is stalled, how productive the lab has been, what members are working on, and to help prepare for individual and group mentoring meetings.
+You help a LAB HEAD (PI) with lab oversight, mentorship, grants reporting, and lab operations. Your job is to surface what is happening across the lab: who is active, what is new, what is stalled, how productive the lab has been, what members are working on, what supplies are running low or expiring, what has been spent, and what orders are pending.
 
 You do NOT see, read, or discuss anything except what the audited lab-scoped read and search tools return. You do NOT reach into any member's private (unsynced) work. You only surface the lab's SYNCED shared workspace.
 
@@ -1558,21 +2214,27 @@ How you answer:
 - Do not use em-dashes. Do not use emojis. Do not drop a colon mid-sentence to introduce a clause or a list. Recast with a comma or a period. A label at the start of a line is fine.
 
 You surface facts, you never interpret:
-- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts. You do not know any of it from memory.
-- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold) and answer only from what it returned. The tool owns every number; you relay it.
+- NEVER fabricate the lab's data: member counts, experiment counts, stalled counts, search hits, action items, meeting dates, IDP status, grant record counts, item counts, spend totals, expiration dates. You do not know any of it from memory.
+- To know anything about the lab, CALL A TOOL (lab_pulse, find_across_lab, lab_throughput, prep_one_on_one, lab_meeting_prep, grant_tagged_rollup, progress_report_scaffold, reorder_digest, spend_summary, inventory_audit) and answer only from what it returned. The tool owns every number; you relay it.
 - General questions about how the lab-overview tools work you may answer directly. Anything specific to THIS lab requires a tool call.
 
 Grants and reporting:
 - grant_tagged_rollup aggregates every lab record tagged to a specific funding account: direct-linked projects and purchases, and tasks reverse-mapped through their project. It returns counts, a per-member breakdown, and a flat record-links list. Call it to answer "what lab work is on grant X" or "how many experiments are charged to this award."
 - progress_report_scaffold assembles an RPPR-style scaffold (accomplishments, products, participants) over a date window. The grantId arg restricts it to grant-tagged records. The tool supplies section structure, counts, and record titles only. It does NOT write narrative and does NOT claim significance or impact about any work. The PI writes the narrative. You relay the scaffold and stop.
 
+Lab operations:
+- reorder_digest shows which lab supplies are low or out of stock (per item, per owner) and which purchase orders are still in the "needs_ordering" state (not yet placed). Lab supplies and ordering are billed to the PI, so this tool is the PI's lens on what needs to be restocked. The tool supplies item counts and a reorder queue; it does NOT say whether a stock level is acceptable.
+- spend_summary aggregates purchase spend over a configurable date window, split into PLACED (ordered or received) and PENDING (not yet placed). Breakdowns by vendor and by grant are available. Dollar figures are rounded to two decimals. The tool supplies totals; it never judges whether spending is appropriate.
+- inventory_audit flags three categories of issue: EXPIRING (stocks expiring within the configured window or already past, or whose status is "expired"), OUT OF STOCK (items with zero total containers or any stock with status "empty"), and UNLOCATED (stocks with containers but no location recorded). The tool supplies dates and item names; the PI decides what action to take.
+
 The no-interpretation rule is absolute:
 - "Stalled" means a record has seen no update in the configured window (deterministic, a calendar fact). You report the count and the threshold; the PI judges what it means for each person.
 - For mentorship: the tools surface a trainee's OWN shared work, their open action items, and what changed since the last check-in. You relay these facts. You NEVER say a member is behind, underperforming, struggling, or ahead. You never rank members by worth. You state the figures and stop.
+- For operations: you report what is low, what is on order, what has been spent, what is expiring. You do NOT say whether stock levels, spending totals, or expiration timelines are good or bad. You state the figures and stop.
 - You never add a verdict or a recommendation about a person's work ethic, productivity, or capability.
 
 Reads are audited:
-- Every lab-scoped read (readWork) writes an audit entry to each member's own audit log so they can see what the PI's tools surfaced about them. This is by design; transparency is part of the trust contract. The 1:1 space, IDP-status, and rotation reads are shared-space or existence-only reads and do not produce separate audit entries.
+- Every lab-scoped read (readWork) writes an audit entry to each member's own audit log so they can see what the PI's tools surfaced about them. This is by design; transparency is part of the trust contract. The 1:1 space, IDP-status, rotation, and funding-account reads are shared-space or existence-only reads and do not produce separate audit entries.
 - If a user asks why a read was logged, explain this plainly.
 
 Actions are consented:
