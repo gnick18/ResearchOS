@@ -15,6 +15,10 @@ import { openLabKeyCopy } from "./lab-key";
 import { listLabAccepts, type StoredLabAccept } from "./lab-accept-client";
 import { finalizeLabAccepts, type FinalizeOutcome } from "./lab-invite-flow";
 import {
+  reconcileDeferredSeals,
+  type SealOutcome,
+} from "./lab-deferred-seal-reconcile";
+import {
   mintLabInvite,
   encodeInviteLink,
   DEFAULT_INVITE_TTL_MS,
@@ -119,3 +123,37 @@ export async function finalizePendingAccepts(params: {
     headX25519Priv: params.identity.keys.encryption.privateKey,
   });
 }
+
+/**
+ * Phase 4A, head side, eager entry point. Runs the deferred-seal reconciliation
+ * from the Settings membership panel so the head does not have to perform a FULL
+ * lab login (the only other place this fires) for token-joined members to receive
+ * their sealed lab-key copy. Opens the head's lab key in memory the same way
+ * finalizePendingAccepts does, then seals to any member who joined via a Phase 4B
+ * server token and has since published an X25519 pubkey but has no copy yet.
+ *
+ * The lab key stays in memory and is NEVER serialized by this code; only
+ * sealToRecipient output plus a head-signed public log entry leave the browser
+ * (see lab-deferred-seal-reconcile.ts for the full security model). Returns one
+ * outcome per candidate; callers may treat it as best-effort.
+ */
+export async function reconcilePendingSealsForHead(params: {
+  labId: string;
+  username: string;
+  identity: StoredIdentity;
+}): Promise<SealOutcome[]> {
+  const labKey = await openLabKeyForHead(
+    params.labId,
+    params.username,
+    params.identity,
+  );
+  return reconcileDeferredSeals({
+    ctx: {
+      labId: params.labId,
+      labKey,
+      headEd25519Priv: params.identity.keys.signing.privateKey,
+    },
+  });
+}
+
+export type { SealOutcome };
