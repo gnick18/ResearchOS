@@ -227,6 +227,20 @@ const OSS_URLS: Record<string, string> = {
   "date-fns": "https://date-fns.org/",
   React: "https://react.dev/",
   "Next.js": "https://nextjs.org/",
+  // Scientific illustration libraries
+  PhyloPic: "https://www.phylopic.org",
+  Bioicons: "https://bioicons.com",
+  "Reactome Icon Library": "https://reactome.org/icon-lib",
+  "Health Icons": "https://healthicons.org",
+  "Tabler Icons": "https://tabler.io/icons",
+  Devicon: "https://devicon.dev",
+  SciDraw: "https://scidraw.io",
+  "janosh/diagrams": "https://github.com/janosh/diagrams",
+  "Electrical Symbol Library": "https://github.com/basverdoes/ElectricalSymbolLibrary",
+  "Arcadia Science Drawing Open": "https://zenodo.org/records/17203578",
+  "DBCLS Togo Picture Gallery": "https://togotv.dbcls.jp/en/pics.html",
+  SwissBioPics: "https://www.swissbiopics.org",
+  "EMBL-EBI Icon Fonts": "https://github.com/ebiwd/EBI-Icon-fonts",
 };
 
 // A credited project name rendered as a link to its homepage. Opens in a new
@@ -298,6 +312,35 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
         <Oss name="SeqViz" /> (MIT), <Oss name="TeselaGen" label="TeselaGen bio-parsers" />{" "}
         (MIT), the <Oss name="Biopython" label="Biopython Tm port" /> (BSD),
         carried with their licenses
+      </>
+    ),
+  },
+  {
+    title: "Scientific illustration libraries",
+    body: (
+      <>
+        These open communities built the asset corpus the figure composer draws
+        on. Each icon carries its own license; see{" "}
+        <a
+          href="/library"
+          className="font-semibold text-foreground underline decoration-border underline-offset-2 transition-colors hover:text-brand-action hover:decoration-brand-action"
+        >
+          the asset library
+        </a>{" "}
+        for the full per-image credits.{" "}
+        <Oss name="PhyloPic" /> (CC0 / CC-BY / CC-BY-SA per image),{" "}
+        <Oss name="Bioicons" /> (CC0 / CC-BY / CC-BY-SA / MIT),{" "}
+        <Oss name="Reactome Icon Library" /> (CC-BY 4.0),{" "}
+        <Oss name="Health Icons" /> (MIT),{" "}
+        <Oss name="Tabler Icons" /> (MIT),{" "}
+        <Oss name="Devicon" /> (MIT; logos are trademarks of their owners),{" "}
+        <Oss name="SciDraw" /> (CC-BY 4.0),{" "}
+        <Oss name="janosh/diagrams" /> (MIT),{" "}
+        <Oss name="Electrical Symbol Library" /> (CC0),{" "}
+        <Oss name="Arcadia Science Drawing Open" /> (CC0),{" "}
+        <Oss name="DBCLS Togo Picture Gallery" /> (CC-BY 4.0),{" "}
+        <Oss name="SwissBioPics" /> (CC-BY 4.0),{" "}
+        <Oss name="EMBL-EBI Icon Fonts" /> (Apache-2.0 / CC-BY-SA 4.0)
       </>
     ),
   },
