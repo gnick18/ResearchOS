@@ -9,6 +9,7 @@ The per-session banner changelog that used to live here has moved to `docs/hando
 Convention: do NOT prepend long banners to this file. For each session, write a dated handoff in `docs/handoffs/`, update agent memory, and optionally add a ONE-LINE pointer to the list below.
 
 Latest lanes (newest first), see the matching handoff for detail:
+- 2026-06-19 Figure Composer overhaul (QOL + flip/rotation fix + Devicon guardrail + Illustrator arrange-bar) + icon federation 7->~13 sources + bioicons render fixes + credits/special-thanks banner; **icon ingest still RUNNING DETACHED in `ROS-ingest-final` (resume + upload steps in the handoff)**, local main 11+ ahead of origin NOT pushed. `docs/handoffs/2026-06-19-figure-composer-and-icon-federation-handoff.md`
 - 2026-06-19 business + seq-editor bottom-bar, `docs/handoffs/2026-06-19-business-and-seq-bottom-bar-handoff.md`
 - 2026-06-19 multi-lab membership, `docs/handoffs/2026-06-19-multi-lab-membership-handoff.md`
 - 2026-06-19 lab-membership discovery, `docs/handoffs/2026-06-19-lab-membership-discovery-handoff.md`
