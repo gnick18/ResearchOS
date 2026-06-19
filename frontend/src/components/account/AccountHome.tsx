@@ -32,8 +32,6 @@ import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import FileDropzone from "@/components/ui/FileDropzone";
 import { fileToAvatarDataUrl } from "@/lib/account/avatar-image";
-import { DEPT_TIER_ENABLED } from "@/lib/dept/config";
-import { INSTITUTION_TIER_ENABLED } from "@/lib/institution/config";
 
 interface AccountProfile {
   handle: string;
@@ -48,17 +46,12 @@ interface QuickLink {
   desc: string;
 }
 
-// The org-admin quick links only appear when their tier is enabled, so a
-// disabled tier never shows a link that just bounces home (mirrors the gating on
-// the welcome page's department / institution cards). The researcher directory is
-// always available.
+// The org-admin quick links (Department / Institution) used to appear here for
+// every signed-in user whenever their tier flag was on, which advertised the org
+// tiers to people who are not org admins. Grant 2026-06-19: do not advertise the
+// org tiers on the account page (at most they belong on the welcome / login
+// page). Only the universally-useful researcher directory stays here.
 const LINKS: QuickLink[] = [
-  ...(DEPT_TIER_ENABLED
-    ? [{ href: "/department", label: "Department admin", desc: "Sponsor your labs on one invoice." }]
-    : []),
-  ...(INSTITUTION_TIER_ENABLED
-    ? [{ href: "/institution", label: "Institution admin", desc: "Cover your departments, roll up usage." }]
-    : []),
   { href: "/researchers", label: "Researcher directory", desc: "Find researchers and share with them." },
 ];
 
