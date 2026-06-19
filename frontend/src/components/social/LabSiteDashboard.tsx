@@ -322,6 +322,10 @@ export default function LabSiteDashboard({
   const [claimBusy, setClaimBusy] = useState(false);
   const [claimError, setClaimError] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  // The claim is irreversible (the slug is the lab's permanent web address, there
+  // is no rename path), so the visitor must confirm they understand before the
+  // Claim button enables. Grant decision (2026-06-19): the slug/domain is PERMANENT.
+  const [confirmPermanent, setConfirmPermanent] = useState(false);
 
   // Editor state for the currently-open page (null = none open).
   const [editorPath, setEditorPath] = useState<string | null>(null);
@@ -387,6 +391,11 @@ export default function LabSiteDashboard({
       setClaimError(DEMO_EDIT_NOTE);
       return;
     }
+    // The claim is permanent, so never fire it without the explicit confirm.
+    if (!confirmPermanent) {
+      setClaimError("Confirm you understand the address is permanent first.");
+      return;
+    }
     setClaimBusy(true);
     setClaimError(null);
     setSuggestions([]);
@@ -417,7 +426,7 @@ export default function LabSiteDashboard({
     } finally {
       setClaimBusy(false);
     }
-  }, [slugInput, refresh, demoReadOnly]);
+  }, [slugInput, refresh, demoReadOnly, confirmPermanent]);
 
   const openEditor = useCallback(
     (page: PageSummary | null) => {
@@ -642,12 +651,44 @@ export default function LabSiteDashboard({
               )}
               <button
                 type="button"
-                disabled={claimBusy || slugInput.trim().length === 0}
+                disabled={
+                  claimBusy ||
+                  slugInput.trim().length === 0 ||
+                  !confirmPermanent
+                }
                 onClick={() => void claimSlug()}
                 className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
               >
                 {claimBusy ? "Claiming." : "Claim"}
               </button>
+            </div>
+            {/* Permanence gate. The slug becomes the lab's permanent web address
+                (there is no rename path, see the route), and every saved link,
+                bookmark, and citation points at it, so we say so plainly and make
+                the visitor confirm before the irreversible claim. */}
+            <div className="mt-4 rounded-lg border border-border bg-surface-sunken p-3">
+              <p className="text-sm text-foreground">
+                This becomes your lab&apos;s permanent web address. Choose
+                carefully. It cannot be changed later, and changing it would break
+                every saved link, bookmark, and citation that points to your lab.
+              </p>
+              <label className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={confirmPermanent}
+                  onChange={(e) => setConfirmPermanent(e.target.checked)}
+                  className="mt-0.5"
+                  aria-label="Confirm the lab address is permanent"
+                />
+                <span>
+                  I understand{" "}
+                  <span className="font-medium text-foreground">
+                    {(slugInput.trim().toLowerCase() || "<slug>") +
+                      ".research-os.com"}
+                  </span>{" "}
+                  is permanent and cannot be changed.
+                </span>
+              </label>
             </div>
             {claimError && (
               <p className="mt-3 text-sm text-destructive">{claimError}</p>

@@ -13,7 +13,7 @@ import { fileURLToPath } from "node:url";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { resolveLabHostRequest } from "./lab-byo";
+import { resolveLabHostRequest, isLabPublicHost } from "./lab-byo";
 import { normalizePagePath } from "./lab-site";
 
 const HOST = "fakeyeast-lab.research-os.com";
@@ -112,6 +112,47 @@ describe("native vs BYO reserved-path carve-out", () => {
     expect(normalizePagePath("_site")).toBe("site");
     expect(normalizePagePath("_site/assets")).toBe("site/assets");
     expect(normalizePagePath("_site")).not.toBe("_site");
+  });
+});
+
+describe("isLabPublicHost (client gate bypass)", () => {
+  // The app's global client gate (AppContent) skips the folder / welcome wall on a
+  // lab origin off this predicate, so the server-rendered lab page is not overlaid
+  // by WelcomePage after hydration. It must agree with resolveLabHostRequest about
+  // what counts as a lab origin, and be inert when the cutover is off.
+  it("is false when the cutover is disabled, even on a lab host", () => {
+    expect(isLabPublicHost({ host: HOST, enabled: false })).toBe(false);
+  });
+
+  it("is true for a real lab subdomain when enabled", () => {
+    expect(isLabPublicHost({ host: HOST, enabled: true })).toBe(true);
+    expect(
+      isLabPublicHost({ host: "smith-lab.research-os.com:443", enabled: true }),
+    ).toBe(true);
+  });
+
+  it("is false on the app origin, the apex, and reserved subdomains", () => {
+    for (const host of [
+      "research-os.app",
+      "research-os.com",
+      "www.research-os.com",
+      "assets.research-os.com",
+      "api.research-os.com",
+      "app.research-os.com",
+      "a.b.research-os.com",
+      null,
+      undefined,
+    ]) {
+      expect(isLabPublicHost({ host, enabled: true })).toBe(false);
+    }
+  });
+
+  it("agrees with resolveLabHostRequest on whether a host is a lab origin", () => {
+    for (const host of [HOST, "research-os.app", "assets.research-os.com"]) {
+      const action = resolveLabHostRequest({ host, pathname: "/", enabled: true });
+      const isLabOrigin = action.kind !== "passthrough";
+      expect(isLabPublicHost({ host, enabled: true })).toBe(isLabOrigin);
+    }
   });
 });
 
