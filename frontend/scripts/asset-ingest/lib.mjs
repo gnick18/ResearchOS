@@ -192,10 +192,32 @@ export function sanitizeSvg(input) {
   // Remove scripts + event handlers + foreignObject (XSS / non-portable).
   svg = svg.replace(/<script[\s\S]*?<\/script>/gi, "");
   svg = svg.replace(/<foreignObject[\s\S]*?<\/foreignObject>/gi, "");
+  // Strip Adobe Illustrator private-data blocks (<i:aipgf>/<i:pgf>): a zstd/base64
+  // editable-copy blob that never renders, bloats files ~5x, and (when its CDATA
+  // is malformed) can carry a stray </svg> that breaks XML parsing entirely.
+  // GREEDY to the last close: this region is always trailing Adobe metadata, and
+  // some exports are corrupted with a duplicated </i:aipgf> + orphaned base64; a
+  // non-greedy match would stop at the first close and leave the orphan behind.
+  svg = svg.replace(/<i:aipgf\b[\s\S]*<\/i:aipgf>/gi, "");
+  svg = svg.replace(/<i:pgf\b[\s\S]*<\/i:pgf>/gi, "");
   svg = svg.replace(/\son\w+\s*=\s*"(?:[^"\\]|\\.)*"/gi, "");
   svg = svg.replace(/\son\w+\s*=\s*'(?:[^'\\]|\\.)*'/gi, "");
   // Neutralize external/script hrefs but keep internal (#id) refs for fills/gradients.
   svg = svg.replace(/((?:xlink:)?href)\s*=\s*"(?!#)[^"]*"/gi, '$1="#"');
+  // Repair Adobe Illustrator empty-prefix namespace declarations (xmlns:x="" ...).
+  // Binding a non-default prefix to "" is illegal in XML 1.0, so the browser's
+  // strict <img> XML parser rejects the WHOLE file ("must not undeclare prefix")
+  // and the thumbnail renders blank. Rebind to valid URIs so prefixed attrs/
+  // elements (i:/x:/graph:) stay bound and the document parses + renders.
+  const NS_URIS = {
+    x: "http://ns.adobe.com/Extensibility/1.0/",
+    i: "http://ns.adobe.com/AdobeIllustrator/10.0/",
+    graph: "http://ns.adobe.com/Graphs/1.0/",
+  };
+  svg = svg.replace(/xmlns:([a-zA-Z_][\w.-]*)\s*=\s*"\s*"/g, (_m, prefix) => {
+    const uri = NS_URIS[prefix] || `https://research-os.app/ns/${prefix}`;
+    return `xmlns:${prefix}="${uri}"`;
+  });
   svg = svg.trim();
   // Count distinct fill colors (per-fill recolor feasibility).
   const fills = new Set();

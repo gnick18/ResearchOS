@@ -126,6 +126,20 @@ test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {
   assert.equal(hasViewBox, true);
 });
 
+test("sanitizeSvg: rebinds Adobe empty-prefix namespaces so the file parses + renders", () => {
+  // Adobe Illustrator export: xmlns:x/i/graph bound to "" is illegal XML and
+  // makes the browser <img> parser reject the whole file -> blank thumbnail.
+  const dirty =
+    '<svg version="1.1" xmlns:x="" xmlns:i="" xmlns:graph="" ' +
+    'xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 400">' +
+    '<i:pgf></i:pgf><path d="M0 0h10v10H0z" fill="#123456"/></svg>';
+  const { svg } = sanitizeSvg(dirty);
+  assert.ok(!/xmlns:\w+=""/.test(svg), "no empty-prefix decls remain");
+  assert.ok(/xmlns:x="http:\/\/ns\.adobe\.com\/Extensibility/.test(svg), "x prefix rebound to a valid URI");
+  assert.ok(/xmlns:i="http:\/\/ns\.adobe\.com\/AdobeIllustrator/.test(svg), "i prefix rebound");
+  assert.ok(/xmlns:graph="http:\/\/ns\.adobe\.com\/Graphs/.test(svg), "graph prefix rebound");
+});
+
 test("sanitizeSvg: neutralizes external href but keeps internal #refs", () => {
   const s =
     '<svg viewBox="0 0 1 1"><a href="https://evil.test">x</a>' +
