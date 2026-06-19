@@ -67,6 +67,18 @@ bucket_name = "researchos-captures"
 binding = "LAB_DATA"
 bucket_name = "researchos-lab-data"
 
+# Reverse membership index for lab-membership discovery (Phase 2 add-on).
+# Key = hex Ed25519 public key of a lab member.
+# Value = JSON string[] of labIds that member belongs to.
+# Written best-effort on /lab/create (head) and /lab/append (add entries).
+# Read by POST /lab/discover-memberships to answer "what labs am I in?".
+# Create the KV namespace first:
+#   wrangler kv namespace create LAB_MEMBERSHIP_INDEX
+# Then set the resulting id below.
+[[kv_namespaces]]
+binding = "LAB_MEMBERSHIP_INDEX"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
 # new_sqlite_classes is required for the WebSocket Hibernation API on a fresh
 # DO class (SQLite-backed DOs are the current default storage backend).
 [[migrations]]

@@ -13,9 +13,17 @@
 // set is always empty (the context never reads it), so this renders nothing and
 // the header is byte-identical to today.
 //
+// Lab membership discovery (LAB_AS_FOLDER_ENABLED): when the feature flag is
+// ON, this switcher also surfaces labs the relay knows about for the current
+// account but that have no local member folder yet (joined on another device,
+// joined before the flag, or after a folder-set reset). Those labs show as
+// enterable rows; selecting one provisions the OPFS member folder via the
+// existing checkAndEnterLab path. The discovery network call degrades
+// gracefully (returns nothing) when the relay endpoint is not yet deployed.
+//
 // Voice: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons/Icon";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -23,6 +31,11 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { folderLabLabel } from "@/lib/file-system/folder-lab-label";
 import { LAB_AS_FOLDER_ENABLED } from "@/lib/lab/lab-as-folder-config";
+import { discoverMyLabMembershipsForIdentity } from "@/lib/lab/lab-membership-discovery";
+import { checkAndEnterLab } from "@/lib/lab/lab-member-activation";
+import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
+import { getCurrentUser } from "@/lib/file-system/indexeddb-store";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 
 /** Format a lastOpenedAt timestamp as a short, calm relative string. */
 function relativeOpened(ts: number): string {
@@ -79,6 +92,20 @@ export default function FolderSwitcher({
   const [draftName, setDraftName] = useState("");
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
+  // Lab membership discovery (LAB_AS_FOLDER_ENABLED only). Labs returned by the
+  // relay that have no local member folder yet. These are labs the member joined
+  // on another device or before the flag was on. Null = not yet fetched. [] =
+  // fetched, nothing discovered (or flag off / relay not deployed yet).
+  type DiscoveredLab = { labId: string; labName?: string };
+  const [discoveredLabs, setDiscoveredLabs] = useState<DiscoveredLab[] | null>(
+    null,
+  );
+  // The labId currently being materialized (user clicked Enter on a discovered
+  // lab). Only one at a time; the button disables others while this is set.
+  const [materializingLabId, setMaterializingLabId] = useState<string | null>(
+    null,
+  );
+
   // Refresh the remembered set the first time the menu opens (or on mount for
   // the panel variant) so the list is current even if a different surface added
   // a folder since the last connect.
@@ -88,6 +115,108 @@ export default function FolderSwitcher({
       void listFolders();
     }
   }, [open, variant, listFolders]);
+
+  // Run discovery when the menu opens (or on mount for the panel variant). Only
+  // runs once per open session (null = unfetched; [] = fetched). Flag-gated: when
+  // LAB_AS_FOLDER_ENABLED is off, this block is inert and discoveredLabs stays
+  // null so the UI renders nothing extra (byte-identical to before the feature).
+  useEffect(() => {
+    if (!LAB_AS_FOLDER_ENABLED) return;
+    if (!MULTI_FOLDER_ENABLED) return;
+    if (discoveredLabs !== null) return; // already fetched this session
+    if (variant !== "panel" && !open) return; // only fetch when visible
+
+    let cancelled = false;
+
+    async function runDiscovery() {
+      const identity = getSessionIdentity();
+      if (!identity) return;
+
+      const labIds = await discoverMyLabMembershipsForIdentity(identity);
+      if (cancelled) return;
+      if (labIds.length === 0) {
+        setDiscoveredLabs([]);
+        return;
+      }
+
+      // Filter out labs that already have a local member folder so we only
+      // surface genuinely missing memberships.
+      const existingLabIds = new Set(
+        rememberedFolders
+          .filter((f) => f.labId !== undefined)
+          .map((f) => f.labId as string),
+      );
+      const novel = labIds.filter((id) => !existingLabIds.has(id));
+      if (cancelled || novel.length === 0) {
+        setDiscoveredLabs([]);
+        return;
+      }
+
+      // Fetch cosmetic names in parallel. Falls back to a shortened labId.
+      const discovered: DiscoveredLab[] = await Promise.all(
+        novel.map(async (labId) => {
+          try {
+            const profile = await fetchLabProfile(labId);
+            return {
+              labId,
+              labName: profile?.labName || undefined,
+            };
+          } catch {
+            return { labId };
+          }
+        }),
+      );
+
+      if (!cancelled) setDiscoveredLabs(discovered);
+    }
+
+    void runDiscovery();
+
+    return () => {
+      cancelled = true;
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, variant, discoveredLabs, rememberedFolders.length]);
+
+  // Enter a discovered lab: run the crypto proof (checkAndEnterLab) which also
+  // provisions the OPFS member folder via recordMemberActivation when approved.
+  // After activation the LabSignInGate mounts and kicks off the P2 pull
+  // (useLabViewPull), so we do NOT call runLabViewPullForSession here directly.
+  const onEnterDiscovered = useCallback(
+    async (labId: string, labName?: string) => {
+      if (busy || materializingLabId) return;
+      const identity = getSessionIdentity();
+      if (!identity) return;
+
+      const username = await getCurrentUser();
+      if (!username) return;
+
+      setMaterializingLabId(labId);
+      try {
+        const result = await checkAndEnterLab({
+          labId,
+          username,
+          identity,
+          labName,
+        });
+        if (result.entered) {
+          // Provisioning succeeded: remove this lab from the discovered list so
+          // the row disappears and the freshly registered member folder will
+          // appear in the remembered set on the next listFolders refresh.
+          setDiscoveredLabs((prev) =>
+            prev ? prev.filter((d) => d.labId !== labId) : prev,
+          );
+          void listFolders();
+          setOpen(false);
+        }
+      } catch {
+        // Provisioning error: leave the row so the user can retry.
+      } finally {
+        setMaterializingLabId(null);
+      }
+    },
+    [busy, materializingLabId, listFolders],
+  );
 
   useEscapeToClose(() => setOpen(false), open);
 
@@ -325,6 +454,69 @@ export default function FolderSwitcher({
             </div>
           );
         })}
+        {/* Lab membership discovery (LAB_AS_FOLDER_ENABLED). Show labs from the
+            relay that exist server-side but have no local member folder yet. A
+            null discoveredLabs means the fetch has not run or the flag is off,
+            in which case this block renders nothing (byte-identical to before).
+            An empty array means the fetch ran and nothing new was found. */}
+        {LAB_AS_FOLDER_ENABLED &&
+          discoveredLabs !== null &&
+          discoveredLabs.length > 0 && (
+            <>
+              <div className="border-t border-border px-3 pb-1 pt-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-foreground-muted">
+                  Available to join
+                </span>
+              </div>
+              {discoveredLabs.map((d) => {
+                const isMaterializing = materializingLabId === d.labId;
+                const displayName = d.labName ?? `Lab ${d.labId.slice(0, 6)}`;
+                return (
+                  <div
+                    key={d.labId}
+                    className="group flex items-center gap-2 px-3 py-2 hover:bg-surface-sunken"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <Icon
+                        name="users"
+                        className="h-4 w-4 shrink-0 text-foreground-muted"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="truncate text-sm font-medium text-foreground">
+                          {displayName}
+                        </span>
+                        <span className="block truncate text-meta text-foreground-muted">
+                          {isMaterializing ? "Connecting..." : "Member"}
+                        </span>
+                      </span>
+                    </div>
+                    <Tooltip label="Enter this lab" placement="left">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        aria-label={`Enter ${displayName}`}
+                        disabled={
+                          busy ||
+                          isMaterializing ||
+                          materializingLabId !== null
+                        }
+                        onClick={() =>
+                          void onEnterDiscovered(d.labId, d.labName)
+                        }
+                        className="shrink-0 rounded-md bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent transition hover:bg-accent/20 disabled:opacity-40"
+                      >
+                        {isMaterializing ? (
+                          <Icon name="hourglass" className="h-3.5 w-3.5" />
+                        ) : (
+                          "Enter"
+                        )}
+                      </button>
+                    </Tooltip>
+                  </div>
+                );
+              })}
+            </>
+          )}
         <button
           type="button"
           role="menuitem"

@@ -5,6 +5,10 @@
 // rejected, a rotate bumps the generation, and /lab/get returns the record + a
 // member's sealed copy. Run against `wrangler dev` on PORT. Mirrors inbox.mjs.
 //
+// Section (q) covers POST /lab/discover-memberships: signature verification,
+// freshness window, bad-sig rejection, missing-param rejection, and correct
+// canonical-message format. KV lookup returns [] in local dev without KV binding.
+//
 // The relay is BLIND to the lab key: this test only ever sends head-signed log
 // entries + sealed envelopes (random opaque "sealed" bytes stand in for the real
 // X25519 sealed boxes, which the DO never inspects). No lab key is ever sent.
@@ -401,6 +405,99 @@ function signQ(message) {
   const signature = signQ(`lab-accept-dismiss\n${labQ}\n\n${issuedAt}`);
   const res = await postJson(`/lab/accept/dismiss?lab=${labQ}`, { issuedAt, signature });
   check("(p) accept-queue: dismiss without memberPubkey returns 400", res.status === 400);
+}
+
+// ---- (q) POST /lab/discover-memberships: signature verification + happy path --
+//
+// NOTE: the KV binding (LAB_MEMBERSHIP_INDEX) is not available in local `wrangler
+// dev` without manual KV setup, so the discovery endpoint returns { labIds: [] }
+// when the KV binding is absent. These tests verify:
+//   (q1) valid signature + fresh issuedAt -> 200 (labIds may be [] without KV)
+//   (q2) stale issuedAt -> 401
+//   (q3) bad signature -> 401
+//   (q4) missing pubkey query param -> 400
+//   (q5) missing body fields -> 400
+//   (q6) canonical message format byte-matches the client
+//
+// The canonical message format is: "lab-discover-memberships\n<pubkey>\n<issuedAt>"
+// This matches discoverMembershipsCanonicalMessage in
+// frontend/src/lib/lab/lab-membership-discovery.ts.
+{
+  const disco = keypair();
+
+  // Helper: sign a discovery request.
+  function signDiscover(pubkeyHex, issuedAt, privKey) {
+    const msg = new TextEncoder().encode(`lab-discover-memberships\n${pubkeyHex}\n${issuedAt}`);
+    return bytesToHex(ed25519.sign(msg, privKey));
+  }
+
+  // (q1) Valid signature, fresh issuedAt -> 200 { labIds: [] }
+  {
+    const issuedAt = Date.now();
+    const signature = signDiscover(disco.pub, issuedAt, disco.priv);
+    const res = await fetch(`${BASE}/lab/discover-memberships?pubkey=${encodeURIComponent(disco.pub)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issuedAt, signature }),
+    });
+    const data = await res.json();
+    check("(q1) discover: valid sig returns 200 with labIds array", res.status === 200 && Array.isArray(data.labIds));
+  }
+
+  // (q2) Stale issuedAt (6 minutes ago) -> 401
+  {
+    const issuedAt = Date.now() - 6 * 60 * 1000;
+    const signature = signDiscover(disco.pub, issuedAt, disco.priv);
+    const res = await fetch(`${BASE}/lab/discover-memberships?pubkey=${encodeURIComponent(disco.pub)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issuedAt, signature }),
+    });
+    check("(q2) discover: stale issuedAt returns 401", res.status === 401);
+  }
+
+  // (q3) Bad signature (sign with a different key) -> 401
+  {
+    const issuedAt = Date.now();
+    const imposter = keypair();
+    const signature = signDiscover(disco.pub, issuedAt, imposter.priv);
+    const res = await fetch(`${BASE}/lab/discover-memberships?pubkey=${encodeURIComponent(disco.pub)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issuedAt, signature }),
+    });
+    check("(q3) discover: bad signature returns 401", res.status === 401);
+  }
+
+  // (q4) Missing pubkey query param -> 400
+  {
+    const issuedAt = Date.now();
+    const signature = signDiscover(disco.pub, issuedAt, disco.priv);
+    const res = await fetch(`${BASE}/lab/discover-memberships`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issuedAt, signature }),
+    });
+    check("(q4) discover: missing pubkey param returns 400", res.status === 400);
+  }
+
+  // (q5) Missing body fields -> 400
+  {
+    const res = await fetch(`${BASE}/lab/discover-memberships?pubkey=${encodeURIComponent(disco.pub)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ issuedAt: "not-a-number" }),
+    });
+    check("(q5) discover: malformed body returns 400", res.status === 400);
+  }
+
+  // (q6) Wrong HTTP method -> 405
+  {
+    const res = await fetch(`${BASE}/lab/discover-memberships?pubkey=${encodeURIComponent(disco.pub)}`, {
+      method: "GET",
+    });
+    check("(q6) discover: GET returns 405", res.status === 405);
+  }
 }
 
 console.log(pass ? "\nRESULT: ALL PASS" : "\nRESULT: FAIL");

@@ -151,6 +151,12 @@ export interface Env {
    *  state, matching RELAY_BREAKER_SECRET on the Vercel side. Unset = the
    *  endpoint is read without auth (dev). */
   RELAY_BREAKER_SECRET?: string;
+  /** Reverse membership index for lab-membership discovery. Key = hex Ed25519
+   *  pubkey of a member; value = JSON string[] of labIds. Written best-effort
+   *  on /lab/create (head pubkey) and /lab/append "add" entries (new member
+   *  pubkey). Read by POST /lab/discover-memberships. Optional so local dev
+   *  without a KV binding degrades gracefully (discovery returns []). */
+  LAB_MEMBERSHIP_INDEX?: KVNamespace;
   /** Test-only overrides (ms) for the phone-push timing gates, so the smoke
    *  harness need not wait the real 30s cooldown / 3-min dead-man's-switch.
    *  Unset in prod (the constants apply). Set via
@@ -302,6 +308,22 @@ export default {
 
     if (url.pathname.startsWith("/lab/data/")) {
       return handleLabData(url, request, env);
+    }
+
+    // Lab membership discovery. POST /lab/discover-memberships?pubkey=<hex>.
+    // The client (lab-membership-discovery.ts) signs a canonical message and
+    // sends { issuedAt, signature } in the body. On valid signature, returns
+    // { labIds: string[] } from the KV reverse index. If the KV binding is not
+    // deployed yet (local dev), returns { labIds: [] } so the client degrades
+    // gracefully (the client also handles 404 as []).
+    if (url.pathname === "/lab/discover-memberships") {
+      if (request.method !== "POST") {
+        return new Response("Method not allowed", {
+          status: 405,
+          headers: CORS_HEADERS,
+        });
+      }
+      return handleLabDiscoverMemberships(url, request, env);
     }
 
     // Lab identity + branding (cosmetic). The lab logo route accepts BOTH a
@@ -3198,6 +3220,168 @@ function labDataListCanonical(
   ].join("\n");
 }
 
+// ===========================================================================
+// Lab membership discovery (reverse KV index).
+// ===========================================================================
+//
+// LAB_MEMBERSHIP_INDEX KV: key = hex Ed25519 pubkey, value = JSON string[].
+// Written best-effort at /lab/create (head) and /lab/append "add" entries.
+// Read by POST /lab/discover-memberships (signed by the member being looked up).
+//
+// KV writes are ALWAYS best-effort and non-fatal. A KV failure must never break
+// /lab/create or /lab/append.
+
+/**
+ * Appends labId to the KV membership list for pubkeyHex, deduplicating.
+ * Silently swallows all errors (best-effort, non-fatal).
+ */
+async function kvIndexAddMembership(
+  kv: KVNamespace | undefined,
+  pubkeyHex: string,
+  labId: string,
+): Promise<void> {
+  if (!kv) return; // KV binding not configured (local dev or not deployed yet)
+  try {
+    const existing = await kv.get(pubkeyHex);
+    const labs: string[] = existing ? (JSON.parse(existing) as string[]) : [];
+    if (!labs.includes(labId)) {
+      labs.push(labId);
+    }
+    await kv.put(pubkeyHex, JSON.stringify(labs));
+  } catch {
+    // Best-effort: a KV write failure must never bubble up to the caller.
+  }
+}
+
+/**
+ * Removes labId from the KV membership list for pubkeyHex. Silently swallows
+ * all errors (best-effort, non-fatal). Called on /lab/append "remove" entries.
+ */
+async function kvIndexRemoveMembership(
+  kv: KVNamespace | undefined,
+  pubkeyHex: string,
+  labId: string,
+): Promise<void> {
+  if (!kv) return;
+  try {
+    const existing = await kv.get(pubkeyHex);
+    if (!existing) return;
+    const labs: string[] = JSON.parse(existing) as string[];
+    const updated = labs.filter((id) => id !== labId);
+    if (updated.length === labs.length) return; // nothing changed
+    await kv.put(pubkeyHex, JSON.stringify(updated));
+  } catch {
+    // Best-effort: a KV write failure must never bubble up to the caller.
+  }
+}
+
+/**
+ * POST /lab/discover-memberships?pubkey=<hex>.
+ *
+ * The client sends { issuedAt: number, signature: hex } in the JSON body.
+ * The signature covers the UTF-8 bytes of the canonical message:
+ *   "lab-discover-memberships\n<pubkey_hex>\n<issuedAt>"
+ * which byte-matches discoverMembershipsCanonicalMessage in
+ * frontend/src/lib/lab/lab-membership-discovery.ts.
+ *
+ * On valid signature and fresh issuedAt, returns { labIds: string[] }.
+ * On unknown pubkey (valid sig but not in the index), returns { labIds: [] }.
+ * On bad/stale sig, returns 401. On malformed request, returns 400.
+ *
+ * If the KV binding is absent (local dev), returns { labIds: [] } so the
+ * client's 404/error-degrade path also handles this gracefully.
+ */
+async function handleLabDiscoverMemberships(
+  url: URL,
+  request: Request,
+  env: Env,
+): Promise<Response> {
+  const pubkeyHex = url.searchParams.get("pubkey");
+  if (!pubkeyHex || pubkeyHex.trim() === "") {
+    return new Response(JSON.stringify({ error: "missing pubkey query param" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  let body: { issuedAt?: unknown; signature?: unknown };
+  try {
+    body = (await request.json()) as { issuedAt?: unknown; signature?: unknown };
+  } catch {
+    return new Response(JSON.stringify({ error: "invalid JSON body" }), {
+      status: 400,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  const issuedAt = body.issuedAt;
+  const signature = body.signature;
+  if (typeof issuedAt !== "number" || typeof signature !== "string") {
+    return new Response(
+      JSON.stringify({ error: "malformed body: issuedAt (number) and signature (string) required" }),
+      { status: 400, headers: { ...CORS_HEADERS, "Content-Type": "application/json" } },
+    );
+  }
+
+  // Freshness window: +/- 5 minutes (matches CollabRoom.isFresh and the client comment).
+  if (!Number.isFinite(issuedAt) || Math.abs(Date.now() - issuedAt) > 5 * 60 * 1000) {
+    return new Response(JSON.stringify({ error: "stale issuedAt" }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  // Canonical message: byte-identical to discoverMembershipsCanonicalMessage in
+  // frontend/src/lib/lab/lab-membership-discovery.ts.
+  //   "lab-discover-memberships\n<pubkey_hex>\n<issuedAt>"
+  const canonicalMessage = `lab-discover-memberships\n${pubkeyHex}\n${issuedAt}`;
+
+  let sigValid = false;
+  try {
+    const sig = hexToBytes(signature);
+    const pub = hexToBytes(pubkeyHex);
+    const msg = new TextEncoder().encode(canonicalMessage);
+    sigValid = ed25519.verify(sig, msg, pub);
+  } catch {
+    sigValid = false;
+  }
+  if (!sigValid) {
+    return new Response(JSON.stringify({ error: "bad signature" }), {
+      status: 401,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  // KV lookup. Missing binding (local dev without KV) and unknown pubkey both
+  // return { labIds: [] } rather than a 404, so the client's graceful-degrade
+  // path (which only triggers on 404 or network error) keeps working.
+  if (!env.LAB_MEMBERSHIP_INDEX) {
+    return new Response(JSON.stringify({ labIds: [] }), {
+      status: 200,
+      headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+    });
+  }
+
+  let labIds: string[] = [];
+  try {
+    const raw = await env.LAB_MEMBERSHIP_INDEX.get(pubkeyHex);
+    if (raw) {
+      const parsed = JSON.parse(raw) as unknown;
+      if (Array.isArray(parsed)) {
+        labIds = parsed.filter((v): v is string => typeof v === "string");
+      }
+    }
+  } catch {
+    // KV read failure: degrade to []. The client handles this gracefully.
+    labIds = [];
+  }
+
+  return new Response(JSON.stringify({ labIds }), {
+    status: 200,
+    headers: { ...CORS_HEADERS, "Content-Type": "application/json" },
+  });
+}
+
 /** Worker-level dispatch for the SERVER-BLIND lab data store. */
 async function handleLabData(
   url: URL,
@@ -3791,6 +3975,18 @@ export class LabRecordDO {
 
     // Enroll the genesis roster (any backfilled members) into the billing pool.
     void this.reportLabRoster(entry.roster);
+
+    // Index the head pubkey in the reverse membership KV (best-effort, non-fatal).
+    // The head is always a member of their own lab. Any backfilled genesis roster
+    // members are also indexed here so the discover endpoint works immediately
+    // after create.
+    void kvIndexAddMembership(this.env.LAB_MEMBERSHIP_INDEX, head.ed25519PublicKey, labId);
+    for (const m of entry.roster) {
+      if (typeof m.ed25519PublicKey === "string" && m.ed25519PublicKey !== head.ed25519PublicKey) {
+        void kvIndexAddMembership(this.env.LAB_MEMBERSHIP_INDEX, m.ed25519PublicKey, labId);
+      }
+    }
+
     return this.json({ ok: true }, 200);
   }
 
@@ -3934,6 +4130,28 @@ export class LabRecordDO {
     // billing pool to it (enroll joiners, remove departures) on any add/remove/
     // rotate. Best-effort and idempotent.
     void this.reportLabRoster(entry.roster);
+
+    // Update the reverse membership KV index (best-effort, non-fatal).
+    // "add" entries: index the new member's Ed25519 pubkey -> labId.
+    // "remove" entries: prune the departed member's labId from the index.
+    // "rotate" entries need no index change (roster membership is unchanged).
+    const storedLabId = this.metaGet("lab_id") ?? "";
+    if (storedLabId && entry.subject && typeof entry.subject.ed25519PublicKey === "string") {
+      if (entry.type === "add") {
+        void kvIndexAddMembership(
+          this.env.LAB_MEMBERSHIP_INDEX,
+          entry.subject.ed25519PublicKey,
+          storedLabId,
+        );
+      } else if (entry.type === "remove") {
+        void kvIndexRemoveMembership(
+          this.env.LAB_MEMBERSHIP_INDEX,
+          entry.subject.ed25519PublicKey,
+          storedLabId,
+        );
+      }
+    }
+
     return this.json({ ok: true }, 200);
   }
 
