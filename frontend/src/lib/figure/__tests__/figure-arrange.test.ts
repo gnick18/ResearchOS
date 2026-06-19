@@ -11,11 +11,20 @@ import {
   bringToFront,
   computeSnap,
   distributeElements,
+  duplicateElements,
   elementBox,
   elementsInRect,
+  flipElements,
+  groupMates,
+  isElementHidden,
+  isElementLocked,
   listElements,
   refKey,
   sendToBack,
+  setElementHidden,
+  setElementLocked,
+  setElementSize,
+  setGroupId,
   unionBox,
   type ElementRef,
 } from "@/lib/figure/figure-arrange";
@@ -162,5 +171,129 @@ describe("marquee select", () => {
     const page = pageWith([panel("in", 1, 1, 1, 1), panel("out", 9, 9, 1, 1)]);
     const hits = elementsInRect(page, { xIn: 0, yIn: 0, wIn: 3, hIn: 3 }).map(refKey);
     expect(hits).toEqual(["panel:in"]);
+  });
+});
+
+// ── QoL Tier-1 helper tests ──────────────────────────────────────────────────
+
+describe("group / ungroup", () => {
+  it("assigns a shared groupId to multiple elements", () => {
+    const page = pageWith([panel("a", 0, 0), panel("b", 1, 1)]);
+    const out = setGroupId(page, [pRef("a"), pRef("b")], "g1");
+    expect(out.panels.find((p) => p.panelId === "a")?.groupId).toBe("g1");
+    expect(out.panels.find((p) => p.panelId === "b")?.groupId).toBe("g1");
+  });
+
+  it("clears groupId when passed null", () => {
+    let page = pageWith([panel("a", 0, 0), panel("b", 1, 1)]);
+    page = setGroupId(page, [pRef("a"), pRef("b")], "g1");
+    const out = setGroupId(page, [pRef("a"), pRef("b")], null);
+    expect(out.panels.find((p) => p.panelId === "a")?.groupId).toBeUndefined();
+  });
+
+  it("groupMates returns all members sharing a groupId", () => {
+    let page = pageWith([panel("a", 0, 0), panel("b", 1, 1), panel("c", 2, 2)]);
+    page = setGroupId(page, [pRef("a"), pRef("b")], "gX");
+    const mates = groupMates(page, pRef("a")).map((r) => r.id);
+    expect(mates.sort()).toEqual(["a", "b"]);
+  });
+
+  it("groupMates returns just the element when ungrouped", () => {
+    const page = pageWith([panel("a", 0, 0), panel("b", 1, 1)]);
+    const mates = groupMates(page, pRef("a")).map((r) => r.id);
+    expect(mates).toEqual(["a"]);
+  });
+});
+
+describe("flip elements", () => {
+  it("mirrors a single panel horizontally across its own center", () => {
+    // Panel at x=1, w=2 -> center=2. After horizontal flip: newX = 2*2 - (1+2) = 1 (same position, flipX set).
+    const page = pageWith([panel("a", 1, 0, 2, 1)]);
+    const out = flipElements(page, [pRef("a")], "horizontal");
+    const p = out.panels.find((x) => x.panelId === "a")!;
+    expect(p.flipX).toBe(true);
+  });
+
+  it("mirrors two panels horizontally about their union center", () => {
+    // Panel a: x=0, w=1. Panel b: x=3, w=1. Union: x=0, w=4, center=2.
+    // After flip: a newX = 2*2 - (0+1) = 3. b newX = 2*2 - (3+1) = 0.
+    const page = pageWith([panel("a", 0, 0, 1, 1), panel("b", 3, 0, 1, 1)]);
+    const out = flipElements(page, [pRef("a"), pRef("b")], "horizontal");
+    const a = out.panels.find((p) => p.panelId === "a")!;
+    const b = out.panels.find((p) => p.panelId === "b")!;
+    expect(a.xIn).toBeCloseTo(3);
+    expect(b.xIn).toBeCloseTo(0);
+  });
+
+  it("mirrors a panel vertically", () => {
+    const page = pageWith([panel("a", 0, 1, 1, 2)]);
+    const out = flipElements(page, [pRef("a")], "vertical");
+    const p = out.panels.find((x) => x.panelId === "a")!;
+    expect(p.flipY).toBe(true);
+  });
+});
+
+describe("lock / hide", () => {
+  it("sets and reads locked on a panel", () => {
+    const page = pageWith([panel("a", 0, 0)]);
+    const locked = setElementLocked(page, pRef("a"), true);
+    expect(isElementLocked(locked, pRef("a"))).toBe(true);
+    const unlocked = setElementLocked(locked, pRef("a"), false);
+    expect(isElementLocked(unlocked, pRef("a"))).toBe(false);
+  });
+
+  it("sets and reads hidden on a panel", () => {
+    const page = pageWith([panel("a", 0, 0)]);
+    const hidden = setElementHidden(page, pRef("a"), true);
+    expect(isElementHidden(hidden, pRef("a"))).toBe(true);
+  });
+
+  it("returns false for a non-locked element", () => {
+    const page = pageWith([panel("a", 0, 0)]);
+    expect(isElementLocked(page, pRef("a"))).toBe(false);
+  });
+});
+
+describe("setElementSize", () => {
+  it("resizes a panel", () => {
+    const page = pageWith([panel("a", 0, 0, 1, 1)]);
+    const out = setElementSize(page, pRef("a"), 3, 2);
+    const p = out.panels.find((x) => x.panelId === "a")!;
+    expect(p.wIn).toBe(3);
+    expect(p.hIn).toBe(2);
+  });
+
+  it("clamps to minimum size", () => {
+    const page = pageWith([panel("a", 0, 0, 1, 1)]);
+    const out = setElementSize(page, pRef("a"), 0, -1);
+    const p = out.panels.find((x) => x.panelId === "a")!;
+    expect(p.wIn).toBe(0.1);
+    expect(p.hIn).toBe(0.1);
+  });
+});
+
+describe("duplicateElements", () => {
+  it("creates new panels with offset and fresh ids", () => {
+    const page = pageWith([panel("a", 1, 2, 3, 4)]);
+    const { page: out, newRefs } = duplicateElements(page, [pRef("a")], 0.15);
+    expect(newRefs).toHaveLength(1);
+    expect(newRefs[0].kind).toBe("panel");
+    expect(newRefs[0].id).not.toBe("a");
+    const newPanel = out.panels.find((p) => p.panelId === newRefs[0].id)!;
+    expect(newPanel.xIn).toBeCloseTo(1.15);
+    expect(newPanel.yIn).toBeCloseTo(2.15);
+    // Original panel unchanged
+    expect(out.panels.find((p) => p.panelId === "a")?.xIn).toBe(1);
+  });
+
+  it("preserves relative positions for multi-element paste", () => {
+    const page = pageWith([panel("a", 0, 0, 1, 1), panel("b", 2, 2, 1, 1)]);
+    const { page: out, newRefs } = duplicateElements(page, [pRef("a"), pRef("b")], 0.2);
+    expect(newRefs).toHaveLength(2);
+    const na = out.panels.find((p) => p.panelId === newRefs[0].id)!;
+    const nb = out.panels.find((p) => p.panelId === newRefs[1].id)!;
+    // Both offset by 0.2; relative gap preserved
+    expect(nb.xIn - na.xIn).toBeCloseTo(2);
+    expect(nb.yIn - na.yIn).toBeCloseTo(2);
   });
 });

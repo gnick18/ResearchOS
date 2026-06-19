@@ -323,7 +323,7 @@ export function elementAtPoint(page: FigurePage, xIn: number, yIn: number): Elem
   return hits.length ? hits[hits.length - 1] : null;
 }
 
-/** Refs whose box intersects a marquee rectangle (for drag-select). */
+/** Refs whose box intersect a marquee rectangle (for drag-select). */
 export function elementsInRect(page: FigurePage, rect: Box): ElementRef[] {
   const hit = (b: Box) =>
     b.xIn < rect.xIn + rect.wIn &&
@@ -334,4 +334,208 @@ export function elementsInRect(page: FigurePage, rect: Box): ElementRef[] {
     const b = elementBox(page, r);
     return b ? hit(b) : false;
   });
+}
+
+// ── QoL Tier-1 helpers ───────────────────────────────────────────────────────
+
+/**
+ * Assign a shared groupId to each of the given refs (replacing any prior
+ * group on those elements). Pass null to ungroup (clear groupId). Pure.
+ */
+export function setGroupId(page: FigurePage, refs: ElementRef[], groupId: string | null): FigurePage {
+  const ids = new Set(refs.map((r) => r.id));
+  const val = groupId ?? undefined;
+  return {
+    ...page,
+    panels: page.panels.map((p) => (ids.has(p.panelId) ? { ...p, groupId: val } : p)),
+    assets: (page.assets ?? []).map((a) => (ids.has(a.assetId) ? { ...a, groupId: val } : a)),
+    annotations: page.annotations.map((a) => (ids.has(a.annId) ? { ...a, groupId: val } : a)),
+    shapes: (page.shapes ?? []).map((s) => (ids.has(s.shapeId) ? { ...s, groupId: val } : s)),
+  };
+}
+
+/** Return all element refs that share the same groupId as the given element. */
+export function groupMates(page: FigurePage, ref: ElementRef): ElementRef[] {
+  const gid = getGroupId(page, ref);
+  if (!gid) return [ref];
+  return listElements(page).filter((r) => getGroupId(page, r) === gid);
+}
+
+function getGroupId(page: FigurePage, ref: ElementRef): string | undefined {
+  if (ref.kind === "panel") return page.panels.find((p) => p.panelId === ref.id)?.groupId;
+  if (ref.kind === "asset") return (page.assets ?? []).find((a) => a.assetId === ref.id)?.groupId;
+  if (ref.kind === "shape") return (page.shapes ?? []).find((s) => s.shapeId === ref.id)?.groupId;
+  return page.annotations.find((a) => a.annId === ref.id)?.groupId;
+}
+
+/**
+ * Flip the given elements horizontally (flipX) or vertically (flipY) about
+ * their collective union-box center. For non-resizable annotations the flip
+ * bit is set but position is unchanged (the render path will mirror). Pure.
+ */
+export function flipElements(
+  page: FigurePage,
+  refs: ElementRef[],
+  axis: "horizontal" | "vertical",
+): FigurePage {
+  const u = unionBox(page, refs);
+  if (!u) return page;
+  const centerX = u.xIn + u.wIn / 2;
+  const centerY = u.yIn + u.hIn / 2;
+
+  let next = page;
+  for (const ref of refs) {
+    const b = elementBox(page, ref);
+    if (!b) continue;
+    if (axis === "horizontal") {
+      // Mirror the element's left edge: newX = 2 * centerX - (oldX + oldW)
+      const newX = 2 * centerX - (b.xIn + b.wIn);
+      next = _setFlipX(setElementTopLeft(next, ref, newX, b.yIn), ref, true);
+    } else {
+      const newY = 2 * centerY - (b.yIn + b.hIn);
+      next = _setFlipY(setElementTopLeft(next, ref, b.xIn, newY), ref, true);
+    }
+  }
+  return next;
+}
+
+function _setFlipX(page: FigurePage, ref: ElementRef, flipX: boolean): FigurePage {
+  if (ref.kind === "panel")
+    return { ...page, panels: page.panels.map((p) => (p.panelId === ref.id ? { ...p, flipX } : p)) };
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, flipX } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, flipX } : s)) };
+  return { ...page, annotations: page.annotations.map((a) => (a.annId === ref.id ? { ...a, flipX } : a)) };
+}
+
+function _setFlipY(page: FigurePage, ref: ElementRef, flipY: boolean): FigurePage {
+  if (ref.kind === "panel")
+    return { ...page, panels: page.panels.map((p) => (p.panelId === ref.id ? { ...p, flipY } : p)) };
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, flipY } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, flipY } : s)) };
+  return { ...page, annotations: page.annotations.map((a) => (a.annId === ref.id ? { ...a, flipY } : a)) };
+}
+
+/** Set locked state on an element. Locked elements ignore pointer events. */
+export function setElementLocked(page: FigurePage, ref: ElementRef, locked: boolean): FigurePage {
+  if (ref.kind === "panel")
+    return { ...page, panels: page.panels.map((p) => (p.panelId === ref.id ? { ...p, locked } : p)) };
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, locked } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, locked } : s)) };
+  return { ...page, annotations: page.annotations.map((a) => (a.annId === ref.id ? { ...a, locked } : a)) };
+}
+
+/** Set hidden state on an element. Hidden elements are not rendered or exported. */
+export function setElementHidden(page: FigurePage, ref: ElementRef, hidden: boolean): FigurePage {
+  if (ref.kind === "panel")
+    return { ...page, panels: page.panels.map((p) => (p.panelId === ref.id ? { ...p, hidden } : p)) };
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, hidden } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, hidden } : s)) };
+  return { ...page, annotations: page.annotations.map((a) => (a.annId === ref.id ? { ...a, hidden } : a)) };
+}
+
+/** Read the locked state of any element. */
+export function isElementLocked(page: FigurePage, ref: ElementRef): boolean {
+  if (ref.kind === "panel") return !!page.panels.find((p) => p.panelId === ref.id)?.locked;
+  if (ref.kind === "asset") return !!(page.assets ?? []).find((a) => a.assetId === ref.id)?.locked;
+  if (ref.kind === "shape") return !!(page.shapes ?? []).find((s) => s.shapeId === ref.id)?.locked;
+  return !!page.annotations.find((a) => a.annId === ref.id)?.locked;
+}
+
+/** Read the hidden state of any element. */
+export function isElementHidden(page: FigurePage, ref: ElementRef): boolean {
+  if (ref.kind === "panel") return !!page.panels.find((p) => p.panelId === ref.id)?.hidden;
+  if (ref.kind === "asset") return !!(page.assets ?? []).find((a) => a.assetId === ref.id)?.hidden;
+  if (ref.kind === "shape") return !!(page.shapes ?? []).find((s) => s.shapeId === ref.id)?.hidden;
+  return !!page.annotations.find((a) => a.annId === ref.id)?.hidden;
+}
+
+/**
+ * Set the size (wIn, hIn) of a box-shaped element (panels, assets, shapes).
+ * Annotations are not resizable this way and are returned unchanged.
+ */
+export function setElementSize(
+  page: FigurePage,
+  ref: ElementRef,
+  wIn: number,
+  hIn: number,
+): FigurePage {
+  const w = Math.max(0.1, wIn);
+  const h = Math.max(0.1, hIn);
+  if (ref.kind === "panel")
+    return { ...page, panels: page.panels.map((p) => (p.panelId === ref.id ? { ...p, wIn: w, hIn: h } : p)) };
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, wIn: w, hIn: h } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, wIn: w, hIn: h } : s)) };
+  return page;
+}
+
+/**
+ * Set the rotation (degrees, clockwise) of an element. Only applies to
+ * asset and shape elements (panels have no rotation field).
+ */
+export function setElementRotation(page: FigurePage, ref: ElementRef, deg: number): FigurePage {
+  if (ref.kind === "asset")
+    return { ...page, assets: (page.assets ?? []).map((a) => (a.assetId === ref.id ? { ...a, rotation: deg } : a)) };
+  if (ref.kind === "shape")
+    return { ...page, shapes: (page.shapes ?? []).map((s) => (s.shapeId === ref.id ? { ...s, rotation: deg } : s)) };
+  return page;
+}
+
+/**
+ * Deep-copy one or more elements, offset by (+offsetIn, +offsetIn), and
+ * return the new page plus the new element refs (which become the new selection).
+ * New ids are generated with a nanosecond-style stamp to avoid collision.
+ */
+export function duplicateElements(
+  page: FigurePage,
+  refs: ElementRef[],
+  offsetIn = 0.15,
+): { page: FigurePage; newRefs: ElementRef[] } {
+  const stamp = Date.now().toString(36);
+  let next = page;
+  const newRefs: ElementRef[] = [];
+
+  for (let i = 0; i < refs.length; i++) {
+    const ref = refs[i];
+    const suffix = `${stamp}-${i}`;
+    if (ref.kind === "panel") {
+      const src = page.panels.find((p) => p.panelId === ref.id);
+      if (!src) continue;
+      const newId = `pc-${suffix}`;
+      next = { ...next, panels: [...next.panels, { ...src, panelId: newId, xIn: src.xIn + offsetIn, yIn: src.yIn + offsetIn }] };
+      newRefs.push({ kind: "panel", id: newId });
+    } else if (ref.kind === "asset") {
+      const src = (page.assets ?? []).find((a) => a.assetId === ref.id);
+      if (!src) continue;
+      const newId = `ac-${suffix}`;
+      next = { ...next, assets: [...(next.assets ?? []), { ...src, assetId: newId, xIn: src.xIn + offsetIn, yIn: src.yIn + offsetIn }] };
+      newRefs.push({ kind: "asset", id: newId });
+    } else if (ref.kind === "shape") {
+      const src = (page.shapes ?? []).find((s) => s.shapeId === ref.id);
+      if (!src) continue;
+      const newId = `sc-${suffix}`;
+      next = { ...next, shapes: [...(next.shapes ?? []), { ...src, shapeId: newId, xIn: src.xIn + offsetIn, yIn: src.yIn + offsetIn }] };
+      newRefs.push({ kind: "shape", id: newId });
+    } else if (ref.kind === "annotation") {
+      const src = page.annotations.find((a) => a.annId === ref.id);
+      if (!src) continue;
+      const newId = `annc-${suffix}`;
+      if (src.kind === "arrow") {
+        next = { ...next, annotations: [...next.annotations, { ...src, annId: newId, x1In: src.x1In + offsetIn, y1In: src.y1In + offsetIn, x2In: src.x2In + offsetIn, y2In: src.y2In + offsetIn }] };
+      } else {
+        next = { ...next, annotations: [...next.annotations, { ...src, annId: newId, xIn: src.xIn + offsetIn, yIn: src.yIn + offsetIn }] };
+      }
+      newRefs.push({ kind: "annotation", id: newId });
+    }
+  }
+  return { page: next, newRefs };
 }

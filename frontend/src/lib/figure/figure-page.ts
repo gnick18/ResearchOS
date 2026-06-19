@@ -42,6 +42,17 @@ export interface FigurePanel {
   overrides?: PanelOverride;
   /** Per-panel content style (recolor / hide elements, source-specific options). */
   style?: PanelStyle;
+  // ── QoL Tier-1 additions (all optional, defaults preserve old docs) ──────
+  /** Shared group tag (flat, no nesting). Absent = ungrouped. */
+  groupId?: string;
+  /** Mirror horizontally about the element center. */
+  flipX?: boolean;
+  /** Mirror vertically about the element center. */
+  flipY?: boolean;
+  /** Locked elements cannot be selected, moved, or resized. */
+  locked?: boolean;
+  /** Hidden elements are not rendered on the canvas and excluded from export. */
+  hidden?: boolean;
 }
 
 /** Semantic text styles (Heading / Label / Body), the science-text presets. */
@@ -53,9 +64,23 @@ export const TEXT_VARIANT_WEIGHT: Record<TextVariant, number> = {
   body: 400,
 };
 
+/** Shared QoL Tier-1 fields on every element kind. */
+export interface ElementQoL {
+  /** Shared group tag (flat, no nesting). Absent = ungrouped. */
+  groupId?: string;
+  /** Mirror horizontally about the element center. */
+  flipX?: boolean;
+  /** Mirror vertically about the element center. */
+  flipY?: boolean;
+  /** Locked elements cannot be selected, moved, or resized. */
+  locked?: boolean;
+  /** Hidden elements are not rendered on the canvas and excluded from export. */
+  hidden?: boolean;
+}
+
 /** The 3-tool annotation set (Text, Arrow with head toggle, Bracket with label). */
 export type Annotation =
-  | {
+  | ({
       annId: string;
       kind: "text";
       xIn: number;
@@ -64,8 +89,8 @@ export type Annotation =
       fontPt: number;
       /** Semantic style. Absent on legacy text annotations (treated as label). */
       variant?: TextVariant;
-    }
-  | {
+    } & ElementQoL)
+  | ({
       annId: string;
       kind: "arrow";
       x1In: number;
@@ -74,8 +99,8 @@ export type Annotation =
       y2In: number;
       /** 0 heads = a plain line, 1 = arrow, 2 = double arrow. */
       heads: 0 | 1 | 2;
-    }
-  | {
+    } & ElementQoL)
+  | ({
       annId: string;
       kind: "bracket";
       xIn: number;
@@ -84,7 +109,7 @@ export type Annotation =
       orientation: "horizontal" | "vertical";
       /** Empty = a grouping bracket; "**" / "p = 0.03" = a significance marker. */
       label?: string;
-    };
+    } & ElementQoL);
 
 /**
  * A placed library asset (a science icon / illustration from the open-asset
@@ -114,6 +139,17 @@ export interface PlacedAsset {
   credit: string;
   /** Whether the license requires the credit be shown (CC-BY / SA / MIT / BSD). */
   requiresAttribution: boolean;
+  // ── QoL Tier-1 additions (all optional, defaults preserve old docs) ──────
+  /** Shared group tag (flat, no nesting). Absent = ungrouped. */
+  groupId?: string;
+  /** Mirror horizontally about the element center. */
+  flipX?: boolean;
+  /** Mirror vertically about the element center. */
+  flipY?: boolean;
+  /** Locked elements cannot be selected, moved, or resized. */
+  locked?: boolean;
+  /** Hidden elements are not rendered on the canvas and excluded from export. */
+  hidden?: boolean;
 }
 
 // ── Smart connectors (Phase 2) ────────────────────────────────────────────────
@@ -447,6 +483,26 @@ export function pageAssets(page: FigurePage): PlacedAsset[] {
   return page.assets ?? [];
 }
 
+/** Every placed asset that is not hidden (used for canvas render). */
+export function visibleAssets(page: FigurePage): PlacedAsset[] {
+  return pageAssets(page).filter((a) => !a.hidden);
+}
+
+/** Every panel that is not hidden (used for canvas render). */
+export function visiblePanels(page: FigurePage): FigurePanel[] {
+  return page.panels.filter((p) => !p.hidden);
+}
+
+/** Every annotation that is not hidden (used for canvas render). */
+export function visibleAnnotations(page: FigurePage): Annotation[] {
+  return page.annotations.filter((a) => !a.hidden);
+}
+
+/** Every shape that is not hidden (used for canvas render). */
+export function visibleShapes(page: FigurePage): FigureShape[] {
+  return pageShapes(page).filter((s) => !s.hidden);
+}
+
 // ── Connector model helpers ───────────────────────────────────────────────────
 
 export function pageConnectors(page: FigurePage): Connector[] {
@@ -472,6 +528,19 @@ export interface FigureShape {
   stroke: string;
   /** Stroke width in points. */
   strokeWPt: number;
+  /** Clockwise rotation in degrees (0 = upright). */
+  rotation?: number;
+  // ── QoL Tier-1 additions (all optional, defaults preserve old docs) ──────
+  /** Shared group tag (flat, no nesting). Absent = ungrouped. */
+  groupId?: string;
+  /** Mirror horizontally about the element center. */
+  flipX?: boolean;
+  /** Mirror vertically about the element center. */
+  flipY?: boolean;
+  /** Locked elements cannot be selected, moved, or resized. */
+  locked?: boolean;
+  /** Hidden elements are not rendered on the canvas and excluded from export. */
+  hidden?: boolean;
 }
 
 export function pageShapes(page: FigurePage): FigureShape[] {

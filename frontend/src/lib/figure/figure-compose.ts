@@ -20,6 +20,33 @@ import {
   pageShapes,
   TEXT_VARIANT_WEIGHT,
 } from "@/lib/figure/figure-page";
+
+/**
+ * Build an SVG transform string that applies clockwise rotation and optional
+ * horizontal/vertical flip, all about the element's own center. Returns ""
+ * when no transform is needed (pure helper, shared by export + canvas layers).
+ */
+export function elementTransform(
+  px: number,
+  py: number,
+  pw: number,
+  ph: number,
+  opts: { rotation?: number; flipX?: boolean; flipY?: boolean },
+): string {
+  const cx = px + pw / 2;
+  const cy = py + ph / 2;
+  const parts: string[] = [];
+  if (opts.rotation) parts.push(`rotate(${opts.rotation} ${cx.toFixed(2)} ${cy.toFixed(2)})`);
+  const sx = opts.flipX ? -1 : 1;
+  const sy = opts.flipY ? -1 : 1;
+  if (sx !== 1 || sy !== 1) {
+    // Translate to center, scale, translate back.
+    parts.push(
+      `translate(${cx.toFixed(2)} ${cy.toFixed(2)}) scale(${sx} ${sy}) translate(${(-cx).toFixed(2)} ${(-cy).toFixed(2)})`,
+    );
+  }
+  return parts.join(" ");
+}
 import { missingPanelSvg } from "@/lib/figure/figure-source";
 import { connectorEndpoints, connectorPath, type Point } from "@/lib/figure/figure-connectors";
 
@@ -208,7 +235,7 @@ export function recolorPlacedAsset(svg: string, a: PlacedAsset): string {
 
 /**
  * Place an asset SVG as a nested viewport at (px, py) sized (pw, ph), with an
- * optional single-tint and clockwise rotation about its own center. Reuses
+ * optional tint, clockwise rotation, and H/V flip about its own center. Reuses
  * placeSvg for the viewport so the asset's own viewBox handles internal scaling.
  */
 function placeAssetSvg(a: PlacedAsset, svg: string, ppi: number): string {
@@ -218,10 +245,9 @@ function placeAssetSvg(a: PlacedAsset, svg: string, ppi: number): string {
   const ph = a.hIn * ppi;
   const tinted = recolorPlacedAsset(svg, a);
   const inner = placeSvg(tinted, px, py, pw, ph);
-  if (!a.rotation) return inner;
-  const cx = (px + pw / 2).toFixed(2);
-  const cy = (py + ph / 2).toFixed(2);
-  return `<g transform="rotate(${a.rotation} ${cx} ${cy})">${inner}</g>`;
+  const tf = elementTransform(px, py, pw, ph, { rotation: a.rotation, flipX: a.flipX, flipY: a.flipY });
+  if (!tf) return inner;
+  return `<g transform="${tf}">${inner}</g>`;
 }
 
 /**
@@ -233,32 +259,38 @@ export function annotationLayerSvg(page: FigurePage, ppi: number): string {
   const { wIn, hIn } = pageSizeIn(page);
   const W = (wIn * ppi).toFixed(1);
   const H = (hIn * ppi).toFixed(1);
-  const body = page.annotations.map((a) => annotationToSvg(a, ppi)).join("");
+  const body = page.annotations.filter((a) => !a.hidden).map((a) => annotationToSvg(a, ppi)).join("");
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" ` +
     `viewBox="0 0 ${W} ${H}">${annotationDefs()}${body}</svg>`
   );
 }
 
-/** Shapes (rectangles / ellipses) as SVG, in page coordinates. */
+/** Shapes (rectangles / ellipses) as SVG, in page coordinates. Skips hidden shapes. */
 export function shapesToSvg(page: FigurePage, ppi: number): string {
   return pageShapes(page)
+    .filter((s) => !s.hidden)
     .map((s) => {
       const fill = s.fill === "none" ? "none" : s.fill;
       const stroke = s.stroke === "none" ? "none" : s.stroke;
       const sw = ((s.strokeWPt * ppi) / 72).toFixed(2);
       const common = `fill="${fill}" stroke="${stroke}" stroke-width="${sw}"`;
+      const px = s.xIn * ppi;
+      const py = s.yIn * ppi;
+      const pw = s.wIn * ppi;
+      const ph = s.hIn * ppi;
+      const tf = elementTransform(px, py, pw, ph, { rotation: s.rotation, flipX: s.flipX, flipY: s.flipY });
+      let shape: string;
       if (s.kind === "ellipse") {
-        const cx = (s.xIn * ppi + (s.wIn * ppi) / 2).toFixed(1);
-        const cy = (s.yIn * ppi + (s.hIn * ppi) / 2).toFixed(1);
-        const rx = ((s.wIn * ppi) / 2).toFixed(1);
-        const ry = ((s.hIn * ppi) / 2).toFixed(1);
-        return `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${common}/>`;
+        const cx = (px + pw / 2).toFixed(1);
+        const cy = (py + ph / 2).toFixed(1);
+        const rx = (pw / 2).toFixed(1);
+        const ry = (ph / 2).toFixed(1);
+        shape = `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" ${common}/>`;
+      } else {
+        shape = `<rect x="${px.toFixed(1)}" y="${py.toFixed(1)}" width="${pw.toFixed(1)}" height="${ph.toFixed(1)}" rx="2" ${common}/>`;
       }
-      return (
-        `<rect x="${(s.xIn * ppi).toFixed(1)}" y="${(s.yIn * ppi).toFixed(1)}" ` +
-        `width="${(s.wIn * ppi).toFixed(1)}" height="${(s.hIn * ppi).toFixed(1)}" rx="2" ${common}/>`
-      );
+      return tf ? `<g transform="${tf}">${shape}</g>` : shape;
     })
     .join("");
 }
@@ -352,15 +384,18 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
   // Shapes (rectangles / ellipses), below the panels as backgrounds.
   parts.push(shapesToSvg(page, ppi));
 
-  // Panels, each as a positioned nested viewport, plus its label.
+  // Panels, each as a positioned nested viewport, plus its label. Skip hidden.
   const labelPx = Math.max(9, 0.16 * ppi);
   for (const p of page.panels) {
+    if (p.hidden) continue;
     const px = p.xIn * ppi;
     const py = p.yIn * ppi;
     const pw = p.wIn * ppi;
     const ph = p.hIn * ppi;
     const svg = opts.panelSvgs.get(p.panelId) ?? missingPanelSvg(p.wIn, p.hIn).svg;
-    parts.push(placeSvg(svg, px, py, pw, ph));
+    const placed = placeSvg(svg, px, py, pw, ph);
+    const tf = elementTransform(px, py, pw, ph, { flipX: p.flipX, flipY: p.flipY });
+    parts.push(tf ? `<g transform="${tf}">${placed}</g>` : placed);
     const lab = labels.get(p.panelId);
     if (lab) {
       parts.push(
@@ -370,10 +405,11 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
     }
   }
 
-  // Placed-asset layer (icons / illustrations), above panels, below annotations.
+  // Placed-asset layer (icons / illustrations), above panels, below annotations. Skip hidden.
   const assetSvgs = opts.assetSvgs;
   if (assetSvgs) {
     for (const a of pageAssets(page)) {
+      if (a.hidden) continue;
       const svg = assetSvgs.get(a.assetId);
       if (svg) parts.push(placeAssetSvg(a, svg, ppi));
     }
@@ -382,8 +418,9 @@ export function composeFigurePageSvg(page: FigurePage, opts: ComposeOpts): strin
   // Smart-connector layer (element-anchored), above panels + icons.
   parts.push(connectorsToSvg(page, ppi, { interactive: false }));
 
-  // Annotation layer (page coordinates), drawn by the shared renderer.
+  // Annotation layer (page coordinates), drawn by the shared renderer. Skip hidden.
   for (const a of page.annotations) {
+    if (a.hidden) continue;
     parts.push(annotationToSvg(a, ppi));
   }
 

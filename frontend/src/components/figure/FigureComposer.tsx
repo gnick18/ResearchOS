@@ -56,6 +56,10 @@ import {
   removeConnector,
   updateConnector,
   pruneConnectors,
+  visiblePanels,
+  visibleAssets,
+  visibleShapes,
+  visibleAnnotations,
 } from "@/lib/figure/figure-page";
 import { elementAnchors, nearestSide, type Point } from "@/lib/figure/figure-connectors";
 import {
@@ -77,7 +81,18 @@ import {
   sendToBack,
   bringForward,
   sendBackward,
+  setGroupId,
+  groupMates,
+  flipElements,
+  setElementLocked,
+  setElementHidden,
+  isElementLocked,
+  isElementHidden,
+  setElementSize,
+  setElementRotation,
+  duplicateElements,
 } from "@/lib/figure/figure-arrange";
+import { elementTransform } from "@/lib/figure/figure-compose";
 import {
   getFigureSource,
   listFigureSources,
@@ -199,6 +214,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // Group drag: move every selected element together from a snapshot of the page
   // at press time (so deltas stay absolute and snapping has a stable base).
   const groupDrag = useRef<null | { base: FigurePage; refs: ElementRef[]; sx: number; sy: number }>(null);
+  // In-app clipboard (copy/paste). Not the OS clipboard; keeps full element data.
+  const clipboard = useRef<ElementRef[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -342,6 +359,97 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     });
   }, []);
 
+  // ── Keyboard shortcuts ────────────────────────────────────────────────────
+  // Cmd/Ctrl+C = copy, +V = paste, +D = duplicate, +G = group,
+  // +Shift+G = ungroup, Delete/Backspace = delete selection, +Z = undo.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const meta = e.metaKey || e.ctrlKey;
+      // Don't steal from text inputs.
+      const tag = (e.target as Element).tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || (e.target as HTMLElement).isContentEditable) return;
+
+      if (meta && e.key === "z" && !e.shiftKey) {
+        e.preventDefault();
+        doUndo();
+        return;
+      }
+
+      // Copy
+      if (meta && e.key === "c") {
+        if (selection.length > 0) {
+          clipboard.current = [...selection];
+        }
+        return;
+      }
+
+      // Paste (offset by +12px at current scale = ~0.125 in)
+      if (meta && e.key === "v") {
+        if (clipboard.current.length === 0 || !page) return;
+        e.preventDefault();
+        const PASTE_OFFSET = 0.15;
+        mutate((p) => {
+          const { page: next, newRefs } = duplicateElements(p, clipboard.current, PASTE_OFFSET);
+          // Update clipboard so repeated paste cascades
+          clipboard.current = newRefs;
+          return next;
+        }, true);
+        return;
+      }
+
+      // Duplicate in place (+offset)
+      if (meta && e.key === "d") {
+        if (selection.length === 0 || !page) return;
+        e.preventDefault();
+        let newRefs: ElementRef[] = [];
+        mutate((p) => {
+          const result = duplicateElements(p, selection, 0.15);
+          newRefs = result.newRefs;
+          return result.page;
+        }, true);
+        // Update selection after state flush (use a ref trick)
+        setTimeout(() => setSelection(newRefs), 0);
+        return;
+      }
+
+      // Group
+      if (meta && e.key === "g" && !e.shiftKey) {
+        if (selection.length < 2) return;
+        e.preventDefault();
+        const gid = `g${Date.now().toString(36)}`;
+        mutate((p) => setGroupId(p, selection, gid), true);
+        return;
+      }
+
+      // Ungroup
+      if (meta && e.key === "g" && e.shiftKey) {
+        if (selection.length === 0) return;
+        e.preventDefault();
+        mutate((p) => setGroupId(p, selection, null), true);
+        return;
+      }
+
+      // Delete / Backspace = delete selection
+      if ((e.key === "Delete" || e.key === "Backspace") && selection.length > 0) {
+        e.preventDefault();
+        mutate((p) => {
+          let next = p;
+          for (const ref of selection) {
+            if (ref.kind === "panel") next = pruneConnectors(removePanel(next, ref.id));
+            else if (ref.kind === "asset") next = pruneConnectors(removePlacedAsset(next, ref.id));
+            else if (ref.kind === "shape") next = pruneConnectors(removeShape(next, ref.id));
+            else if (ref.kind === "annotation") next = pruneConnectors(removeAnnotation(next, ref.id));
+          }
+          return next;
+        }, true);
+        clearSel();
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [selection, page, doUndo, mutate]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Pixel scale: fit the page into a ~560px tall stage.
   const scale = useMemo(() => {
     if (!page) return SCREEN_DPI;
@@ -369,11 +477,18 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   // Select on press: shift toggles into the multi-selection; a plain click on an
   // element already in a multi-selection KEEPS the group (so it can be dragged
-  // together), otherwise it selects only that element.
+  // together), otherwise it selects only that element. Clicking any member of a
+  // groupId group auto-selects the whole group.
   const pressSelect = (ref: ElementRef, e: React.MouseEvent) => {
+    if (!page) return;
     setSelectedConn(null);
-    if (e.shiftKey) selectRef(ref, true);
-    else if (!isSelectedRef(ref)) setSelection([ref]);
+    if (e.shiftKey) {
+      selectRef(ref, true);
+    } else if (!isSelectedRef(ref)) {
+      // Auto-expand to group mates.
+      const mates = groupMates(page, ref);
+      setSelection(mates);
+    }
   };
 
   // If a plain (non-resize, non-shift) press lands on an element that is part of a
@@ -389,6 +504,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     e.preventDefault();
     e.stopPropagation();
     const ref: ElementRef = { kind: "panel", id };
+    if (page && isElementLocked(page, ref)) { pressSelect(ref, e); return; }
     if (maybeGroupDrag(ref, e, resize)) return;
     pressSelect(ref, e);
     const p = page?.panels.find((x) => x.panelId === id);
@@ -400,6 +516,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     e.preventDefault();
     e.stopPropagation();
     const ref: ElementRef = { kind: "asset", id };
+    if (page && isElementLocked(page, ref)) { pressSelect(ref, e); return; }
     if (maybeGroupDrag(ref, e, resize)) return;
     pressSelect(ref, e);
     const a = page ? pageAssets(page).find((x) => x.assetId === id) : undefined;
@@ -411,6 +528,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     e.preventDefault();
     e.stopPropagation();
     const ref: ElementRef = { kind: "shape", id };
+    if (page && isElementLocked(page, ref)) { pressSelect(ref, e); return; }
     if (maybeGroupDrag(ref, e, resize)) return;
     pressSelect(ref, e);
     const s = page ? pageShapes(page).find((x) => x.shapeId === id) : undefined;
@@ -716,6 +834,40 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     URL.revokeObjectURL(url);
   }, [page, panelSvgs, assetSvgs]);
 
+  // PNG export at 300 dpi: rasterize the composed SVG via an offscreen canvas.
+  // No new dependency: uses the browser's built-in Image + canvas.drawImage.
+  // TODO PDF: no PDF library found in package.json (jspdf / pdf-lib / pdfkit absent).
+  //   Add one via "pnpm add jspdf" and wrap composeFigurePageSvg output to enable.
+  const exportPng = useCallback(() => {
+    if (!page) return;
+    const DPI = 300;
+    const { wIn, hIn } = pageSizeIn(page);
+    const svgStr = composeFigurePageSvg(page, { pxPerInch: DPI, panelSvgs, assetSvgs });
+    const blob = new Blob([svgStr], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(wIn * DPI);
+      canvas.height = Math.round(hIn * DPI);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) { URL.revokeObjectURL(url); return; }
+      ctx.drawImage(img, 0, 0);
+      URL.revokeObjectURL(url);
+      canvas.toBlob((pngBlob) => {
+        if (!pngBlob) return;
+        const pngUrl = URL.createObjectURL(pngBlob);
+        const a = document.createElement("a");
+        a.href = pngUrl;
+        a.download = `${page.name || "figure"}.png`;
+        a.click();
+        URL.revokeObjectURL(pngUrl);
+      }, "image/png");
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
+  }, [page, panelSvgs, assetSvgs]);
+
   if (loadState === "missing") {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 p-8 text-center">
@@ -760,20 +912,22 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // Layers panel: every element, front-most first (top of the list = front).
   const layerItems: LayerItem[] = [...listElements(page)].reverse().map((ref) => {
     if (ref.kind === "panel") {
+      const p = page.panels.find((x) => x.panelId === ref.id);
       const lab = labels.get(ref.id);
-      return { ref, label: lab ? `Panel ${lab}` : "Panel", icon: "figure" };
+      return { ref, label: lab ? `Panel ${lab}` : "Panel", icon: "figure" as const, locked: p?.locked, hidden: p?.hidden };
     }
     if (ref.kind === "asset") {
-      return { ref, label: "Icon", icon: "library" };
+      const a = pageAssets(page).find((x) => x.assetId === ref.id);
+      return { ref, label: "Icon", icon: "library" as const, locked: a?.locked, hidden: a?.hidden };
     }
     if (ref.kind === "shape") {
       const s = pageShapes(page).find((x) => x.shapeId === ref.id);
-      return { ref, label: s?.kind === "ellipse" ? "Ellipse" : "Rectangle", icon: "pencil" };
+      return { ref, label: s?.kind === "ellipse" ? "Ellipse" : "Rectangle", icon: "pencil" as const, locked: s?.locked, hidden: s?.hidden };
     }
     const a = page.annotations.find((x) => x.annId === ref.id);
     const label =
       a?.kind === "text" ? a.text || "Text" : a?.kind === "arrow" ? "Arrow" : "Bracket";
-    return { ref, label, icon: a?.kind === "text" ? "text" : "annotate" };
+    return { ref, label, icon: (a?.kind === "text" ? "text" : "annotate") as "text" | "annotate", locked: a?.locked, hidden: a?.hidden };
   });
   const selectedKeys = new Set(selection.map((r) => `${r.kind}:${r.id}`));
 
@@ -795,6 +949,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
     e.preventDefault();
     e.stopPropagation();
     const ref: ElementRef = { kind: "annotation", id };
+    if (page && isElementLocked(page, ref)) { pressSelect(ref, e); return; }
     if (maybeGroupDrag(ref, e, false)) return;
     pressSelect(ref, e);
     annDrag.current = { id, sx: e.clientX, sy: e.clientY };
@@ -949,6 +1104,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           onReorderLayer={(ref, dir) =>
             mutate((p) => (dir === "up" ? bringForward(p, ref) : sendBackward(p, ref)), true)
           }
+          onToggleLock={(ref) =>
+            mutate((p) => setElementLocked(p, ref, !isElementLocked(p, ref)), true)
+          }
+          onToggleHide={(ref) =>
+            mutate((p) => setElementHidden(p, ref, !isElementHidden(p, ref)), true)
+          }
           onAddShape={placeShape}
           onUseTemplate={(t) => mutate((p) => applyTemplateSized(p, t, wIn, hIn), true)}
         />
@@ -1028,6 +1189,48 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             >
               Back
             </button>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <Tooltip label="Flip horizontal (mirror across vertical axis)">
+              <button
+                type="button"
+                onClick={() => mutate((p) => flipElements(p, selection, "horizontal"), true)}
+                className={ARRANGE_BTN}
+              >
+                Flip H
+              </button>
+            </Tooltip>
+            <Tooltip label="Flip vertical (mirror across horizontal axis)">
+              <button
+                type="button"
+                onClick={() => mutate((p) => flipElements(p, selection, "vertical"), true)}
+                className={ARRANGE_BTN}
+              >
+                Flip V
+              </button>
+            </Tooltip>
+            <span className="mx-1 h-4 w-px bg-border" />
+            <Tooltip label="Group selected elements (Cmd+G). Clicking any group member selects all.">
+              <button
+                type="button"
+                disabled={selection.length < 2}
+                onClick={() => {
+                  const gid = `g${Date.now().toString(36)}`;
+                  mutate((p) => setGroupId(p, selection, gid), true);
+                }}
+                className={ARRANGE_BTN}
+              >
+                Group
+              </button>
+            </Tooltip>
+            <Tooltip label="Ungroup selected elements (Cmd+Shift+G)">
+              <button
+                type="button"
+                onClick={() => mutate((p) => setGroupId(p, selection, null), true)}
+                className={ARRANGE_BTN}
+              >
+                Ungroup
+              </button>
+            </Tooltip>
           </div>
         )}
         {/* Shared pan/zoom viewport (same component the Phylo Studio + Data Hub use):
@@ -1058,29 +1261,38 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           }}
         >
           {/* Shapes layer (rectangles / ellipses), below panels as backgrounds. */}
-          {pageShapes(page).map((s) => {
-            const sel = isSelectedRef({ kind: "shape", id: s.shapeId });
+          {visibleShapes(page).map((s) => {
+            const ref: ElementRef = { kind: "shape", id: s.shapeId };
+            const sel = isSelectedRef(ref);
+            const locked = !!s.locked;
+            const px = s.xIn * scale;
+            const py = s.yIn * scale;
+            const pw = s.wIn * scale;
+            const ph = s.hIn * scale;
+            const tf = elementTransform(px, py, pw, ph, { rotation: s.rotation, flipX: s.flipX, flipY: s.flipY });
             return (
               <div
                 key={s.shapeId}
                 className={`absolute ${s.kind === "ellipse" ? "rounded-full" : "rounded-sm"} ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
                 style={{
-                  left: s.xIn * scale,
-                  top: s.yIn * scale,
-                  width: s.wIn * scale,
-                  height: s.hIn * scale,
+                  left: px,
+                  top: py,
+                  width: pw,
+                  height: ph,
                   background: s.fill === "none" ? "transparent" : s.fill,
                   border:
                     s.stroke === "none"
                       ? undefined
                       : `${Math.max(1, (s.strokeWPt * scale) / 72)}px solid ${s.stroke}`,
-                  cursor: "grab",
+                  cursor: locked ? "default" : "grab",
+                  transform: tf || undefined,
+                  opacity: locked ? 0.7 : 1,
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => onShapeDown(e, s.shapeId, false)}
                 data-testid="figure-shape"
               >
-                {selection.length === 1 && sel && (
+                {selection.length === 1 && sel && !locked && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -1090,19 +1302,28 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
               </div>
             );
           })}
-          {page.panels.map((p) => {
-            const sel = isSelectedRef({ kind: "panel", id: p.panelId });
+          {visiblePanels(page).map((p) => {
+            const ref: ElementRef = { kind: "panel", id: p.panelId };
+            const sel = isSelectedRef(ref);
+            const locked = !!p.locked;
             const lab = labels.get(p.panelId);
+            const px = p.xIn * scale;
+            const py = p.yIn * scale;
+            const pw = p.wIn * scale;
+            const ph = p.hIn * scale;
+            const tf = elementTransform(px, py, pw, ph, { flipX: p.flipX, flipY: p.flipY });
             return (
               <div
                 key={p.panelId}
                 className={`absolute overflow-hidden ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
                 style={{
-                  left: p.xIn * scale,
-                  top: p.yIn * scale,
-                  width: p.wIn * scale,
-                  height: p.hIn * scale,
-                  cursor: "grab",
+                  left: px,
+                  top: py,
+                  width: pw,
+                  height: ph,
+                  cursor: locked ? "default" : "grab",
+                  transform: tf || undefined,
+                  opacity: locked ? 0.7 : 1,
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => onPanelDown(e, p.panelId, false)}
@@ -1122,7 +1343,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     {lab}
                   </span>
                 )}
-                {selection.length === 1 && sel && (
+                {selection.length === 1 && sel && !locked && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -1143,21 +1364,29 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             )}
 
           {/* Placed library assets (icons), draggable + resizable, above panels. */}
-          {pageAssets(page).map((a) => {
-            const sel = isSelectedRef({ kind: "asset", id: a.assetId });
+          {visibleAssets(page).map((a) => {
+            const ref: ElementRef = { kind: "asset", id: a.assetId };
+            const sel = isSelectedRef(ref);
+            const locked = !!a.locked;
             const raw = assetSvgs.get(a.assetId) ?? "";
             const display = raw ? recolorPlacedAsset(raw, a) : raw;
+            const px = a.xIn * scale;
+            const py = a.yIn * scale;
+            const pw = a.wIn * scale;
+            const ph = a.hIn * scale;
+            const tf = elementTransform(px, py, pw, ph, { rotation: a.rotation, flipX: a.flipX, flipY: a.flipY });
             return (
               <div
                 key={a.assetId}
                 className={`absolute ${sel ? "outline outline-2 outline-brand-action" : "outline outline-1 outline-transparent hover:outline-border-strong"}`}
                 style={{
-                  left: a.xIn * scale,
-                  top: a.yIn * scale,
-                  width: a.wIn * scale,
-                  height: a.hIn * scale,
-                  cursor: "grab",
-                  transform: a.rotation ? `rotate(${a.rotation}deg)` : undefined,
+                  left: px,
+                  top: py,
+                  width: pw,
+                  height: ph,
+                  cursor: locked ? "default" : "grab",
+                  transform: tf || undefined,
+                  opacity: locked ? 0.7 : 1,
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
                 onMouseDown={(e) => onAssetDown(e, a.assetId, false)}
@@ -1167,7 +1396,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   className="pointer-events-none h-full w-full [&>svg]:h-full [&>svg]:w-full"
                   dangerouslySetInnerHTML={{ __html: display }}
                 />
-                {selection.length === 1 && sel && (
+                {selection.length === 1 && sel && !locked && (
                   <div
                     className="absolute -bottom-1.5 -right-1.5 h-3 w-3 rounded-sm border-2 border-brand-action bg-white"
                     style={{ cursor: "nwse-resize" }}
@@ -1235,9 +1464,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
           {/* Interaction targets for select + drag (only when not placing). */}
           {!tool &&
-            page.annotations.map((a) => {
+            visibleAnnotations(page).map((a) => {
               const b = annBox(a, scale);
               const sel = isSelectedRef({ kind: "annotation", id: a.annId });
+              const locked = !!a.locked;
               return (
                 <div
                   key={a.annId}
@@ -1249,9 +1479,10 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     top: b.y - 4,
                     width: b.w + 8,
                     height: b.h + 8,
-                    cursor: "move",
+                    cursor: locked ? "default" : "move",
                     borderRadius: 3,
                     border: sel ? "1px dashed #2563eb" : "1px solid transparent",
+                    opacity: locked ? 0.7 : 1,
                   }}
                 />
               );
@@ -1367,6 +1598,115 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             </div>
           </div>
         </div>
+
+        {/* Numeric transform inspector: shows for any single selected element. */}
+        {single && (() => {
+          const box = elementBox(page, single);
+          if (!box) return null;
+          const locked = isElementLocked(page, single);
+          const hidden = isElementHidden(page, single);
+          // Rotation only applies to assets and shapes.
+          const rotation =
+            single.kind === "asset"
+              ? pageAssets(page).find((a) => a.assetId === single.id)?.rotation ?? 0
+              : single.kind === "shape"
+                ? (pageShapes(page).find((s) => s.shapeId === single.id)?.rotation ?? 0)
+                : null;
+
+          const fmt = (v: number) => (Math.round(v * 1000) / 1000).toString();
+
+          const onField = (field: "x" | "y" | "w" | "h", raw: string) => {
+            const v = parseFloat(raw);
+            if (!isFinite(v)) return;
+            if (field === "x" || field === "y") {
+              const dx = field === "x" ? v - box.xIn : 0;
+              const dy = field === "y" ? v - box.yIn : 0;
+              mutate((p) => translateElement(p, single, dx, dy), true);
+            } else {
+              const wIn = field === "w" ? v : box.wIn;
+              const hIn = field === "h" ? v : box.hIn;
+              mutate((p) => setElementSize(p, single, wIn, hIn), true);
+            }
+          };
+
+          return (
+            <div className="rounded-xl border border-border p-3">
+              <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
+                Transform
+              </h3>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    ["X", "x", box.xIn],
+                    ["Y", "y", box.yIn],
+                    ["W", "w", box.wIn],
+                    ["H", "h", box.hIn],
+                  ] as [string, "x" | "y" | "w" | "h", number][]
+                ).map(([lbl, fld, val]) => (
+                  <label key={fld} className="flex items-center gap-1 text-meta text-foreground-muted">
+                    <span className="w-4 shrink-0 font-semibold">{lbl}:</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      defaultValue={fmt(val)}
+                      key={`${fld}-${fmt(val)}`}
+                      onBlur={(e) => onField(fld, e.target.value)}
+                      onKeyDown={(e) => { if (e.key === "Enter") onField(fld, (e.target as HTMLInputElement).value); }}
+                      className="w-full rounded-md border border-border bg-surface px-1.5 py-0.5 text-meta"
+                    />
+                  </label>
+                ))}
+              </div>
+              {rotation !== null && (
+                <label className="mt-1.5 flex items-center gap-1 text-meta text-foreground-muted">
+                  <span className="w-4 shrink-0 font-semibold">R:</span>
+                  <input
+                    type="number"
+                    step="1"
+                    min={0}
+                    max={360}
+                    defaultValue={Math.round(rotation)}
+                    key={`rot-${Math.round(rotation)}`}
+                    onBlur={(e) => {
+                      const v = parseFloat(e.target.value);
+                      if (isFinite(v)) mutate((p) => setElementRotation(p, single, v % 360), true);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        const v = parseFloat((e.target as HTMLInputElement).value);
+                        if (isFinite(v)) mutate((p) => setElementRotation(p, single, v % 360), true);
+                      }
+                    }}
+                    className="w-full rounded-md border border-border bg-surface px-1.5 py-0.5 text-meta"
+                  />
+                  <span className="text-[10px] text-foreground-faint">deg</span>
+                </label>
+              )}
+              <div className="mt-2 flex gap-2">
+                <Tooltip label={locked ? "Locked: click to unlock" : "Lock this element to prevent accidental moves"}>
+                  <button
+                    type="button"
+                    onClick={() => mutate((p) => setElementLocked(p, single, !locked), true)}
+                    className={`flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium ${locked ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong text-foreground-muted hover:border-brand-action"}`}
+                  >
+                    <Icon name="lock" className="h-3.5 w-3.5" />
+                    {locked ? "Locked" : "Lock"}
+                  </button>
+                </Tooltip>
+                <Tooltip label={hidden ? "Hidden: click to show on canvas and in export" : "Hide this element from the canvas and export"}>
+                  <button
+                    type="button"
+                    onClick={() => mutate((p) => setElementHidden(p, single, !hidden), true)}
+                    className={`flex items-center gap-1 rounded-md border px-2 py-1 text-meta font-medium ${hidden ? "border-brand-action bg-brand-action/10 text-brand-action" : "border-border-strong text-foreground-muted hover:border-brand-action"}`}
+                  >
+                    <Icon name={hidden ? "eyeOff" : "eye"} className="h-3.5 w-3.5" />
+                    {hidden ? "Hidden" : "Hide"}
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="rounded-xl border border-border p-3">
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
@@ -2046,16 +2386,28 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
         <div className="rounded-xl border border-border p-3">
           <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">Export</h3>
-          <button
-            type="button"
-            onClick={exportSvg}
-            className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
-            data-testid="figure-export"
-          >
-            <Icon name="download" className="h-3.5 w-3.5" /> Export page SVG
-          </button>
+          <div className="space-y-1.5">
+            <button
+              type="button"
+              onClick={exportSvg}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+              data-testid="figure-export"
+            >
+              <Icon name="download" className="h-3.5 w-3.5" /> Export SVG
+            </button>
+            <Tooltip label="Export a rasterized PNG at 300 dpi. Hidden elements are excluded.">
+              <button
+                type="button"
+                onClick={exportPng}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-border-strong px-3 py-1.5 text-meta font-semibold hover:border-brand-action"
+                data-testid="figure-export-png"
+              >
+                <Icon name="download" className="h-3.5 w-3.5" /> Export PNG (300 dpi)
+              </button>
+            </Tooltip>
+          </div>
           <p className="mt-2 text-meta text-foreground-faint">
-            {page.panels.length} panel{page.panels.length === 1 ? "" : "s"} at {wIn} x {hIn} in, one vector SVG.
+            {page.panels.length} panel{page.panels.length === 1 ? "" : "s"} at {wIn} x {hIn} in.
           </p>
           {credits.length > 0 && (
             <div className="mt-3 border-t border-border pt-2" data-testid="figure-credits">
