@@ -52,6 +52,10 @@ import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
 import LabSetupStep, { type LabSetupResult } from "@/components/lab/LabSetupStep";
 import { uploadLabLogo } from "@/lib/lab/lab-profile-client";
+import {
+  consumeLabBranding,
+  consumeLabLogo,
+} from "@/lib/onboarding/lab-branding-stash";
 
 const LAB_CREATE_MARKER = "researchos:lab-create";
 
@@ -312,14 +316,33 @@ export default function LabCreateResume() {
 
       // If the user already has a lab (idempotent re-run, e.g. a reload after a
       // prior create), take the fast path straight through provisionLab, which
-      // just ensures account_type + retries any unpublished genesis. Otherwise
-      // show the "Set up your lab" step to capture the lab identity before the
-      // first create.
+      // just ensures account_type + retries any unpublished genesis.
       const settings = await readUserSettings(currentUser);
       if (settings.lab_id) {
         await provisionLab(identity, oauthEmail);
         return;
       }
+
+      // If the wizard already captured the lab identity (PI / lab Create track),
+      // provision with it directly and do NOT re-prompt. This is the fix for the
+      // "wizard popped up again with my username" bug: the captured name was
+      // dropped, so we fell through to setPendingSetup every time. consume*
+      // read-and-clear so a later reload does not double-apply.
+      const stashed = consumeLabBranding();
+      if (stashed && stashed.labName.trim()) {
+        const logo = consumeLabLogo();
+        await provisionLab(identity, oauthEmail, {
+          labName: stashed.labName,
+          piTitle: stashed.piTitle,
+          piDisplay: stashed.piDisplay,
+          logo,
+        });
+        return;
+      }
+
+      // No captured branding (e.g. the chooser path, or a stash lost to a hard
+      // reload). Show the "Set up your lab" step to capture the lab identity
+      // before the first create.
       setPendingSetup({ identity, oauthEmail });
     })();
   }, [markerPresent, currentUser, done, retry, needEmail, pendingSetup, provisionLab]);
