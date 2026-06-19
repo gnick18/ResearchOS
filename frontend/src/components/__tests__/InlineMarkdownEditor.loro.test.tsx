@@ -1,3 +1,4 @@
+import "@/components/__tests__/prewarm-editor-chunk";
 /**
  * InlineMarkdownEditor -- Loro mode wiring tests.
  *

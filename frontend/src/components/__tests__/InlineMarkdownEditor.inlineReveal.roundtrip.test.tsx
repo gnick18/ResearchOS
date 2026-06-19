@@ -1,3 +1,4 @@
+import "@/components/__tests__/prewarm-editor-chunk";
 import { afterEach, describe, expect, it } from "vitest";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";

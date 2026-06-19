@@ -1,3 +1,4 @@
+import "@/components/__tests__/prewarm-editor-chunk";
 /**
  * Focused regression tests for the Preview embed wiring.
  *

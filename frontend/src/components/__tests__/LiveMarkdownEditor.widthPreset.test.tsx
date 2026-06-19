@@ -1,3 +1,4 @@
+import "@/components/__tests__/prewarm-editor-chunk";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
 import LiveMarkdownEditor from "../LiveMarkdownEditor";

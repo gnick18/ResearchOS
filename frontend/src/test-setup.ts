@@ -21,6 +21,29 @@ vi.mock("@/lib/markdown/cm-spellcheck/spellcheck", () => ({
   spellcheckExtension: () => [],
 }));
 
+// Also stub the underlying spellchecker. It statically imports the ~555 KB
+// scientific wordlist and is reached from several lazy paths (the CM extension
+// above, plus SpellcheckAutoSeed, the settings page, and OcrImage), each a
+// dynamic import that can resolve AFTER a fast jsdom test tears down -> the
+// flaky EnvironmentTeardownError. No component test asserts spellcheck behavior
+// (the real module is covered by the node-project spellchecker.test.ts, and
+// RenderedMarkdown.image.test stubs OcrImage), so a shaped no-op is safe and
+// removes the heavy module from every jsdom import path.
+vi.mock("@/lib/spellcheck/spellchecker", () => ({
+  getSpellChecker: () => Promise.resolve(null),
+  seedWords: async () => {},
+  setCustomWordPersister: () => {},
+  addUserWord: () => false,
+  isSpellCheckEnabled: () => false,
+  setSpellCheckEnabledLocal: () => {},
+  shouldCheckToken: () => false,
+  confidentCorrection: () => null,
+  cleanOcrText: (_checker: unknown, text: string) => ({
+    cleaned: text,
+    corrections: 0,
+  }),
+}));
+
 // jsdom 27 does not implement Blob.prototype.text() / arrayBuffer(). Our app
 // reads File contents with `file.text()` (see file-service.ts), so polyfill
 // them once at the top of every jsdom test run.
@@ -81,3 +104,21 @@ afterEach(() => {
 beforeEach(() => {
   resetVirtualFileSystem();
 });
+
+// Pre-warm the SAFE part of the markdown editor's lazy CodeMirror chunk so its
+// dynamic import() resolves from cache within a test instead of after teardown
+// (the EnvironmentTeardownError flake). These modules have no global import
+// side effects, so seeding them once per worker is harmless. We deliberately do
+// NOT pre-warm cm-inline-reveal here: it transitively loads the embed renderer
+// (ObjectEmbed), whose module-eval pollutes shared jsdom state and breaks
+// unrelated animation/embed tests. Spellcheck is handled by the stubs above.
+await Promise.all([
+  import("@codemirror/state"),
+  import("@codemirror/view"),
+  import("@codemirror/commands"),
+  import("@codemirror/lang-markdown"),
+  import("@codemirror/language"),
+  import("@codemirror/lint"),
+  import("@lezer/highlight"),
+  import("@/lib/markdown/cm-focus-mode/focus-mode"),
+]);
