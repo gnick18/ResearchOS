@@ -80,6 +80,10 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // their respective owners. Credit both so attribution + the trademark are clear.
     return `${title} logo. Devicon (MIT); logo is a trademark of its owner. ${sourceUrl}`;
   }
+  if (source === "scidraw") {
+    // SciDraw is CC-BY; credit the drawing authors + SciDraw + the DOI when present.
+    return `${title} by ${who}. SciDraw. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
 }
@@ -139,7 +143,7 @@ export function healthiconsCategory(raw) {
 const TABLER_CATEGORY = {
   Health: "Human physiology",
   Nature: "General",
-  Math: "General",
+  Math: "Math",
   Charts: "Scientific graphs",
   Computers: "Computer hardware",
   Database: "Computer hardware",
@@ -153,6 +157,25 @@ const TABLER_CATEGORY = {
 /** Returns the mapped leaf, or null when the category is not science/tech (skip). */
 export function tablerCategory(raw) {
   return TABLER_CATEGORY[raw] || null;
+}
+
+/** SciDraw category (a freeform single word like "physics", "mouse", "brain") ->
+ *  curated taxonomy leaf, by keyword. SciDraw skews physics/neuro/apparatus; the raw
+ *  word is also kept as a search tag so search works regardless of the mapping. */
+export function scidrawCategory(raw) {
+  const t = (raw || "").toLowerCase();
+  if (/physic|optic|laser|photon|detector|quantum|particle|atom|magnet|wave|circuit|electron|spin|nucle|telescope|accelerat/.test(t)) return "Physics";
+  if (/math|equation|geometr|vector|graph theory|topolog/.test(t)) return "Math";
+  if (/brain|neuro|neuron|cortex|synap/.test(t)) return "Neuroscience";
+  if (/mouse|rat|mice|rodent|mammal|primate|monkey|human body|animal/.test(t)) return "Mammals";
+  if (/cell|membrane|organelle|mitochond/.test(t)) return "Intracellular components";
+  if (/dna|rna|gene|nucleic|chromosom/.test(t)) return "Nucleic acids";
+  if (/protein|receptor|enzyme|peptide/.test(t)) return "Peptides";
+  if (/microb|bacteri|virus|pathogen/.test(t)) return "Microbiology";
+  if (/chemi|molecul|reaction|compound/.test(t)) return "Chemistry";
+  if (/apparatus|equipment|instrument|microscope|lab|syringe|tube|pipette|flask|beaker|vial|plate|dish|tip|centrifuge|cuvette|well/.test(t)) return "Lab apparatus";
+  if (/plot|chart|data/.test(t)) return "Scientific graphs";
+  return "General";
 }
 
 /**
