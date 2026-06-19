@@ -18,6 +18,7 @@ import {
   claimEvent,
   ensureBillingSchema,
   getSubscriptionByStripeId,
+  setModelAPlan,
   setPlan,
   upsertSubscription,
 } from "@/lib/billing/db";
@@ -164,7 +165,10 @@ export async function POST(request: Request): Promise<Response> {
               typeof s.customer === "string" ? s.customer : s.customer?.id ?? null;
             if (pm && customerId) {
               await setCloudPaymentMethod(ownerKey, customerId, pm);
-              if (planId) await setPlan(ownerKey, planId);
+              // planId here is a Model-A id (solo / lab), so write it directly via
+              // setModelAPlan. Routing it through setPlan (the flat catalog) would
+              // resolve to null and store free / inactive, under-charging the lab.
+              if (planId) await setModelAPlan(ownerKey, planId);
             }
           }
           break;

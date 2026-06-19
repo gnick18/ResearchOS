@@ -30,7 +30,7 @@ function fakeReader(writes: number, storageBytes: number, hostedBytes: number): 
 function makeCapSql(cap: number | null) {
   return ((strings: TemplateStringsArray) => {
     const text = strings.join(" ");
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
+    if (/CREATE TABLE|ALTER TABLE|CREATE UNIQUE INDEX/i.test(text)) return Promise.resolve([]);
     if (/SELECT monthly_cap_cents FROM cloud_balance/i.test(text)) {
       return Promise.resolve(cap == null ? [{ monthly_cap_cents: null }] : [{ monthly_cap_cents: cap }]);
     }

@@ -6,10 +6,12 @@
  * calculators, cloning, statistics, phylogenetics, published references) so the
  * reader scans the families of checks instead of one long row of tabs.
  *
- * Each item shows a status dot (green when every comparison is exact or passing,
- * amber when anything sits within a documented tolerance or larger), the domain
- * title, and a mono pass count. The selected item is highlighted with the
- * brand-action accent.
+ * Each item shows a status dot (green when every comparison is exact or within
+ * the pass tolerance, amber when the method has a documented expected or larger
+ * difference), the domain title, and the count of comparisons checked. The count
+ * is coverage, not a score, so it never reads as "N of M passed"; the dot carries
+ * the verdict and the panel explains any difference. The selected item is
+ * highlighted with the brand-action accent.
  *
  * On desktop the rail is a sticky left column. On phones it collapses to a
  * horizontal scroll strip of chips so it stays usable without a dropdown.
@@ -106,7 +108,7 @@ function RailButton({
           selected ? "text-brand-action" : "text-foreground-muted"
         }`}
       >
-        {domain.totals.pass}/{total(domain)}
+        {total(domain)}
       </span>
     </button>
   );
@@ -172,7 +174,7 @@ export default function TransparencyRail({
                           selected ? "text-brand-action" : "text-foreground-muted"
                         }`}
                       >
-                        {d.totals.pass}/{total(d)}
+                        {total(d)}
                       </span>
                     </button>
                   );

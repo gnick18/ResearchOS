@@ -46,7 +46,7 @@ function makeMockSql() {
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = strings.join(" ");
 
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) {
+    if (/CREATE TABLE|ALTER TABLE|CREATE UNIQUE INDEX/i.test(text)) {
       return Promise.resolve([]);
     }
 

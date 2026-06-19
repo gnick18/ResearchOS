@@ -17,6 +17,7 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import { FREE_ALLOWANCE_BYTES } from "./config";
 import { getActiveGrant } from "./grants";
 import { getSponsoringLab } from "./lab";
+import { getModelAPlan } from "./model-a/pricing";
 import { getPlan } from "./plans";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
@@ -332,6 +333,62 @@ export async function setPlan(ownerKey: string, planId: string): Promise<void> {
   const plan = getPlan(planId);
   const id = plan ? plan.id : "free";
   const status = plan && plan.priceCents > 0 ? "active" : "inactive";
+  await sql`
+    INSERT INTO billing_subscriptions (owner_key, plan_id, status, updated_at)
+    VALUES (${ownerKey}, ${id}, ${status}, now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      plan_id = ${id}, status = ${status}, updated_at = now()
+  `;
+}
+
+/**
+ * Activate a lab on the Model-A "lab" tier directly (Grant 2026-06-19, no-card
+ * free trial). The flat-plan setPlan() cannot do this: "lab" is a Model-A plan id,
+ * not a flat-plan catalog id, so getPlan("lab") is null and setPlan would store
+ * free/inactive. The Model-A resolver (modelAPlanForSubscription) expects
+ * plan_id = "lab" + status = "active", so we write exactly that. No Stripe object
+ * is created (Model-A labs bill off a saved card + off-session PaymentIntents, not
+ * a Stripe subscription), so this records the plan without a card. The 90-day
+ * trial timestamp lives separately on cloud_balance via startLabTrial. Idempotent
+ * on the owner key; never overwrites a row that is already on a real paid plan.
+ */
+export async function activateLabTrialSubscription(ownerKey: string): Promise<void> {
+  const sql = getSql();
+  await sql`
+    INSERT INTO billing_subscriptions (owner_key, plan_id, status, updated_at)
+    VALUES (${ownerKey}, 'lab', 'active', now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      plan_id = 'lab', status = 'active', updated_at = now()
+      WHERE billing_subscriptions.plan_id IS NULL
+         OR billing_subscriptions.plan_id = 'free'
+         OR billing_subscriptions.status <> 'active'
+  `;
+}
+
+/**
+ * Activates a Model-A plan for an owner, writing the Model-A plan id (solo / lab /
+ * dept) DIRECTLY with an active status. The Model-A card-setup webhook calls this
+ * once the saved-card Checkout completes.
+ *
+ * This is distinct from setPlan, which resolves a FLAT catalog id (plus / pro /
+ * lab_plus...). The Model-A ids are not in that catalog, so routing them through
+ * setPlan resolves getPlan() to null and writes plan_id="free" status="inactive",
+ * which makes modelAPlanForSubscription read a genuine paid lab as free (it would
+ * under-charge and mis-gate the lab). Writing the Model-A id directly is what the
+ * resolver expects (planId="lab" status="active" -> "lab"). An unknown id or the
+ * free tier writes free / inactive, so a bad value never grants paid room. Creates
+ * the row if needed.
+ */
+export async function setModelAPlan(
+  ownerKey: string,
+  modelAPlanId: string,
+): Promise<void> {
+  const sql = getSql();
+  const plan = getModelAPlan(modelAPlanId);
+  // solo / lab / dept are the paid produce tiers; free is the network audience.
+  const paid = plan.id !== "free";
+  const id = paid ? plan.id : "free";
+  const status = paid ? "active" : "inactive";
   await sql`
     INSERT INTO billing_subscriptions (owner_key, plan_id, status, updated_at)
     VALUES (${ownerKey}, ${id}, ${status}, now())

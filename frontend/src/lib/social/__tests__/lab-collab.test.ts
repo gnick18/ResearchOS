@@ -16,6 +16,8 @@ import {
   buildPiProfileDeepLink,
   buildRequestDataDeepLink,
   labMemberToRecipient,
+  labLinkBase,
+  labSamePath,
 } from "@/lib/social/lab-collab";
 import {
   DEMO_LAB_SLUG,
@@ -118,5 +120,57 @@ describe("buildRequestDataDeepLink", () => {
   it("strips a trailing slash from the origin", () => {
     const url = buildRequestDataDeepLink("https://research-os.app/", "mira");
     expect(url).toBe("https://research-os.app/u/mira?compose=request");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// labLinkBase + labSamePath (origin-aware same-origin links)
+// ---------------------------------------------------------------------------
+
+describe("labLinkBase", () => {
+  it("is empty on the subdomain (cutover live)", () => {
+    expect(labLinkBase("fakeyeast-lab", true)).toBe("");
+  });
+
+  it("is /<slug> on the app origin (cutover off)", () => {
+    expect(labLinkBase("fakeyeast-lab", false)).toBe("/fakeyeast-lab");
+  });
+});
+
+describe("labSamePath", () => {
+  it("builds slug-less links on the subdomain (linkBase empty)", () => {
+    expect(labSamePath("", "")).toBe("/");
+    expect(labSamePath("", "people")).toBe("/people");
+    expect(labSamePath("", "papers/fakeyeast-2026")).toBe(
+      "/papers/fakeyeast-2026",
+    );
+  });
+
+  it("builds slug-prefixed links on the app origin", () => {
+    expect(labSamePath("/fakeyeast-lab", "")).toBe("/fakeyeast-lab");
+    expect(labSamePath("/fakeyeast-lab", "people")).toBe(
+      "/fakeyeast-lab/people",
+    );
+    expect(labSamePath("/fakeyeast-lab", "papers/x")).toBe(
+      "/fakeyeast-lab/papers/x",
+    );
+  });
+
+  it("never doubles a slash when subPath has a leading slash", () => {
+    expect(labSamePath("/fakeyeast-lab", "/people")).toBe(
+      "/fakeyeast-lab/people",
+    );
+    expect(labSamePath("", "/people")).toBe("/people");
+  });
+
+  it("agrees with labLinkBase end to end for the demo slug", () => {
+    // Subdomain: slug-less so the proxy's slug prefix is not doubled.
+    expect(labSamePath(labLinkBase("fakeyeast-lab", true), "people")).toBe(
+      "/people",
+    );
+    // App origin: slug-prefixed so the path form resolves.
+    expect(labSamePath(labLinkBase("fakeyeast-lab", false), "people")).toBe(
+      "/fakeyeast-lab/people",
+    );
   });
 });
