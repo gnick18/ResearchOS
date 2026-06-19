@@ -14,11 +14,11 @@ in the app at /open-source.
 RUNTIME DEPENDENCIES
 ------------------------------------------------------------------------
 
-@aws-sdk/client-s3@3.1062.0
+@aws-sdk/client-s3@3.1059.0
   License: Apache-2.0
   Source:  https://github.com/aws/aws-sdk-js-v3
 
-@aws-sdk/s3-request-presigner@3.1062.0
+@aws-sdk/s3-request-presigner@3.1059.0
   License: Apache-2.0
   Source:  https://github.com/aws/aws-sdk-js-v3
 
@@ -134,11 +134,11 @@ RUNTIME DEPENDENCIES
   License: Apache-2.0
   Source:  https://github.com/stdlib-js/stats-wilcoxon
 
-@tanstack/react-query@5.90.21
+@tanstack/react-query@5.100.14
   License: MIT
   Source:  https://github.com/TanStack/query
 
-@tanstack/react-virtual@3.14.3
+@tanstack/react-virtual@3.14.2
   License: MIT
   Source:  https://github.com/TanStack/virtual
 
@@ -185,7 +185,7 @@ d3-zoom@3.0.0
   License: ISC
   Source:  https://github.com/d3/d3-zoom
 
-date-fns@4.1.0
+date-fns@4.3.0
   License: MIT
   Source:  https://github.com/date-fns/date-fns
 
@@ -209,7 +209,7 @@ fflate@0.8.3
   License: MIT
   Source:  https://github.com/101arrowz/fflate
 
-frappe-gantt@1.0.4
+frappe-gantt@1.2.2
   License: MIT
   Source:  https://github.com/frappe/gantt
 
@@ -217,9 +217,13 @@ ical.js@2.2.1
   License: MPL-2.0
   Source:  https://github.com/kewisch/ical.js
 
-idb-keyval@6.2.2
+idb-keyval@6.2.4
   License: Apache-2.0
   Source:  https://github.com/jakearchibald/idb-keyval
+
+jspdf@4.2.1
+  License: MIT
+  Source:  https://github.com/parallax/jsPDF
 
 jstat@1.9.6
   License: MIT
@@ -229,15 +233,15 @@ jszip@3.10.1
   License: (MIT OR GPL-3.0-or-later)
   Source:  https://github.com/Stuk/jszip
 
-ketcher-core@3.14.0
+ketcher-core@3.12.0
   License: Apache-2.0
   Source:  https://github.com/epam/ketcher
 
-ketcher-react@3.14.0
+ketcher-react@3.12.0
   License: Apache-2.0
   Source:  https://github.com/epam/ketcher
 
-ketcher-standalone@3.14.0
+ketcher-standalone@3.12.0
   License: Apache-2.0
   Source:  https://github.com/epam/ketcher
 
@@ -253,7 +257,7 @@ loro-crdt@1.12.3
   License: MIT
   Source:  https://github.com/loro-dev/loro
 
-marked@18.0.3
+marked@18.0.4
   License: MIT
   Source:  https://github.com/markedjs/marked
 
@@ -341,6 +345,10 @@ stripe@22.2.0
   License: MIT
   Source:  https://github.com/stripe/stripe-node
 
+svg2pdf.js@2.7.0
+  License: MIT
+  Source:  https://github.com/yWorks/svg2pdf.js
+
 turndown@7.2.4
   License: MIT
   Source:  https://github.com/mixmark-io/turndown
@@ -349,7 +357,7 @@ unified@11.0.5
   License: MIT
   Source:  https://github.com/unifiedjs/unified
 
-zustand@5.0.11
+zustand@5.0.13
   License: MIT
   Source:  https://github.com/pmndrs/zustand
 
