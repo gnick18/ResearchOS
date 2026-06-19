@@ -57,3 +57,17 @@ describe("recolorPlacedAsset precedence", () => {
     expect(recolorPlacedAsset(multi, asset({ fillTints: {} }))).toBe(multi); // empty map = raw
   });
 });
+
+describe("recolorPlacedAsset brand-logo guard", () => {
+  it("returns a logo unchanged even with a whole tint", () => {
+    expect(recolorPlacedAsset(multi, asset({ isLogo: true, tint: "#777" }))).toBe(multi);
+  });
+  it("returns a logo unchanged even with a per-fill map", () => {
+    expect(
+      recolorPlacedAsset(multi, asset({ isLogo: true, fillTints: { "#ff0000": "#abcabc" } })),
+    ).toBe(multi);
+  });
+  it("still recolors a normal (non-logo) asset, proving the guard is logo-specific", () => {
+    expect(recolorPlacedAsset(multi, asset({ tint: "#777" }))).toContain(`fill="#777"`);
+  });
+});

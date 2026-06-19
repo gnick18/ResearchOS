@@ -812,6 +812,7 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
         svgPath: asset.svgPath,
         credit: asset.credit,
         requiresAttribution: asset.requiresAttribution,
+        isLogo: asset.isLogo,
       },
       Math.max(0, Math.min(wIn - sizeIn, xIn)),
       Math.max(0, Math.min(hIn - sizeIn, yIn)),
@@ -1511,8 +1512,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                     onClick={() =>
                       mutate((p) => {
                         let np = p;
-                        for (const id of selAssetIds)
+                        for (const id of selAssetIds) {
+                          // Brand logos keep their original colors; never bulk-recolor them.
+                          const placed = pageAssets(p).find((x) => x.assetId === id);
+                          if (placed?.isLogo) continue;
                           np = updatePlacedAsset(np, id, { tint: c || undefined, fillTints: undefined });
+                        }
                         return np;
                       }, true)
                     }
@@ -1853,6 +1858,13 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             <h3 className="mb-2 text-meta font-bold uppercase tracking-wide text-foreground-faint">
               Selected icon
             </h3>
+            {/* Brand logos keep their original colors, so the recolor UI is hidden. */}
+            {selectedAssetObj.isLogo ? (
+              <p className="mb-2 text-meta text-foreground-faint">
+                Brand logo. Colors are locked to preserve the trademark. You can place, resize, rotate, and flip it.
+              </p>
+            ) : (
+              <>
             {/* Recolor: whole-icon single tint, or per-fill (multi-part) recolor. */}
             <div className="mb-2 flex overflow-hidden rounded-lg border border-border-strong text-meta">
               {(["whole", "part"] as const).map((m) => (
@@ -1944,6 +1956,8 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
                   </div>
                 );
               })()
+            )}
+              </>
             )}
             <label className="mt-3 flex items-center justify-between gap-2 text-meta text-foreground-muted">
               <span>Rotate</span>

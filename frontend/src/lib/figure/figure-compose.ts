@@ -201,6 +201,7 @@ export function extractFills(svg: string): string[] {
 
 /** The display SVG for a placed asset: per-fill recolor, else whole tint, else raw. */
 export function recolorPlacedAsset(svg: string, a: PlacedAsset): string {
+  if (a.isLogo) return svg; // trademark logos keep their original brand colors
   if (a.fillTints && Object.keys(a.fillTints).length > 0) return tintSvg(svg, a.fillTints);
   if (a.tint) return tintSvg(svg, a.tint);
   return svg;
