@@ -51,6 +51,31 @@ function frame(type: number, payload: Uint8Array): Uint8Array {
 }
 
 // ---------------------------------------------------------------------------
+// [freeze-diag] OBSERVE-ONLY relay-rate instrumentation (2026-06-18).
+//
+// Diagnostic for a reported ~90s main-thread freeze in the Loro Lab Notes
+// editor on prod. The relay path is a prime suspect: notebook notes auto-mint a
+// collab_doc_id, so a relay provider runs on prod that demo/OPFS never does.
+// This adds pure per-provider counters + a throttled console.warn around the
+// inbound MSG_DOC_UPDATE handler and doc.getAllChanges(). It introduces NO
+// throttling/debouncing/early-return and does not change a single sync path; it
+// only logs when the per-second rate exceeds ~20 (never reached in normal use).
+//
+// changeCount is the TOTAL number of changes across all peers (summing the
+// already-materialized change arrays is O(peers), not O(total changes), so the
+// counter itself does not add the cost we are hunting). It tells us whether the
+// freeze scales with the total change count, i.e. an O(total changes) traversal.
+// ---------------------------------------------------------------------------
+/** Sum change counts across peers in a getAllChanges() result. O(peers). */
+function freezeDiagTotalChanges(
+  allChanges: Map<unknown, { length: number }[]>,
+): number {
+  let n = 0;
+  for (const changes of allChanges.values()) n += changes.length;
+  return n;
+}
+
+// ---------------------------------------------------------------------------
 // CollabTransport interface.
 // ---------------------------------------------------------------------------
 
@@ -85,6 +110,12 @@ export interface CollabProviderOptions {
   ephemeral: EphemeralStore;
   /** The transport that carries plaintext frames to/from the relay. */
   transport: CollabTransport;
+  /**
+   * [freeze-diag] OPTIONAL, observe-only: the collab session/doc id, used solely
+   * to label the diagnostic console.warn lines so a reproduced freeze names the
+   * exact note. Has no effect on sync behavior; omitted in unit tests.
+   */
+  docId?: string;
   /**
    * Called the FIRST TIME a remote peer's doc commit arrives via doc.import.
    *
@@ -131,6 +162,36 @@ export interface CollabProvider {
 export function createCollabProvider(opts: CollabProviderOptions): CollabProvider {
   const { doc, ephemeral, transport, onFirstRemotePeer, onSyncBlocked } = opts;
 
+  // [freeze-diag] OBSERVE-ONLY per-provider relay-rate counters. Sliding 1000ms
+  // windows of inbound MSG_DOC_UPDATE frames and getAllChanges() calls, with a
+  // throttled warn. No effect on sync; see the freeze-diag note above frame().
+  const freezeDiagId = opts.docId ?? doc.peerIdStr;
+  const freezeDiagInbound: number[] = [];
+  const freezeDiagGac: number[] = [];
+  let freezeDiagLastWarn = 0;
+  let freezeDiagLastChangeCount = 0;
+  const freezeDiagMaybeWarn = (): void => {
+    if (typeof performance === "undefined") return;
+    const now = performance.now();
+    while (freezeDiagInbound.length > 0 && now - freezeDiagInbound[0] > 1000) {
+      freezeDiagInbound.shift();
+    }
+    while (freezeDiagGac.length > 0 && now - freezeDiagGac[0] > 1000) {
+      freezeDiagGac.shift();
+    }
+    if (
+      (freezeDiagInbound.length > 20 || freezeDiagGac.length > 20) &&
+      now - freezeDiagLastWarn > 500
+    ) {
+      freezeDiagLastWarn = now;
+      console.warn(
+        `[freeze-diag] relay inbound ${freezeDiagInbound.length}/s, ` +
+          `getAllChanges ${freezeDiagGac.length}/s, ` +
+          `changeCount=${freezeDiagLastChangeCount}; docId=${freezeDiagId}`,
+      );
+    }
+  };
+
   // Track which remote peer IDs we have already reported so the callback fires
   // at most once per peer per provider instance.
   const reportedRemotePeers = new Set<string>();
@@ -157,11 +218,28 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
     const payload = rawFrame.subarray(1);
 
     if (type === MSG_DOC_UPDATE) {
+      // [freeze-diag] OBSERVE-ONLY: count this inbound doc-update frame.
+      if (typeof performance !== "undefined") {
+        freezeDiagInbound.push(performance.now());
+      }
+
       // Snapshot the known peer ids BEFORE the import so we can detect a
       // genuinely new remote peer (for version-history attribution).
-      const knownPeersBefore = onFirstRemotePeer
-        ? new Set<string>(doc.getAllChanges().keys())
-        : null;
+      // [freeze-diag] reuse the single getAllChanges() result for both the
+      // peer-id set (existing behavior) and the observe-only change-count
+      // counter; this is the same one call, not an added traversal.
+      let knownPeersBefore: Set<string> | null = null;
+      if (onFirstRemotePeer) {
+        const allChanges = doc.getAllChanges();
+        knownPeersBefore = new Set<string>(allChanges.keys());
+        if (typeof performance !== "undefined") {
+          freezeDiagGac.push(performance.now());
+          freezeDiagLastChangeCount = freezeDiagTotalChanges(
+            allChanges as unknown as Map<unknown, { length: number }[]>,
+          );
+        }
+      }
+      freezeDiagMaybeWarn();
 
       // CRDT-merge the remote update. Idempotent; does NOT fire our own
       // subscribeLocalUpdates. A malformed/corrupt frame makes doc.import throw,
@@ -221,6 +299,10 @@ export function createCollabProvider(opts: CollabProviderOptions): CollabProvide
   // catch-up frame, so both directions converge. Loro merges are idempotent, so
   // re-sending already-known ops is safe and cheap.
   transport.onOpen(() => {
+    // [freeze-diag] OBSERVE-ONLY: one line per relay session open so a
+    // reproduced freeze confirms whether the frozen note even had a relay
+    // session. Not throttled (fires at most once per connect). No behavior change.
+    console.warn(`[freeze-diag] relay session opened for docId=${freezeDiagId}`);
     transport.send(frame(MSG_DOC_UPDATE, doc.export({ mode: "update" })));
   });
 
