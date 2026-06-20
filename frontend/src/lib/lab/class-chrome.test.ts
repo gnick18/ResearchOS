@@ -4,11 +4,13 @@ import {
   overviewLabel,
   buildLabLensItems,
   filterResearcherItems,
+  filterClassStudentNav,
   wholeAudienceCopy,
   CLASS_HIDDEN_PI_HREFS,
   CLASS_HIDDEN_NAV_HREFS,
   CLASS_MATERIALS_HREF,
 } from "./class-chrome";
+import { resolveClassStudentNav } from "./class-dashboard";
 import type { NavItem } from "../nav";
 
 // A representative base nav as AppShell hands it to the lab-lens builder:
@@ -182,5 +184,38 @@ describe("solo / member parity (no lab lens)", () => {
   it("leaves a member tab set untouched when class mode is off", () => {
     const member: NavItem[] = BASE.filter((i) => i.href !== "/");
     expect(filterResearcherItems(member, false)).toBe(member);
+  });
+});
+
+describe("filterClassStudentNav (CT-6 student slim)", () => {
+  const RESEARCHER: NavItem[] = BASE.filter((i) => i.href !== "/");
+
+  it("keeps only the coursework-default allowlist for a class student", () => {
+    const allowed = resolveClassStudentNav(null);
+    const out = hrefs(filterClassStudentNav(RESEARCHER, allowed));
+    // Kept: home + science tools that are in the default.
+    expect(out).toContain("/workbench");
+    expect(out).toContain("/methods");
+    expect(out).toContain("/sequences");
+    expect(out).toContain("/datahub");
+    expect(out).toContain("/calendar");
+    // Hidden by default: research-only + the unmentioned tools.
+    expect(out).not.toContain("/purchases");
+    expect(out).not.toContain("/phylo");
+  });
+
+  it("honors the instructor's expanded allowlist", () => {
+    const allowed = resolveClassStudentNav({ rev: 1, nav: ["/phylo", "/purchases"] });
+    const out = hrefs(filterClassStudentNav(RESEARCHER, allowed));
+    expect(out).toContain("/phylo"); // instructor turned it on
+    expect(out).toContain("/purchases");
+    expect(out).toContain("/workbench"); // home always kept
+    expect(out).not.toContain("/methods"); // not chosen
+  });
+
+  it("never drops the workbench even with an empty instructor allowlist", () => {
+    const allowed = resolveClassStudentNav({ rev: 2, nav: [] });
+    const out = hrefs(filterClassStudentNav(RESEARCHER, allowed));
+    expect(out).toEqual(["/workbench"]);
   });
 });

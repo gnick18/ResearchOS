@@ -30,6 +30,7 @@ import {
 import {
   resolveClassDashboard,
   defaultResolvedClassDashboard,
+  resolveClassStudentNav,
   type ResolvedClassDashboard,
 } from "@/lib/lab/class-dashboard";
 import { readCachedClassDashboard } from "@/lib/lab/class-dashboard-store";
@@ -42,12 +43,19 @@ export interface UseClassDashboardResult {
   resolved: ResolvedClassDashboard;
   /** True iff this folder is a class with a published template forcing the view. */
   isForced: boolean;
+  /**
+   * CT-6: the set of top-nav hrefs a class STUDENT may see (resolveClassStudentNav).
+   * The coursework default when no template names a nav allowlist. The AppShell
+   * applies this ONLY for a class student; every other consumer ignores it.
+   */
+  studentNav: ReadonlySet<string>;
 }
 
 const DEFAULT_RESULT: UseClassDashboardResult = {
   ready: true,
   resolved: defaultResolvedClassDashboard(),
   isForced: false,
+  studentNav: resolveClassStudentNav(null),
 };
 
 export function useClassDashboard(
@@ -83,7 +91,12 @@ export function useClassDashboard(
         const template = await readCachedClassDashboard();
         if (cancelled) return;
         const resolved = resolveClassDashboard(template);
-        setResult({ ready: true, resolved, isForced: template != null });
+        setResult({
+          ready: true,
+          resolved,
+          isForced: template != null,
+          studentNav: resolveClassStudentNav(template),
+        });
       } catch (err) {
         // Never gate the workbench on a failed read; fall back to the default.
         console.warn("[useClassDashboard] read failed", err);

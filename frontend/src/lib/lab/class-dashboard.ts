@@ -102,8 +102,87 @@ export interface ClassDashboard {
   enabledMethodTypes?: string[];
   /** CT-3: the create-time visibility default for student-authored records. */
   visibilityDefault?: "collaborative" | "private";
+  /**
+   * CT-6: the student TOP-NAV allowlist (hrefs the instructor lets students see).
+   * ABSENT = the coursework default (CLASS_STUDENT_NAV_DEFAULT, less-is-more). A
+   * PRESENT array is the instructor's exact choice. /workbench is ALWAYS kept by
+   * the resolver so a student is never stranded with no home (no soft-lock), and
+   * hiding a screen from the nav never gates its ROUTE, so a direct link still
+   * works. Mirrors the absent-is-default contract of `tabs`/`enabledTools`.
+   */
+  nav?: string[];
   /** Monotonic author revision. */
   rev: number;
+}
+
+// ---------------------------------------------------------------------------
+// CT-6: the student top-nav allowlist.
+// ---------------------------------------------------------------------------
+
+/**
+ * The coursework default student top-nav (less is more): the screens that make
+ * sense in a classroom out of the box. /workbench (their home + Assignments tab)
+ * plus the science tools a course uses. Everything else (GANTT, Purchases,
+ * Inventory, Links, Figures, Phylo, Network, ...) is hidden by default and the
+ * instructor turns it on per class. This is only a STARTING POINT, the instructor
+ * tunes it via the class dashboard.
+ */
+export const CLASS_STUDENT_NAV_DEFAULT: readonly string[] = [
+  "/workbench",
+  "/methods",
+  "/sequences",
+  "/chemistry",
+  "/datahub",
+  "/figures",
+  "/calendar",
+];
+
+/**
+ * The screens an instructor can toggle for students in the class dashboard.
+ * /workbench is NOT listed because it is always on (the student's home). Labels
+ * mirror NAV_ITEMS. The default-checked set is whichever of these is in
+ * CLASS_STUDENT_NAV_DEFAULT.
+ */
+export const CLASS_STUDENT_NAV_CHOICES: readonly { href: string; label: string }[] = [
+  { href: "/methods", label: "Methods" },
+  { href: "/sequences", label: "Sequences" },
+  { href: "/chemistry", label: "Chemistry" },
+  { href: "/datahub", label: "Data Hub" },
+  { href: "/phylo", label: "Phylogenetics" },
+  { href: "/figures", label: "Figures" },
+  { href: "/library", label: "Icon Library" },
+  { href: "/calendar", label: "Calendar" },
+  { href: "/gantt", label: "GANTT" },
+  { href: "/inventory", label: "Inventory" },
+  { href: "/purchases", label: "Purchases" },
+  { href: "/links", label: "Links" },
+];
+
+/**
+ * Resolve the set of top-nav hrefs a class STUDENT may see, from the template.
+ *
+ *  - ABSENT `nav` => the coursework default (CLASS_STUDENT_NAV_DEFAULT).
+ *  - PRESENT `nav` => exactly those hrefs (the instructor's choice), with
+ *    /workbench force-added so the student always keeps their home.
+ *
+ * The caller filters the rendered nav by membership in this set. Hiding a screen
+ * here is a NAV-visibility choice only, never a route gate, so the no-soft-locks
+ * rule holds (a hidden screen stays reachable by URL, and the instructor can flip
+ * it back on). Pure + synchronous, like resolveClassDashboard.
+ */
+export function resolveClassStudentNav(
+  template: ClassDashboard | null | undefined,
+): ReadonlySet<string> {
+  if (template != null && Array.isArray(template.nav)) {
+    const set = new Set<string>();
+    for (const href of template.nav) {
+      if (typeof href === "string" && href.length > 0) set.add(href);
+    }
+    // Never hide the student's home (no soft-lock onto an empty nav).
+    set.add("/workbench");
+    return set;
+  }
+  return new Set(CLASS_STUDENT_NAV_DEFAULT);
 }
 
 /**

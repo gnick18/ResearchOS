@@ -48,6 +48,9 @@ interface ToolbarProps {
   // Keyed by composite `${owner}:${id}` so a shared project and an own
   // project with the same numeric id keep distinct colors.
   projectColors?: Record<string, string>;
+  /** Show the "+ Goal" button. Default true; the class-mode Gantt passes false
+   *  because high-level (research lab) goals have no classroom meaning. */
+  showGoalButton?: boolean;
 }
 
 // Composite key for the projectColors lookup. Mirrors the helper in
@@ -60,6 +63,7 @@ export default function Toolbar({
   onCreateTask,
   onCreateGoal,
   projectColors,
+  showGoalButton = true,
 }: ToolbarProps) {
   const viewMode = useAppStore((s) => s.viewMode);
   const setViewMode = useAppStore((s) => s.setViewMode);
@@ -551,7 +555,9 @@ export default function Toolbar({
         ))}
       </div>
 
-      {/* Add goal button */}
+      {/* Add goal button. Hidden in class mode (high-level lab goals have no
+          classroom meaning). */}
+      {showGoalButton && (
       <button
         onClick={onCreateGoal}
         data-tour-target="gantt-goals-button"
@@ -564,6 +570,7 @@ export default function Toolbar({
         </svg>
         Goal
       </button>
+      )}
 
       {/* Add task button */}
       <button
