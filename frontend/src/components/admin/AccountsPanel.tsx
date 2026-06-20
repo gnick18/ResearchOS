@@ -2,21 +2,32 @@
 
 // Operator Accounts panel (rendered in the /admin OperatorShell).
 //
-// Lists every registered solo user, lab, and department/institution, each with a
-// guarded full-account-wipe. Clicking "Wipe account" opens a LivingPopup that
-// FIRST runs the wipe-preview (a dry run) and shows the exact per-table row
-// counts plus whether a saved Stripe card will be deleted, then requires a
-// second confirm click to commit. On success it shows an inline result line and
-// refetches the roster. The endpoints are gated on ADMIN_EMAILS, so a non
-// operator simply never sees data here.
+// Lists every registered solo user, lab, and department/institution. Each row
+// has two operator actions:
+//
+//   1. Wipe account: a small, muted trash icon that opens a LivingPopup with a
+//      dry-run preview and a second confirm click before committing. The trigger
+//      is intentionally compact so it reads as a last-resort tool, not a
+//      primary action. The full confirm guard is unchanged.
+//
+//   2. Gift premium: a small gift icon that opens a compact picker scoped to
+//      that row's ownerKey. Default tier matches the row kind (Solo/Lab/Dept)
+//      but the operator can change it. Months is required when a tier is chosen
+//      (no permanent comps, decision 3, Grant 2026-06-19). Posts directly by
+//      ownerKey so there is no email lookup.
+//
+// The endpoints are gated on ADMIN_EMAILS, so a non-operator never sees data.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons. Icons via Icon.
 
 import { useCallback, useEffect, useState } from "react";
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { StatCard } from "@/components/admin/AdminMetrics";
+
+type GiftTier = "solo" | "lab" | "dept";
 
 interface SoloRow {
   ownerKey: string;
@@ -70,6 +81,13 @@ type WipeKey =
   | { kind: "dept"; deptId: string; label: string }
   | { kind: "institution"; institutionId: string; label: string };
 
+/** What the row-level gift picker needs. */
+interface GiftTarget {
+  ownerKey: string;
+  label: string;
+  defaultTier: GiftTier;
+}
+
 function fmtDate(iso: string | null): string {
   return iso ? iso.slice(0, 10) : "unknown";
 }
@@ -83,7 +101,8 @@ function wipeBody(key: WipeKey): Record<string, string> {
 export default function AccountsPanel() {
   const [roster, setRoster] = useState<Roster | null>(null);
   const [loadError, setLoadError] = useState(false);
-  const [target, setTarget] = useState<WipeKey | null>(null);
+  const [wipeTarget, setWipeTarget] = useState<WipeKey | null>(null);
+  const [giftTarget, setGiftTarget] = useState<GiftTarget | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -106,7 +125,7 @@ export default function AccountsPanel() {
   }, [load]);
 
   const onWiped = useCallback(() => {
-    setTarget(null);
+    setWipeTarget(null);
     void load();
   }, [load]);
 
@@ -147,9 +166,11 @@ export default function AccountsPanel() {
           label: r.label,
           meta: `${r.plan === "free" ? "Free" : "Solo"} . created ${fmtDate(r.createdAt)}`,
           hasCard: r.hasCard,
-          key: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
+          wipeKey: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
+          giftTarget: { ownerKey: r.ownerKey, label: r.label, defaultTier: "solo" as GiftTier },
         }))}
-        onWipe={setTarget}
+        onWipe={setWipeTarget}
+        onGift={setGiftTarget}
       />
 
       <RosterTable
@@ -161,9 +182,11 @@ export default function AccountsPanel() {
           label: r.label,
           meta: `${r.memberCount} member${r.memberCount === 1 ? "" : "s"} . created ${fmtDate(r.createdAt)}`,
           hasCard: r.hasCard,
-          key: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
+          wipeKey: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
+          giftTarget: { ownerKey: r.ownerKey, label: r.label, defaultTier: "lab" as GiftTier },
         }))}
-        onWipe={setTarget}
+        onWipe={setWipeTarget}
+        onGift={setGiftTarget}
       />
 
       <RosterTable
@@ -175,14 +198,25 @@ export default function AccountsPanel() {
           label: r.label,
           meta: `${r.kind === "dept" ? "Department" : "Institution"} . ${r.memberCount} member${r.memberCount === 1 ? "" : "s"} . created ${fmtDate(r.createdAt)}`,
           hasCard: r.hasCard,
-          key: (r.kind === "dept"
+          wipeKey: (r.kind === "dept"
             ? { kind: "dept", deptId: r.id, label: r.label }
             : { kind: "institution", institutionId: r.id, label: r.label }) as WipeKey,
+          giftTarget: { ownerKey: r.id, label: r.label, defaultTier: "dept" as GiftTier },
         }))}
-        onWipe={setTarget}
+        onWipe={setWipeTarget}
+        onGift={setGiftTarget}
       />
 
-      <WipeConfirm target={target} onClose={() => setTarget(null)} onWiped={onWiped} />
+      <WipeConfirm
+        target={wipeTarget}
+        onClose={() => setWipeTarget(null)}
+        onWiped={onWiped}
+      />
+
+      <RowGiftPopup
+        target={giftTarget}
+        onClose={() => setGiftTarget(null)}
+      />
     </div>
   );
 }
@@ -194,7 +228,8 @@ interface DisplayRow {
   label: string;
   meta: string;
   hasCard: boolean;
-  key: WipeKey;
+  wipeKey: WipeKey;
+  giftTarget: GiftTarget;
 }
 
 function RosterTable({
@@ -203,12 +238,14 @@ function RosterTable({
   empty,
   rows,
   onWipe,
+  onGift,
 }: {
   title: string;
   icon: "users" | "labTree" | "library";
   empty: string;
   rows: DisplayRow[];
   onWipe: (key: WipeKey) => void;
+  onGift: (target: GiftTarget) => void;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-surface-raised p-5">
@@ -235,14 +272,33 @@ function RosterTable({
                   {r.hasCard ? " . saved card on file" : ""}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={() => onWipe(r.key)}
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-1.5 text-meta font-semibold text-rose-700 transition-colors hover:bg-rose-100"
-              >
-                <Icon name="trash" className="h-3.5 w-3.5" />
-                Wipe account
-              </button>
+
+              {/* Row-level operator actions: gift (primary) + wipe (muted). */}
+              <div className="flex shrink-0 items-center gap-1">
+                {/* Gift premium: opens the tier+months picker for this row. */}
+                <Tooltip label="Gift premium" placement="top">
+                  <button
+                    type="button"
+                    onClick={() => onGift(r.giftTarget)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-violet-50 hover:text-violet-700"
+                  >
+                    <Icon name="star" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+
+                {/* Wipe account: compact, muted by default so it reads as a
+                    last-resort tool. Danger color appears only on hover. The
+                    full LivingPopup typed-confirm guard is unchanged. */}
+                <Tooltip label="Wipe account" placement="top">
+                  <button
+                    type="button"
+                    onClick={() => onWipe(r.wipeKey)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-rose-50 hover:text-rose-600"
+                  >
+                    <Icon name="trash" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+              </div>
             </li>
           ))}
         </ul>
@@ -471,6 +527,259 @@ function WipeConfirm({
                   className="rounded-lg bg-foreground px-3.5 py-2 text-body font-semibold text-surface-raised transition-colors hover:opacity-90"
                 >
                   Done
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </LivingPopup>
+  );
+}
+
+// ── Per-row gift picker ───────────────────────────────────────────────────────
+
+const GIFT_TIER_OPTIONS: { value: GiftTier; label: string }[] = [
+  { value: "solo", label: "Solo" },
+  { value: "lab", label: "Lab" },
+  { value: "dept", label: "Dept" },
+];
+
+type GiftPhase =
+  | { state: "idle" }
+  | { state: "busy" }
+  | { state: "done" }
+  | { state: "error"; message: string };
+
+function RowGiftPopup({
+  target,
+  onClose,
+}: {
+  target: GiftTarget | null;
+  onClose: () => void;
+}) {
+  const [tier, setTier] = useState<GiftTier>("solo");
+  const [months, setMonths] = useState("");
+  const [gb, setGb] = useState("");
+  const [writesM, setWritesM] = useState("");
+  const [phase, setPhase] = useState<GiftPhase>({ state: "idle" });
+
+  // Reset form fields whenever the target's ownerKey changes (a new row was
+  // clicked). Keying on ownerKey means opening the same row twice is a no-op,
+  // which avoids wiping in-progress edits on an accidental second click.
+  const targetKey = target?.ownerKey ?? null;
+  useEffect(() => {
+    if (!target) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting form fields when a new roster row opens the picker; target is an operator-only popup, not a progressive page
+    setTier(target.defaultTier);
+    setMonths("");
+    setGb("");
+    setWritesM("");
+    setPhase({ state: "idle" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on targetKey, not the full target object
+  }, [targetKey]);
+
+  // Months is always required because a tier is always selected (the picker
+  // never has an empty-tier option). The tier value is always a GiftTier.
+  const tierRequiresMonths = !months;
+  const canIssue =
+    target !== null &&
+    !tierRequiresMonths &&
+    phase.state !== "busy";
+
+  const issue = useCallback(async () => {
+    if (!target) return;
+    setPhase({ state: "busy" });
+    try {
+      const res = await fetch("/api/admin/grants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ownerKey: target.ownerKey,
+          giftTier: tier,
+          months: months ? Number(months) : undefined,
+          bonusGb: Number(gb || 0),
+          bonusWritesMillions: Number(writesM || 0),
+        }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setPhase({ state: "error", message: j.error ?? "Gift failed." });
+        return;
+      }
+      setPhase({ state: "done" });
+    } catch {
+      setPhase({ state: "error", message: "Gift failed. Try again." });
+    }
+  }, [target, tier, months, gb, writesM]);
+
+  const open = target !== null;
+
+  return (
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Gift premium"
+      widthClassName="max-w-sm"
+      card
+      padded
+      blur
+    >
+      {target && (
+        <div>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-violet-100 text-violet-700">
+              <Icon name="star" className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-title font-semibold text-foreground">
+                Gift premium
+              </h2>
+              <p className="truncate text-meta text-foreground-muted">
+                {target.label}
+              </p>
+            </div>
+          </div>
+
+          {phase.state === "done" ? (
+            <>
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-body font-semibold text-emerald-800">
+                  Gift issued
+                </p>
+                <p className="mt-1 text-meta text-emerald-700">
+                  The {GIFT_TIER_OPTIONS.find((o) => o.value === tier)?.label} tier
+                  comp for {months} month{Number(months) === 1 ? "" : "s"} is now
+                  active for {target.label}.
+                </p>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg bg-foreground px-3.5 py-2 text-body font-semibold text-surface-raised transition-colors hover:opacity-90"
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="mt-4 space-y-3">
+                {/* Comped tier */}
+                <label className="block text-meta text-foreground-muted">
+                  <span className="block font-medium uppercase tracking-wide">
+                    Comped tier
+                  </span>
+                  <select
+                    value={tier}
+                    disabled={phase.state === "busy"}
+                    onChange={(e) => setTier(e.target.value as GiftTier)}
+                    className="mt-1 w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
+                  >
+                    {GIFT_TIER_OPTIONS.map((o) => (
+                      <option key={o.value} value={o.value}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                {/* Months (always required for a tier comp). */}
+                <label className="block text-meta text-foreground-muted">
+                  <span className="flex items-center gap-1 font-medium uppercase tracking-wide">
+                    Months
+                    <span className="text-red-500" aria-hidden>
+                      *
+                    </span>
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={months}
+                    disabled={phase.state === "busy"}
+                    onChange={(e) => {
+                      setMonths(e.target.value);
+                      if (phase.state === "error") setPhase({ state: "idle" });
+                    }}
+                    placeholder="e.g. 12"
+                    className={`mt-1 w-full rounded-lg border bg-surface-sunken px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      tierRequiresMonths && months === ""
+                        ? "border-red-400"
+                        : "border-border"
+                    }`}
+                  />
+                  {tierRequiresMonths && months === "" && (
+                    <p className="mt-1 text-meta text-red-600">
+                      A comped tier requires a month count. Permanent comps are
+                      not allowed (decision 3).
+                    </p>
+                  )}
+                </label>
+
+                {/* Optional allowance fields. */}
+                <div className="flex gap-3">
+                  <label className="block flex-1 text-meta text-foreground-muted">
+                    <span className="block font-medium uppercase tracking-wide">
+                      Storage GB
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={gb}
+                      disabled={phase.state === "busy"}
+                      onChange={(e) => setGb(e.target.value)}
+                      placeholder="0"
+                      className="mt-1 w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </label>
+                  <label className="block flex-1 text-meta text-foreground-muted">
+                    <span className="block font-medium uppercase tracking-wide">
+                      Writes (M/mo)
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={writesM}
+                      disabled={phase.state === "busy"}
+                      onChange={(e) => setWritesM(e.target.value)}
+                      placeholder="0"
+                      className="mt-1 w-full rounded-lg border border-border bg-surface-sunken px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {phase.state === "error" && (
+                <p className="mt-3 text-meta text-rose-700">{phase.message}</p>
+              )}
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={phase.state === "busy"}
+                  className="rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={issue}
+                  disabled={!canIssue}
+                  className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-3.5 py-2 text-body font-semibold text-white transition-colors hover:bg-violet-700 disabled:opacity-60"
+                >
+                  {phase.state === "busy" ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Issuing...
+                    </>
+                  ) : (
+                    "Issue gift"
+                  )}
                 </button>
               </div>
             </>
