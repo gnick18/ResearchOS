@@ -12,9 +12,12 @@
 // optional, the director falls back to a role-default set). No emojis, no
 // em-dashes, no mid-sentence colons.
 
+import { useState } from "react";
+
 import BeakerBot from "@/components/BeakerBot";
 import { ROLES, GOALS, type Role, type GoalKey } from "@/lib/onboarding/reel-director";
 import TutorScreen from "./TutorScreen";
+import IndustryContactModal from "./IndustryContactModal";
 
 export interface InterestPickerProps {
   role: Role | null;
@@ -38,6 +41,10 @@ export default function InterestPicker({
   onBack,
 }: InterestPickerProps) {
   const canStart = role !== null;
+  // "Industry" has no onboarding track yet (no industry edition), so picking it
+  // opens a reach-out form instead of selecting it as a role. It never becomes a
+  // selected role, so the tour cannot start on it.
+  const [showIndustryContact, setShowIndustryContact] = useState(false);
   return (
     <TutorScreen>
       <button
@@ -67,7 +74,11 @@ export default function InterestPicker({
           {ROLES.map((r) => (
             <button
               key={r.key}
-              onClick={() => onSetRole(r.key)}
+              onClick={() =>
+                r.key === "industry"
+                  ? setShowIndustryContact(true)
+                  : onSetRole(r.key)
+              }
               aria-pressed={role === r.key}
               className={
                 "rounded-full border px-3.5 py-1.5 text-sm " +
@@ -126,6 +137,12 @@ export default function InterestPicker({
           </button>
         </div>
       </div>
+
+      {showIndustryContact && (
+        <IndustryContactModal
+          onClose={() => setShowIndustryContact(false)}
+        />
+      )}
     </TutorScreen>
   );
 }
