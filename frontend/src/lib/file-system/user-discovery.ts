@@ -1,7 +1,7 @@
 import { fileService } from "./file-service";
 import { readAllUserMetadata } from "./user-metadata";
 
-const SKIP_DIRECTORIES = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json"]);
+const SKIP_DIRECTORIES = new Set(["public", "lab", "_no_user_", "_global_counters.json", "_user_metadata.json", "_folder_owner.json"]);
 
 export async function validateResearchFolder(handle: FileSystemDirectoryHandle): Promise<boolean> {
   try {

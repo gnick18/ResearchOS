@@ -79,6 +79,8 @@ import DevRestartServerButton from "@/components/DevRestartServerButton";
 import IdentitySessionRestorer from "@/components/IdentitySessionRestorer";
 import TodaySnapshotPublisher from "@/components/TodaySnapshotPublisher";
 import LiftOnConnectPopup from "@/components/account/LiftOnConnectPopup";
+import FolderTakeoverWarning from "@/components/account/FolderTakeoverWarning";
+import FolderTakeoverBanner from "@/components/account/FolderTakeoverBanner";
 import DataMigrationRunner from "@/components/DataMigrationRunner";
 import MigrationToast from "@/components/MigrationToast";
 import MigrationGate from "@/components/lab/MigrationGate";
@@ -1389,6 +1391,13 @@ function AppContent({ children }: { children: ReactNode }) {
           across folders + devices (the exact promise to Owen). Asks at most once
           per folder; inert + renders nothing when the flag is off. */}
       <LiftOnConnectPopup />
+      {/* Account-centric folder identity (Phase B). The takeover warning fires
+          when the signed-in account connects to a folder owned by a different
+          account (pendingTakeover set, D2); the revert banner offers to hand a
+          taken-over folder back to its previous owner (D6). Both are inert and
+          render nothing when MULTI_FOLDER is off. */}
+      <FolderTakeoverWarning />
+      <FolderTakeoverBanner />
       {/* LabArchives import sticky-intent consumer. If the user clicked
           "Import from LabArchives" on the picker screen and signed in
           (which unmounts that screen), this auto-mounts ImportELNDialog

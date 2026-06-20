@@ -23,3 +23,31 @@ export async function trashFile(
   await fileService.deleteFile(path);
   return true;
 }
+
+/**
+ * The trash location trashFile() moves a file to for a given migration / event id.
+ * Exported so a restore caller can enumerate the trashed set for one id.
+ */
+export function trashPathFor(path: string, migrationId: string): string {
+  return `_trash/migrations/${migrationId}/${path}`;
+}
+
+/**
+ * Restore a file previously moved to trash by trashFile(path, migrationId),
+ * putting its bytes back at the ORIGINAL path. The inverse of trashFile, used by
+ * the "Revert ownership" action to undo a takeover sweep. Same write-then-delete
+ * safety order as trashFile, write the restored copy FIRST, then remove the
+ * trashed copy, so a mid-way failure never leaves the data nowhere. Returns true
+ * if a trashed file was restored, false if none was present at that id.
+ */
+export async function restoreTrashedFile(
+  path: string,
+  migrationId: string,
+): Promise<boolean> {
+  const trashPath = trashPathFor(path, migrationId);
+  const content = await fileService.readText(trashPath);
+  if (content === null) return false; // nothing trashed at this id to restore
+  await fileService.writeText(path, content);
+  await fileService.deleteFile(trashPath);
+  return true;
+}
