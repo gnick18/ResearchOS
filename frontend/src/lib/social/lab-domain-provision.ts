@@ -89,11 +89,15 @@ export async function provisionLabDomain(
       body: JSON.stringify({ name: host }),
     });
   } catch {
-    // Network error reaching Vercel. The reconcile cron retries.
+    // Network error reaching Vercel. The reconcile cron retries. Log it so a
+    // silent claim-time failure (the caller bare-awaits and discards the result)
+    // is actually visible in the function logs.
+    console.warn(`[lab-domain-provision] network error reaching Vercel for ${host}`);
     return { ok: false, host, error: "network" };
   }
 
   if (res.status === 200 || res.status === 201) {
+    console.log(`[lab-domain-provision] added ${host} (status ${res.status})`);
     return { ok: true, host, added: true, status: res.status };
   }
 
@@ -115,6 +119,9 @@ export async function provisionLabDomain(
     return { ok: true, host, added: false, status: res.status };
   }
 
+  console.warn(
+    `[lab-domain-provision] FAILED ${host} status=${res.status} code=${code || "request_failed"}`,
+  );
   return { ok: false, host, status: res.status, error: code || "request_failed" };
 }
 
