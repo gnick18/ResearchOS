@@ -14,13 +14,14 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import BeakerBot from "@/components/BeakerBot";
 import LabIdentityFields, {
   resolvePiTitle,
   type LabIdentityValue,
 } from "@/components/lab/LabIdentityFields";
 import type { PreparedLogo } from "@/lib/lab/lab-logo-image";
+import { fetchSessionDisplayName } from "@/lib/account/session-display-name";
 
 export interface LabStepResult {
   labName: string;
@@ -30,13 +31,23 @@ export interface LabStepResult {
 }
 
 export interface LabStepProps {
-  /** Prefill for the PI display name (the head's name), editable. */
+  /** Prefill for the PI display name (the head's name). */
   defaultPiDisplay?: string;
   /** Advance once the lab identity is captured. */
   onSubmit: (result: LabStepResult) => void;
+  /**
+   * Test/host seam: override the OAuth-name source. Defaults to the live session
+   * display name. The PI is the signed-in user, so their name is reused from the
+   * account rather than asked again.
+   */
+  fetchPiName?: () => Promise<string>;
 }
 
-export default function LabStep({ defaultPiDisplay = "", onSubmit }: LabStepProps) {
+export default function LabStep({
+  defaultPiDisplay = "",
+  onSubmit,
+  fetchPiName = fetchSessionDisplayName,
+}: LabStepProps) {
   const [value, setValue] = useState<LabIdentityValue>({
     labName: "",
     piTitlePreset: "Dr.",
@@ -45,6 +56,21 @@ export default function LabStep({ defaultPiDisplay = "", onSubmit }: LabStepProp
   });
   const [logo, setLogo] = useState<PreparedLogo | null>(null);
   const [error, setError] = useState<string>("");
+
+  // The PI is the signed-in user, so derive the PI name from their account
+  // instead of asking for it. We do not show a PI name field here (hidePiName);
+  // this keeps value.piDisplay populated so the lab still provisions with a real
+  // name. Only fills when empty, so a passed defaultPiDisplay still wins.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const name = await fetchPiName();
+      if (live && name) setValue((v) => (v.piDisplay ? v : { ...v, piDisplay: name }));
+    })();
+    return () => {
+      live = false;
+    };
+  }, [fetchPiName]);
 
   const nameValid = value.labName.trim().length > 0;
 
@@ -91,7 +117,14 @@ export default function LabStep({ defaultPiDisplay = "", onSubmit }: LabStepProp
           logo={logo}
           onLogoChange={setLogo}
           onLogoError={setError}
+          hidePiName
         />
+        {value.piDisplay && (
+          <p className="mt-3 text-xs text-foreground-muted">
+            Led by {value.piDisplay} (this is you). Change how your name appears in
+            your profile.
+          </p>
+        )}
       </div>
 
       {error && (

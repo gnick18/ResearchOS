@@ -47,6 +47,7 @@ export default function LabIdentityFields({
   onLogoChange,
   onLogoError,
   disabled,
+  hidePiName,
 }: {
   value: LabIdentityValue;
   onChange: (next: LabIdentityValue) => void;
@@ -58,6 +59,13 @@ export default function LabIdentityFields({
   /** Surface a human-readable image error to the parent. */
   onLogoError?: (message: string) => void;
   disabled?: boolean;
+  /**
+   * Hide the PI name field. The onboarding wizard sets this because the PI is the
+   * signed-in user, so their name is reused from the account rather than asked
+   * again. The parent still owns value.piDisplay (it just is not edited here).
+   * Settings keeps the field visible so a PI can correct the displayed name.
+   */
+  hidePiName?: boolean;
 }) {
   const handleFile = useCallback(
     async (file: File) => {
@@ -94,7 +102,9 @@ export default function LabIdentityFields({
         />
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+      <div
+        className={`grid grid-cols-1 gap-4 ${hidePiName ? "" : "sm:grid-cols-2"}`}
+      >
         <div className="space-y-1.5">
           <label htmlFor="pi-title" className={labelClass}>
             PI title
@@ -127,21 +137,23 @@ export default function LabIdentityFields({
           )}
         </div>
 
-        <div className="space-y-1.5">
-          <label htmlFor="pi-display" className={labelClass}>
-            PI name
-          </label>
-          <input
-            id="pi-display"
-            type="text"
-            value={value.piDisplay}
-            onChange={(e) => set({ piDisplay: e.target.value })}
-            placeholder="Dr. Maria Gomez"
-            className={inputClass}
-            disabled={disabled}
-            autoComplete="off"
-          />
-        </div>
+        {!hidePiName && (
+          <div className="space-y-1.5">
+            <label htmlFor="pi-display" className={labelClass}>
+              PI name
+            </label>
+            <input
+              id="pi-display"
+              type="text"
+              value={value.piDisplay}
+              onChange={(e) => set({ piDisplay: e.target.value })}
+              placeholder="Dr. Maria Gomez"
+              className={inputClass}
+              disabled={disabled}
+              autoComplete="off"
+            />
+          </div>
+        )}
       </div>
 
       <div className="space-y-1.5">
