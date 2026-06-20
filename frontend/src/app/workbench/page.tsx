@@ -22,6 +22,7 @@ import { oneOnOneTabLabel } from "@/lib/one-on-one/label";
 import { Icon } from "@/components/icons";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { useWorkbenchBeakerSource } from "./useWorkbenchBeakerSource";
+import { useClassDashboard } from "@/hooks/useClassDashboard";
 import type {
   WorkbenchPendingOpen,
   WorkbenchSelection,
@@ -147,6 +148,44 @@ export default function WorkbenchPage() {
   const showOneOnOneTab = shouldShowOneOnOneTab(accountType, oneOnOnes.length);
   const oneOnOneLabelText = oneOnOneTabLabel(isLabHead ? "lab_head" : "lab");
 
+  // Class dashboard (CT-5): when the active folder is a class with a published
+  // instructor template, FORCE the workbench to render only the template tabs in
+  // order, land on the template landing tab, and show the instructor intro banner
+  // above the tabs. With no template (not a class, or flag off), `resolved` is the
+  // default (all tabs, default landing, no intro) and `isForced` is false, so the
+  // workbench is byte-identical to today. The hook is inert on a flag-off build.
+  const {
+    resolved: classDashboard,
+    isForced: classDashboardForced,
+  } = useClassDashboard(currentUser || null);
+
+  // A tab is renderable iff it survives the forced template AND its own gate
+  // (oneonone keeps its existing visibility rule). When not forced, the resolved
+  // set is the full default order, so every tab passes this check unchanged.
+  const forcedTabs = classDashboard.tabs;
+  const tabIsAllowed = useCallback(
+    (id: TabType) => forcedTabs.includes(id),
+    [forcedTabs],
+  );
+
+  // FORCE the landing tab once a class template is in effect. Guarded by
+  // `classDashboardForced` so a non-class / flag-off folder never moves the tab
+  // off the existing Projects default or the `?tab=` deep-link. Runs once per
+  // forced-landing value; the deep-link effect above still wins for an explicit
+  // `?tab=`/`?note=` link because it runs on mount before this settles.
+  const forcedLanding = classDashboardForced ? classDashboard.landingTab : null;
+  useEffect(() => {
+    if (forcedLanding) setActiveTab(forcedLanding);
+  }, [forcedLanding]);
+
+  // If the forced template drops the active tab, fall back to the landing tab so
+  // a student is never stranded on a hidden tab.
+  useEffect(() => {
+    if (classDashboardForced && !tabIsAllowed(activeTab)) {
+      setActiveTab(classDashboard.landingTab);
+    }
+  }, [classDashboardForced, tabIsAllowed, activeTab, classDashboard.landingTab]);
+
   // Register the Workbench BeakerSearch source while this page is mounted. It is
   // a READER over the same queries above + the panels' real handlers; the only
   // page state it drives is setActiveTab + the pendingOpen cross-tab seam.
@@ -221,6 +260,25 @@ export default function WorkbenchPage() {
   return (
     <AppShell>
       <div className="flex-1 overflow-auto px-6 pt-3 pb-6">
+        {/* Class dashboard intro banner (CT-5): the instructor-pinned intro /
+            syllabus the class head set, shown above the tabs. Only present when a
+            class template forces the workbench and carries an intro; absent (and
+            thus byte-identical to today) on every research-lab / solo / flag-off
+            folder. */}
+        {classDashboardForced && classDashboard.intro && (
+          <div className="mb-4 rounded-lg border border-border bg-surface-sunken px-4 py-3">
+            {classDashboard.intro.title && (
+              <h3 className="text-body font-semibold text-foreground mb-1">
+                {classDashboard.intro.title}
+              </h3>
+            )}
+            {classDashboard.intro.body && (
+              <p className="text-meta text-foreground-muted whitespace-pre-wrap">
+                {classDashboard.intro.body}
+              </p>
+            )}
+          </div>
+        )}
         {/* Compact header: the page title + its subtitle sit INLINE with the
             tabs in a single band, instead of stacking a tall title row above a
             separate tab row. Reclaims the vertical space the stacked chrome
@@ -231,6 +289,7 @@ export default function WorkbenchPage() {
             <span className="text-meta text-foreground-muted">{subtitle}</span>
           </div>
           <div className="flex items-center gap-1">
+          {tabIsAllowed("projects") && (
           <button
             onClick={() => setActiveTab("projects")}
             data-tour-target="workbench-projects-tab"
@@ -245,6 +304,8 @@ export default function WorkbenchPage() {
             </svg>
             Projects
           </button>
+          )}
+          {tabIsAllowed("experiments") && (
           <button
             onClick={() => setActiveTab("experiments")}
             data-tour-target="workbench-experiments-tab"
@@ -259,6 +320,8 @@ export default function WorkbenchPage() {
             </svg>
             Experiments
           </button>
+          )}
+          {tabIsAllowed("notes") && (
           <button
             onClick={() => setActiveTab("notes")}
             data-tour-target="workbench-notes-tab"
@@ -273,6 +336,8 @@ export default function WorkbenchPage() {
             </svg>
             Notes
           </button>
+          )}
+          {tabIsAllowed("lists") && (
           <button
             onClick={() => setActiveTab("lists")}
             data-tour-target="workbench-lists-tab"
@@ -287,7 +352,8 @@ export default function WorkbenchPage() {
             </svg>
             Lists
           </button>
-          {showOneOnOneTab && (
+          )}
+          {showOneOnOneTab && tabIsAllowed("oneonone") && (
             <button
               onClick={() => setActiveTab("oneonone")}
               data-tour-target="workbench-oneonone-tab"

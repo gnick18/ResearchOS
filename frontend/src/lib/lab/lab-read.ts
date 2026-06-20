@@ -273,9 +273,16 @@ export async function pullLabView(params: {
       // Announcements are lab-wide-public (PI-written, all-members-readable, no
       // shared_with on the on-disk shape). Treat the `announcement` type as
       // visible to every member regardless of shared_with. The exception is
-      // scoped strictly to this one type; every other type still passes the
+      // scoped strictly to these types; every other type still passes the
       // per-record shared_with gate below.
-      const isLabWidePublic = recordType === "announcement";
+      //
+      // CLASS DASHBOARD (CT-5 + CT-3): the instructor-authored `class_dashboard`
+      // template rides the SAME lab-wide-public path so every student in the
+      // class reads the one instructor-owned record (see lab/class-dashboard.ts).
+      // Additive: an unknown record type was invisible to this read before, so
+      // admitting `class_dashboard` here cannot change any existing lab's view.
+      const isLabWidePublic =
+        recordType === "announcement" || recordType === "class_dashboard";
 
       // Visibility rule:
       //   - own records are always visible (even if unparseable).

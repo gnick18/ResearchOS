@@ -421,6 +421,57 @@ describe("pullLabView: announcements lab-wide-public exception", () => {
 });
 
 // ---------------------------------------------------------------------------
+// pullLabView: class_dashboard is lab-wide-public (CT-5 + CT-3).
+//
+// The instructor's class_dashboard template rides the SAME lab-wide-public path
+// announcements use. A student (a member NOT named in any shared_with) must see
+// the instructor-owned class_dashboard record, while a regular non-own record
+// stays gated out.
+// ---------------------------------------------------------------------------
+
+describe("pullLabView: class_dashboard lab-wide-public exception (CT-5)", () => {
+  const labId = "lab-class";
+  const labKey = randomLabKey();
+  const kp = randomKeyPair();
+
+  it("surfaces the instructor class_dashboard to a student NOT named in shared_with", async () => {
+    const relay = makeInMemoryRelay();
+    // The instructor (morgan) publishes the singleton class_dashboard template.
+    const tplPlain = enc.encode(
+      JSON.stringify({
+        tabs: ["notes", "experiments"],
+        landingTab: "notes",
+        visibilityDefault: "collaborative",
+        rev: 1,
+      }),
+    );
+    await seedRecord({ relay, labId, owner: "morgan", recordType: "class_dashboard", recordId: "class", plaintext: tplPlain, labKey, kp });
+    // A regular non-own note with no shared_with must STAY hidden (gate intact).
+    const notePlain = enc.encode(JSON.stringify({ id: "n-1", shared_with: [] }));
+    await seedRecord({ relay, labId, owner: "morgan", recordType: "note", recordId: "n-1", plaintext: notePlain, labKey, kp });
+
+    const result = await pullLabView({
+      labId,
+      viewer: "student-jo", // a member, NOT the author, NOT named in any shared_with
+      owners: ["morgan", "student-jo"],
+      labKey,
+      signerEd25519Priv: kp.priv,
+      signerEd25519Pub: kp.pub,
+      fetchImpl: relay.fetchImpl,
+    });
+
+    const tpl = result.find((r) => r.recordType === "class_dashboard" && r.recordId === "class");
+    expect(tpl).toBeTruthy();
+    expect(tpl!.isOwn).toBe(false);
+    expect(tpl!.sharedWithViewer).toBe(false);
+
+    // The plain note is still gated out (no shared_with naming the student).
+    const note = result.find((r) => r.recordType === "note" && r.recordId === "n-1");
+    expect(note).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
 // pullLabView: non-JSON plaintext edge cases.
 // ---------------------------------------------------------------------------
 

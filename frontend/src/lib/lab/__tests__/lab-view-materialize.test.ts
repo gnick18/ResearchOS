@@ -199,6 +199,28 @@ describe("materializeLabView — announcements (lab-wide-public)", () => {
   });
 });
 
+describe("materializeLabView — class_dashboard (lab-wide-public, CT-5)", () => {
+  it("caches the singleton class_dashboard to the root _class_dashboard.json", async () => {
+    const { writer, writes } = fakeWriter();
+    const tpl = { tabs: ["notes"], landingTab: "notes", rev: 2 };
+    const records = [
+      rec({ owner: "morgan", recordType: "class_dashboard", recordId: "class", plaintext: enc(tpl), isOwn: false }),
+    ];
+    const result = await materializeLabView(records, writer);
+    expect(result.written).toEqual(["_class_dashboard.json"]);
+    expect(writes).toHaveLength(1);
+    expect(writes[0].path).toBe("_class_dashboard.json");
+    expect(JSON.parse(writes[0].text)).toEqual(tpl);
+  });
+
+  it("does NOT write _class_dashboard.json when there is no class_dashboard record", async () => {
+    const { writer, writes } = fakeWriter();
+    const records = [rec({ owner: "morgan", recordType: "note", recordId: "10", isOwn: false })];
+    await materializeLabView(records, writer);
+    expect(writes.map((w) => w.path)).not.toContain("_class_dashboard.json");
+  });
+});
+
 describe("materializeLabView — exhaustive type coverage (drift guard)", () => {
   // Every LAB_WORK_TYPES entry must have a materialization path so no pulled
   // record type silently falls through to skippedUnknownType. Three types are

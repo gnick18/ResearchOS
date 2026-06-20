@@ -43,6 +43,9 @@ import { useLabOverviewBeakerSource } from "@/app/lab-overview/useLabOverviewBea
 import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
 import { ExpandedView as MemberWorkloadBody } from "./widgets/MemberWorkloadWidget";
 import { Composer as AnnouncementComposer } from "./widgets/AnnouncementsWidget";
+import ClassDashboardPanel from "./ClassDashboardPanel";
+import { useIsClassMode } from "@/hooks/useIsClassMode";
+import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
 
 import type { Note, PurchaseItem } from "@/lib/types";
 
@@ -347,6 +350,13 @@ export default function LabOverviewPage() {
   const [showProjectCreate, setShowProjectCreate] = useState(false);
   const openProjectCreate = useCallback(() => setShowProjectCreate(true), []);
 
+  // Class Mode (CT-5): the instructor-only "this folder is a class I head"
+  // gate. CLASS_MODE_ENABLED short-circuits to a flag-off build (no folder ever
+  // carries lab_kind === "class", so the hook would resolve false anyway, but the
+  // flag check keeps the panel import inert on a flag-off render).
+  const isClassMode = useIsClassMode(currentUser);
+  const showClassDashboard = CLASS_MODE_ENABLED && isClassMode === true;
+
   useLabOverviewBeakerSource({
     openProjectCreate,
     scrollToComposer,
@@ -385,6 +395,18 @@ export default function LabOverviewPage() {
       {/* OV-1 + OV-2: lead with what needs the PI, then a compact lab readout. */}
       <NeedsYouHero />
       <LabStatStrip />
+
+      {/* Class dashboard authoring (CT-5 + CT-3): the instructor sets what every
+          student's workbench looks like plus the class visibility default. Only
+          on a class folder the active user heads (flag-gated). */}
+      {showClassDashboard && (
+        <SectionCard
+          title="Class dashboard"
+          description="Set the workbench every student in this class sees, and the default visibility for their work."
+        >
+          <ClassDashboardPanel />
+        </SectionCard>
+      )}
 
       {/* OV-5: announcements shrink to an inline composer (post to the lab). */}
       {currentUser && (
