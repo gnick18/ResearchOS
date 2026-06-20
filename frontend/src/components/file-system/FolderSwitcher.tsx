@@ -29,8 +29,13 @@ import { Icon } from "@/components/icons/Icon";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
-import { folderLabLabel } from "@/lib/file-system/folder-lab-label";
+import {
+  folderLabLabel,
+  discoveredLabSublabel,
+} from "@/lib/file-system/folder-lab-label";
 import { LAB_AS_FOLDER_ENABLED } from "@/lib/lab/lab-as-folder-config";
+import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
+import CreateClassModal from "@/components/lab/CreateClassModal";
 import { discoverMyLabMembershipsForIdentity } from "@/lib/lab/lab-membership-discovery";
 import { checkAndEnterLab } from "@/lib/lab/lab-member-activation";
 import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
@@ -90,13 +95,27 @@ export default function FolderSwitcher({
   // working text. Null means no row is in edit mode.
   const [editingId, setEditingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
+  // Class Mode (CM-P2A): the "Create a class" modal. Open state only; the modal
+  // owns its own form/creating/warn/error phases. Flag-gated by CLASS_MODE_ENABLED
+  // at the render site so when the flag is off the action never renders and this
+  // never flips true.
+  const [classModalOpen, setClassModalOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
 
   // Lab membership discovery (LAB_AS_FOLDER_ENABLED only). Labs returned by the
   // relay that have no local member folder yet. These are labs the member joined
   // on another device or before the flag was on. Null = not yet fetched. [] =
   // fetched, nothing discovered (or flag off / relay not deployed yet).
-  type DiscoveredLab = { labId: string; labName?: string };
+  // labRole is the cached role for this lab when one is already known on a
+  // remembered-folder meta (a folder forgotten then re-discovered). Class Mode
+  // (CM-P2A) uses it so a class folder reads its true kind ("class"/"student")
+  // instead of the generic "member". Absent for a genuinely new research-lab
+  // membership, which falls back to the member label.
+  type DiscoveredLab = {
+    labId: string;
+    labName?: string;
+    labRole?: string;
+  };
   const [discoveredLabs, setDiscoveredLabs] = useState<DiscoveredLab[] | null>(
     null,
   );
@@ -314,6 +333,14 @@ export default function FolderSwitcher({
     }
   }
 
+  // Class Mode (CM-P2A): open the create-class modal. Close the dropdown first so
+  // the modal owns the surface. The modal handles minting + switching itself.
+  function onCreateClass() {
+    if (busy) return;
+    setOpen(false);
+    setClassModalOpen(true);
+  }
+
   function renderRows() {
     // Rename and the per-row controls are panel-only. The compact header
     // dropdown stays a quick switcher, the panel (connect screen / Settings) is
@@ -486,7 +513,9 @@ export default function FolderSwitcher({
                           {displayName}
                         </span>
                         <span className="block truncate text-meta text-foreground-muted">
-                          {isMaterializing ? "Connecting..." : "Member"}
+                          {isMaterializing
+                            ? "Connecting..."
+                            : discoveredLabSublabel(d.labRole)}
                         </span>
                       </span>
                     </div>
@@ -527,15 +556,49 @@ export default function FolderSwitcher({
           <Icon name="plus" className="h-4 w-4 shrink-0" />
           <span>Open another folder</span>
         </button>
+        {/* Class Mode (CM-P2A). Offered to ANY account (the multi-folder
+            substrate is account-agnostic, so a solo user can hold a class folder
+            exactly like a lab head). Gated ONLY on CLASS_MODE_ENABLED, so when the
+            flag is off this row never renders and the panel is byte-identical to
+            before the feature. The placeholder userPlus glyph reads as enrollment;
+            a dedicated mortarboard glyph is pending Grant's icon sign-off. */}
+        {CLASS_MODE_ENABLED && (
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={onCreateClass}
+            className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm text-foreground-muted hover:bg-surface-sunken hover:text-foreground disabled:opacity-50"
+          >
+            <Icon name="userPlus" className="h-4 w-4 shrink-0" />
+            <span>Create a class</span>
+          </button>
+        )}
       </>
     );
   }
 
+  // Class Mode (CM-P2A): the create-class modal, mounted once and shared by both
+  // variants. Inert (never opens) when CLASS_MODE_ENABLED is off because the only
+  // affordance that flips classModalOpen is itself flag-gated.
+  const classModal =
+    CLASS_MODE_ENABLED && classModalOpen ? (
+      <CreateClassModal
+        onClose={() => setClassModalOpen(false)}
+        onCreated={() => {
+          void listFolders();
+        }}
+      />
+    ) : null;
+
   if (variant === "panel") {
     return (
-      <div className="rounded-xl border border-border bg-surface-raised py-1">
-        {renderRows()}
-      </div>
+      <>
+        <div className="rounded-xl border border-border bg-surface-raised py-1">
+          {renderRows()}
+        </div>
+        {classModal}
+      </>
     );
   }
 
@@ -574,6 +637,7 @@ export default function FolderSwitcher({
           {renderRows()}
         </div>
       )}
+      {classModal}
     </div>
   );
 }

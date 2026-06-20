@@ -8,7 +8,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { folderLabLabel } from "../folder-lab-label";
+import { folderLabLabel, discoveredLabSublabel } from "../folder-lab-label";
 
 describe("folderLabLabel", () => {
   it("labels a legacy row (no cached role) as Solo", () => {
@@ -69,5 +69,30 @@ describe("folderLabLabel", () => {
       typeof folderLabLabel
     >[0];
     expect(folderLabLabel(unknown)).toBe("Bio 101 - ta");
+  });
+});
+
+// Class Mode (CM-P2A): the discovered-lab sublabel in the folder switcher. A
+// class folder reads "Student" (the joiner role in a class); a research-lab
+// membership or an absent role reads "Member". Pure, flag-free reader.
+describe("discoveredLabSublabel", () => {
+  it("labels a research-lab membership as Member", () => {
+    expect(discoveredLabSublabel("member")).toBe("Member");
+  });
+
+  it("labels an absent role as Member (a new research-lab membership)", () => {
+    expect(discoveredLabSublabel(undefined)).toBe("Member");
+  });
+
+  it("labels a class role as Student", () => {
+    expect(discoveredLabSublabel("class")).toBe("Student");
+  });
+
+  it("labels a student role as Student", () => {
+    expect(discoveredLabSublabel("student")).toBe("Student");
+  });
+
+  it("falls back to Member for an unknown role", () => {
+    expect(discoveredLabSublabel("ta")).toBe("Member");
   });
 });
