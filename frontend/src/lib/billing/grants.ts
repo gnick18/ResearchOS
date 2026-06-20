@@ -186,6 +186,27 @@ export async function getActiveCompedTier(
   return best;
 }
 
+/**
+ * Deletes all billing_grants rows that were issued by staged PI provisioning for
+ * this owner key. The note column identifies them: the stage route always writes
+ * note = 'staged PI provision' (exactly). Returns the count of rows deleted.
+ *
+ * Called by the unstage route AFTER the slug is confirmed releasable (no bound
+ * lab_sites row), so a deleted grant never belongs to an already-live lab.
+ * Callers must ensure the staging row is still 'pending' before calling this.
+ */
+export async function revokeStagedGrant(ownerKey: string): Promise<number> {
+  if (!ownerKey) return 0;
+  const sql = getSql();
+  const rows = (await sql`
+    DELETE FROM billing_grants
+    WHERE owner_key = ${ownerKey}
+      AND note = 'staged PI provision'
+    RETURNING id
+  `) as Array<{ id: number }>;
+  return rows.length;
+}
+
 /** Every grant, newest first, for the operator roster. */
 export async function listGrants(): Promise<GrantRecord[]> {
   const sql = getSql();

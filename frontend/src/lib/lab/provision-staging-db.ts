@@ -208,3 +208,60 @@ export async function markProvisionConsumed(piEmailHash: string): Promise<void> 
     WHERE pi_email_hash = ${piEmailHash}
   `;
 }
+
+/**
+ * Deletes the staging row for a PI email hash. Callers MUST check status ===
+ * 'pending' before calling this; the unstage route enforces the safety rule. This
+ * function is intentionally naive (it always deletes if the row exists) because the
+ * route owns the consumed-guard.
+ */
+export async function deleteProvisionStaging(piEmailHash: string): Promise<void> {
+  if (!piEmailHash) return;
+  await ensureProvisionStagingSchema();
+  const sql = getSql();
+  await sql`
+    DELETE FROM lab_provision_staging
+    WHERE pi_email_hash = ${piEmailHash}
+  `;
+}
+
+/** A slim row for the operator pending-stagings list. */
+export interface PendingStagingEntry {
+  piEmailHash: string;
+  labName: string;
+  slug: string;
+  compTier: CompTier;
+  compMonths: number;
+  createdAt: string;
+}
+
+/**
+ * Returns all rows with status='pending', newest first, for the admin panel. Only
+ * public metadata is returned (no PI private keys). The piEmailHash is a peppered
+ * HMAC so it is safe to display as an opaque identifier to the operator.
+ */
+export async function listPendingStagings(): Promise<PendingStagingEntry[]> {
+  await ensureProvisionStagingSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT pi_email_hash, lab_name, slug, comp_tier, comp_months, created_at
+    FROM lab_provision_staging
+    WHERE status = 'pending'
+    ORDER BY created_at DESC
+  `) as Array<{
+    pi_email_hash: string;
+    lab_name: string;
+    slug: string;
+    comp_tier: string;
+    comp_months: number | string;
+    created_at: string;
+  }>;
+  return rows.map((r) => ({
+    piEmailHash: r.pi_email_hash,
+    labName: r.lab_name,
+    slug: r.slug,
+    compTier: r.comp_tier as CompTier,
+    compMonths: Number(r.comp_months),
+    createdAt: r.created_at,
+  }));
+}
