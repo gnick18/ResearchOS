@@ -9,24 +9,24 @@ the pick-up-where-I-left-off pointer.
 
 ## 1. IMMEDIATE in-flight (do these first)
 
-### Phase B of the nudge pattern (RUNNING in background)
-- Sub-bot building the sequence-editor SINGLE/DOUBLE-CLICK model in worktree
-  `.claude/worktrees/seq-nudge-phaseb`, branch `feat/seq-nudge-phaseb`. agentId
-  `aae4967ef61ce95fa` (resume via SendMessage if needed).
-- Behavior: single-click a feature selects it AND shimmers the relevant rail op
-  (coding -> Protein, primer -> Primers, a decent-length region -> Cut/enzyme),
-  NEVER auto-opens; double-click opens that panel directly and retires the nudge.
-  Also converts the primer's old auto-open (`autoOpenOpForKind("feature-primer")`)
-  to the new model.
-- NEXT: when its task-notification fires, read the Agent result (do NOT read the
-  .output transcript), review the diff (the feature double-click handler + the
-  per-kind `useNudge` map in `SequenceEditView.tsx` are the risky bits), run tsc +
-  `vitest src/lib/sequences src/lib/ui` + icon-guard, then merge to local main.
-  Bundle with Phase A for Grant to eyeball on `/sequences` (his .env.local has
-  `NEXT_PUBLIC_SEQ_BOTTOM_BAR_V2=1`), then leave the push to Grant. Sweep the
-  worktree + branch after merge.
+### Phase B of the nudge pattern (DONE, merged AND pushed to origin)
+- The sequence-editor SINGLE/DOUBLE-CLICK model is built, merged, and on
+  `origin/main` (commit `9e46b5692` + merge `e10b42905`, tsc 0, 1335 tests +
+  icon-guard green, live-verified, worktree swept). Behavior: single-click a
+  feature selects it AND shimmers exactly one
+  relevant rail op (coding -> Protein, primer -> Primers, a region >= 15 bp ->
+  Cut), NEVER auto-opens; double-click opens that panel directly and retires the
+  nudge (`markNudgeUsed`). `autoOpenOpForKind("feature-primer")` is now `null`
+  (matches feature-cds). Two notes from the build: the rail Cut op id is `"cut"`
+  (not `"enzyme-picker"`, which is palette-only), and region eligibility reads
+  from `readout` not `sel` (sel misses a linear-Map drag / externalSel).
+- REMAINING for Phase B: Grant eyeballs the full nudge behavior (Phase A + B) on
+  his `:3000` `/sequences` (his .env.local has `NEXT_PUBLIC_SEQ_BOTTOM_BAR_V2=1`).
+  This is now a post-ship review, not a push gate, the code already reached
+  origin via the shared main checkout. The whole nudge stack is a real behavior
+  change, not flag-gated.
 
-### Phase C of the nudge pattern (NOT started)
+### Phase C of the nudge pattern (NOT started, the next build)
 - The starter batch as one-line `useNudge(key, { eligible })` calls (see
   [[project_nudge_shimmer_pattern]] for the ranked audit): (1) unpinned earned
   BADGE shimmers in `components/badges/BadgeBin.tsx` (the `earned && !pinned`
@@ -34,7 +34,7 @@ the pick-up-where-I-left-off pointer.
   button in `components/chemistry/MoleculeDetail.tsx`; (3) FIGURE panel selected
   -> shimmer the Arrange/align bar in `components/figure/FigureComposer.tsx`. Plus
   optional Data Hub fresh-table -> "Run analysis". Reuse `lib/ui/use-nudge.ts` +
-  `.ros-nudge-shimmer`. Wait for Grant's go on Phase B first.
+  `.ros-nudge-shimmer`.
 
 ## 2. Shipped this session (on origin/main, done)
 
