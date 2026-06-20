@@ -16,6 +16,7 @@ import {
   isDemoOrWikiCapture,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
+import PersistentGateSignOut from "@/components/onboarding/PersistentGateSignOut";
 import AccountFirstRedirect, {
   useHasCloudSession,
 } from "@/components/account/AccountFirstRedirect";
@@ -1413,6 +1414,12 @@ export function Providers({ children }: { children: ReactNode }) {
             scene can fire from pre-login surfaces (UserLoginScreen has
             its own Report Bug button) as well as the full AppShell.
             Bug-splat-manager wire (2026-05-23). */}
+        {/* Permanent, always-visible sign-out on any login/gate screen. Mounted
+            here above AppContent (like the other pre-login hosts) so it overlays
+            every gate state and self-gates on signed-in + no-folder-connected.
+            Fixes the soft-lock where the only sign-out was a footer link below
+            the fold. */}
+        <PersistentGateSignOut />
         <SceneTriggerHost />
         {/* Global host for the auto-error confirm dialog (and its
             hand-off FeedbackModal). Mounted at the providers level
