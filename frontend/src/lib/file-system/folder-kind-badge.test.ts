@@ -49,10 +49,10 @@ describe("folderKindBadge (per-kind color + badge)", () => {
     });
   });
 
-  it("maps class to the teaching teal 'Class'", () => {
+  it("maps class to the teaching teal 'Instructor'", () => {
     expect(folderKindBadge({ labRole: "class" })).toEqual({
       token: "brand-teach",
-      label: "Class",
+      label: "Instructor",
     });
   });
 

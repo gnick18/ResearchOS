@@ -46,9 +46,9 @@ describe("folderLabLabel", () => {
   // branching, and the reader does not gate on any flag, so a class row authored
   // elsewhere with class mode OFF still labels cleanly (the H7 reader-tolerance
   // invariant).
-  it("labels a class folder as '<name> - class'", () => {
+  it("labels a class folder as '<name> - instructor' (the teacher side)", () => {
     expect(folderLabLabel({ labRole: "class", labName: "Bio 101" })).toBe(
-      "Bio 101 - class",
+      "Bio 101 - instructor",
     );
   });
 
@@ -59,7 +59,7 @@ describe("folderLabLabel", () => {
   });
 
   it("falls back to 'Lab' when a class/student folder has no cached name", () => {
-    expect(folderLabLabel({ labRole: "class" })).toBe("Lab - class");
+    expect(folderLabLabel({ labRole: "class" })).toBe("Lab - instructor");
     expect(folderLabLabel({ labRole: "student", labName: "  " })).toBe(
       "Lab - student",
     );

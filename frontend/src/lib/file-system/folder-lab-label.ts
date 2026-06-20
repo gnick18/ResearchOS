@@ -52,7 +52,11 @@ export function folderLabLabel(folder: FolderLabIdentity): string {
   // with class mode OFF.
   if (!role || role === "solo") return "Solo";
   const name = folder.labName?.trim() || "Lab";
-  return `${name} - ${role}`;
+  // The "class" role displays as "instructor" (the role you hold when you teach
+  // a class, paired with "student" for the enrolled side). Every other role
+  // renders verbatim, keeping the H7 reader-tolerance for any future role.
+  const roleWord = role === "class" ? "instructor" : role;
+  return `${name} - ${roleWord}`;
 }
 
 /**
@@ -92,7 +96,7 @@ export function folderKindBadge(folder: FolderLabIdentity): FolderKindBadge {
     case "member":
       return { token: "brand-purple", label: "Lab member" };
     case "class":
-      return { token: "brand-teach", label: "Class" };
+      return { token: "brand-teach", label: "Instructor" };
     case "student":
       return { token: "brand-learn", label: "Student" };
     case "solo":
