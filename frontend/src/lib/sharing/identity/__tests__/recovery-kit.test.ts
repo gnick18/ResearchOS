@@ -14,6 +14,7 @@ import {
   createIdentityMaterial,
   restoreFromRecoveryWords,
 } from "../setup";
+import { mnemonicToRecoveryCode } from "../recovery-code";
 import { type KdfParams } from "../backup";
 
 // A minimal but structurally valid BackupBlob string (has a ciphertext field).
@@ -32,6 +33,7 @@ const SAMPLE_BLOB = JSON.stringify({
 const SAMPLE_DATA: RecoveryKitData = {
   email: "researcher@wisc.edu",
   fingerprint: "ABCD 1234 EFGH 5678",
+  recoveryCode: "AB12-CD34-EF56-GH78-JK90-MN12-PQ",
   backupBlob: SAMPLE_BLOB,
   createdAt: "2026-06-05T12:00:00.000Z",
 };
@@ -48,6 +50,7 @@ describe("recovery kit build/parse round-trip", () => {
     expect(parsed?.email).toBe(SAMPLE_DATA.email);
     expect(parsed?.fingerprint).toBe(SAMPLE_DATA.fingerprint);
     expect(parsed?.backupBlob).toBe(SAMPLE_DATA.backupBlob);
+    expect(parsed?.recoveryCode).toBe(SAMPLE_DATA.recoveryCode);
     expect(parsed?.createdAt).toBe(SAMPLE_DATA.createdAt);
   });
 
@@ -56,6 +59,22 @@ describe("recovery kit build/parse round-trip", () => {
     expect(html).toContain("ResearchOS Recovery Kit");
     expect(html).toContain("researcher@wisc.edu");
     expect(html).toContain("ABCD 1234 EFGH 5678");
+  });
+
+  it("embeds the recovery code so one file is self-contained", () => {
+    // The 1Password Emergency Kit model: the code lives IN the kit, so a single
+    // download is everything the user needs to recover. This makes the file
+    // sensitive by design (it must be kept private), the tradeoff Grant accepted.
+    const html = buildRecoveryKitHtml(SAMPLE_DATA);
+    expect(html).toContain(SAMPLE_DATA.recoveryCode as string);
+    expect(parseRecoveryKit(html)?.recoveryCode).toBe(SAMPLE_DATA.recoveryCode);
+  });
+
+  it("omits the recovery code field when none is supplied (legacy v1 shape)", () => {
+    const noCode: RecoveryKitData = { ...SAMPLE_DATA, recoveryCode: undefined };
+    const parsed = parseRecoveryKit(buildRecoveryKitHtml(noCode));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.recoveryCode).toBeUndefined();
   });
 
   it("accepts a v2 key-backup envelope as the backupBlob (current format)", () => {
@@ -141,25 +160,30 @@ describe("recovery kit rejection cases", () => {
   });
 });
 
-describe("recovery kit never leaks the recovery words", () => {
-  it("does not embed the words anywhere in the kit HTML", () => {
-    // Build from real material so a real words string exists to search for.
+describe("recovery kit embeds the code form, not the raw word phrase", () => {
+  it("contains the recovery code the user saw but never the 12-word mnemonic", () => {
+    // The kit is self-contained now (it carries the unlock secret as the grouped
+    // recovery CODE the user was shown, see the embed test above). It must not
+    // ALSO spell out the 12-word mnemonic form, both to avoid showing the user a
+    // second secret and because the wizard never displayed the words.
     const material = createIdentityMaterial({ params: FAST_KDF });
+    const code = mnemonicToRecoveryCode(material.recoveryWords);
     const html = buildRecoveryKitHtml({
       email: "leak-check@wisc.edu",
       fingerprint: material.fingerprint,
+      recoveryCode: code,
       backupBlob: material.backupBlob,
       createdAt: new Date().toISOString(),
     });
 
-    // The full phrase must be absent.
-    expect(html).not.toContain(material.recoveryWords);
+    // The code the user saw IS present (the self-contained kit by design).
+    expect(html).toContain(code);
 
-    // No contiguous run of the words must appear either. Individual BIP39 words
-    // are common English ("add", "ice", "use") and legitimately show up in the
-    // kit's prose, so a per-word search would false-positive. A leak would mean a
-    // multi-word RUN of the actual phrase survives, so we check that every
-    // adjacent pair from the phrase is absent.
+    // The 12-word mnemonic phrase is NOT spelled out anywhere. Individual BIP39
+    // words are common English ("add", "ice", "use") and legitimately show up in
+    // the kit prose, so we check the full phrase and every adjacent pair, not a
+    // per-word search which would false-positive.
+    expect(html).not.toContain(material.recoveryWords);
     const phraseWords = material.recoveryWords.split(/\s+/);
     for (let i = 0; i < phraseWords.length - 1; i += 1) {
       const pair = `${phraseWords[i]} ${phraseWords[i + 1]}`;

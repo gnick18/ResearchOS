@@ -57,7 +57,6 @@ import Tooltip from "@/components/Tooltip";
 import {
   CheckIcon,
   CloseIcon,
-  CopyIcon,
   DownloadIcon,
   GitHubIcon,
   GoogleIcon,
@@ -166,7 +165,6 @@ export default function SharingSetupWizard({
   // create-then-publish path (no pre-existing local identity).
   const [material, setMaterial] = useState<IdentityMaterial | null>(null);
   const [recoverySaved, setRecoverySaved] = useState(false);
-  const [copied, setCopied] = useState(false);
 
   // EXISTING local identity (the common case under the revised model,
   // IDENTITY_OAUTH_ONLY.md 2026-06-06): the account is a LOCAL keypair created
@@ -452,18 +450,6 @@ export default function SharingSetupWizard({
   const recoveryCode = material
     ? mnemonicToRecoveryCode(material.recoveryWords)
     : "";
-
-  const copyCode = useCallback(async () => {
-    if (!recoveryCode) return;
-    try {
-      await navigator.clipboard.writeText(recoveryCode);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // Clipboard can be blocked; the code is still visible to copy by hand.
-      setCopied(false);
-    }
-  }, [recoveryCode]);
 
   // Step 4, publish to the directory then save locally.
   const publish = useCallback(async () => {
@@ -774,8 +760,6 @@ export default function SharingSetupWizard({
               error={error}
               recoverySaved={recoverySaved}
               setRecoverySaved={setRecoverySaved}
-              copied={copied}
-              onCopy={copyCode}
               onContinue={publish}
               recoveryCode={recoveryCode}
             />
@@ -1064,8 +1048,6 @@ function GenerateStep({
   error,
   recoverySaved,
   setRecoverySaved,
-  copied,
-  onCopy,
   onContinue,
   recoveryCode,
 }: {
@@ -1076,8 +1058,6 @@ function GenerateStep({
   error: string | null;
   recoverySaved: boolean;
   setRecoverySaved: (v: boolean) => void;
-  copied: boolean;
-  onCopy: () => void;
   onContinue: () => void;
   recoveryCode: string;
 }) {
@@ -1132,72 +1112,52 @@ function GenerateStep({
         </p>
       </div>
 
-      <div className="flex items-center gap-2 text-blue-600 dark:text-blue-300">
-        <KeyIcon className="w-5 h-5" />
-        <p className="text-body font-medium text-foreground">Your recovery code</p>
-      </div>
-      <p className="text-body text-foreground-muted leading-relaxed">
-        Save this code somewhere safe. It is your backstop if you lose your
-        passkey and this device, and the only way to restore your identity. If
-        you lose it, it cannot be recovered.
-      </p>
-
-      <div className="p-3 bg-surface-sunken border border-border rounded-lg">
-        <p className="font-mono text-body text-foreground tracking-wide break-all text-center">
-          {recoveryCode}
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-4">
-        <button
-          type="button"
-          onClick={onCopy}
-          className="flex items-center gap-1.5 text-meta text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:text-blue-300"
-        >
-          {copied ? (
-            <>
-              <CheckIcon className="w-3.5 h-3.5" />
-              Copied
-            </>
-          ) : (
-            <>
-              <CopyIcon className="w-3.5 h-3.5" />
-              Copy code
-            </>
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={() =>
-            downloadRecoveryKit({
-              email,
-              fingerprint: material.fingerprint,
-              backupBlob: material.backupBlob,
-              createdAt: new Date().toISOString(),
-            })
-          }
-          className="flex items-center gap-1.5 text-meta font-medium text-blue-600 dark:text-blue-400 hover:text-blue-600 dark:text-blue-300"
-        >
-          <DownloadIcon className="w-3.5 h-3.5" />
-          Download Recovery Kit
-        </button>
-      </div>
-      <p className="text-meta text-foreground-muted leading-relaxed">
-        The Recovery Kit is your encrypted key backup in a single file, safe to
-        keep because it is useless without your recovery code.
-      </p>
-
-      <label className="flex items-start gap-2 cursor-pointer select-none">
-        <input
-          type="checkbox"
-          checked={recoverySaved}
-          onChange={(e) => setRecoverySaved(e.target.checked)}
-          className="mt-0.5 accent-blue-500"
-        />
-        <span className="text-body text-foreground-muted leading-relaxed">
-          I have saved my recovery code somewhere safe.
+      <div className="flex items-start gap-3 rounded-xl border border-border bg-surface-sunken p-4">
+        <span className="flex-none grid h-9 w-9 place-items-center rounded-lg bg-brand-action/15 text-brand-action">
+          <KeyIcon className="w-5 h-5" />
         </span>
-      </label>
+        <div>
+          <p className="text-body font-semibold text-foreground">
+            Your account is ready
+          </p>
+          <p className="text-meta text-foreground-muted leading-relaxed mt-0.5">
+            We prepared an encrypted backup of your keys so you can sign in on
+            another computer later. Save it somewhere you will find it again,
+            like your password manager or a cloud drive.
+          </p>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          downloadRecoveryKit({
+            email,
+            fingerprint: material.fingerprint,
+            recoveryCode,
+            backupBlob: material.backupBlob,
+            createdAt: new Date().toISOString(),
+          });
+          setRecoverySaved(true);
+        }}
+        className="ros-btn-raise btn-brand flex w-full items-center justify-center gap-2 rounded-lg py-2.5 text-body font-semibold text-white"
+      >
+        <DownloadIcon className="w-4 h-4" />
+        Download Recovery Kit
+      </button>
+
+      {recoverySaved && (
+        <p className="flex items-center gap-1.5 text-meta font-medium text-brand-action">
+          <CheckIcon className="w-3.5 h-3.5" />
+          Saved. Keep this file somewhere private.
+        </p>
+      )}
+
+      <p className="text-meta text-foreground-muted leading-relaxed">
+        You will not need this day to day. ResearchOS unlocks automatically on
+        this computer. The kit is only for setting up a new device, or getting
+        back in if you ever lose this one.
+      </p>
 
       {error && <ErrorNotice message={error} />}
 
@@ -1209,6 +1169,11 @@ function GenerateStep({
       >
         Publish my keys
       </button>
+      {!recoverySaved && (
+        <p className="text-meta text-foreground-muted text-center">
+          Download your Recovery Kit to continue
+        </p>
+      )}
     </div>
   );
 }

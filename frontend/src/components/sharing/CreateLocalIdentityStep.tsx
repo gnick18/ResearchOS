@@ -266,8 +266,8 @@ export default function CreateLocalIdentityStep({
             <div className="space-y-5">
               <p className="text-body text-foreground-muted leading-relaxed">
                 Your account is a keypair on this device. It works offline, with
-                no password and no sign-in. Save your recovery code -- it is the
-                only way to restore your account on another device.
+                no password and no sign-in. Save the recovery code below, it is
+                how you sign in on another computer later.
               </p>
 
               <div className="rounded-lg border border-border bg-surface-sunken p-4 space-y-2">
@@ -278,9 +278,9 @@ export default function CreateLocalIdentityStep({
                   </p>
                 </div>
                 <p className="text-meta text-foreground-muted leading-relaxed">
-                  Save this somewhere safe. It is the only way to restore your
-                  account on another device. If you lose it, it cannot be
-                  recovered.
+                  Keep this somewhere you will find it again, like your password
+                  manager. Day to day you will not need it, ResearchOS unlocks
+                  automatically here. It is the only copy, so do not lose it.
                 </p>
                 <div className="p-3 bg-surface border border-border rounded-lg">
                   <p className="font-mono text-body text-foreground tracking-wide break-all text-center">

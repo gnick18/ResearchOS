@@ -27,6 +27,14 @@ import { parseKeyBackupField } from "./key-backup-envelope";
 export interface RecoveryKitData {
   email: string;
   fingerprint: string;
+  /**
+   * The human recovery code (grouped Crockford base32, the same 128-bit secret as
+   * the 12 words). Embedded in the kit so one downloaded file is everything the
+   * user needs to recover, the 1Password Emergency Kit model. Optional so an old
+   * v1 kit (which never carried it) still parses; a freshly built kit always sets
+   * it. Because the code is in the file, the kit is now SENSITIVE, keep it private.
+   */
+  recoveryCode?: string;
   backupBlob: string;
   createdAt: string;
 }
@@ -37,15 +45,19 @@ export interface RecoveryKitData {
  */
 interface RecoveryKitEnvelope {
   kind: "researchos-recovery-kit";
-  version: 1;
+  version: 1 | 2;
   email: string;
   fingerprint: string;
   createdAt: string;
+  /** Present from version 2 on. A v1 kit predates the embedded code. */
+  recoveryCode?: string;
   backupBlob: string;
 }
 
 const KIT_KIND = "researchos-recovery-kit";
-const KIT_VERSION = 1;
+// Version 2 embeds the recovery code in the kit (one self-contained file). v1
+// kits never carried it and still parse, parseRecoveryKit reads either.
+const KIT_VERSION = 2;
 const SCRIPT_ID = "researchos-recovery-kit";
 
 /**
@@ -102,6 +114,7 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
     email: data.email,
     fingerprint: data.fingerprint,
     createdAt: data.createdAt,
+    recoveryCode: data.recoveryCode,
     backupBlob: data.backupBlob,
   };
   const envelopeJson = escapeForScript(JSON.stringify(envelope, null, 2));
@@ -109,6 +122,7 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
   const email = escapeHtml(data.email);
   const fingerprint = escapeHtml(data.fingerprint);
   const created = escapeHtml(friendlyDate(data.createdAt));
+  const recoveryCode = data.recoveryCode ? escapeHtml(data.recoveryCode) : "";
 
   // Inline styles are fine here, this is a standalone downloadable document, not
   // an app component. House style applies to the human-facing copy, no em-dashes,
@@ -155,6 +169,19 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
   .details dt { color: #64748b; font-weight: 600; margin: 0; }
   .details dd { margin: 0; word-break: break-all; }
   .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+  .code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 20px;
+    letter-spacing: 0.06em;
+    text-align: center;
+    word-break: break-all;
+    background: #f8fafc;
+    border: 2px solid #cbd5e1;
+    border-radius: 12px;
+    padding: 18px 16px;
+    margin: 8px 0 4px;
+    color: #0f172a;
+  }
   .note {
     background: #eff6ff;
     border: 1px solid #bfdbfe;
@@ -197,7 +224,7 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
 <body>
   <main class="sheet">
     <h1>ResearchOS Recovery Kit</h1>
-    <p class="tagline">Keep this somewhere safe. It is one half of what you need to recover your sharing identity.</p>
+    <p class="tagline">This one file is everything you need to recover your account on a new computer. Keep it private, like a password in your password manager.</p>
 
     <h2>Your identity</h2>
     <dl class="details">
@@ -209,10 +236,13 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
       <dd>${created}</dd>
     </dl>
 
+    <h2>Your recovery code</h2>
+    <div class="code">${recoveryCode}</div>
+
     <h2>What this file is</h2>
     <div class="note">
-      <p style="margin:0 0 8px;">This file holds your <strong>encrypted</strong> key backup. To recover your sharing identity you also need your <strong>12 recovery words</strong>, which are <strong>not</strong> in this file. You write those down separately and keep them apart from this kit.</p>
-      <p style="margin:0;">On its own this file is useless to anyone. Only your words can unlock what is inside it, so storing this file does not put your identity at risk.</p>
+      <p style="margin:0 0 8px;">This file holds your <strong>encrypted key backup</strong> and the <strong>recovery code</strong> that unlocks it, together, so one file is all you need to get back in.</p>
+      <p style="margin:0;">Because the code is in here, treat this file like a password. Keep it in your password manager or another private place. Do not post it or share it.</p>
     </div>
 
     <h2>How to recover</h2>
@@ -220,31 +250,12 @@ export function buildRecoveryKitHtml(data: RecoveryKitData): string {
       <ul>
         <li>Open ResearchOS and go to Settings, then the Sharing identity section.</li>
         <li>Choose to restore with your Recovery Kit.</li>
-        <li>Upload this file, then type your 12 recovery words.</li>
+        <li>Upload this file. That is it, the code inside unlocks your keys.</li>
         <li>Your keys are rebuilt right on your device. No email and no network are needed.</li>
       </ul>
     </div>
 
-    <h2>Write your 12 recovery words here</h2>
-    <div class="warn">
-      <p style="margin:0;">If you print this kit, hand-write your 12 recovery words in the blanks below and store the printout somewhere safe. Do not save your words anywhere alongside this file in plain text.</p>
-    </div>
-    <div class="words-grid">
-      <div class="word-line"><span class="num">1.</span></div>
-      <div class="word-line"><span class="num">2.</span></div>
-      <div class="word-line"><span class="num">3.</span></div>
-      <div class="word-line"><span class="num">4.</span></div>
-      <div class="word-line"><span class="num">5.</span></div>
-      <div class="word-line"><span class="num">6.</span></div>
-      <div class="word-line"><span class="num">7.</span></div>
-      <div class="word-line"><span class="num">8.</span></div>
-      <div class="word-line"><span class="num">9.</span></div>
-      <div class="word-line"><span class="num">10.</span></div>
-      <div class="word-line"><span class="num">11.</span></div>
-      <div class="word-line"><span class="num">12.</span></div>
-    </div>
-
-    <p class="footer">ResearchOS Recovery Kit, format version ${KIT_VERSION}. The block below lets ResearchOS read your encrypted backup when you restore. Do not edit it.</p>
+    <p class="footer">ResearchOS Recovery Kit, format version ${KIT_VERSION}. The block below lets ResearchOS read your backup when you restore. Do not edit it.</p>
   </main>
   <script type="application/json" id="${SCRIPT_ID}">
 ${envelopeJson}
@@ -326,6 +337,10 @@ export function parseRecoveryKit(fileContents: string): RecoveryKitData | null {
     email: parsed.email,
     fingerprint: parsed.fingerprint,
     backupBlob: parsed.backupBlob as string,
+    recoveryCode:
+      typeof parsed.recoveryCode === "string" && parsed.recoveryCode.length > 0
+        ? parsed.recoveryCode
+        : undefined,
     createdAt:
       typeof parsed.createdAt === "string" ? parsed.createdAt : "",
   };
