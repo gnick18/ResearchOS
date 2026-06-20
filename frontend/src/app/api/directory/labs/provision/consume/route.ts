@@ -35,6 +35,7 @@ import {
   setLabListed,
 } from "@/lib/sharing/directory/db";
 import { createSite } from "@/lib/social/lab-site-db";
+import { provisionLabDomain } from "@/lib/social/lab-domain-provision";
 import {
   getProvisionStaging,
   markProvisionConsumed,
@@ -101,6 +102,16 @@ export async function POST(request: Request): Promise<Response> {
   } catch {
     return json(503, { error: "store unavailable" });
   }
+
+  // 3b. Trigger per-subdomain TLS cert issuance for the slug just bound (the
+  //     lab-domains lane owns this). Without it, a staged claim creates the
+  //     lab_sites row but never fires provisioning, so the cert only appears via
+  //     the nightly reconcile cron, not at claim time. provisionLabDomain never
+  //     throws (it swallows fetch errors, is idempotent on a 409
+  //     domain_already_exists, and is fully inert when VERCEL_API_TOKEN is
+  //     unset), so a bare await cannot break or slow the consume on a Vercel
+  //     hiccup. This mirrors the bare await in lab-site/route.ts.
+  await provisionLabDomain(staging.slug);
 
   // 4. Flip the listing visible. The operator staged a real lab, so the intent is
   //    a listed, discoverable lab the moment the PI lands.
