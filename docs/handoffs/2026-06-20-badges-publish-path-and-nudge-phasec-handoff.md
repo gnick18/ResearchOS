@@ -1,12 +1,14 @@
-# Handoff: badge network-page publish path + nudge Phase C (2026-06-20)
+# Handoff: badge network-page publish path + nudge Phase C + BYO demo rebuild (2026-06-20)
 
 Business-lane ("Buisness Boi") session, taking over from the badges + nudge +
-pricing-golive lane. Finished the shimmer-nudge pattern (Phase C), then built
-badge system Phase 2 end to end: the owner-side foundation, a hard course-correct
-when Grant clarified badges are a network-page-only feature, and the full publish
-path so a holder's public profile renders real earned + pinned badges. Durable
+pricing-golive lane. Finished the shimmer-nudge pattern (Phase C), built badge
+system Phase 2 end to end (the owner-side foundation, a hard course-correct when
+Grant clarified badges are a network-page-only feature, and the full publish path
+so a holder's public profile renders real earned + pinned badges), then rebuilt
+the bring-your-own demo site into a real flex (a live 3D interactome). Durable
 facts are in agent memory ([[project_badge_system]], [[project_nudge_shimmer_pattern]],
-[[feedback_subbot_worktree_isolation]]); this doc is the pick-up pointer.
+[[project_lab_domains_companion_sites]], [[feedback_subbot_worktree_isolation]]);
+this doc is the pick-up pointer.
 
 Everything below is ON ORIGIN (the shared main checkout auto-pushes via other
 lanes, so "held for eyeball" commits reached origin on their own). All badge UI is
@@ -111,3 +113,36 @@ for the full arc.
 - labId class-aggregate badges, richer hero graphics + dedicated glyphs (Grant
   sign-off per glyph), and the full catalog (member milestones, open-data, cited,
   open-source contributor, dept-wide aggregates).
+
+## 7. BYO demo site rebuild (commit `d6d86326f`, on origin)
+
+Grant flagged the bring-your-own demo site (`fakeyeast-lab.research-os.com/_site`)
+as a weak example. Rebuilt the checked-in fixture under
+`frontend/src/lib/social/fixtures/demo-byo-site/` (index.html + assets/style.css +
+assets/app.js) from a thin stub into a polished single-page paper companion for
+the fabricated Castellanos Lab.
+
+- CENTERPIECE: a live 3D regulatory interactome (Figure 1), 730 genes / 1,699
+  interactions rendered in PLAIN CANVAS, no library (the bundle is served from a
+  sandboxed origin so it stays self contained). 5 color-coded functional modules,
+  drag-to-orbit, hover-to-trace, depth cueing, a pre-rendered glow-sprite cache for
+  60fps, pauses offscreen via IntersectionObserver, reduced-motion aware. This is
+  the flex, the kind of custom visual a templated page cannot run.
+- Also: sticky lab nav with scroll spy, animated key-number tiles, an interactive
+  Hill-curve predictor (Figure 2, slider drives a live prediction), methods grid,
+  a populated strain table, team cards, copy-able citation + BibTeX toggle. GFP
+  green theme, dark fluorescence hero, responsive, accessible.
+- THE BASE64 GOTCHA: the seeder does NOT read the raw fixture files, it reads the
+  inlined base64 in `frontend/src/lib/social/demo-lab-fixtures.ts`. After editing
+  the fixtures you MUST run `node scripts/gen-demo-lab-fixtures.mjs` (from
+  frontend/) to regenerate it. The base64 also keeps the inline `<svg>` token out
+  of the scanned `.ts`, so icon-guard stays green (raw `.html` is not scanned).
+- GO-LIVE IS AUTOMATIC: the live bundle lives in R2, uploaded by `seedDemoLab()`,
+  which runs in `frontend/src/instrumentation.ts` on every server boot (idempotent,
+  overwrites). The BYO serve cache is only `max-age=300`. So the next prod deploy
+  re-seeds and the live site updates within ~5 minutes, no manual re-seed or cache
+  purge. See [[project_lab_domains_companion_sites]].
+- Verified in the browser desktop + mobile (no console errors, animation confirmed
+  frame to frame); tsc 0, icon-guard green, demo-lab tests pass. A `byo-demo`
+  static-server entry was added to `.claude/launch.json` (gitignored) for local
+  eyeballing on port 8099.
