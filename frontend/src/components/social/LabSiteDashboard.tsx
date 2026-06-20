@@ -119,7 +119,13 @@ function ByoUploadSection({ slug }: { slug: string }) {
   );
 }
 
-interface GithubConnectionSummary {
+// ---------------------------------------------------------------------------
+// GitHub connection state (Phase B: kind-aware)
+// ---------------------------------------------------------------------------
+
+/** A recorded "site" (BYO static-site) connection. */
+interface SiteConnectionSummary {
+  kind: "site";
   owner: string;
   repo: string;
   ref: string;
@@ -128,14 +134,32 @@ interface GithubConnectionSummary {
   lastSyncedAt: string | null;
 }
 
+/** A recorded "tool" (software tool page) connection. */
+interface ToolConnectionSummary {
+  kind: "tool";
+  owner: string;
+  repo: string;
+  repoName: string;
+  htmlUrl: string;
+  updatedAt: string;
+}
+
+type GithubConnectionSummary = SiteConnectionSummary | ToolConnectionSummary;
+
 /**
- * BYO GitHub-connect subsection (lab-domains BYO GitHub-connect Slice A). Connect a
- * PUBLIC GitHub repo as the site source (owner/repo + branch + optional subdir),
- * then re-pull on demand with "Sync now". Mirrors the zip-upload section: all authz
- * + validation is server-side; this only renders the verdict. Mounted only when
+ * BYO GitHub-connect subsection (lab-domains BYO GitHub-connect Slice A + Phase B).
+ * Connect a PUBLIC GitHub repo as the site source. On connect the server auto-detects
+ * whether the repo is a static SITE (has an index.html / GitHub Pages) or a software
+ * TOOL (README-driven), then routes to the right path:
+ *   site  -- pulls a zipball and hosts files from R2 (existing BYO flow).
+ *   tool  -- ingests README + wiki pages as native lab pages (Phase B).
+ * The result message and the connection badge reflect the detected kind.
+ *
+ * Sync is available for site connections only; a tool "re-sync" is a reconnect
+ * (the ingest is idempotent and safe to repeat). Mounted only when
  * LAB_BYO_SITES_ENABLED, so it is dark by default.
  */
-function ByoGithubSection() {
+function ByoGithubSection({ slug }: { slug: string }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [conn, setConn] = useState<GithubConnectionSummary | null>(null);
@@ -154,8 +178,10 @@ function ByoGithubSection() {
         setConn(data.connection);
         setOwner(data.connection.owner);
         setRepo(data.connection.repo);
-        setRef(data.connection.ref || "main");
-        setSubdir(data.connection.subdir || "");
+        if (data.connection.kind === "site") {
+          setRef(data.connection.ref || "main");
+          setSubdir(data.connection.subdir || "");
+        }
       }
     } catch {
       // Best effort: a load failure just leaves the form blank.
@@ -192,39 +218,86 @@ function ByoGithubSection() {
         if (res.status === 422 || res.status === 502) {
           const data = (await res.json().catch(() => ({}))) as { reason?: string };
           const reason = data.reason ?? "invalid";
-          setMsg(`Could not pull that repo (${reason}). Use a PUBLIC repo with an index.html at its (sub)root.`);
+          // Give the user a clear reason for each known failure code.
+          if (reason === "repo-not-found") {
+            setMsg("That repo was not found. Make sure it is public and the owner and name are correct.");
+          } else {
+            setMsg(`Could not connect that repo (${reason}). Check that it is public and try again.`);
+          }
           return;
         }
         if (!res.ok) {
-          setMsg("Could not sync the repo right now.");
+          setMsg("Could not connect the repo right now.");
           return;
         }
-        const data = (await res.json()) as { fileCount: number; totalBytes: number; resolvedRef?: string };
-        setMsg(`Synced ${data.fileCount} files (${Math.round(data.totalBytes / 1024)} KB)${data.resolvedRef ? ` at ${data.resolvedRef.slice(0, 7)}` : ""}.`);
+        // Phase B: the response now always carries a "kind" field.
+        const data = (await res.json()) as {
+          kind?: "site" | "tool";
+          fileCount?: number;
+          totalBytes?: number;
+          resolvedRef?: string;
+          repoName?: string;
+          pageCount?: number;
+          owner?: string;
+          repo?: string;
+        };
+        if (data.kind === "tool") {
+          setMsg(
+            `Detected a software tool. Published as a tool page at ${slug}.research-os.com (${data.pageCount ?? 0} pages from README + wiki).`,
+          );
+        } else {
+          // site path (or legacy response without kind).
+          const kb = data.totalBytes ? Math.round(data.totalBytes / 1024) : 0;
+          const sha = data.resolvedRef ? ` at ${data.resolvedRef.slice(0, 7)}` : "";
+          setMsg(`Static site hosted (${data.fileCount ?? 0} files, ${kb} KB${sha}).`);
+        }
         await loadConnection();
       } catch {
-        setMsg("Could not sync the repo right now.");
+        setMsg("Could not connect the repo right now.");
       } finally {
         setBusy(false);
       }
     },
-    [owner, repo, ref, subdir, loadConnection],
+    [owner, repo, ref, subdir, slug, loadConnection],
   );
+
+  // Build a human-readable connection badge for the current connection.
+  function connectionBadge(c: GithubConnectionSummary): string {
+    if (c.kind === "tool") {
+      return `Tool page: ${c.owner}/${c.repo}`;
+    }
+    const refPart = c.ref || "main";
+    const subdirPart = c.subdir ? `, /${c.subdir}` : "";
+    const syncPart = c.lastSyncedSha
+      ? ` . last synced ${c.lastSyncedSha.slice(0, 7)}`
+      : " . not synced yet";
+    return `Static site: ${c.owner}/${c.repo} (${refPart}${subdirPart})${syncPart}`;
+  }
+
+  // Both site and tool connections are served under the lab's subdomain.
+  // The function is kept as a named helper for clarity; the parameter is intentionally
+  // unused because both kinds share the same top-level URL (the render route handles
+  // the kind-specific path internally).
+  function publicUrl(_c: GithubConnectionSummary): string {
+    return `${slug}.research-os.com`;
+  }
 
   return (
     <section className="mb-8 rounded-xl border border-border bg-surface-raised p-5">
       <h2 className="text-lg font-medium text-foreground">Connect a GitHub repo</h2>
       <p className="mt-1 text-sm text-muted-foreground">
-        Point us at a PUBLIC GitHub repo with an index.html (your paper-companion
-        repo). We pull its files and host them. Use Sync now to re-pull after you
-        push changes. Private repos and automatic sync are coming later.
+        Point us at a PUBLIC GitHub repo. We auto-detect whether it is a static
+        site (index.html or GitHub Pages) or a software tool (README-driven), then
+        publish it the right way. Private repos and automatic sync are coming later.
       </p>
       {conn && (
-        <p className="mt-2 text-xs text-muted-foreground">
-          Connected to {conn.owner}/{conn.repo} ({conn.ref || "main"}
-          {conn.subdir ? `, /${conn.subdir}` : ""})
-          {conn.lastSyncedSha ? ` . last synced ${conn.lastSyncedSha.slice(0, 7)}` : " . not synced yet"}
-        </p>
+        <div className="mt-2 rounded-lg border border-border bg-surface-sunken px-3 py-2 text-xs text-muted-foreground">
+          <p>{connectionBadge(conn)}</p>
+          <p className="mt-0.5">
+            Live at{" "}
+            <span className="font-medium text-foreground">{publicUrl(conn)}</span>
+          </p>
+        </div>
       )}
       <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2">
         <input
@@ -241,7 +314,7 @@ function ByoGithubSection() {
           value={repo}
           onChange={(e) => setRepo(e.target.value)}
           disabled={busy}
-          placeholder="repo (e.g. companion-site)"
+          placeholder="repo (e.g. companion-site or starfish)"
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
           aria-label="GitHub repo"
         />
@@ -259,9 +332,9 @@ function ByoGithubSection() {
           value={subdir}
           onChange={(e) => setSubdir(e.target.value)}
           disabled={busy}
-          placeholder="subfolder (optional, e.g. site)"
+          placeholder="subfolder (optional, for site repos)"
           className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground"
-          aria-label="Subfolder (optional)"
+          aria-label="Subfolder (optional, site repos only)"
         />
       </div>
       <div className="mt-4 flex flex-wrap items-center gap-2">
@@ -271,9 +344,9 @@ function ByoGithubSection() {
           onClick={() => void runAction("connect")}
           className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
         >
-          <Icon name="check" className="h-4 w-4" /> {conn ? "Reconnect" : "Connect and pull"}
+          <Icon name="check" className="h-4 w-4" /> {conn ? "Reconnect" : "Connect and detect"}
         </button>
-        {conn && (
+        {conn?.kind === "site" && (
           <button
             type="button"
             disabled={busy}
@@ -771,7 +844,7 @@ export default function LabSiteDashboard({
             {LAB_BYO_SITES_ENABLED && !demoReadOnly && (
               <ByoUploadSection slug={site.slug} />
             )}
-            {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection />}
+            {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection slug={site.slug} />}
 
             {editorPath !== null && (
               <section className="rounded-xl border border-border bg-surface-raised p-5">

@@ -1,22 +1,24 @@
 // Lab BYO ("bring your own") static-site GitHub-CONNECT + SYNC endpoint
-// (lab-domains BYO GitHub-connect Slice A, social lane).
+// (lab-domains BYO GitHub-connect Slice A + Phase B, social lane).
 //
 //   POST /api/social/lab-site/byo/github
 //     Body: { action: "connect", owner, repo, ref, subdir? }
-//       -> record the connection for the caller's lab, then pull + store (one step,
-//          so connecting also performs the first sync).
+//       -> DETECT repo type via classifyRepo (Phase B):
+//            "tool" path: ingestToolRepo + upsertToolGithub, returns { kind:"tool", ... }.
+//            "site" path: existing pullGithubZipball + validateByoEntries + R2, returns { kind:"site", ... }.
 //     Body: { action: "sync" }
 //       -> re-pull the lab's RECORDED connection and re-store (manual "sync now").
 //     Body: { action: "disconnect" }
 //       -> forget the connection (leaves any already-stored files in place).
-//     -> { ok, fileCount, totalBytes, indexPath, resolvedRef } on a pull,
-//        { ok } on disconnect.
+//     -> { ok, kind, ... } on a pull, { ok } on disconnect.
 //
-// This is the GitHub source's counterpart to the manual zip-upload route. Instead
-// of unzipping an uploaded body, it pulls a PUBLIC repo's zipball, strips GitHub's
-// `{repo}-{sha}/` wrapper folder + an optional subdir, and runs the result through
-// the SAME validateByoEntries + R2-store + manifest + billing path, so a malicious
-// repo is held to the exact same security bar as a malicious upload.
+// Phase B classification: at connect time, BEFORE pulling the zipball, the route
+// fetches the repo's root file listing and Pages-enabled flag (via the SSRF-guarded
+// fetchRepoRootListing + fetchPagesEnabled helpers in lab-byo-github.ts), then calls
+// classifyRepo(). A "tool" repo skips the zipball/R2 path entirely and runs through
+// ingestToolRepo + upsertToolGithub instead. A "site" repo follows the original path
+// byte-for-byte. The response always includes a "kind" field so the dashboard can
+// surface the detected type and the right public URL.
 //
 // AUTHZ (fail closed, IDENTICAL to the upload route, PLUS the BYO sub-flag):
 //   1. flag(s)     isLabByoSitesEnabled() else 404 (inert unless BOTH flags on).
@@ -25,14 +27,15 @@
 //                  enforces target === caller by construction).
 //   4. entitled    isLabPublishEntitled(callerOwnerKey) === true, else 403.
 //   + no site yet (the lab must have claimed a slug first) => 409 "no site".
-//   + R2 not configured => 503 "hosting unavailable".
+//   + R2 not configured => 503 "hosting unavailable" (site path only).
 //   + repo invalid / traversal / over caps / no index.html => 422 with a reason.
 //   + sync with no recorded connection => 409 "not connected".
 //
-// SECURITY: owner/repo/ref are charset-validated (SSRF guard, only github.com is
-// ever fetched) BEFORE recording or fetching; every pulled entry passes the SAME
-// zip-slip sanitizer (validateByoEntries) before any byte touches R2; a single bad
-// entry fails the WHOLE sync, so nothing is partially stored.
+// SECURITY: owner/repo/ref are charset-validated (SSRF guard, only api.github.com /
+// raw.githubusercontent.com / codeload.github.com are ever fetched) BEFORE recording
+// or fetching; every pulled entry passes the SAME zip-slip sanitizer
+// (validateByoEntries) before any byte touches R2; a single bad entry fails the WHOLE
+// sync, so nothing is partially stored.
 //
 // setHostedAssetBytes lives in @/lib/collab/server/db and is used READ-ONLY here.
 // Reads env: LAB_SITES_ENABLED, LAB_BYO_SITES, GITHUB_TOKEN (optional), R2_*,
@@ -63,12 +66,17 @@ import {
   validateByoEntries,
 } from "@/lib/social/lab-byo";
 import {
+  fetchPagesEnabled,
+  fetchRepoRootListing,
   parseGithubConnection,
   pullGithubZipball,
   type GithubConnection,
 } from "@/lib/social/lab-byo-github";
 import { resolveCallerOwnerKey } from "@/lib/social/lab-site-session";
 import { isLabByoSitesEnabled } from "@/lib/social/config";
+import { classifyRepo, detectReadmeFilename } from "@/lib/social/lab-repo-classify";
+import { ingestToolRepo } from "@/lib/social/lab-tool-ingest";
+import { getToolByOwner } from "@/lib/social/lab-tool-db";
 
 export const runtime = "nodejs";
 
@@ -94,7 +102,8 @@ function pullErrorReason(error: string): string {
  * Shared pull -> validate -> store -> manifest -> billing pipeline for a VALIDATED
  * connection and an already-authorized owner. Mirrors the upload route exactly,
  * differing only in the SOURCE of the entries (a GitHub zipball vs an uploaded
- * zip). Returns a Response (the route returns it directly).
+ * zip). Returns a Response (the route returns it directly). Always includes
+ * kind:"site" in the success payload so the dashboard can show the right URL.
  */
 async function pullAndStore(
   ownerKey: string,
@@ -173,10 +182,47 @@ async function pullAndStore(
 
   return json(200, {
     ok: true,
+    kind: "site" as const,
     fileCount: result.manifest.files.length,
     totalBytes: result.manifest.totalBytes,
     indexPath: result.manifest.indexPath,
     resolvedRef: pulled.resolvedRef,
+  });
+}
+
+/**
+ * Tool-ingest path: classify said "tool", so run ingestToolRepo instead of the
+ * zipball/R2 path. Returns a Response with kind:"tool" on success.
+ *
+ * The R2 asset store is NOT needed here. The function is only called from the
+ * connect action (not sync) because the sync path re-uses the recorded connection
+ * type from the BYO table, which does not exist for a tool (they are stored in
+ * lab_tool_github). A tool "re-sync" triggers a fresh connect.
+ */
+async function ingestTool(
+  ownerKey: string,
+  conn: GithubConnection,
+  rootFileNames: string[],
+): Promise<Response> {
+  const readmeFilename = detectReadmeFilename(rootFileNames) ?? "README.md";
+  const result = await ingestToolRepo({
+    labOwnerKey: ownerKey,
+    owner: conn.owner,
+    repo: conn.repo,
+    readmeFilename,
+  });
+  if (!result) {
+    // ingestToolRepo returns null when owner/repo validation fails or the repo
+    // metadata cannot be fetched (does not exist or is private).
+    return json(422, { error: "invalid site", reason: "repo-not-found" });
+  }
+  return json(200, {
+    ok: true,
+    kind: "tool" as const,
+    repoName: result.meta.name,
+    pageCount: result.publishedPaths.length,
+    owner: conn.owner,
+    repo: conn.repo,
   });
 }
 
@@ -226,16 +272,35 @@ export async function POST(request: Request): Promise<Response> {
     return json(200, { ok: true });
   }
 
-  // CONNECT and SYNC both end in a pull, which needs R2 configured.
-  if (!isAssetStoreConfigured()) {
-    return json(503, { error: "hosting unavailable" });
-  }
-
   if (action === "connect") {
     const conn = parseGithubConnection(body);
     if (!conn) {
       return json(422, { error: "invalid site", reason: "bad-connection" });
     }
+
+    // Phase B: classify the repo BEFORE pulling. Fetch the root file list and
+    // GitHub Pages flag in parallel (both SSRF-guarded, api.github.com only),
+    // then call the pure classifyRepo() to decide the path.
+    const [rootFileNames, pagesEnabled] = await Promise.all([
+      fetchRepoRootListing(conn.owner, conn.repo),
+      fetchPagesEnabled(conn.owner, conn.repo),
+    ]);
+    const repoKind = classifyRepo({ rootFileNames, pagesEnabled });
+
+    if (repoKind === "tool") {
+      // Tool path: ingest README + wiki pages via ingestToolRepo.
+      // No BYO record or R2 needed (tool connections are tracked in lab_tool_github).
+      return ingestTool(ownerKey, conn, rootFileNames);
+    }
+
+    // Site path: the existing BYO flow, byte-identical to Slice A.
+    // R2 is required for site hosting; check here rather than before the branch so
+    // a tool connect does not fail with a spurious "hosting unavailable" error on
+    // a server that has not configured R2.
+    if (!isAssetStoreConfigured()) {
+      return json(503, { error: "hosting unavailable" });
+    }
+
     // Record the connection BEFORE the pull so a later "sync now" has it even if
     // the first pull fails (the lab can fix the repo and retry).
     try {
@@ -253,6 +318,12 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   if (action === "sync") {
+    // Sync always follows the BYO (site) path: it re-pulls the RECORDED zipball
+    // connection. A tool re-sync is performed by re-connecting (no BYO row exists
+    // for tool connections). R2 is required.
+    if (!isAssetStoreConfigured()) {
+      return json(503, { error: "hosting unavailable" });
+    }
     let recorded;
     try {
       recorded = await getByoGithubByOwner(ownerKey);
@@ -290,21 +361,50 @@ export async function GET(): Promise<Response> {
   }
   const ownerKey = callerOwnerKey as string;
 
+  // Check BYO (site) connection first, then fall back to tool connection.
+  // The two are mutually exclusive per lab: a connect always goes through
+  // classification and only writes ONE of the two tables.
   let recorded;
   try {
     recorded = await getByoGithubByOwner(ownerKey);
   } catch {
     return json(503, { error: "store unavailable" });
   }
-  if (!recorded) return json(200, { connection: null });
-  return json(200, {
-    connection: {
-      owner: recorded.owner,
-      repo: recorded.repo,
-      ref: recorded.ref,
-      subdir: recorded.subdir,
-      lastSyncedSha: recorded.lastSyncedSha,
-      lastSyncedAt: recorded.lastSyncedAt,
-    },
-  });
+
+  if (recorded) {
+    return json(200, {
+      connection: {
+        kind: "site" as const,
+        owner: recorded.owner,
+        repo: recorded.repo,
+        ref: recorded.ref,
+        subdir: recorded.subdir,
+        lastSyncedSha: recorded.lastSyncedSha,
+        lastSyncedAt: recorded.lastSyncedAt,
+      },
+    });
+  }
+
+  // No BYO site row: check for a tool connection (Phase B).
+  let toolRow;
+  try {
+    toolRow = await getToolByOwner(ownerKey);
+  } catch {
+    return json(503, { error: "store unavailable" });
+  }
+
+  if (toolRow) {
+    return json(200, {
+      connection: {
+        kind: "tool" as const,
+        owner: toolRow.owner,
+        repo: toolRow.repo,
+        repoName: toolRow.repoName,
+        htmlUrl: toolRow.htmlUrl,
+        updatedAt: toolRow.updatedAt,
+      },
+    });
+  }
+
+  return json(200, { connection: null });
 }
