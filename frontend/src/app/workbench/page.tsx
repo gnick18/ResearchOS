@@ -24,6 +24,7 @@ import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { useWorkbenchBeakerSource } from "./useWorkbenchBeakerSource";
 import { useClassDashboard } from "@/hooks/useClassDashboard";
 import { useIsClassStudent } from "@/hooks/useIsClassStudent";
+import { useStudentAssignmentCount } from "@/hooks/useStudentAssignmentCount";
 import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
 import ClassAssignmentsPanel from "@/components/lab-overview/ClassAssignmentsPanel";
 import type {
@@ -32,7 +33,13 @@ import type {
 } from "./useWorkbenchBeakerSource";
 import type { Project } from "@/lib/types";
 
-type TabType = "projects" | "experiments" | "notes" | "lists" | "oneonone";
+type TabType =
+  | "assignments"
+  | "projects"
+  | "experiments"
+  | "notes"
+  | "lists"
+  | "oneonone";
 
 const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
@@ -169,14 +176,21 @@ export default function WorkbenchPage() {
   const isClassStudent = useIsClassStudent(currentUser || null);
   const showStudentAssignments =
     CLASS_MODE_ENABLED && isClassStudent === true && !!currentUser;
+  const assignmentCount = useStudentAssignmentCount(showStudentAssignments);
 
   // A tab is renderable iff it survives the forced template AND its own gate
   // (oneonone keeps its existing visibility rule). When not forced, the resolved
   // set is the full default order, so every tab passes this check unchanged.
   const forcedTabs = classDashboard.tabs;
   const tabIsAllowed = useCallback(
-    (id: TabType) => forcedTabs.includes(id),
-    [forcedTabs],
+    // The student Assignments tab is intrinsic to a class student, not a
+    // template content tab, so a forced class template never evicts it. The early
+    // return also narrows `id` to the template tab union for forcedTabs.includes.
+    (id: TabType) => {
+      if (id === "assignments") return showStudentAssignments;
+      return forcedTabs.includes(id);
+    },
+    [forcedTabs, showStudentAssignments],
   );
 
   // FORCE the landing tab once a class template is in effect. Guarded by
@@ -201,7 +215,9 @@ export default function WorkbenchPage() {
   // a READER over the same queries above + the panels' real handlers; the only
   // page state it drives is setActiveTab + the pendingOpen cross-tab seam.
   useWorkbenchBeakerSource({
-    activeTab,
+    // BeakerSearch never targets the student Assignments tab; treat it as the
+    // projects context so the reader stays on the existing WorkbenchTab union.
+    activeTab: activeTab === "assignments" ? "projects" : activeTab,
     setActiveTab,
     setPendingOpen,
     selection: effectiveSelection,
@@ -290,22 +306,6 @@ export default function WorkbenchPage() {
             )}
           </div>
         )}
-        {/* Class assignments (CT-2): the student opens an assignment to start
-            their notebook and submit it. Above the tabs so it leads the student
-            workbench. Student-only + flag-off inert. */}
-        {showStudentAssignments && currentUser && (
-          <div className="mb-4 rounded-lg border border-border bg-surface-raised p-4">
-            <h3 className="text-body font-semibold text-foreground">
-              Your assignments
-            </h3>
-            <p className="mt-0.5 mb-3 text-meta text-foreground-muted">
-              Open an assignment to start your notebook, then submit it when you
-              are done.
-            </p>
-            <ClassAssignmentsPanel currentUser={currentUser} />
-          </div>
-        )}
-
         {/* Compact header: the page title + its subtitle sit INLINE with the
             tabs in a single band, instead of stacking a tall title row above a
             separate tab row. Reclaims the vertical space the stacked chrome
@@ -316,6 +316,24 @@ export default function WorkbenchPage() {
             <span className="text-meta text-foreground-muted">{subtitle}</span>
           </div>
           <div className="flex items-center gap-1">
+          {showStudentAssignments && (
+          <button
+            onClick={() => setActiveTab("assignments")}
+            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+              activeTab === "assignments"
+                ? "bg-teal-100 text-teal-700 dark:bg-teal-500/15 dark:text-teal-300"
+                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+            }`}
+          >
+            <Icon name="mortarboard" className="w-4 h-4" />
+            Assignments
+            {assignmentCount > 0 && (
+              <span className="ml-0.5 inline-flex min-w-[1.25rem] items-center justify-center rounded-full bg-teal-600 px-1.5 text-[0.7rem] font-semibold leading-5 text-white">
+                {assignmentCount}
+              </span>
+            )}
+          </button>
+          )}
           {tabIsAllowed("projects") && (
           <button
             onClick={() => setActiveTab("projects")}
@@ -401,13 +419,17 @@ export default function WorkbenchPage() {
             Projects browse tab (the cards ARE the projects; no filter). */}
         {activeTab !== "notes" &&
           activeTab !== "projects" &&
-          activeTab !== "oneonone" && (
+          activeTab !== "oneonone" &&
+          activeTab !== "assignments" && (
           <WorkbenchProjectFilterPills
             projects={projects}
             projectColors={projectColors}
           />
         )}
 
+        {activeTab === "assignments" && showStudentAssignments && currentUser && (
+          <ClassAssignmentsPanel currentUser={currentUser} />
+        )}
         {activeTab === "projects" && (
           <WorkbenchProjectsPanel projects={projects} />
         )}
