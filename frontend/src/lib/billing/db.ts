@@ -15,7 +15,7 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { FREE_ALLOWANCE_BYTES } from "./config";
-import { getActiveGrant } from "./grants";
+import { getActiveGrant, getActiveCompedTier } from "./grants";
 import { getSponsoringLab } from "./lab";
 import { getModelAPlan } from "./model-a/pricing";
 import { getPlan } from "./plans";
@@ -217,15 +217,25 @@ function isLabSponsor(sub: SubscriptionRecord | null): boolean {
  * NO free labs. Lab is a paid tier; the Free tier is the network audience
  * (receive-only, no produce features), so it must NOT be able to publish a lab
  * site. This gate is the SOLE lab-ness + entitlement check the create-site path
- * relies on, so it returns true ONLY for an active PAID lab-audience plan, which
- * correctly excludes individuals, free/network accounts, and lapsed labs. It is
- * NOT billing-flag-gated: the live verify pass uses a paid lab account (the dev
- * billing-sim seeds one) rather than relying on a beta free-for-all.
+ * relies on. It returns true when:
+ *   - the real subscription is an active paid lab-audience plan (existing path),
+ *   OR
+ *   - the operator has issued an active comped tier of "lab" or "dept" on this
+ *     key (new: gift-card premium entitlement, Grant 2026-06-19). A "solo" comp
+ *     is an individual tier and does NOT grant lab-publish access.
+ *
+ * A comp never creates a Stripe subscription and never downgrades a real paid
+ * plan. AI tokens are not comped here (decision 1, Grant 2026-06-19).
  */
 export async function isLabPublishEntitled(labOwnerKey: string): Promise<boolean> {
   if (!labOwnerKey) return false;
   await ensureBillingSchema();
-  return isActiveLabPlan(await getSubscription(labOwnerKey));
+  if (isActiveLabPlan(await getSubscription(labOwnerKey))) return true;
+  // OR-in a lab/dept comped tier. A "solo" comp is individual-only and must
+  // not unlock lab publishing. Fail-safe to false so a grants hiccup never
+  // opens the gate.
+  const compedTier = await getActiveCompedTier(labOwnerKey).catch(() => null);
+  return compedTier === "lab" || compedTier === "dept";
 }
 
 /**
