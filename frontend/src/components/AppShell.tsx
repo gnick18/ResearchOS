@@ -82,6 +82,7 @@ import {
 import { isOAuthPublishAvailable } from "@/lib/sharing/oauth-availability";
 import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
+import LabProvisionResume from "@/components/lab/LabProvisionResume";
 import LabGenesisPublishRetry from "@/components/lab/LabGenesisPublishRetry";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
@@ -846,6 +847,13 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           Self-gates on sessionStorage "researchos:lab-create" + live session
           + connected user + unlocked identity. Inert otherwise. */}
       <LabCreateResume />
+      {/* Staged PI provisioning: when a PI an operator pre-staged a lab for signs
+          in for the first time, runs the real lab genesis ON DEVICE inheriting the
+          staged branding, then binds the reserved slug + consumes the staging.
+          Self-gates on LAB_TIER_ENABLED + a connected user + unlocked identity +
+          an OAuth email + a server-confirmed pending staging. Headless and inert
+          for every user who has no staged lab. */}
+      <LabProvisionResume />
       {/* Retries the relay genesis publish for a lab created locally whose
           publish has not landed yet, and shows a small "Lab sync pending"
           banner while outstanding. The PI is already a full lab head locally;
