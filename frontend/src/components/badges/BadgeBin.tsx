@@ -5,51 +5,25 @@
 // show how they are earned and cannot be pinned. The pinned set is the source
 // of truth for the public BadgeShelf above it.
 //
-// PINNING PERSISTENCE (v1): localStorage ONLY, keyed by profileId
-// (`ros.badges.pinned.<profileId>`). v1 persists pins in localStorage; phase 2
-// will move pins to a folder sidecar plus publish a badge snapshot to the
-// network profile (data-shape decision pending Grant). No folder sidecar file
-// or persisted JSON format is created now.
+// PINNING PERSISTENCE (phase 2): the account-scoped cloud blob is the durable,
+// cross-device home (Grant's call over a folder sidecar), with a per-device
+// localStorage cache for instant paint. Both live behind lib/badges/pins.ts; the
+// cloud write is flag-guarded and best-effort, so the bin still works (cache
+// only) when account settings are off or no identity is unlocked.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons, sentence case.
 
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import BadgeMedallion from "@/components/badges/BadgeMedallion";
 import { BADGE_CATALOG } from "@/lib/badges/catalog";
+import { loadPinnedBadgeIds, savePinnedBadgeIds } from "@/lib/badges/pins";
 import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 
 /** Max pinned badges. Shared cap with the shelf. */
 const MAX_PINNED = 4;
-
-/** localStorage key for one profile's pinned badge ids. */
-function pinKey(profileId: string): string {
-  return `ros.badges.pinned.${profileId}`;
-}
-
-function readPins(profileId: string): string[] {
-  if (typeof window === "undefined") return [];
-  try {
-    const raw = window.localStorage.getItem(pinKey(profileId));
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.filter((x) => typeof x === "string") : [];
-  } catch {
-    return [];
-  }
-}
-
-function writePins(profileId: string, ids: string[]): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.localStorage.setItem(pinKey(profileId), JSON.stringify(ids));
-  } catch {
-    // localStorage can be unavailable (private mode, quota). Pins are a
-    // convenience in v1, so a failed write degrades to in-memory only.
-  }
-}
 
 export default function BadgeBin({
   profileId,
@@ -61,7 +35,7 @@ export default function BadgeBin({
   /** Notifies a parent (e.g. the shelf) when the pinned set changes. */
   onPinsChange?: (pinnedIds: string[]) => void;
 }) {
-  const earned = new Set(earnedIds);
+  const earned = useMemo(() => new Set(earnedIds), [earnedIds]);
   const [pinned, setPinned] = useState<string[]>([]);
   const [capHit, setCapHit] = useState(false);
 
@@ -76,11 +50,20 @@ export default function BadgeBin({
     eligible: firstPinnableId != null && pinned.length < MAX_PINNED,
   });
 
-  // Hydrate pins from localStorage on mount and whenever the profile changes.
+  // Hydrate pins on mount and whenever the profile changes. The loader prefers
+  // the account-scoped cloud value and falls back to the per-device cache. The
+  // cancelled guard drops a stale resolve if the profile changes mid-flight.
   useEffect(() => {
-    const initial = readPins(profileId);
-    setPinned(initial);
-    onPinsChange?.(initial);
+    let cancelled = false;
+    void (async () => {
+      const initial = await loadPinnedBadgeIds(profileId);
+      if (cancelled) return;
+      setPinned(initial);
+      onPinsChange?.(initial);
+    })();
+    return () => {
+      cancelled = true;
+    };
     // onPinsChange is intentionally excluded; it is a notification callback and
     // including it would re-run the hydration on every parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -103,7 +86,7 @@ export default function BadgeBin({
         } else {
           next = [...prev, id];
         }
-        writePins(profileId, next);
+        void savePinnedBadgeIds(profileId, next);
         onPinsChange?.(next);
         return next;
       });

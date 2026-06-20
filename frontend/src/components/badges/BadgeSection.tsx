@@ -43,21 +43,32 @@ export function demoBadgeMetrics(): BadgeMetrics {
 export default function BadgeSection({
   profileId,
   metrics,
+  showHeader = true,
 }: {
   /** Stable id used as the localStorage pin key (e.g. the lab slug). */
   profileId: string;
   metrics: BadgeMetrics;
+  /**
+   * Render the section's own "Badges" heading + blurb. True on the public
+   * profile (one section among many); pass false on a dedicated Badges page that
+   * already supplies its own page title, to avoid a doubled heading.
+   */
+  showHeader?: boolean;
 }) {
   const earnedIds = useMemo(() => computeEarnedBadges(metrics), [metrics]);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
 
   return (
-    <section className="mt-12 border-t border-border pt-8">
-      <h2 className="text-title font-semibold text-foreground">Badges</h2>
-      <p className="mt-1 text-meta text-foreground-muted">
-        Earned from this lab's activity. Pin up to four to feature on the
-        profile.
-      </p>
+    <section className={showHeader ? "mt-12 border-t border-border pt-8" : ""}>
+      {showHeader && (
+        <>
+          <h2 className="text-title font-semibold text-foreground">Badges</h2>
+          <p className="mt-1 text-meta text-foreground-muted">
+            Earned from real lab activity. Pin up to four to feature on the
+            profile.
+          </p>
+        </>
+      )}
 
       <div className="mt-6">
         <BadgeShelf pinnedIds={pinnedIds} earnedIds={earnedIds} />
