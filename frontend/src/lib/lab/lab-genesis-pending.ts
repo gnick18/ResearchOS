@@ -51,17 +51,26 @@ export async function clearPendingGenesis(username: string): Promise<void> {
  * Attempts the relay genesis publish from a persisted PendingLabGenesis. The
  * lab key is NOT part of the publish (createLabRemote only reads
  * created.record.log[0] + created.envelope + created.record.head), so we
- * reconstruct a CreatedLab with an empty labKey placeholder. On success the
- * pending genesis is cleared and the function returns true; on any failure
- * (thrown, non-ok relay) it leaves the pending genesis in place and returns
- * false so a later retry can pick it back up.
+ * reconstruct a CreatedLab with an empty labKey placeholder.
+ *
+ * The pending genesis is cleared ONLY when BOTH the relay genesis publish AND
+ * the directory upsert succeed. Previously pending was cleared on relay success
+ * alone, which stranded labs with a missing directory_labs row (making the lab
+ * invisible to the admin roster and /network). Now, if the directory write fails
+ * (non-2xx or network error), directoryOk is false, the function returns false,
+ * and the pending genesis stays in place so the next retry attempts both steps
+ * again (the relay publish is idempotent; re-sending a genesis the DO already
+ * has is safe and cheap).
+ *
+ * On any failure (thrown, non-ok relay) the pending genesis is left in place
+ * and the function returns false so a later retry can pick it back up.
  */
 export async function publishPendingGenesis(
   username: string,
   pending: PendingLabGenesis,
 ): Promise<boolean> {
   try {
-    await publishLabRemote(
+    const result = await publishLabRemote(
       pending.labId,
       {
         record: pending.record,
@@ -80,6 +89,13 @@ export async function publishPendingGenesis(
           }
         : undefined,
     );
+    // Only clear the pending genesis once BOTH the relay genesis AND the
+    // directory upsert landed. A partial result (relay ok, directory failed)
+    // leaves the pending genesis in place so the next retry can backfill the
+    // directory row. The relay is idempotent for re-sent genesis records.
+    if (!result.ok) {
+      return false;
+    }
     await clearPendingGenesis(username);
     return true;
   } catch {

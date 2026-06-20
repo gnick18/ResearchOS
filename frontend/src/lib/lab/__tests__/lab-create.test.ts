@@ -8,6 +8,12 @@
 //   - The function returns { labId, labKey } where labKey is from the fake
 //     CreatedLab.
 //   - The function throws when createLabRemote returns a non-ok response (401).
+//   - publishLabRemote always POSTs to /api/directory/labs/publish regardless
+//     of whether a lab name was supplied (name-independent directory upsert).
+//   - publishLabRemote returns directoryOk: false (and ok: false) when the
+//     directory POST is non-2xx, without throwing (so callers can leave the
+//     pending genesis in place for a retry).
+//   - publishLabRemote returns ok: true when both relay and directory succeed.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -15,7 +21,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { encodePublicKey } from "@/lib/sharing/identity/keys";
 import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import type { CreatedLab } from "../lab-key";
-import { createLabForCurrentUser } from "../lab-create";
+import { createLabForCurrentUser, publishLabRemote } from "../lab-create";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -47,6 +53,16 @@ import { createLabRemote } from "../lab-do-client";
 const mockCreateLab = vi.mocked(createLab);
 const mockSealEmail = vi.mocked(sealMemberEmailHash);
 const mockCreateLabRemote = vi.mocked(createLabRemote);
+
+// publishLabRemote now calls fetch directly for the directory upsert. Mock it
+// globally so all tests that go through createLabForCurrentUser or
+// publishLabRemote can control what the directory endpoint returns.
+let mockFetch: ReturnType<typeof vi.fn>;
+
+beforeEach(() => {
+  mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+  vi.stubGlobal("fetch", mockFetch);
+});
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -213,5 +229,126 @@ describe("createLabForCurrentUser", () => {
     ).rejects.toThrow(
       "publishLabRemote: relay rejected lab create (HTTP 401)",
     );
+  });
+});
+
+// ---------------------------------------------------------------------------
+// publishLabRemote: directory upsert behavior
+// ---------------------------------------------------------------------------
+
+describe("publishLabRemote: directory upsert", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  /** A minimal CreatedLab sufficient for publishLabRemote (only public fields). */
+  function minimalCreatedLab(): CreatedLab {
+    return {
+      record: {
+        labId: "lab-dir-test",
+        head: {
+          username: "alice",
+          x25519PublicKey: encodePublicKey(new Uint8Array(32).fill(0xaa)),
+          ed25519PublicKey: encodePublicKey(new Uint8Array(32).fill(0xcc)),
+          role: "head",
+        },
+        members: [],
+        keyGeneration: 0,
+        log: [],
+      },
+      envelope: { generation: 0, copies: [] },
+      labKey: new Uint8Array(32).fill(0x42),
+    };
+  }
+
+  it("always POSTs to the directory endpoint even when no lab name is supplied", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    // fetch is already stubbed 200 by the outer beforeEach.
+
+    await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      piDisplayName: "Alice",
+    });
+
+    const dirCall = mockFetch.mock.calls.find((c) =>
+      (c[0] as string).includes("/api/directory/labs/publish"),
+    );
+    expect(dirCall).toBeDefined();
+    const body = JSON.parse(dirCall![1].body as string);
+    expect(body.labId).toBe("lab-dir-test");
+    // A placeholder name is synthesised from piDisplayName when no labName is supplied.
+    expect(typeof body.name).toBe("string");
+    expect(body.name.length).toBeGreaterThan(0);
+  });
+
+  it("also POSTs to the directory when a lab name IS supplied", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+
+    await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      labName: "Mouse Genomics Lab",
+      piDisplayName: "Alice",
+    });
+
+    const dirCall = mockFetch.mock.calls.find((c) =>
+      (c[0] as string).includes("/api/directory/labs/publish"),
+    );
+    expect(dirCall).toBeDefined();
+    const body = JSON.parse(dirCall![1].body as string);
+    expect(body.name).toBe("Mouse Genomics Lab");
+  });
+
+  it("returns ok: true and directoryOk: true when both relay and directory succeed", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    // fetch stubbed 200 by outer beforeEach.
+
+    const result = await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      labName: "Test Lab",
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.relayOk).toBe(true);
+    expect(result.directoryOk).toBe(true);
+  });
+
+  it("returns ok: false and directoryOk: false when the directory POST is non-2xx, without throwing", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    // Override the global fetch stub for this test to return a 503.
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const result = await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      labName: "Test Lab",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.relayOk).toBe(true);
+    expect(result.directoryOk).toBe(false);
+  });
+
+  it("returns ok: false and directoryOk: false when the directory POST throws (network error), without rethrowing", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    mockFetch.mockRejectedValueOnce(new Error("network failure"));
+
+    const result = await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      labName: "Test Lab",
+    });
+
+    expect(result.ok).toBe(false);
+    expect(result.relayOk).toBe(true);
+    expect(result.directoryOk).toBe(false);
+  });
+
+  it("returns ok: true and skips the directory POST when suppressDirectory is true", async () => {
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+
+    const result = await publishLabRemote("lab-dir-test", minimalCreatedLab(), {
+      suppressDirectory: true,
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.directoryOk).toBe(true);
+    // The directory endpoint must NOT have been called for a class.
+    const dirCall = mockFetch.mock.calls.find((c) =>
+      (c[0] as string).includes("/api/directory/labs/publish"),
+    );
+    expect(dirCall).toBeUndefined();
   });
 });

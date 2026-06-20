@@ -64,11 +64,19 @@ import { verifyMemberEmailBinding } from "./lab-binding";
 import { autoBindLabProfile } from "./lab-profile-auto-bind";
 import { isLabTokensV2Enabled } from "./lab-tokens-config";
 import { reconcileDeferredSeals } from "./lab-deferred-seal-reconcile";
+import { ensureLabDirectoryRow } from "./lab-directory-self-heal";
 import type {
   LabSessionEffects,
   LabSigningKeyPair,
   LabSessionMember,
 } from "./lab-session";
+
+// ---------------------------------------------------------------------------
+// Self-heal guard: tracks which labIds have already had the directory self-heal
+// fired this session so the idempotent upsert fires at most once per lab per
+// page load, regardless of how many times openLabKey is called.
+// ---------------------------------------------------------------------------
+const directorySelfHealFired = new Set<string>();
 
 // ---------------------------------------------------------------------------
 // Public factory
@@ -359,6 +367,25 @@ export function createLabSessionEffects(params: {
           ctx: { labId, labKey, headEd25519Priv: id.keys.signing.privateKey },
         }).catch(() => {
           // best-effort post-join hook, swallow all errors
+        });
+      }
+
+      // Step 5d: directory self-heal (PI only). If this lab was created without
+      // a directory_labs row (the name-gated fire-and-forget window that this
+      // commit closes), the PI's next login backfills the row automatically. The
+      // upsert is idempotent: re-sending for a lab that already has a row is safe
+      // and cheap. Fires at most once per lab per page load (session-scoped Set
+      // guard) so it never creates a stampede on a healthy lab. Fully best-effort:
+      // a failure here must never block the login.
+      if (isHead && !directorySelfHealFired.has(labId)) {
+        directorySelfHealFired.add(labId);
+        void ensureLabDirectoryRow({
+          labId,
+          oauthEmail,
+          piDisplayName: username,
+          labName: undefined,
+        }).catch(() => {
+          // best-effort directory self-heal, swallow all errors
         });
       }
 
