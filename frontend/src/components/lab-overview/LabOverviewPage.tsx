@@ -45,7 +45,9 @@ import { ExpandedView as MemberWorkloadBody } from "./widgets/MemberWorkloadWidg
 import { Composer as AnnouncementComposer } from "./widgets/AnnouncementsWidget";
 import ClassDashboardPanel from "./ClassDashboardPanel";
 import ClassSubmissionsPanel from "./ClassSubmissionsPanel";
+import ClassAssignmentsPanel from "./ClassAssignmentsPanel";
 import { useIsClassMode } from "@/hooks/useIsClassMode";
+import { useIsClassStudent } from "@/hooks/useIsClassStudent";
 import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
 
 import type { Note, PurchaseItem } from "@/lib/types";
@@ -358,6 +360,13 @@ export default function LabOverviewPage() {
   const isClassMode = useIsClassMode(currentUser);
   const showClassDashboard = CLASS_MODE_ENABLED && isClassMode === true;
 
+  // Class Mode (CT-2): the student-only "this folder is a class I am a member of"
+  // gate. Mutually exclusive with showClassDashboard (one needs head, one needs
+  // member), so the instructor and student class chrome never both render.
+  const isClassStudent = useIsClassStudent(currentUser);
+  const showStudentAssignments =
+    CLASS_MODE_ENABLED && isClassStudent === true && !!currentUser;
+
   useLabOverviewBeakerSource({
     openProjectCreate,
     scrollToComposer,
@@ -418,6 +427,18 @@ export default function LabOverviewPage() {
           description="Review what students submitted for an assignment and return their work with feedback."
         >
           <ClassSubmissionsPanel />
+        </SectionCard>
+      )}
+
+      {/* Class assignments (CT-2): the STUDENT sees the work assigned to them and
+          opens a notebook to do + submit it. Student-only class gate, mutually
+          exclusive with the instructor dashboard above. */}
+      {showStudentAssignments && currentUser && (
+        <SectionCard
+          title="Your assignments"
+          description="Open an assignment to start your notebook, then submit it when you are done."
+        >
+          <ClassAssignmentsPanel currentUser={currentUser} />
         </SectionCard>
       )}
 

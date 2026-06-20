@@ -146,6 +146,13 @@ export async function materializeLabView(
   // record is a singleton, so there is normally exactly one).
   let classDashboardText: string | null = null;
 
+  // CLASS ASSIGNMENTS (CT-2) are instructor-owned shared records surfaced to the
+  // student via shared_with. Unlike the dashboard there can be MANY, so we
+  // aggregate every pulled class_assignment payload into the root
+  // _class_assignments.json (the announcements pattern), which the student
+  // assignment panel reads folder-locally. Keyed by assignmentId, last writer wins.
+  const assignmentsById = new Map<string, unknown>();
+
   for (const rec of records) {
     // RESIDENCY: never write the viewer's own records back from R2.
     if (rec.isOwn) {
@@ -171,6 +178,25 @@ export async function materializeLabView(
     // record is a singleton; keep the last one seen.
     if (rec.recordType === "class_dashboard") {
       classDashboardText = text;
+      continue;
+    }
+
+    // CLASS ASSIGNMENT (CT-2): collect the payload now, keyed by assignmentId, and
+    // write the merged root file after the loop. The pulled plaintext is the raw
+    // assignment payload (class-assignment-store publishes it raw, like the
+    // dashboard), so it parses directly with no inner unwrap.
+    if (rec.recordType === "class_assignment") {
+      try {
+        const payload = JSON.parse(text) as { assignmentId?: unknown };
+        const id =
+          typeof payload.assignmentId === "string"
+            ? payload.assignmentId
+            : rec.recordId;
+        assignmentsById.set(id, payload);
+      } catch {
+        // A malformed assignment payload is skipped rather than poisoning the
+        // whole _class_assignments.json write.
+      }
       continue;
     }
 
@@ -218,6 +244,20 @@ export async function materializeLabView(
   if (classDashboardText !== null) {
     const path = "_class_dashboard.json";
     await writer.writeText(path, classDashboardText);
+    written.push(path);
+  }
+
+  // CLASS ASSIGNMENTS: write the aggregated payloads to the root
+  // _class_assignments.json so the student assignment panel reads them folder-
+  // locally. Only write when at least one was pulled, so an empty pull never
+  // clobbers a previously cached set.
+  if (assignmentsById.size > 0) {
+    const path = "_class_assignments.json";
+    const fileBody = {
+      version: 1 as const,
+      assignments: [...assignmentsById.values()],
+    };
+    await writer.writeText(path, JSON.stringify(fileBody));
     written.push(path);
   }
 

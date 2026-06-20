@@ -13,8 +13,7 @@
 
 import { describe, it, expect, vi } from "vitest";
 import { bytesToHex } from "@noble/hashes/utils.js";
-import { generateLabKey, decryptLabData } from "./lab-key";
-import { decryptClassRecord, type SubkeyedRecord } from "./lab-subkey";
+import { generateLabKey, encryptLabData, decryptLabData } from "./lab-key";
 import {
   planAssignmentFanout,
   CLASS_ASSIGNMENT_RECORD_TYPE,
@@ -53,41 +52,34 @@ function plan(wholeClass: boolean) {
 }
 
 describe("encodeAssignmentRecord", () => {
-  it("seals under the team key with NO subkey envelope (the prompt is not private)", () => {
-    const teamKey = generateLabKey();
-    const wrapped = encodeAssignmentRecord(plan(true).instructorWrite, teamKey);
-    expect(wrapped.subkey).toBeUndefined();
-    expect(typeof wrapped.blob).toBe("string");
-
-    // Team-key round-trip yields the assignment payload back.
-    const out = decryptLabData(
-      Uint8Array.from(wrapped.blob.match(/.{2}/g)!.map((h) => parseInt(h, 16))),
-      teamKey,
-    );
-    const payload = JSON.parse(new TextDecoder().decode(out));
+  it("emits the RAW assignment payload (no inner wrapper), matching the dashboard shape", () => {
+    const bytes = encodeAssignmentRecord(plan(true).instructorWrite);
+    const payload = JSON.parse(new TextDecoder().decode(bytes));
+    // No SubkeyedRecord wrapper: the payload IS the assignment record fields.
+    expect(payload.blob).toBeUndefined();
+    expect(payload.subkey).toBeUndefined();
     expect(payload.assignmentId).toBe("asg-7");
     expect(payload.instructor).toBe(INSTRUCTOR);
   });
 
   it("carries the shared_with list inline so the read gate can surface it", () => {
-    const teamKey = generateLabKey();
-    const perStudent = encodeAssignmentRecord(plan(false).instructorWrite, teamKey);
-    const out = decryptClassRecord(
-      perStudent,
-      { username: "anyone", x25519PrivateKey: new Uint8Array(32) },
-      teamKey,
-    );
-    const payload = JSON.parse(new TextDecoder().decode(out));
-    expect(payload.shared_with.sort()).toEqual(["alice", "bob"]);
+    const perStudent = encodeAssignmentRecord(plan(false).instructorWrite);
+    const payload = JSON.parse(new TextDecoder().decode(perStudent));
+    expect([...payload.shared_with].sort()).toEqual(["alice", "bob"]);
 
-    const wholeClass = encodeAssignmentRecord(plan(true).instructorWrite, teamKey);
-    const out2 = decryptClassRecord(
-      wholeClass,
-      { username: "anyone", x25519PrivateKey: new Uint8Array(32) },
-      teamKey,
-    );
-    const payload2 = JSON.parse(new TextDecoder().decode(out2));
+    const wholeClass = encodeAssignmentRecord(plan(true).instructorWrite);
+    const payload2 = JSON.parse(new TextDecoder().decode(wholeClass));
     expect(payload2.shared_with).toEqual(["*"]);
+  });
+
+  it("round-trips under the team key exactly as putLabRecord stores it", () => {
+    const teamKey = generateLabKey();
+    // putLabRecord AEAD-seals the raw bytes; a student peels that one layer.
+    const bytes = encodeAssignmentRecord(plan(true).instructorWrite);
+    const sealed = encryptLabData(bytes, teamKey);
+    const back = JSON.parse(new TextDecoder().decode(decryptLabData(sealed, teamKey)));
+    expect(back.assignmentId).toBe("asg-7");
+    expect(back.title).toBe("Assignment 7");
   });
 });
 
@@ -115,11 +107,11 @@ describe("publishAssignmentRecord", () => {
     expect(call.recordId).toBe("asg-7");
     expect(call.labId).toBe("lab-1");
 
-    // The plaintext is the JSON of the SubkeyedRecord wrapper.
-    const wrapper = JSON.parse(
-      new TextDecoder().decode(call.plaintext),
-    ) as SubkeyedRecord;
-    expect(wrapper.subkey).toBeUndefined();
-    expect(typeof wrapper.blob).toBe("string");
+    // The plaintext is the RAW assignment payload (no inner wrapper); putLabRecord
+    // seals it under the team key (call.labKey).
+    const payload = JSON.parse(new TextDecoder().decode(call.plaintext));
+    expect(payload.blob).toBeUndefined();
+    expect(payload.assignmentId).toBe("asg-7");
+    expect(payload.shared_with).toEqual(["*"]);
   });
 });

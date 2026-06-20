@@ -56,6 +56,27 @@ export function isClassFolder({
 }
 
 /**
+ * Class Mode CT-2: the STUDENT-side counterpart of isClassFolder. True when the
+ * folder is marked as a class (lab_kind === "class") AND the active user is a
+ * MEMBER (a student), not the head. This gates the student teaching chrome (the
+ * assignment panel), exactly as isClassFolder gates the instructor chrome. The
+ * two are mutually exclusive by construction (one requires lab_head, the other
+ * member), so no surface ever shows both the instructor and the student view.
+ *
+ * Flag-agnostic like isClassFolder; with class mode off no folder carries
+ * lab_kind === "class", so this returns false everywhere.
+ */
+export function isClassStudentFolder({
+  accountType,
+  labKind,
+}: {
+  accountType: AccountType;
+  labKind: "lab" | "class" | undefined;
+}): boolean {
+  return labKind === "class" && accountType === "member";
+}
+
+/**
  * The PI-role boolean. True when the account is a lab head (principal
  * investigator), false for a regular member. This is the canonical spelling
  * of the `account_type === "lab_head"` check scattered across the PI surfaces.

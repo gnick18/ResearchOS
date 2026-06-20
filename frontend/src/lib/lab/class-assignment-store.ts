@@ -14,10 +14,13 @@
 // under the team key exactly like the dashboard. The per-student PRIVATE notebook
 // is what gets the subkey (lab-subkey.ts), authored separately by the student.
 //
-// The SubkeyedRecord wrapper (encryptTeamRecord) is the plaintext handed to
-// putLabRecord. For a team record the wrapper carries blob (team-key sealed) and
-// NO subkey envelope, so the on-the-wire bytes stay the same shape the read path
-// already understands, and putLabRecord's own lab-key AEAD wraps that JSON.
+// The payload is published RAW (the assignment record + its inline shared_with),
+// exactly like the class dashboard (class-dashboard-store.ts). putLabRecord's own
+// lab-key AEAD is the ONE team-key seal, so a student's pull yields the assignment
+// payload directly after the team-key decrypt, with nothing left to peel. There is
+// no inner SubkeyedRecord wrapper: the prompt is not secret from classmates (only a
+// student's private ANSWER gets the subkey, in their own notebook), so a second
+// team-key layer bought nothing and the read path never unwrapped it.
 //
 // FLAG (data-shape): the `class_assignment` relay record type (additive, E2E,
 // instructor-owned). An unknown record type was invisible to pullLabView before,
@@ -26,7 +29,6 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { putLabRecord } from "./lab-data-client";
-import { encryptTeamRecord, type SubkeyedRecord } from "./lab-subkey";
 import {
   CLASS_ASSIGNMENT_RECORD_TYPE,
   type InstructorAssignmentWrite,
@@ -35,15 +37,14 @@ import {
 /**
  * Serialize an InstructorAssignmentWrite payload into the plaintext bytes
  * putLabRecord stores. The payload is the assignment record PLUS its shared_with
- * list (so the lab-read.ts shared_with gate can surface it to the right students),
- * wrapped in the SubkeyedRecord transport shape under the team key. The whole
- * thing is JSON, and putLabRecord AEAD-seals it under the lab key on top, so the
- * relay stays server-blind.
+ * list (so the lab-read.ts shared_with gate can surface it to the right students,
+ * and the materializer can cache it for the student workbench). putLabRecord
+ * AEAD-seals these bytes under the lab key, so the relay stays server-blind. No
+ * inner wrapper: this matches the class-dashboard publish shape exactly.
  */
 export function encodeAssignmentRecord(
   write: InstructorAssignmentWrite,
-  teamKey: Uint8Array,
-): SubkeyedRecord {
+): Uint8Array {
   // The record carries its shared_with inline so pullLabView's per-record gate
   // can read the sharing intent after it decrypts the team-key layer. This
   // mirrors how every other shared record carries shared_with in its body.
@@ -51,8 +52,7 @@ export function encodeAssignmentRecord(
     ...write.record,
     shared_with: write.sharedWith,
   };
-  const plaintext = new TextEncoder().encode(JSON.stringify(payload));
-  return encryptTeamRecord(plaintext, teamKey);
+  return new TextEncoder().encode(JSON.stringify(payload));
 }
 
 /**
@@ -70,14 +70,13 @@ export async function publishAssignmentRecord(params: {
   putImpl?: typeof putLabRecord;
 }): Promise<void> {
   const put = params.putImpl ?? putLabRecord;
-  const wrapped = encodeAssignmentRecord(params.write, params.teamKey);
   await put({
     labId: params.labId,
     // INVARIANT: the owner is the instructor, exactly as the planner stamped it.
     owner: params.write.owner,
     recordType: CLASS_ASSIGNMENT_RECORD_TYPE,
     recordId: params.write.recordId,
-    plaintext: new TextEncoder().encode(JSON.stringify(wrapped)),
+    plaintext: encodeAssignmentRecord(params.write),
     labKey: params.teamKey,
     signerEd25519Priv: params.signerEd25519Priv,
     signerEd25519Pub: params.signerEd25519Pub,

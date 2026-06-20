@@ -10,6 +10,8 @@ import {
 } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
 import { classCreateSharedWithSeed } from "./lab/class-dashboard-store";
+import { seedSharedWithForVisibility } from "./lab/class-dashboard";
+import type { AssignmentVisibility } from "./lab/class-assignment";
 import type { RetentionEntry, RetentionEntryCreate } from "./lab/retention";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory, recordInventoryItemVersion, recordInventoryStockVersion } from "./history";
 import type { HistoryEditKind } from "./history";
@@ -1016,6 +1018,16 @@ export const tasksApi = {
       compound_snapshots?: string | null;
       qpcr_analysis?: string | null;
     }>;
+    // Class Mode CT-2: link a student-owned notebook back to its instructor-owned
+    // assignment + seed the per-assignment visibility. Additive + only ever set by
+    // the flag-gated student-open path (class-student-open.ts); absent on every
+    // other create, so a non-class create is byte-identical. When class_visibility
+    // is provided it OVERRIDES the folder default seed (a private assignment's
+    // notebook must carry no whole-class "*" entry so the sync partition routes it
+    // to the per-student subkey path).
+    assignment_id?: string;
+    template_method_id?: number;
+    class_visibility?: AssignmentVisibility;
   }): Promise<Task> => {
     const durationDays = data.duration_days || 1;
     const endDate = canonicalEndDate({ start_date: data.start_date, duration_days: durationDays });
@@ -1030,7 +1042,13 @@ export const tasksApi = {
     // experiment is seeded with the class visibility default ("collaborative" =>
     // a whole-class "*" read entry; "private"/absent => empty). Outside a class
     // (or flag off) this resolves to [] so the create is byte-identical.
-    const classSeededSharedWith = await classCreateSharedWithSeed(currentUser);
+    // CT-2 override: when the student-open path supplies the assignment's own
+    // visibility, seed from THAT (the notebook's privacy follows the assignment,
+    // not the folder default), so a private notebook never carries "*".
+    const classSeededSharedWith =
+      data.class_visibility !== undefined
+        ? seedSharedWithForVisibility(data.class_visibility)
+        : await classCreateSharedWithSeed(currentUser);
 
     const task = await tasksStore.create({
       project_id: data.project_id ?? 0,
@@ -1063,6 +1081,10 @@ export const tasksApi = {
       })),
       owner: currentUser,
       shared_with: classSeededSharedWith,
+      // CT-2: the assignment back-link + copied template (undefined on every
+      // non-class create, so JSON omits them and the on-disk shape is unchanged).
+      assignment_id: data.assignment_id,
+      template_method_id: data.template_method_id,
       // Phase 6a portable identity: mint once at create time.
       source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
         ? crypto.randomUUID()

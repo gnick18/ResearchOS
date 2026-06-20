@@ -4,6 +4,7 @@ import {
   isLabModeFolder,
   deriveWorkspaceAccountType,
   isClassFolder,
+  isClassStudentFolder,
 } from "./lab-mode";
 
 describe("isLabHead", () => {
@@ -90,5 +91,36 @@ describe("isClassFolder", () => {
     expect(isClassFolder({ accountType: "member", labKind: undefined })).toBe(
       false,
     );
+  });
+});
+
+describe("isClassStudentFolder", () => {
+  it("is true only for a member in a class folder (the student gate)", () => {
+    expect(
+      isClassStudentFolder({ accountType: "member", labKind: "class" }),
+    ).toBe(true);
+  });
+
+  it("is false for the instructor (head) of a class folder (student-only)", () => {
+    expect(
+      isClassStudentFolder({ accountType: "lab_head", labKind: "class" }),
+    ).toBe(false);
+  });
+
+  it("is mutually exclusive with isClassFolder (never both for one role)", () => {
+    for (const accountType of ["member", "lab_head"] as const) {
+      const inst = isClassFolder({ accountType, labKind: "class" });
+      const stud = isClassStudentFolder({ accountType, labKind: "class" });
+      expect(inst && stud).toBe(false);
+    }
+  });
+
+  it("is false for a research lab and when lab_kind is absent", () => {
+    expect(isClassStudentFolder({ accountType: "member", labKind: "lab" })).toBe(
+      false,
+    );
+    expect(
+      isClassStudentFolder({ accountType: "member", labKind: undefined }),
+    ).toBe(false);
   });
 });

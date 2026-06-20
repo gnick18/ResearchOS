@@ -221,6 +221,45 @@ describe("materializeLabView — class_dashboard (lab-wide-public, CT-5)", () =>
   });
 });
 
+describe("materializeLabView — class_assignment (CT-2 student-open)", () => {
+  it("aggregates pulled class_assignment payloads into root _class_assignments.json", async () => {
+    const { writer, writes } = fakeWriter();
+    const a1 = { assignmentId: "asg-1", title: "First", instructor: "prof", checklist: [] };
+    const a2 = { assignmentId: "asg-2", title: "Second", instructor: "prof", checklist: [] };
+    const records = [
+      rec({ owner: "prof", recordType: "class_assignment", recordId: "asg-1", plaintext: enc(a1), isOwn: false }),
+      rec({ owner: "prof", recordType: "class_assignment", recordId: "asg-2", plaintext: enc(a2), isOwn: false }),
+    ];
+    const result = await materializeLabView(records, writer);
+    expect(result.written).toEqual(["_class_assignments.json"]);
+    const body = JSON.parse(writes.find((w) => w.path === "_class_assignments.json")!.text);
+    expect(body.version).toBe(1);
+    expect(body.assignments.map((a: { assignmentId: string }) => a.assignmentId).sort()).toEqual([
+      "asg-1",
+      "asg-2",
+    ]);
+  });
+
+  it("does NOT write _class_assignments.json when no assignment was pulled", async () => {
+    const { writer, writes } = fakeWriter();
+    const records = [rec({ owner: "morgan", recordType: "note", recordId: "10", isOwn: false })];
+    await materializeLabView(records, writer);
+    expect(writes.map((w) => w.path)).not.toContain("_class_assignments.json");
+  });
+
+  it("skips a malformed assignment payload rather than poisoning the file", async () => {
+    const { writer, writes } = fakeWriter();
+    const good = { assignmentId: "asg-1", title: "First", instructor: "prof", checklist: [] };
+    const records = [
+      rec({ owner: "prof", recordType: "class_assignment", recordId: "asg-1", plaintext: enc(good), isOwn: false }),
+      rec({ owner: "prof", recordType: "class_assignment", recordId: "asg-bad", plaintext: new TextEncoder().encode("{not json"), isOwn: false }),
+    ];
+    await materializeLabView(records, writer);
+    const body = JSON.parse(writes.find((w) => w.path === "_class_assignments.json")!.text);
+    expect(body.assignments).toHaveLength(1);
+  });
+});
+
 describe("materializeLabView — exhaustive type coverage (drift guard)", () => {
   // Every LAB_WORK_TYPES entry must have a materialization path so no pulled
   // record type silently falls through to skippedUnknownType. Three types are
