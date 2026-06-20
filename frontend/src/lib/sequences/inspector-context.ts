@@ -75,7 +75,11 @@ export function autoOpenOpForKind(kind: SelectionKind): string | null {
       // in SequenceEditView and the ros-nudge-shimmer style.
       return null;
     case "feature-primer":
-      return "primers";
+      // Picking a primer no longer yanks the Primers panel open either. A single
+      // click selects the primer and SHIMMERS the rail Primers op to invite the
+      // click; a double click opens it. This matches feature-cds (single click
+      // never auto-opens a tool for ANY feature), wired in SequenceEditView.
+      return null;
     default:
       return null;
   }

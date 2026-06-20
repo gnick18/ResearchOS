@@ -236,6 +236,7 @@ import {
   buildContextBar,
   type SelectionKind,
 } from "@/lib/sequences/inspector-context";
+import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 import type {
   ArtifactNavItem,
   EditorCommand,
@@ -2690,11 +2691,18 @@ export default function SequenceEditView({
     [doc.features, doc.seq],
   );
 
-  // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open its editor (editable surface) or
-  // its READ-ONLY info popup (readOnly surface). SeqViz assigns its own internal
-  // ids to annotations, so we match the double-clicked annotation back to its
-  // feature by (name, start, end) — documentToAnnotations projects features 1:1
-  // in order, so this resolves to the correct feature index.
+  // DOUBLE-CLICK A FEATURE ON THE VIEWER -> open the RELEVANT TOOL directly (the
+  // "shimmer to nudge discovery" model). A single click selects + shimmers the
+  // rail op; the second click of a double opens it:
+  //   - a coding feature opens the Protein analysis (openProteinDrawerForFeature),
+  //   - a primer opens the Primers op (setActiveOp "primers"),
+  //   - any OTHER feature keeps the generic editor / read-only view popup, since
+  //     it has no contextual tool op to open.
+  // We retire that op's nudge (markNudgeUsed) on the deliberate open so the
+  // shimmer never returns once the user has discovered the gesture. SeqViz
+  // assigns its own internal ids to annotations, so we match the double-clicked
+  // annotation back to its feature by (name, start, end); documentToAnnotations
+  // projects features 1:1 in order, so this resolves to the correct feature index.
   const handleAnnotationDoubleClick = useCallback(
     (range: { name: string; start: number; end: number; direction?: number }) => {
       let index = doc.features.findIndex(
@@ -2705,23 +2713,43 @@ export default function SequenceEditView({
       if (index < 0) index = doc.features.findIndex((f) => f.name === range.name);
       if (index < 0) index = doc.features.findIndex((f) => f.start === range.start);
       if (index < 0) return;
+      const feat = doc.features[index];
       setSelectedFeatureIdx(index);
-      // primer dialog bot — primers get the dedicated Edit Primer dialog (read +
-      // edit). Every other feature type opens the generic FeatureEditorDialog
-      // (its read-only "view" popup on the read-only surface) unchanged.
-      const isPrimer = (doc.features[index].type || "").toLowerCase() === "primer_bind";
-      if (isPrimer) openEditPrimer(index);
-      else if (readOnly) openViewFeature(index);
+      // PRIMER -> open the Primers op (retire its nudge). EDIT of a primer still
+      // lives in the Primers panel, so the tool open is the right double-click.
+      if ((feat.type || "").toLowerCase() === "primer_bind") {
+        selectFeature(index);
+        setActiveOp("primers");
+        markNudgeUsed("seq-rail-primers");
+        return;
+      }
+      // CODING feature -> open the Protein analysis (retire its nudge).
+      if (isCodingFeature(feat)) {
+        openProteinDrawerForFeature(index);
+        markNudgeUsed("seq-rail-protein");
+        return;
+      }
+      // Any other feature has no contextual tool, so keep the generic editor (or
+      // the read-only view popup on the read-only surface) unchanged.
+      if (readOnly) openViewFeature(index);
       else openEditFeature(index);
     },
-    [doc.features, openEditFeature, openViewFeature, openEditPrimer, readOnly],
+    [
+      doc.features,
+      openEditFeature,
+      openViewFeature,
+      openProteinDrawerForFeature,
+      selectFeature,
+      readOnly,
+    ],
   );
 
-  // linear map bot — DOUBLE-CLICK A PRIMER on the linear map -> open the Edit
-  // Primer dialog. Primers are NOT in the annotation layer (they render via the
-  // dedicated primer renderer), so the LinearMap reports the primer by
-  // (name, start, end); we resolve it back to its primer_bind feature index and
-  // route through the SAME openEditPrimer the rest of the editor uses.
+  // linear map bot — DOUBLE-CLICK A PRIMER on the linear map -> open the PRIMERS
+  // op directly (the "shimmer to nudge discovery" model), retiring its nudge.
+  // Primers are NOT in the annotation layer (they render via the dedicated primer
+  // renderer), so the LinearMap reports the primer by (name, start, end); we
+  // resolve it back to its primer_bind feature index, select it, and raise the
+  // Primers op (which hosts the read + edit flow) the same way the rail pick does.
   const handlePrimerDoubleClick = useCallback(
     (range: { name: string; start: number; end: number }) => {
       let index = doc.features.findIndex(
@@ -2736,9 +2764,11 @@ export default function SequenceEditView({
           (f) => (f.type || "").toLowerCase() === "primer_bind" && f.name === range.name,
         );
       if (index < 0) return;
-      openEditPrimer(index);
+      selectFeature(index);
+      setActiveOp("primers");
+      markNudgeUsed("seq-rail-primers");
     },
-    [doc.features, openEditPrimer],
+    [doc.features, selectFeature],
   );
 
   // map select bot — CLICK A FEATURE on the linear Map. The Map NEVER changes
@@ -4161,16 +4191,57 @@ export default function SequenceEditView({
     [selectionKind, readout, selFeat?.name, selectedCdsProps?.aa, hasOrganism, sequence.organism, sequence.tax_id],
   );
 
-  // RAIL NUDGE — a generic "shimmer this op to invite discovery" hint. Today the
-  // only case is the protein analysis when a gene of interest (a coding feature)
-  // is selected and the protein op is not already open. Selecting the gene no
-  // longer auto-pops the protein panel, so the rail op shimmers to nudge the
-  // user toward it. Kept generic (a single op id) so other ops can shimmer later.
-  const railNudgeOpId = useMemo<string | null>(
-    () =>
-      selectionKind === "feature-cds" && activeOp !== "protein" ? "protein" : null,
-    [selectionKind, activeOp],
-  );
+  // RAIL NUDGE — the per-kind "shimmer this op to invite discovery" hint. A
+  // single click on the map SELECTS the thing and shimmers the rail op that acts
+  // on it, but never auto-opens it (autoOpenOpForKind returns null for every
+  // feature now). Each kind drives the shared useNudge hook so the shimmer
+  // throttles per op key and retires after a deliberate open (the double-click
+  // calls markNudgeUsed):
+  //   - feature-cds  -> the Protein op, eligible while a coding feature is
+  //     selected and the protein op is not already open.
+  //   - feature-primer -> the Primers op, eligible while a primer is selected and
+  //     the Primers op is not already open.
+  //   - region -> the Cut op (the rail "cut" tool that opens the restriction
+  //     enzyme picker), eligible only for a DELIBERATE region of reasonable length
+  //     (span >= a sane minimum) so a tiny drag while reading the map does not
+  //     shimmer, and only while the Cut op is not already open.
+  // The rail op ids are "protein", "primers", and "cut" (the restriction tool); we
+  // gate each on activeOp so the shimmer stops once that op is open.
+  const MIN_ENZYME_REGION_BP = 15;
+  const proteinNudgeEligible =
+    selectionKind === "feature-cds" && activeOp !== "protein";
+  const primerNudgeEligible =
+    selectionKind === "feature-primer" && activeOp !== "primers";
+  // The region span is read from the readout, which is externalSel-aware, so a
+  // Map drag (externalSel) shimmers the Cut op exactly like a Sequence-view drag
+  // (the selection state). A region is "bare" only when no feature is selected (a
+  // feature wins over a range), matching deriveSelectionKind. We do not gate on
+  // selectionKind === "region" here because selectionKind is computed from the
+  // SeqViz selection alone and would miss a Map drag.
+  const regionSpanBp = readout?.kind === "range" ? readout.len : 0;
+  const regionNudgeEligible =
+    selectedFeatureIdx == null &&
+    readout?.kind === "range" &&
+    regionSpanBp >= MIN_ENZYME_REGION_BP &&
+    activeOp !== "cut";
+  const proteinNudge = useNudge("seq-rail-protein", {
+    eligible: proteinNudgeEligible,
+  });
+  const primerNudge = useNudge("seq-rail-primers", {
+    eligible: primerNudgeEligible,
+  });
+  const regionNudge = useNudge("seq-rail-cut", {
+    eligible: regionNudgeEligible,
+  });
+  // At most ONE op shimmers at a time (never a disco). The kinds are mutually
+  // exclusive (a selection is exactly one kind), so this is just "whichever kind
+  // is eligible AND still throttle-allowed".
+  const railNudgeOpId = useMemo<string | null>(() => {
+    if (proteinNudge) return "protein";
+    if (primerNudge) return "primers";
+    if (regionNudge) return "cut";
+    return null;
+  }, [proteinNudge, primerNudge, regionNudge]);
 
   // AUTO-OPEN on a NEW selection (the Figma rule). When the user makes a fresh
   // selection we pop open the contextual op even if the inspector was collapsed,
