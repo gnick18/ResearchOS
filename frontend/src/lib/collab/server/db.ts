@@ -14,8 +14,6 @@ import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 import {
   MAX_OWNER_BYTES,
 } from "@/lib/collab/server/limits";
-import { isBillingEnabled } from "@/lib/billing/config";
-import { quotaBytesForOwner } from "@/lib/billing/db";
 
 // ---------------------------------------------------------------------------
 // Lazy singleton
@@ -321,10 +319,11 @@ export async function isHostedAssetArchived(assetId: string): Promise<boolean> {
  * buy, so the ceiling falls back to the flat MAX_OWNER_BYTES fairness wall that
  * protects the shared Neon tier.
  */
-export async function getOwnerQuotaBytes(ownerHash: string): Promise<number> {
-  if (isBillingEnabled()) {
-    return quotaBytesForOwner(ownerHash);
-  }
+export async function getOwnerQuotaBytes(_ownerHash: string): Promise<number> {
+  // Model A: the storage bound is the per-owner monthly $ cap (enforcement.ts)
+  // plus the global cost breaker, NOT a byte ceiling. The flat fairness wall
+  // (MAX_OWNER_BYTES) is the only hard byte limit that collab needs to enforce
+  // server-side; per-owner spend enforcement happens in the owner-state route.
   return MAX_OWNER_BYTES;
 }
 

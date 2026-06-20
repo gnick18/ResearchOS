@@ -59,10 +59,8 @@ const { getEffectiveModelAPlanId, resolveModelAPlanId, isProduceEntitled } =
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
-/** getSubscription fires ONE SQL SELECT. Prefix it with an empty array so
- *  ensureBillingSchema (which fires 6 calls inside quotaBytesForOwner but NOT
- *  inside getSubscription directly) is not needed here; getSubscription reads
- *  from the singleton sql function that runs whatever the queue says. */
+/** getSubscription fires ONE SQL SELECT from the queue (ensureBillingSchema is
+ *  not called directly inside getSubscription, so one entry suffices). */
 function queueSub(subRow: Record<string, unknown> | null): void {
   callIdx = 0;
   callQueue = [subRow ? [subRow] : []];

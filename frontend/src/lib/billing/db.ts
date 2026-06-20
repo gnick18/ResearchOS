@@ -15,10 +15,9 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { FREE_ALLOWANCE_BYTES } from "./config";
-import { getActiveGrant, getActiveCompedTier, type GiftTier } from "./grants";
-import { getSponsoringLab } from "./lab";
+import { getActiveCompedTier } from "./grants";
 import { getModelAPlan } from "./model-a/pricing";
-import { getPlan, type Plan } from "./plans";
+import { getPlan } from "./plans";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -181,55 +180,15 @@ export async function upsertSubscription(
 }
 
 
-/** The storage cap (bytes) a subscription's plan grants, free if unknown. */
-function planStorageBytes(sub: SubscriptionRecord | null): number {
-  const plan = getPlan(sub?.planId);
-  return plan ? Math.max(FREE_ALLOWANCE_BYTES, plan.storageBytes) : FREE_ALLOWANCE_BYTES;
-}
-
-/**
- * Maps a comped gift tier to the representative flat-plan id used to resolve
- * storage and activity allowances. We pick the TOP plan in the audience so a
- * comp confers full premium bandwidth, not some mid-tier cap.
- *
- * Model-A plan ids ("solo" / "lab" / "dept") are NOT in the flat catalog, so we
- * bridge them here to the flat equivalents. Dept uses the lab ceiling because
- * dept billing lives on the org track (not the per-owner flat catalog). The
- * mapping is local to allowance resolution; it does NOT affect pricing.
- */
-const COMP_TIER_PLAN_ID: Record<GiftTier, string> = {
-  solo: "pro",      // top individual flat plan (250 GB, 10 M writes/mo)
-  lab: "lab_pro",   // top lab flat plan (500 GB, 50 M writes/mo)
-  dept: "lab_pro",  // dept org-track: use lab_pro as the ceiling here
-};
-
-/**
- * The flat Plan that a comped tier confers for allowance resolution, or null
- * when the tier is not recognizable. Used by quotaBytesForOwner and
- * activityAllowanceForOwner as the fallback when no real paid plan is active.
- */
-function planForCompedTier(tier: GiftTier): Plan | null {
-  return getPlan(COMP_TIER_PLAN_ID[tier]) ?? null;
-}
-
-/**
- * Whether a subscription is actively sponsoring a lab, derived from its PLAN (a
- * paid LAB plan) rather than the legacy lab_billing flag, so the plan is the
- * single source of truth in the flat-plan model.
- */
 /**
  * Pure predicate: whether a subscription is an ACTIVE, paid LAB-audience plan.
- * The single definition of "active lab tier", reused by isLabSponsor and the
- * cross-lane publish gate isLabPublishEntitled.
+ * The single definition of "active lab tier", used by the cross-lane publish
+ * gate isLabPublishEntitled.
  */
 export function isActiveLabPlan(sub: SubscriptionRecord | null): boolean {
   if (!sub || sub.status !== "active") return false;
   const plan = getPlan(sub.planId);
   return !!plan && plan.audience === "lab" && plan.priceCents > 0;
-}
-
-function isLabSponsor(sub: SubscriptionRecord | null): boolean {
-  return isActiveLabPlan(sub);
 }
 
 /**
@@ -285,94 +244,6 @@ export async function getLabLapse(
   if (rows[0].status === "active") return null; // active -> not lapsed
   const lapsedAt = rows[0].updated_at;
   return lapsedAt ? { lapsedAt } : null;
-}
-
-/**
- * Total storage quota (bytes) for an owner. This is the single number the collab
- * / relay enforcement layer checks a write against. Defined here so billing owns
- * it and the enforcement just reads it.
- *
- * Flat-plan model (Grant 2026-06-07): the quota is the owner's PLAN storage cap
- * (a flat included allowance), not a metered cap. Payer resolution (chunk 3): a
- * member actively sponsored by a lab inherits the LAB plan's cap, so the lab-wide
- * wall doubles as each member's ceiling. Otherwise it is the owner's own active
- * plan, else the free plan.
- */
-export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
-  let base = FREE_ALLOWANCE_BYTES;
-  let usedLab = false;
-  const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
-  if (sponsorKey) {
-    const lab = await getSubscription(sponsorKey);
-    if (isLabSponsor(lab)) {
-      base = planStorageBytes(lab);
-      usedLab = true;
-    }
-  }
-  if (!usedLab) {
-    const sub = await getSubscription(ownerKey);
-    if (sub && sub.status === "active") {
-      base = planStorageBytes(sub);
-    } else {
-      // No active real plan. Check for a comped tier. A comp never downgrades a
-      // real active plan (the branch above already handled that). Fail-safe to
-      // no change so a grants hiccup never shrinks the quota.
-      const compedTier = await getActiveCompedTier(ownerKey).catch(() => null);
-      if (compedTier) {
-        const compPlan = planForCompedTier(compedTier);
-        if (compPlan) base = Math.max(FREE_ALLOWANCE_BYTES, compPlan.storageBytes);
-      }
-    }
-  }
-  // Add any operator-issued gift pool on this key (a grant on a PI lifts the
-  // whole lab pool, since the pool resolves to the PI key). Fail-safe to no
-  // bonus so a grants hiccup never shrinks or breaks the quota.
-  const { bonusBytes } = await getActiveGrant(ownerKey).catch(() => ({
-    bonusBytes: 0,
-    bonusWrites: 0,
-  }));
-  return base + bonusBytes;
-}
-
-/**
- * The monthly write-operation allowance for an owner, resolved the same way as
- * the storage quota: an active lab member inherits the lab plan's allowance, an
- * active individual gets their own plan's, else the free plan's. This is the
- * throttle ceiling the activity enforcement (chunk C) checks the month against.
- */
-export async function activityAllowanceForOwner(ownerKey: string): Promise<number> {
-  const freeWrites = getPlan("free")?.activityWritesPerMonth ?? 0;
-  let base = freeWrites;
-  let usedLab = false;
-  const sponsorKey = await getSponsoringLab(ownerKey).catch(() => null);
-  if (sponsorKey) {
-    const lab = await getSubscription(sponsorKey);
-    if (isLabSponsor(lab)) {
-      base = getPlan(lab?.planId)?.activityWritesPerMonth ?? freeWrites;
-      usedLab = true;
-    }
-  }
-  if (!usedLab) {
-    const sub = await getSubscription(ownerKey);
-    if (sub && sub.status === "active") {
-      base = getPlan(sub.planId)?.activityWritesPerMonth ?? freeWrites;
-    } else {
-      // No active real plan. Check for a comped tier. A comp never downgrades a
-      // real active plan (the branch above already handled that). Fail-safe to
-      // no change so a grants hiccup never reduces the allowance below free.
-      const compedTier = await getActiveCompedTier(ownerKey).catch(() => null);
-      if (compedTier) {
-        const compPlan = planForCompedTier(compedTier);
-        if (compPlan) base = Math.max(freeWrites, compPlan.activityWritesPerMonth);
-      }
-    }
-  }
-  // Add any operator-issued gift pool on this key (activity side). Fail-safe.
-  const { bonusWrites } = await getActiveGrant(ownerKey).catch(() => ({
-    bonusBytes: 0,
-    bonusWrites: 0,
-  }));
-  return base + bonusWrites;
 }
 
 /**

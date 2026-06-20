@@ -31,7 +31,7 @@ import {
   BUFFER,
   STRIPE_PCT,
 } from "./assumptions";
-import { stripeMonthlyAmortized, type BillingCadence } from "./modeling";
+import { stripeMonthlyAmortized, type BillingCadence } from "./cadence";
 import {
   AI_TOKEN_PRICE_USD,
   AI_ORG_TOKEN_PRICE_USD,

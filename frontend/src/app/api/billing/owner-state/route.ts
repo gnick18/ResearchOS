@@ -28,12 +28,10 @@
 import { NextResponse } from "next/server";
 
 import { isBillingEnabled } from "@/lib/billing/config";
-import { activityAllowanceForOwner, quotaBytesForOwner } from "@/lib/billing/db";
 import { ensureLabSchema, resolveBillingOwner } from "@/lib/billing/lab";
 import { currentWritePeriod } from "@/lib/billing/period";
 import { resolveModelAPlanId } from "@/lib/billing/model-a/resolve";
 import { modelACapState } from "@/lib/billing/model-a/enforcement";
-import { getLabPoolUsage, getLabPoolWrites } from "@/lib/collab/server/db";
 import { getBindingByPubkey } from "@/lib/sharing/directory/db";
 
 export const runtime = "nodejs";
@@ -99,32 +97,13 @@ export async function GET(req: Request) {
       );
     }
 
-    if (planId === "solo" || planId === "lab") {
-      const capState = await modelACapState(ownerKey, period, { planId, labCount: 1 });
-      return NextResponse.json(
-        { over: capState.over, reason: capState.reason },
-        { headers: { "cache-control": "no-store" } },
-      );
-    }
-
-    const [usage, cap, writes, writeAllowance] = await Promise.all([
-      getLabPoolUsage(ownerKey),
-      quotaBytesForOwner(ownerKey),
-      getLabPoolWrites(ownerKey, period),
-      activityAllowanceForOwner(ownerKey),
-    ]);
-
-    // Either the lab-wide storage pool is over its cap, or the lab-wide monthly
-    // ACTIVITY pool is over its write allowance. Storage takes precedence in the
-    // reason so the DO surfaces the more permanent "Storage limit reached"; an
-    // activity-only overage shows "Monthly activity limit reached". Both pause
-    // durable persistence (edits still fan out live + stay local).
-    const storageOver = usage > cap;
-    const activityOver = writes > writeAllowance;
-    const reason = storageOver ? "quota" : activityOver ? "activity" : null;
-
+    // Model A: all paid owners (solo / lab) are gated by their settable monthly
+    // $ cap via modelACapState. Dept billing is on the org track. Free owners
+    // reached here only when billing is on, and are blocked above (planId "free"
+    // returns over=true/reason="upgrade" before this point).
+    const capState = await modelACapState(ownerKey, period, { planId, labCount: 1 });
     return NextResponse.json(
-      { over: storageOver || activityOver, reason },
+      { over: capState.over, reason: capState.reason },
       { headers: { "cache-control": "no-store" } },
     );
   } catch {

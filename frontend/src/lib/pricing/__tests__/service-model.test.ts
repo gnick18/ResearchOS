@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { ACTIVITY_PER_M_WRITES, BLENDED_PER_GB_MO, BUFFER } from "../assumptions";
-import { stripeMonthlyAmortized } from "../modeling";
+import { stripeMonthlyAmortized } from "../cadence";
 import { FIXED_MONTHLY_BASE_CENTS, AMORTIZED_ANNUAL_CENTS } from "../../sharing/capacity-shared";
 import {
   INFRA_FIXED_MONTHLY,

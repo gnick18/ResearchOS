@@ -24,11 +24,11 @@ import { json } from "@/lib/sharing/directory/guard";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
 import { isBillingEnabled } from "@/lib/billing/config";
 import {
-  activityAllowanceForOwner,
   ensureBillingSchema,
-  quotaBytesForOwner,
   setPlan,
 } from "@/lib/billing/db";
+import { resolveModelAPlanId } from "@/lib/billing/model-a/resolve";
+import { modelACapState } from "@/lib/billing/model-a/enforcement";
 import {
   ensureLabSchema,
   enrollMemberActive,
@@ -151,26 +151,27 @@ export async function POST(req: Request): Promise<Response> {
       const ownerKey = ownerKeyForEmail(email);
       const billingOwner = await resolveBillingOwner(ownerKey);
       const period = currentWritePeriod();
-      const [usage, cap, writes, writeAllowance] = await Promise.all([
+      // Model A: enforcement is the monthly $ cap, not storage byte / activity
+      // write ceilings. The sim surfaces the cap state so it mirrors the real
+      // owner-state route logic that the DO actually consults.
+      const planId = await resolveModelAPlanId(billingOwner);
+      const [usage, writes, capState] = await Promise.all([
         getLabPoolUsage(billingOwner),
-        quotaBytesForOwner(billingOwner),
         getLabPoolWrites(billingOwner, period),
-        activityAllowanceForOwner(billingOwner),
+        modelACapState(billingOwner, period, { planId, labCount: 1 }),
       ]);
-      const overStorage = usage > cap;
-      const overActivity = writes > writeAllowance;
       return json(200, {
         email,
         billingOwnerIsLab: billingOwner !== ownerKey,
         period,
+        planId,
         storageUsedMb: +(usage / MB).toFixed(1),
-        storageCapMb: +(cap / MB).toFixed(1),
         writesUsed: writes,
-        writesAllowance: writeAllowance,
-        overStorage,
-        overActivity,
-        reason: overStorage ? "quota" : overActivity ? "activity" : null,
-        wouldBlock: overStorage || overActivity,
+        projectedCents: capState.projectedCents,
+        capCents: capState.capCents,
+        over: capState.over,
+        reason: capState.reason,
+        wouldBlock: capState.over,
         enforcementLive: isBillingEnabled(),
       });
     }
