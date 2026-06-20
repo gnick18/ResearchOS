@@ -59,6 +59,11 @@ export const stripeOffSessionCharger: OffSessionCharger = async ({
       payment_method: paymentMethodId,
       off_session: true,
       confirm: true,
+      // A recognizable statement descriptor so the charge reads as RESEARCHOS on the
+      // customer's card statement and is not mistaken for fraud, which is itself
+      // dispute prevention. (Card networks cap the suffix at 22 chars; this is well
+      // under.)
+      statement_descriptor_suffix: "RESEARCHOS",
       metadata: { ownerKey, modelA: "1" },
     });
     if (pi.status === "succeeded") return { ok: true, chargeId: pi.id };

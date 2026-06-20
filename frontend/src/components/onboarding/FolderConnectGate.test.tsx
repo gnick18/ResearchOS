@@ -269,11 +269,13 @@ describe("FolderConnectGate system-folder recovery modal", () => {
 });
 
 describe("FolderConnectGate opt-in walkthrough", () => {
-  it("renders the 'strongly recommended' bubble copy with the 3-minute hint", () => {
+  it("surfaces the opt-in walkthrough CTA with the new-here + 3-minute hint", () => {
     renderGate();
-    expect(
-      screen.getByText(/strongly recommended/i).textContent,
-    ).toContain("3 minutes");
+    // The verbose floating bubble was replaced by a concise in-header CTA when
+    // the gate moved to the two-column, fits-on-one-screen layout (2026-06-19).
+    const cta = screen.getByTestId("gate-walkthrough-open");
+    expect(cta.textContent).toContain("New here?");
+    expect(cta.textContent).toContain("3-minute walkthrough");
   });
 
   it("does not render the walkthrough modal on initial mount", () => {

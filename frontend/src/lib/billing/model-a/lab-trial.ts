@@ -38,6 +38,11 @@ export interface LabTrialState {
   trialEndsAt: string | null;
   /** Whether a card is on file for this owner (drives the day-90 fork). */
   hasCard: boolean;
+  /** Whether the account is flagged as disputed (a card dispute is open or was
+   *  lost). A disputed account is paused regardless of trial phase, so the shared
+   *  accrual decision stops adding new usage. Defaults to false when absent, so
+   *  every pre-dispute caller behaves exactly as before. */
+  disputed?: boolean;
 }
 
 export interface LabTrialDecision {
@@ -78,11 +83,20 @@ export function labTrialPhase(
  *   trialing        -> accrue yes, charge NO  (record usage, never run the card)
  *   ended_with_card -> accrue yes, charge yes (normal charging resumes)
  *   ended_no_card   -> accrue NO,  charge NO  (paused; stop silent accrual)
+ *
+ * A disputed account is paused (accrue NO, charge NO) regardless of trial phase, so
+ * a customer who filed a card dispute cannot keep running up uncharged usage while
+ * it is open. This is checked FIRST and overrides the trial fork, since the same
+ * single shared decision point gates both the cron and the charge run. A dispute
+ * resolved in our favor clears the flag (un-pause); a lost dispute leaves it set.
  */
 export function labTrialDecision(
   state: LabTrialState,
   now: Date = new Date(),
 ): LabTrialDecision {
+  if (state.disputed) {
+    return { phase: labTrialPhase(state, now), shouldCharge: false, shouldAccrue: false };
+  }
   const phase = labTrialPhase(state, now);
   switch (phase) {
     case "trialing":

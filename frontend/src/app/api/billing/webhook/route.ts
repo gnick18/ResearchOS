@@ -25,7 +25,13 @@ import {
 import { getPlan } from "@/lib/billing/plans";
 import { packTokens, type AiPack } from "@/lib/billing/ai-config";
 import { creditTokens } from "@/lib/billing/ai-ledger";
-import { recordCharge, setCloudPaymentMethod } from "@/lib/billing/model-a/ledger";
+import {
+  creditBalance,
+  getOwnerByCustomerId,
+  recordCharge,
+  setCloudPaymentMethod,
+  setDisputed,
+} from "@/lib/billing/model-a/ledger";
 import {
   ensureOrgBillingSchema,
   getOrgBillingBySubId,
@@ -89,6 +95,16 @@ async function syncOrgSubscription(
     sub.items.data[0]?.id ?? null,
     normalizeOrgStatus(sub.status),
   );
+}
+
+/** The Stripe customer id on a charge (string ref or expanded object), or null. A
+ *  refund/dispute event carries the charge whose customer we map to an owner via
+ *  cloud_balance.stripe_customer_id. */
+function customerIdOf(
+  customer: string | { id: string } | null | undefined,
+): string | null {
+  if (!customer) return null;
+  return typeof customer === "string" ? customer : customer.id;
 }
 
 async function syncSubscription(sub: Stripe.Subscription): Promise<void> {
@@ -304,6 +320,68 @@ export async function POST(request: Request): Promise<Response> {
               note: `owner ${ownerKey.slice(0, 12)}...`,
               source: `cloud-charge:${pi.id}`,
             });
+          }
+        }
+        break;
+      }
+      case "charge.refunded": {
+        // A refund (manual in the dashboard, or as the resolution of a customer
+        // contacting us). CREDIT the ledger back so the running balance reflects the
+        // money returned. We use the refund AMOUNT (amount_refunded), not the full
+        // charge, so a PARTIAL refund credits exactly what was refunded. Map the
+        // charge to an owner via its customer id. Idempotent on the charge id (Stripe
+        // redelivers, and amount_refunded is cumulative, so we key the credit on the
+        // charge id and credit the cumulative refunded total exactly once).
+        const charge = event.data.object as Stripe.Charge;
+        const customerId = customerIdOf(charge.customer);
+        const refundedCents = charge.amount_refunded ?? 0;
+        if (customerId && refundedCents > 0) {
+          const ownerKey = await getOwnerByCustomerId(customerId);
+          if (ownerKey) {
+            await creditBalance(
+              ownerKey,
+              refundedCents,
+              `refund ${charge.id}`,
+              `refund:${charge.id}`,
+            );
+          }
+        }
+        break;
+      }
+      case "charge.dispute.created": {
+        // A customer filed a card dispute. FLAG the account disputed and PAUSE it
+        // (the shared accrual decision stops adding new usage) so a disputed user
+        // cannot keep running up uncharged usage while the dispute is open. Map the
+        // dispute to an owner via the charge's customer id. Idempotent (a redelivery
+        // re-stamps the same paused state; setDisputed preserves the first
+        // disputed_at).
+        const dispute = event.data.object as Stripe.Dispute;
+        const chargeId =
+          typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+        const ch = chargeId ? await getStripe().charges.retrieve(chargeId) : null;
+        const customerId = customerIdOf(ch?.customer);
+        if (customerId) {
+          const ownerKey = await getOwnerByCustomerId(customerId);
+          if (ownerKey) await setDisputed(ownerKey, true);
+        }
+        break;
+      }
+      case "charge.dispute.closed": {
+        // The dispute resolved. If it was WON (resolved in our favor) clear the flag
+        // and un-pause the account. If it was LOST leave it flagged (the money is
+        // gone; we do not silently un-pause). "warning_*" and other non-terminal
+        // statuses are ignored here, only a closed won/lost moves the flag.
+        const dispute = event.data.object as Stripe.Dispute;
+        if (dispute.status === "won" || dispute.status === "lost") {
+          const chargeId =
+            typeof dispute.charge === "string" ? dispute.charge : dispute.charge?.id;
+          const ch = chargeId ? await getStripe().charges.retrieve(chargeId) : null;
+          const customerId = customerIdOf(ch?.customer);
+          if (customerId) {
+            const ownerKey = await getOwnerByCustomerId(customerId);
+            if (ownerKey && dispute.status === "won") {
+              await setDisputed(ownerKey, false);
+            }
           }
         }
         break;

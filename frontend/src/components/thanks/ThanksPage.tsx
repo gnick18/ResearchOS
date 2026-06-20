@@ -58,9 +58,9 @@ interface Tier {
 
 // Recognition tiers for supporting the open-source PROJECT through GitHub
 // Sponsors. Deliberately named in a patron space (Backer / Patron / Benefactor),
-// NOT after lab or org sizes, so they are never confused with the in-app storage
-// tiers (Lab / Research / Department), which are a separate Stripe purchase and
-// the only thing that grants cloud storage. These perks are recognition only.
+// NOT after lab or org sizes, so they are never confused with the paid in-app
+// plans (Solo / Lab / Dept), which are a separate Stripe purchase. These perks
+// are recognition only.
 const TIERS: Tier[] = [
   {
     id: "backer",

@@ -287,7 +287,7 @@ export default function DepartmentsPage() {
                   <span className="h-2.5 w-2.5 rounded-full bg-[#aedcb0]" />
                 </span>
                 <span className="ml-2 flex-1 truncate rounded-md border border-[#dce6f1] bg-white px-3 py-1 text-meta text-[#64748b]">
-                  research-os.app/biochem-dept
+                  biochem-dept.research-os.com
                 </span>
               </div>
               <div className="p-5">
@@ -318,7 +318,7 @@ export default function DepartmentsPage() {
                           {row.lab}
                         </div>
                         <div className="truncate text-meta text-[#94a3b8]">
-                          research-os.app/{row.slug}
+                          {row.slug}.research-os.com
                         </div>
                       </div>
                       <span aria-hidden className="text-brand-action">

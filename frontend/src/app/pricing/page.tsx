@@ -147,7 +147,7 @@ export default function PricingPage() {
           <BeakerBot
             pose="idle"
             animated={false}
-            className="h-40 w-40 text-sky-500"
+            className="h-40 w-40"
             ariaLabel="BeakerBot updating the pricing"
           />
           <h1 className="mt-6 text-2xl font-semibold text-foreground sm:text-3xl">
