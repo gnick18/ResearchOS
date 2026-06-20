@@ -290,6 +290,51 @@ export interface PurchaseOrderedNotification {
   read: boolean;
 }
 
+/**
+ * Class Mode CT-2 (class-live-wiring lane, 2026-06-20). FLAG (data-shape):
+ * additive bell notification fired to every student when the instructor assigns a
+ * method to the class. Carries the assignment id so the student workbench can deep
+ * link to the shared assignment record they then open. Absent on every non-class
+ * lab; gated behind NEXT_PUBLIC_CLASS_MODE at the only call site (assignMethodToClass).
+ */
+export interface LabClassAssignmentNotification {
+  id: string;
+  type: "lab_class_assignment";
+  /** The instructor (head) who assigned the method. */
+  from_user: string;
+  /** The instructor's username (the owner prefix the shared record lives under). */
+  owner_username: string;
+  /** The assignment record id the student opens. */
+  assignment_id: string;
+  /** Denormalized assignment title for the bell row. */
+  title: string;
+  created_at: string;
+  read: boolean;
+}
+
+/**
+ * Class Mode CT-4 (class-live-wiring lane, 2026-06-20). FLAG (data-shape):
+ * additive bell notification fired to a student when the instructor RETURNS their
+ * submitted notebook with feedback. Carries the student-owned notebook task id so
+ * the student can open the returned work. No score is ever carried (grading stays
+ * in the LMS). Gated behind NEXT_PUBLIC_CLASS_MODE at the only call site
+ * (returnNotebookForStudent).
+ */
+export interface LabClassReturnedNotification {
+  id: string;
+  type: "lab_class_returned";
+  /** The instructor (head) who returned the notebook. */
+  from_user: string;
+  /** The student who owns the returned notebook (= the receiver). */
+  owner_username: string;
+  /** The numeric notebook task id in the student's namespace. */
+  task_id: number;
+  /** Denormalized notebook name for the bell row. */
+  task_name: string;
+  created_at: string;
+  read: boolean;
+}
+
 export type Notification =
   | SharedItemNotification
   | EventReminderNotification
@@ -300,7 +345,9 @@ export type Notification =
   | LabPurchaseApprovalNotification
   | LabFlagForReviewNotification
   | PurchaseAssignmentNotification
-  | PurchaseOrderedNotification;
+  | PurchaseOrderedNotification
+  | LabClassAssignmentNotification
+  | LabClassReturnedNotification;
 
 /**
  * On-disk sidecar at `users/<owner>/_shifted-alerts.json`. Append-only on
@@ -902,6 +949,12 @@ export interface TaskUpdate {
   // deletes the key on `null` so the live task carries no lingering field.
   // Denylisted (FLAG-2). Mirrors NoteUpdate's field exactly.
   revert_undo_window?: RevertUndoWindow | null;
+  // Class Mode CT-4 (class-live-wiring lane, 2026-06-20). FLAG (data-shape):
+  // additive submit/review status patch on the student's own notebook task. The
+  // student stamps not_submitted -> submitted via submitNotebook; the instructor
+  // stamps submitted -> returned via returnNotebook. Absent on every non-class
+  // update; gated behind NEXT_PUBLIC_CLASS_MODE at the only call sites.
+  submission?: ClassSubmission;
 }
 
 /**
