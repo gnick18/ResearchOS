@@ -58,6 +58,7 @@ import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
 import RainbowFrame from "@/components/marketing/RainbowFrame";
 import SponsorStrip from "@/components/SponsorStrip";
+import { PACK_TOKENS } from "@/lib/billing/ai-config";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
 /** The rainbow ramps, pulled from the brand tokens in globals.css so this page
@@ -559,6 +560,19 @@ function CostRefRow({
 
 export default function AiPage() {
   const router = useRouter();
+  // AI top-up pack dollar amounts, sourced from the billing catalog so the page
+  // copy can never drift from the configured packs.
+  const packDollars = Object.keys(PACK_TOKENS)
+    .map(Number)
+    .sort((a, b) => a - b);
+  const packList =
+    packDollars.length > 1
+      ? `${packDollars
+          .slice(0, -1)
+          .map((d) => `$${d}`)
+          .join(", ")}, or $${packDollars[packDollars.length - 1]}`
+      : `$${packDollars[0]}`;
+  const smallestPack = `$${packDollars[0]}`;
 
   // The primary CTA routes to the connect chooser at "/", the same way the
   // welcome page's CTAs route up. markLandingSeen() keeps the first-visit
@@ -627,8 +641,9 @@ export default function AiPage() {
               </div>
               <p className="mt-1 text-meta font-semibold text-[#475569]">
                 That covers about 15 tasks or 30-plus quick
-                questions. After that, prepaid top-ups are metered at cost. You
-                always see your balance and what the last task cost.
+                questions. After that, prepaid top-ups are metered at a small
+                markup over compute. You always see your balance and what the
+                last task cost.
               </p>
             </div>
 
@@ -991,7 +1006,7 @@ export default function AiPage() {
           className="scroll-mt-6 border-t border-[#d8e3f1] bg-[#f4f8fd] px-6 py-16 sm:px-12"
         >
           <Reveal className="mx-auto max-w-[1000px]">
-            <Kicker>{"// metered at cost, never a markup"}</Kicker>
+            <Kicker>{"// metered at a small markup over compute"}</Kicker>
             <h2 className="mt-2.5 max-w-[24ch] text-3xl font-extrabold leading-tight tracking-tight text-brand-ink md:text-[36px]">
               No subscription, no seat fees, you see every token
             </h2>
@@ -999,9 +1014,9 @@ export default function AiPage() {
               A single per-seat tool like GraphPad Prism or SnapGene runs hundreds
               of dollars a year per seat. BeakerBot does the same analysis or
               primer design for pennies, over data you already own. AI on
-              ResearchOS is metered at cost, a thin buffer over the actual
-              compute, not a subscription markup, because your data stays on your
-              own machine instead of on our servers.
+              ResearchOS is metered at a small markup over the actual compute,
+              not a per-seat subscription, because your data stays on your own
+              machine instead of on our servers.
             </p>
 
             <div className="mt-8 grid gap-5 md:grid-cols-[1.4fr_1fr]">
@@ -1017,9 +1032,9 @@ export default function AiPage() {
                   tasks or 30-plus quick questions, no card needed.
                 </p>
                 <p className="mt-3 text-body leading-relaxed text-[#475569]">
-                  After the gift, prepaid top-ups are $10, $25, or $50, and a $10
-                  top-up is a few hundred tasks. We charge what the compute costs
-                  plus a thin processing buffer, because a lab&apos;s AI use
+                  After the gift, prepaid top-ups are {packList}, and a{" "}
+                  {smallestPack} top-up is a few hundred tasks. We charge a small
+                  markup over what the compute costs, because a lab&apos;s AI use
                   varies a lot month to month and one heavy week should not cost
                   the same as four quiet ones.
                 </p>
@@ -1099,9 +1114,8 @@ export default function AiPage() {
               Put BeakerBot to work on your own data
             </h2>
             <p className="mt-4 max-w-[52ch] text-body leading-relaxed text-[#475569] sm:text-title">
-              Connect a folder and ask it a question. The free token gift is
-              waiting, no card needed, and you only sign in when you want to share
-              with your lab.
+              Sign in, connect a folder, and ask it a question. The free token
+              gift is waiting, no card needed.
             </p>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <button
@@ -1123,8 +1137,8 @@ export default function AiPage() {
               </Link>
             </div>
             <p className="mt-6 text-meta text-[#94a3b8]">
-              Free and open source. The AI is the one optional metered feature,
-              priced near cost.{" "}
+              The local app is free and open source. AI is a separate metered
+              add-on, priced at a small markup over compute.{" "}
               <Link
                 href="/pricing#ai-pricing"
                 className="font-semibold text-brand-action hover:text-brand-ink"
