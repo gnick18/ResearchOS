@@ -37,7 +37,7 @@ vi.mock("@/lib/billing/owner", () => ({
 }));
 
 // issueGrant: capture the params it was called with so we can assert them.
-const issueMock = vi.fn(async () => 42);
+const issueMock = vi.fn(async (..._args: unknown[]) => 42);
 vi.mock("@/lib/billing/grants", () => ({
   ensureGrantsSchema: async () => undefined,
   issueGrant: (...args: unknown[]) => issueMock(...args),
@@ -91,7 +91,7 @@ describe("POST /api/admin/grants with ownerKey direct path", () => {
     const json = (await res.json()) as { ok: boolean; id: number };
     expect(json.ok).toBe(true);
     expect(issueMock).toHaveBeenCalledOnce();
-    const [params] = issueMock.mock.calls[0] as [{ ownerKey: string; giftTier: string }];
+    const params = issueMock.mock.calls[0]![0] as { ownerKey: string; giftTier: string };
     // Must use the passed ownerKey directly, never run it through ownerKeyForEmail.
     expect(params.ownerKey).toBe("ok:abc123");
     expect(params.giftTier).toBe("lab");
@@ -161,7 +161,7 @@ describe("POST /api/admin/grants with ownerKey direct path", () => {
     );
     expect(res.status).toBe(200);
     expect(issueMock).toHaveBeenCalledOnce();
-    const [params] = issueMock.mock.calls[0] as [{ ownerKey: string; label: string }];
+    const params = issueMock.mock.calls[0]![0] as { ownerKey: string; label: string };
     // Email path hashes the email to an ownerKey via ownerKeyForEmail mock.
     expect(params.ownerKey).toBe("owner:pi@lab.edu");
     expect(params.label).toBe("pi@lab.edu");
