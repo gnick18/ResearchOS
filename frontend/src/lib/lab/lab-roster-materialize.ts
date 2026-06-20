@@ -300,6 +300,11 @@ export async function materializeLabRoster(
       ...existing,
       displayName,
       account_type: roleToAccountType(member.role),
+      // Lab Manager (Phase 1): materialize the signed roster's `admin` flag so the
+      // folder-bound capability consumers (useIsLabManager) light up without
+      // re-fetching the relay record. Relay-authoritative like account_type, so it
+      // always wins on a re-run. Never on the head (the head holds every power).
+      lab_manager: member.admin === true && member.role !== "head",
     };
     await io.writeText(settingsPath, JSON.stringify(merged));
     settingsWritten.push(username);

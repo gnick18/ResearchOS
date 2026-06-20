@@ -360,6 +360,18 @@ export interface UserSettings {
   // allowed by design, per Grant's 2026-05-23 decisions).
   account_type: AccountType;
 
+  /** Lab Manager delegation (Phase 1, docs/proposals/2026-06-20-lab-admin-
+   *  delegation-and-co-pi.md). True when this member was granted Lab Manager by a
+   *  head-signed "role" log entry (the roster member's `admin` flag, materialized
+   *  here so the folder-bound consumers can read the capability without re-fetching
+   *  the relay record). It is a delegated APP-LEVEL capability (approve purchases,
+   *  view audit / ops, manage companion-site content, propose member changes for the
+   *  head to ratify), NOT a second cryptographic signer. Orthogonal to account_type:
+   *  a manager is still account_type "member" (the head is the only "lab_head"), so
+   *  the binary PI-vs-member role is unchanged and only an additive capability is
+   *  layered on. Absent / false for the head and plain members. */
+  lab_manager?: boolean;
+
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
 
@@ -682,6 +694,12 @@ function normalize(raw: Partial<UserSettings> | null | undefined): UserSettings 
   if (merged.account_type !== "member" && merged.account_type !== "lab_head") {
     merged.account_type = "member";
   }
+
+  // Lab Manager (Phase 1): clamp the delegated-capability flag to a strict
+  // boolean, and never let it ride on the head (the head holds every power, so
+  // the flag is meaningless there and would only confuse a capability check).
+  merged.lab_manager =
+    merged.lab_manager === true && merged.account_type !== "lab_head";
 
   // Purchase routing: repair a missing / hand-edited bad shape so the UI always
   // reads a well-formed config (disabled empty default when absent or garbage).
