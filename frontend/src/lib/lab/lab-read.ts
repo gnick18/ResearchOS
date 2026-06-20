@@ -26,10 +26,21 @@
 // This exception is scoped strictly to recordType === "announcement"; the
 // per-record shared_with gate is unchanged for all other types.
 //
+// WHOLE-LAB SHARE ("*" sentinel): a record can be shared with EVERY current lab
+// member by carrying the WHOLE_LAB_SENTINEL ("*") in its shared_with (see
+// lib/sharing/unified.ts). This is the per-record analog of the announcement
+// exception. recordSharedWith treats a shared_with that contains "*" as naming
+// the viewer, so a "*"-shared record is visible to every member on the roster.
+// The viewer reaching this read path is always a roster member (they are in
+// params.owners and hold the lab key), so expanding "*" stays within the
+// roster. The server remains blind: this is the client-side intent gate
+// (own + shared-with-me), not a transport or encryption change.
+//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { isTombstone } from "./lab-sync";
 import { listLabRecords, getLabRecord } from "./lab-data-client";
+import { WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -71,32 +82,76 @@ export interface LabViewRecord {
  *   - object with `username` field: `{ username: "...", level?: "..." }`
  *   - object with `user` field (legacy alias): `{ user: "..." }`
  *
+ * WHOLE-LAB SHARE: an entry equal to the WHOLE_LAB_SENTINEL ("*"), in either the
+ * plain-string or the `{ username: "*" }` shape, means the record is shared with
+ * every current lab member. Because every viewer reaching this read path is a
+ * roster member (they are listed in pullLabView's `owners` and hold the lab
+ * key), a "*" entry resolves to "shared with the viewer". This is the per-record
+ * analog of the announcement lab-wide-public exception and reuses the same "*"
+ * sentinel as expandSharedWith in lib/sharing/unified.ts.
+ *
  * Defensive: non-object input, missing or non-array `shared_with`, or any
  * malformed entry never throws and returns false for that entry.
  *
  * @param recordJson  The parsed record value (result of JSON.parse or any unknown).
  * @param viewer      The username to look for in `shared_with`.
- * @returns true iff the viewer is named in `shared_with`.
+ * @param opts.includeWholeLab  When true (default), a "*" sentinel entry counts
+ *          as a match for any viewer (the record is shared with everyone). When
+ *          false, only an explicit username match counts; the caller is then
+ *          responsible for the roster-membership gate on whole-lab shares (see
+ *          pullLabView, which honors "*" only for roster members).
+ * @returns true iff the viewer is named in `shared_with`, or (when
+ *          includeWholeLab) the record is shared with the whole lab via "*".
  */
-export function recordSharedWith(recordJson: unknown, viewer: string): boolean {
+export function recordSharedWith(
+  recordJson: unknown,
+  viewer: string,
+  opts: { includeWholeLab?: boolean } = {},
+): boolean {
+  const includeWholeLab = opts.includeWholeLab ?? true;
   if (typeof recordJson !== "object" || recordJson === null) return false;
   const rec = recordJson as Record<string, unknown>;
   const sw = rec["shared_with"];
   if (!Array.isArray(sw)) return false;
 
   for (const entry of sw) {
-    if (typeof entry === "string") {
-      if (entry === viewer) return true;
-      continue;
-    }
-    if (typeof entry === "object" && entry !== null) {
-      const e = entry as Record<string, unknown>;
-      // Support both { username } and legacy { user } field names.
-      if (typeof e["username"] === "string" && e["username"] === viewer) return true;
-      if (typeof e["user"] === "string" && e["user"] === viewer) return true;
-    }
+    const name = sharedEntryName(entry);
+    if (name === null) continue;
+    if (name === viewer) return true;
+    if (includeWholeLab && name === WHOLE_LAB_SENTINEL) return true;
   }
   return false;
+}
+
+/**
+ * True iff the record's `shared_with` array contains the "*" whole-lab sentinel
+ * in any supported entry shape (bare string, `{ username }`, legacy `{ user }`).
+ * Used by pullLabView to honor a whole-lab share only for roster members.
+ */
+export function recordIsWholeLabShared(recordJson: unknown): boolean {
+  if (typeof recordJson !== "object" || recordJson === null) return false;
+  const rec = recordJson as Record<string, unknown>;
+  const sw = rec["shared_with"];
+  if (!Array.isArray(sw)) return false;
+  for (const entry of sw) {
+    if (sharedEntryName(entry) === WHOLE_LAB_SENTINEL) return true;
+  }
+  return false;
+}
+
+/**
+ * Extract the username from one `shared_with` entry. Handles three entry
+ * shapes: a bare string, `{ username }`, and the legacy `{ user }` alias.
+ * Returns null for any malformed entry so callers never throw.
+ */
+function sharedEntryName(entry: unknown): string | null {
+  if (typeof entry === "string") return entry;
+  if (typeof entry === "object" && entry !== null) {
+    const e = entry as Record<string, unknown>;
+    if (typeof e["username"] === "string") return e["username"];
+    if (typeof e["user"] === "string") return e["user"];
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -145,6 +200,12 @@ export async function pullLabView(params: {
 }): Promise<LabViewRecord[]> {
   const doList = params.listImpl ?? listLabRecords;
   const doGet = params.getImpl ?? getLabRecord;
+
+  // The active roster. A "*"-shared record is visible to roster members ONLY,
+  // never to a non-member. The viewer is normally one of `owners`, but we guard
+  // explicitly so the whole-lab expansion can never leak to a caller who is not
+  // on the roster (defense in depth; the lab key already gates decryption).
+  const viewerIsRosterMember = params.owners.includes(params.viewer);
 
   const results: LabViewRecord[] = [];
 
@@ -196,9 +257,18 @@ export async function pullLabView(params: {
         parseOk = false;
       }
 
-      const sharedWithViewer = parseOk
-        ? recordSharedWith(parsed, params.viewer)
+      // Two independent signals from shared_with:
+      //   - namedViewer: the viewer is listed explicitly by username. Always
+      //     honored, even for a non-roster caller.
+      //   - wholeLab: the record carries the "*" sentinel (shared with everyone).
+      //     Honored only for a roster member so the whole-lab expansion can never
+      //     leak to a non-member.
+      const namedViewer = parseOk
+        ? recordSharedWith(parsed, params.viewer, { includeWholeLab: false })
         : false;
+      const wholeLab = parseOk ? recordIsWholeLabShared(parsed) : false;
+      const sharedWithViewer =
+        namedViewer || (wholeLab && viewerIsRosterMember);
 
       // Announcements are lab-wide-public (PI-written, all-members-readable, no
       // shared_with on the on-disk shape). Treat the `announcement` type as
@@ -210,7 +280,8 @@ export async function pullLabView(params: {
       // Visibility rule:
       //   - own records are always visible (even if unparseable).
       //   - lab-wide-public records (announcements) are visible to every member.
-      //   - other non-own records are visible iff shared_with names the viewer.
+      //   - other non-own records are visible iff shared_with names the viewer
+      //     (explicitly, or via the "*" whole-lab sentinel for roster members).
       if (!isOwn && !isLabWidePublic && !sharedWithViewer) continue;
 
       results.push({
