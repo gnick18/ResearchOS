@@ -597,8 +597,8 @@ export default function FolderSwitcher({
             substrate is account-agnostic, so a solo user can hold a class folder
             exactly like a lab head). Gated ONLY on CLASS_MODE_ENABLED, so when the
             flag is off this row never renders and the panel is byte-identical to
-            before the feature. The placeholder userPlus glyph reads as enrollment;
-            a dedicated mortarboard glyph is pending Grant's icon sign-off. */}
+            before the feature. The mortarboard glyph is the Grant-approved
+            Class Mode glyph (a graduation cap). */}
         {CLASS_MODE_ENABLED && (
           <button
             type="button"
@@ -607,7 +607,7 @@ export default function FolderSwitcher({
             onClick={onCreateClass}
             className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm text-foreground-muted hover:bg-surface-sunken hover:text-foreground disabled:opacity-50"
           >
-            <Icon name="userPlus" className="h-4 w-4 shrink-0" />
+            <Icon name="mortarboard" className="h-4 w-4 shrink-0" />
             <span>Create a class</span>
           </button>
         )}
