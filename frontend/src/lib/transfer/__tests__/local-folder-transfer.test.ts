@@ -171,14 +171,51 @@ vi.mock("@/lib/sharing/identity/sidecar", () => ({
   readSharingIdentity: vi.fn(async () => null),
 }));
 
+// The MOVE + BULK source delete goes through the per-entity trashing delete APIs
+// (notesApi / sequencesApi / calculatorsApi). Those run the full real trash
+// dispatcher, which is covered by its own tests; here we control them so the
+// test focuses on the cross-folder ORDERING + VERIFICATION logic (copy-then-
+// delete, verify-source-gone, dest-failure leaves source intact). The collect
+// builders never call these (they read the detail object passed in), and the
+// cross-folder materialize uses the store layer directly, so mocking only the
+// three delete/get surfaces is safe.
+const deletedNotes = new Set<number>();
+const deletedSeqs = new Set<number>();
+const deletedCalcs = new Set<number>();
+vi.mock("@/lib/local-api", () => ({
+  notesApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedNotes.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedNotes.has(id) ? null : { id })),
+  },
+  sequencesApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedSeqs.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedSeqs.has(id) ? null : { id })),
+  },
+  calculatorsApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedCalcs.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedCalcs.has(id) ? null : { id })),
+  },
+}));
+
 // Import AFTER vi.mock so the mock is in place.
 import {
   copyObjectToFolder,
+  moveObjectToFolder,
+  bulkTransfer,
   resolveDestinationUsername,
   isEligibleDestination,
   CrossFolderCopyError,
+  SourceNotRemovedError,
+  type TransferTarget,
 } from "../local-folder-transfer";
 import * as idb from "@/lib/file-system/indexeddb-store";
+import type { SequenceDetail, CustomCalculator } from "@/lib/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -211,12 +248,67 @@ function makeSourceNote(): Note {
   } as Note;
 }
 
+const GENBANK_TEXT =
+  "LOCUS       seq1  10 bp  DNA  linear  19-JUN-2026\nORIGIN\n        1 acgtacgtac\n//\n";
+
+function makeSourceSequence(): SequenceDetail {
+  return {
+    id: 9,
+    display_name: "Plasmid pTest",
+    seq_type: "dna",
+    circular: false,
+    genbank: GENBANK_TEXT,
+    // The remaining SequenceDetail fields are not read by the collect (which
+    // only carries genbank + display_name + seq_type + circular), so cast a
+    // minimal object through unknown.
+  } as unknown as SequenceDetail;
+}
+
+function makeSourceCalculator(): CustomCalculator {
+  return {
+    id: 3,
+    name: "Molarity calc",
+    description: "c1v1 = c2v2",
+    inputs: [],
+    steps: [],
+    conditionals: [],
+    outputs: [{ id: "o1", label: "result", expression: "1" }],
+    shared_with: [],
+    created_at: "2026-06-19T00:00:00.000Z",
+    updated_at: "2026-06-19T00:00:00.000Z",
+  } as unknown as CustomCalculator;
+}
+
 let sourceRoot: MockDirectory;
 let destRoot: MockDirectory;
 let destHandle: MockDirectory;
 
+// Shared registry stub: one remembered DESTINATION folder bound to destHandle,
+// the active folder a distinct id. Uses vi.spyOn so afterEach restores it.
+function stubDestRegistry(
+  destFolderId: string,
+  labRole?: idb.RememberedFolderLabRole,
+): void {
+  vi.spyOn(idb, "getActiveFolderId").mockResolvedValue("active-folder");
+  vi.spyOn(idb, "listRememberedFolders").mockResolvedValue([
+    {
+      id: destFolderId,
+      name: "Destination",
+      lastOpenedAt: 1,
+      handle: destHandle as unknown as FileSystemDirectoryHandle,
+      ...(labRole ? { labRole } : {}),
+    },
+  ]);
+  vi.spyOn(idb, "getRememberedFolderHandle").mockResolvedValue(
+    destHandle as unknown as FileSystemDirectoryHandle,
+  );
+}
+
 beforeEach(async () => {
   MockFile["counter" as unknown as keyof typeof MockFile] = 0 as never;
+  deletedNotes.clear();
+  deletedSeqs.clear();
+  deletedCalcs.clear();
   sourceRoot = new MockDirectory("source");
   destRoot = new MockDirectory("dest");
   destHandle = destRoot;
@@ -233,7 +325,8 @@ beforeEach(async () => {
   await seedJson(sourceRoot, `users/${SOURCE_USER}/_counters.json`, { notes: 5 });
 
   // Seed the DESTINATION folder: a Main user pin + a pre-existing notes counter
-  // at 41, so a fresh id must be 42 (proving it comes from the DEST counter).
+  // at 41, so a fresh id must be 42 (proving it comes from the DEST counter). The
+  // sequence + calculator counters start unset so a first copy lands id 1.
   await seedJson(destRoot, "users/_user_metadata.json", { main_user: DEST_USER });
   await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, { notes: 41 });
 });
@@ -350,5 +443,233 @@ describe("copyObjectToFolder", () => {
 
     // Nothing was written into the destination.
     expect(readRaw(destRoot, `users/${DEST_USER}/notes/42.json`)).toBeNull();
+  });
+});
+
+// ── Stage 2: other supported types (sequence, calculator) ─────────────────────
+
+describe("copyObjectToFolder, other supported types", () => {
+  it("copies a SEQUENCE into the destination with a fresh id + carried GenBank, source untouched", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const seq = makeSourceSequence();
+    const target: TransferTarget = {
+      kind: "sequence",
+      sequence: seq,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh id from the DESTINATION counters (unset -> 1).
+    expect(outcome.kind).toBe("sequence");
+    expect(outcome.destId).toBe(1);
+    expect(outcome.destUsername).toBe(DEST_USER);
+
+    // The .gb source-of-truth + the .meta.json sidecar landed in the destination.
+    const gb = readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`);
+    expect(gb).not.toBeNull();
+    expect(new TextDecoder().decode(gb!)).toBe(GENBANK_TEXT);
+    const meta = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/sequences/1.meta.json`,
+    ) as { id: number; display_name: string; seq_type: string; project_ids: string[] };
+    expect(meta.id).toBe(1);
+    expect(meta.display_name).toBe("Plasmid pTest");
+    expect(meta.seq_type).toBe("dna");
+    // No project links travel (the sender's are meaningless in the destination).
+    expect(meta.project_ids).toEqual([]);
+
+    // The destination counter advanced to 1; the source folder got nothing.
+    const destCounters = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/_counters.json`,
+    ) as { sequences?: number };
+    expect(destCounters.sequences).toBe(1);
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/sequences/1.gb`)).toBeNull();
+  });
+
+  it("copies a CALCULATOR into the destination with a fresh id, owner-only on arrival", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const calc = makeSourceCalculator();
+    const target: TransferTarget = {
+      kind: "calculator",
+      calculator: calc,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    expect(outcome.kind).toBe("calculator");
+    expect(outcome.destId).toBe(1);
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/calculators/1.json`,
+    ) as { id: number; name: string; shared_with: unknown[] };
+    expect(rec.id).toBe(1);
+    expect(rec.name).toBe("Molarity calc");
+    // A copy is owner-only on arrival (sharing reset to "Just me").
+    expect(rec.shared_with).toEqual([]);
+  });
+
+  it("REFUSES a method / experiment / project (no two-handle path yet)", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const heavy: TransferTarget = {
+      kind: "method",
+      method: { id: 1, name: "Lyse cells" } as unknown as Extract<
+        TransferTarget,
+        { kind: "method" }
+      >["method"],
+      sourceUsername: SOURCE_USER,
+    };
+    await expect(copyObjectToFolder(heavy, "dest-folder")).rejects.toBeInstanceOf(
+      CrossFolderCopyError,
+    );
+    // Nothing was written into the destination.
+    expect(
+      readRaw(destRoot, `users/${DEST_USER}/methods/1.json`),
+    ).toBeNull();
+  });
+});
+
+// ── Stage 2: MOVE (addendum M3, trashing delete + verified ordering) ──────────
+
+describe("moveObjectToFolder", () => {
+  it("moves a note: destination gets a fresh-id copy, source is trashed", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const note = makeSourceNote();
+    const target: TransferTarget = {
+      kind: "note",
+      note,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    // The destination has the copy under a fresh id (41 -> 42).
+    expect(outcome.destId).toBe(42);
+    const destNote = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/notes/42.json`,
+    ) as Note;
+    expect(destNote.title).toBe("Crystal prep");
+
+    // The source delete was invoked AND verified gone (the mock removes it from
+    // the live set, so the post-delete get returns null -> "moved" reported).
+    expect(deletedNotes.has(note.id)).toBe(true);
+  });
+
+  it("leaves the source intact when the destination write FAILS (no-op)", async () => {
+    // Point the registry at a destination handle that has no users/ dir, so
+    // resolveDestinationUsername returns null and materialize never runs.
+    const emptyRoot = new MockDirectory("empty");
+    destHandle = emptyRoot;
+    vi.spyOn(idb, "getActiveFolderId").mockResolvedValue("active-folder");
+    vi.spyOn(idb, "listRememberedFolders").mockResolvedValue([
+      {
+        id: "dest-folder",
+        name: "Empty destination",
+        lastOpenedAt: 1,
+        labRole: "head",
+        handle: emptyRoot as unknown as FileSystemDirectoryHandle,
+      },
+    ]);
+    vi.spyOn(idb, "getRememberedFolderHandle").mockResolvedValue(
+      emptyRoot as unknown as FileSystemDirectoryHandle,
+    );
+
+    const note = makeSourceNote();
+    const target: TransferTarget = {
+      kind: "note",
+      note,
+      sourceUsername: SOURCE_USER,
+    };
+
+    await expect(moveObjectToFolder(target, "dest-folder")).rejects.toBeInstanceOf(
+      CrossFolderCopyError,
+    );
+    // The source was NEVER deleted, because the destination write failed first.
+    expect(deletedNotes.has(note.id)).toBe(false);
+  });
+
+  it("surfaces SourceNotRemovedError when the copy succeeds but the source delete cannot remove it", async () => {
+    stubDestRegistry("dest-folder", "head");
+    // Make the source delete a no-op (e.g. the cross-owner gate refused), so the
+    // post-delete verify still SEES the record and reports copied-but-not-removed.
+    const { notesApi } = (await import("@/lib/local-api")) as unknown as {
+      notesApi: { delete: ReturnType<typeof vi.fn>; get: ReturnType<typeof vi.fn> };
+    };
+    notesApi.delete.mockImplementationOnce(async () => {
+      /* refused: leave the record in place */
+    });
+    notesApi.get.mockImplementationOnce(async (id: number) => ({ id }));
+
+    const note = makeSourceNote();
+    const target: TransferTarget = {
+      kind: "note",
+      note,
+      sourceUsername: SOURCE_USER,
+    };
+
+    await expect(moveObjectToFolder(target, "dest-folder")).rejects.toBeInstanceOf(
+      SourceNotRemovedError,
+    );
+    // The destination copy IS present (the copy is safe; only the source removal failed).
+    expect(readRaw(destRoot, `users/${DEST_USER}/notes/42.json`)).not.toBeNull();
+  });
+});
+
+// ── Stage 2: BULK / multi-select ──────────────────────────────────────────────
+
+describe("bulkTransfer", () => {
+  it("copies a mixed batch: a note + a sequence succeed, a no-builder kind is reported failed without aborting", async () => {
+    stubDestRegistry("dest-folder", "head");
+
+    const items: TransferTarget[] = [
+      { kind: "note", note: makeSourceNote(), sourceUsername: SOURCE_USER },
+      {
+        kind: "sequence",
+        sequence: makeSourceSequence(),
+        sourceUsername: SOURCE_USER,
+      },
+      // A heavy kind with no two-handle path: must be reported failed, not abort.
+      {
+        kind: "project",
+        project: { id: 2, name: "Grant aims" } as unknown as Extract<
+          TransferTarget,
+          { kind: "project" }
+        >["project"],
+        sourceUsername: SOURCE_USER,
+      },
+    ];
+
+    const result = await bulkTransfer(items, "dest-folder", "copy");
+
+    expect(result.okCount).toBe(2);
+    expect(result.failCount).toBe(1);
+    // Item order is preserved.
+    expect(result.items[0].ok).toBe(true);
+    expect(result.items[1].ok).toBe(true);
+    expect(result.items[2].ok).toBe(false);
+    if (!result.items[2].ok) {
+      expect(result.items[2].reason).toMatch(/not supported yet/i);
+    }
+
+    // Both supported items actually landed in the destination.
+    expect(readRaw(destRoot, `users/${DEST_USER}/notes/42.json`)).not.toBeNull();
+    expect(readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`)).not.toBeNull();
+  });
+
+  it("bulk MOVE trashes the source of each successfully copied item", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const note = makeSourceNote();
+    const items: TransferTarget[] = [
+      { kind: "note", note, sourceUsername: SOURCE_USER },
+    ];
+
+    const result = await bulkTransfer(items, "dest-folder", "move");
+
+    expect(result.mode).toBe("move");
+    expect(result.okCount).toBe(1);
+    expect(deletedNotes.has(note.id)).toBe(true);
   });
 });
