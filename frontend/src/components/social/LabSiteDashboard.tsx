@@ -24,6 +24,7 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import ReferencePicker from "@/components/references/ReferencePicker";
 import { isBlockEmbedMarkdown } from "@/lib/references";
 import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
@@ -370,6 +371,242 @@ function ByoGithubSection({ slug }: { slug: string }) {
       </div>
       {msg && <p className="mt-3 text-sm text-foreground">{msg}</p>}
     </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Slug rename section (Phase PI-slug-rename)
+// ---------------------------------------------------------------------------
+
+/**
+ * Lets the lab head change their lab's public web address (slug) after the
+ * initial claim. The old address keeps working as a permanent redirect so every
+ * saved link, bookmark, and paper citation continues to resolve. The PI sees
+ * the current slug, types a new one, and must confirm the change before it
+ * applies (the action is public and immediate).
+ */
+function SlugRenameSection({
+  currentSlug,
+  disabled,
+  onRenamed,
+}: {
+  currentSlug: string;
+  disabled?: boolean;
+  onRenamed: (newSlug: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+
+  const reset = useCallback(() => {
+    setOpen(false);
+    setInput("");
+    setConfirming(false);
+    setBusy(false);
+    setMsg(null);
+    setSuggestions([]);
+  }, []);
+
+  const requestConfirm = useCallback(() => {
+    const trimmed = input.trim().toLowerCase();
+    if (!trimmed) {
+      setMsg("Enter a new web address first.");
+      return;
+    }
+    if (trimmed === currentSlug) {
+      setMsg("That is already your current address.");
+      return;
+    }
+    setConfirming(true);
+    setMsg(null);
+    setSuggestions([]);
+  }, [input, currentSlug]);
+
+  const doRename = useCallback(async () => {
+    const trimmed = input.trim().toLowerCase();
+    if (!trimmed || !confirming) return;
+    setBusy(true);
+    setMsg(null);
+    try {
+      const res = await fetch("/api/social/lab-site/rename-slug", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ oldSlug: currentSlug, newSlug: trimmed }),
+      });
+      if (res.status === 409) {
+        const data = (await res.json().catch(() => ({}))) as { suggestions?: string[] };
+        setSuggestions(Array.isArray(data.suggestions) ? data.suggestions : []);
+        setMsg("That address is already taken. Try one of the suggestions below.");
+        setConfirming(false);
+        return;
+      }
+      if (res.status === 400) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setMsg(data.error === "oldSlug required" ? "Something went wrong. Refresh and try again." : "That address is not valid. Use 3 to 30 letters, numbers, or dashes.");
+        setConfirming(false);
+        return;
+      }
+      if (!res.ok) {
+        setMsg("Could not change the address right now. Try again shortly.");
+        setConfirming(false);
+        return;
+      }
+      const data = (await res.json()) as { slug?: string };
+      const newSlug = data.slug ?? trimmed;
+      reset();
+      onRenamed(newSlug);
+    } catch {
+      setMsg("Could not change the address right now. Try again shortly.");
+      setConfirming(false);
+    } finally {
+      setBusy(false);
+    }
+  }, [input, currentSlug, confirming, reset, onRenamed]);
+
+  const displayBase = LAB_SITES_COM_ORIGIN_ENABLED
+    ? ".research-os.com"
+    : "research-os.app/";
+  const currentDisplay = LAB_SITES_COM_ORIGIN_ENABLED
+    ? `${currentSlug}.research-os.com`
+    : `research-os.app/${currentSlug}`;
+
+  if (!open) {
+    return (
+      <div className="mb-4 flex items-center gap-3 rounded-xl border border-border bg-surface-raised px-4 py-3">
+        <Icon name="globe" className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm text-muted-foreground">Web address</p>
+          <p className="truncate text-sm font-medium text-foreground">
+            {currentDisplay}
+          </p>
+        </div>
+        <Tooltip label="Change your lab web address">
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => setOpen(true)}
+            className="ros-btn-neutral inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs disabled:opacity-50"
+          >
+            <Icon name="pencil" className="h-3.5 w-3.5" /> Change address
+          </button>
+        </Tooltip>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mb-4 rounded-xl border border-border bg-surface-raised p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h3 className="text-sm font-medium text-foreground">Change lab web address</h3>
+        <button
+          type="button"
+          onClick={reset}
+          disabled={busy}
+          className="ros-btn-neutral rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+        Your old address keeps working as a permanent redirect so every saved
+        link, paper citation, and external bookmark continues to resolve. The new
+        address goes live immediately.
+      </p>
+
+      <div className="flex items-center gap-2">
+        {LAB_SITES_COM_ORIGIN_ENABLED ? null : (
+          <span className="shrink-0 text-xs text-muted-foreground">research-os.app/</span>
+        )}
+        <input
+          type="text"
+          value={input}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setConfirming(false);
+            setMsg(null);
+            setSuggestions([]);
+          }}
+          disabled={busy}
+          placeholder={currentSlug}
+          aria-label="New lab web address"
+          className="flex-1 rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground disabled:opacity-50"
+        />
+        {LAB_SITES_COM_ORIGIN_ENABLED && (
+          <span className="shrink-0 text-xs text-muted-foreground">.research-os.com</span>
+        )}
+      </div>
+
+      {suggestions.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-2">
+          {suggestions.map((s) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => {
+                setInput(s);
+                setConfirming(false);
+                setMsg(null);
+              }}
+              className="ros-btn-neutral rounded-full px-3 py-1 text-xs"
+            >
+              {s}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {confirming ? (
+        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 dark:border-amber-700 dark:bg-amber-950">
+          <p className="text-xs text-foreground leading-relaxed">
+            Change your address from{" "}
+            <span className="font-medium">{currentDisplay}</span> to{" "}
+            <span className="font-medium">
+              {LAB_SITES_COM_ORIGIN_ENABLED
+                ? `${input.trim().toLowerCase()}${displayBase}`
+                : `${displayBase}${input.trim().toLowerCase()}`}
+            </span>
+            ? The old address will redirect here permanently.
+          </p>
+          <div className="mt-3 flex items-center gap-2">
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void doRename()}
+              className="btn-brand inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+            >
+              {busy ? "Changing." : "Yes, change address"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => setConfirming(false)}
+              className="ros-btn-neutral rounded-lg px-3 py-1.5 text-xs disabled:opacity-50"
+            >
+              Go back
+            </button>
+          </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          disabled={busy || !input.trim() || input.trim().toLowerCase() === currentSlug}
+          onClick={requestConfirm}
+          className="mt-3 btn-brand inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium disabled:opacity-50"
+        >
+          Preview change
+        </button>
+      )}
+
+      {msg && (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {msg}
+        </p>
+      )}
+    </div>
   );
 }
 
@@ -735,15 +972,16 @@ export default function LabSiteDashboard({
                 {claimBusy ? "Claiming." : "Claim"}
               </button>
             </div>
-            {/* Permanence gate. The slug becomes the lab's permanent web address
-                (there is no rename path, see the route), and every saved link,
-                bookmark, and citation points at it, so we say so plainly and make
-                the visitor confirm before the irreversible claim. */}
+            {/* Claim gate. The slug becomes the lab's primary web address. Renames
+                are possible later (the old address keeps working as a redirect),
+                but choosing a good slug from the start avoids any transition pain
+                for early visitors and any links you share before a rename. */}
             <div className="mt-4 rounded-lg border border-border bg-surface-sunken p-3">
               <p className="text-sm text-foreground">
-                This becomes your lab&apos;s permanent web address. Choose
-                carefully. It cannot be changed later, and changing it would break
-                every saved link, bookmark, and citation that points to your lab.
+                This becomes your lab&apos;s web address. Choose a slug that fits
+                your lab name. You can change it later and the old address will
+                redirect, but links you share before a rename will go through a
+                redirect rather than resolving directly.
               </p>
               <label className="mt-3 flex items-start gap-2 text-sm text-muted-foreground">
                 <input
@@ -751,15 +989,15 @@ export default function LabSiteDashboard({
                   checked={confirmPermanent}
                   onChange={(e) => setConfirmPermanent(e.target.checked)}
                   className="mt-0.5"
-                  aria-label="Confirm the lab address is permanent"
+                  aria-label="Confirm the lab address claim"
                 />
                 <span>
-                  I understand{" "}
+                  I want to claim{" "}
                   <span className="font-medium text-foreground">
                     {(slugInput.trim().toLowerCase() || "<slug>") +
                       ".research-os.com"}
                   </span>{" "}
-                  is permanent and cannot be changed.
+                  as my lab&apos;s web address.
                 </span>
               </label>
             </div>
@@ -785,7 +1023,7 @@ export default function LabSiteDashboard({
 
         {load === "ready" && site && (
           <section>
-            <div className="mb-6 flex items-center justify-between rounded-xl border border-border bg-surface-raised p-4">
+            <div className="mb-4 flex items-center justify-between rounded-xl border border-border bg-surface-raised p-4">
               <div>
                 <p className="text-sm text-muted-foreground">Your site</p>
                 <p className="text-base font-medium text-foreground">
@@ -804,6 +1042,15 @@ export default function LabSiteDashboard({
                 <Icon name="plus" className="h-4 w-4" /> New page
               </button>
             </div>
+
+            {!demoReadOnly && (
+              <SlugRenameSection
+                currentSlug={site.slug}
+                onRenamed={(newSlug) => {
+                  setSite((prev) => prev ? { ...prev, slug: newSlug } : prev);
+                }}
+              />
+            )}
 
             <div className="mb-8">
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">

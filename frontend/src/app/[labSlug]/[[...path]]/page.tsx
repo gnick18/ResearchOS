@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
 import ToolSitePageView from "@/components/social/ToolSitePageView";
@@ -17,7 +17,7 @@ import { getByoSiteByOwner } from "@/lib/social/lab-byo-db";
 import { parseSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { parseHostedManifest } from "@/lib/social/lab-site-hosted";
 import { normalizeSlug } from "@/lib/social/slug-registry";
-import { getSlug } from "@/lib/social/slug-registry-db";
+import { getSlug, resolveSlugRedirect } from "@/lib/social/slug-registry-db";
 import {
   DEMO_LAB_CARD,
   isDemoLabSlug,
@@ -126,12 +126,56 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
   return { decision, slug, path, page, publishedPages, hasByo, toolRow };
 }
 
+// ---------------------------------------------------------------------------
+// Slug-rename redirect helper (Phase PI-slug-rename)
+// ---------------------------------------------------------------------------
+//
+// When a lab head renames their slug, the old slug_registry row stays forever
+// (citation safety) with redirect_to set to the new slug. This helper checks
+// for a pending redirect at the top of both page functions, before the full
+// resolve() call, so retired slugs never render stale content.
+//
+// Origin note: by the time a request reaches this page, proxy.ts has already
+// rewritten <oldslug>.research-os.com -> /<oldslug>/* (same-origin path). The
+// redirect() call below produces a same-origin 308 to /<newSlug>/..., which
+// the browser follows correctly. A cross-origin redirect from a Server Component
+// would render a 200 fallback (see the origin-cutover note below), so we stay
+// same-origin here. proxy.ts is NOT touched (lab-domains lane owns it).
+//
+// COORDINATION: if a hard 308 at the Vercel edge layer (for the subdomain form
+// <oldslug>.research-os.com -> <newslug>.research-os.com) is later desired,
+// the lab-domains lane can add it to proxy.ts using resolveSlugRedirect from
+// slug-registry-db. This page-level redirect covers the path form and is
+// sufficient for correctness.
+
+/**
+ * Builds the redirect target path for a retired slug. Preserves the sub-path
+ * so /<oldSlug>/people redirects to /<newSlug>/people rather than the home.
+ */
+function redirectPath(newSlug: string, rawPath: string[] | undefined): string {
+  const sub = rawPath && rawPath.length > 0 ? rawPath.join("/") : "";
+  return sub ? `/${newSlug}/${sub}` : `/${newSlug}`;
+}
+
 export async function generateMetadata({
   params,
 }: {
   params: Promise<RouteParams>;
 }): Promise<Metadata> {
   const { labSlug, path } = await params;
+  // Check for a slug rename redirect before doing any other work.
+  const normalized = normalizeSlug(labSlug);
+  try {
+    const redirectTarget = await resolveSlugRedirect(normalized);
+    if (redirectTarget) {
+      // generateMetadata cannot call redirect() (it is not a Server Component
+      // render path), so return a "not found" metadata and let the page render
+      // handle the redirect call.
+      return { title: "Not found" };
+    }
+  } catch {
+    // DB outage: degrade gracefully, continue to resolve().
+  }
   const { decision, slug, page } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) {
     return { title: "Not found" };
@@ -149,6 +193,24 @@ export default async function LabSitePublicPage({
   params: Promise<RouteParams>;
 }) {
   const { labSlug, path } = await params;
+
+  // Phase PI-slug-rename: check for a permanent slug redirect before any other
+  // work. If this slug was retired by a lab head rename, redirect to the new
+  // slug preserving the sub-path, so citations and external links continue to
+  // resolve. The redirect is same-origin (path form) so Next.js issues a real
+  // 308 at the server level. redirect() throws a special internal error in
+  // Next.js; we let that propagate and only swallow actual DB errors.
+  const normalizedForRedirect = normalizeSlug(labSlug);
+  let slugRedirectTarget: string | null = null;
+  try {
+    slugRedirectTarget = await resolveSlugRedirect(normalizedForRedirect);
+  } catch {
+    // DB outage: degrade gracefully. The slug may still render if resolve() succeeds.
+  }
+  if (slugRedirectTarget) {
+    redirect(redirectPath(slugRedirectTarget, path));
+  }
+
   const {
     decision,
     slug,

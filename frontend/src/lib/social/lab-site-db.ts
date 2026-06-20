@@ -27,6 +27,10 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { normalizePagePath, type PageStatus } from "./lab-site";
+import {
+  ensureSlugRegistrySchema,
+  reserveSlug,
+} from "./slug-registry-db";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -494,4 +498,89 @@ export async function publishPage(
     RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
   `) as RawPageRow[];
   return rows[0] ? rowToPage(rows[0]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Slug rename (Phase PI-slug-rename)
+// ---------------------------------------------------------------------------
+
+/** Result type for rebindLabSlug. */
+export type RebindLabSlugResult =
+  | { ok: true }
+  | { ok: false; reason: "taken" | "invalid" | "not-owner" | "not-found" };
+
+/**
+ * Renames a lab's public slug from oldSlug to newSlug with ZERO data loss.
+ *
+ * Write order is chosen so that a partial failure never frees the old slug or
+ * leaves the lab_sites row orphaned:
+ *   1. Reserve newSlug in slug_registry (atomic PK insert). If taken, bail now.
+ *   2. Verify the lab_sites row exists and belongs to ownerKey.
+ *   3. Repoint lab_sites.lab_slug from oldSlug to newSlug.
+ *   4. Mark the old slug_registry row with redirect_to = newSlug (never deleted,
+ *      citation safety: existing paper links, shared URLs, and external bookmarks
+ *      continue to resolve via the permanent redirect).
+ *
+ * Step 1 claims newSlug before step 3 changes the lab_sites row, so a crash
+ * between steps 1 and 3 leaves the lab still reachable at oldSlug (the new slug
+ * is reserved but the lab_sites row still points at old). Step 4 failing
+ * (network blip) is the worst case: newSlug is live but oldSlug has no redirect
+ * yet. That is still SAFE (the lab serves correctly at newSlug) and the redirect
+ * can be applied via a follow-up migration; it is not a data-loss scenario.
+ *
+ * labId is used as the ref on the newSlug registry row (mirrors the convention
+ * in the original create-site flow where ownerKey is used as both owner_key and
+ * ref). Pass ownerKey when labId equals ownerKey (they are the same in the
+ * billing model: a lab is keyed by its billing owner key).
+ */
+export async function rebindLabSlug(args: {
+  ownerKey: string;
+  oldSlug: string;
+  newSlug: string;
+}): Promise<RebindLabSlugResult> {
+  const { ownerKey, oldSlug, newSlug } = args;
+
+  // Step 1: reserve the new slug. reserveSlug handles ensureSlugRegistrySchema
+  // and validates the slug shape via validateReserve before the INSERT.
+  const reserved = await reserveSlug(newSlug, "lab", ownerKey, ownerKey);
+  if (!reserved.ok) {
+    if (reserved.reason === "taken") return { ok: false, reason: "taken" };
+    // reason === "invalid" covers malformed slug (too short, reserved word, etc.)
+    return { ok: false, reason: "invalid" };
+  }
+
+  // Step 2 + 3: verify ownership and repoint lab_sites in a single UPDATE that
+  // only matches the row belonging to this owner (avoids a separate SELECT that
+  // could race). The RETURNING clause confirms the row existed and matched.
+  await ensureLabSiteSchema();
+  const sql = getSql();
+  const repointed = (await sql`
+    UPDATE lab_sites
+    SET lab_slug = ${newSlug}
+    WHERE lab_owner_key = ${ownerKey} AND lab_slug = ${oldSlug}
+    RETURNING lab_owner_key
+  `) as Array<{ lab_owner_key: string }>;
+
+  if (repointed.length === 0) {
+    // Either the lab has no site, or the oldSlug does not match this owner.
+    // Distinguish the two cases so the route can return 403 vs 404.
+    const site = (await sql`
+      SELECT lab_owner_key FROM lab_sites WHERE lab_owner_key = ${ownerKey} LIMIT 1
+    `) as Array<{ lab_owner_key: string }>;
+    return site.length > 0
+      ? { ok: false, reason: "not-owner" }
+      : { ok: false, reason: "not-found" };
+  }
+
+  // Step 4: mark the old slug as a permanent redirect. The old row stays forever
+  // so citations and external links continue to resolve. We do not free the slug
+  // for reuse (another lab claiming "oldslug" would break those redirects).
+  await ensureSlugRegistrySchema();
+  await sql`
+    UPDATE slug_registry
+    SET redirect_to = ${newSlug}
+    WHERE slug = ${oldSlug}
+  `;
+
+  return { ok: true };
 }
