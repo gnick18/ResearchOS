@@ -91,6 +91,7 @@ import LabInviteResume from "@/components/lab/LabInviteResume";
 import LabCreateResume from "@/components/lab/LabCreateResume";
 import LabProvisionResume from "@/components/lab/LabProvisionResume";
 import LabGenesisPublishRetry from "@/components/lab/LabGenesisPublishRetry";
+import LabProvisionConsumeRetry from "@/components/lab/LabProvisionConsumeRetry";
 import { LabSessionMount } from "@/components/lab/LabSessionMount";
 import BeakerSearchBottomBar from "@/components/beaker-search/BeakerSearchBottomBar";
 import AppNavBar from "@/components/AppNavBar";
@@ -926,6 +927,14 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           this only catches the server up. Self-gates on LAB_TIER_ENABLED + a
           connected user. */}
       <LabGenesisPublishRetry />
+      {/* Catch-up that COMPLETES a dropped provision consume. If the staged
+          claim persisted lab_id but the consume POST was dropped (a UI hang
+          plus a reload), LabProvisionResume bails on the next boot (lab_id is
+          set) so the staging would stay pending forever with no lab_sites row.
+          This re-POSTs the idempotent consume once a staging is confirmed still
+          pending. Never re-runs the genesis. Self-gates on LAB_TIER_ENABLED + a
+          connected user with a persisted lab_id. */}
+      <LabProvisionConsumeRetry />
       <LabInviteResume />
       <ReminderRunner />
       <NotificationDesktopWatcher />
