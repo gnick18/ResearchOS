@@ -21,7 +21,7 @@ import {
   isFinished,
   type TutorState,
 } from "@/lib/onboarding/tutor-machine";
-import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
+import type { Role } from "@/lib/onboarding/reel-director";
 
 // The lab-head role value, and the individual-researcher role we fall back to
 // when the user picks lab head then chooses "I work solo" in the disclosure.
@@ -58,19 +58,6 @@ export interface OnboardingTutorProps {
   /** Mount regardless of the feature flag. Dev preview only, never set in the
    *  real after-account mount (that path respects ONBOARDING_TUTOR_ENABLED). */
   forceEnabled?: boolean;
-  /** LIVE coupled pass: when true the deep demos render the transparent
-   *  LiveCursorLayer over the REAL surface (the real-page presenter cursor + soft
-   *  ring), and the picker's start hands off to onBeginShow instead of building
-   *  the reel inline. The real TourHost mount sets this; the dev preview leaves it
-   *  false so it keeps using the self-contained ShowcaseStage stand-in (it mounts
-   *  over a mock page with no real [data-tutor-target] controls to point at). */
-  live?: boolean;
-  /** LIVE only: called when the user starts the tour from the picker, with the
-   *  resume marker (role + goals + first-playable beatIndex). The host persists it
-   *  and HARD-reloads into tour-scoped demo mode, after which the tour resumes via
-   *  initialState at the first deep demo. Omit (dev preview) to build the reel
-   *  inline and play on the stand-in stage with no reload. */
-  onBeginShow?: (marker: { role: Role; goals: GoalKey[]; beatIndex: number }) => void;
   /** Called on EVERY machine-state change (and once on mount) so the host can
    *  persist the full resumable state, and clear it when the run finishes. This
    *  is what lets the walkthrough reopen to exactly where the user was after any
@@ -96,10 +83,6 @@ export default function OnboardingTutor({
   onRememberFact,
   meter,
   forceEnabled = false,
-  // live / onBeginShow are deprecated by the no-warp redesign (2026-06-19): the
-  // deep demos no longer hard-reload into /demo, they play as centered overlays in
-  // place (a preloaded page popup), so the whole reel runs inline regardless of the
-  // live flag. The props stay on the interface so TourHost keeps compiling.
   onProgress,
   initialState,
   displayName,
@@ -200,9 +183,6 @@ export default function OnboardingTutor({
 
   let body: ReactNode = null;
   if (beat?.kind === "deep_demo" && beat.surface) {
-    // No-warp redesign: every deep demo plays on the self-contained centered stage
-    // (a preloaded page popup over the signature backdrop), never the real-page
-    // LiveCursorLayer overlay, so the tour no longer warps into /demo.
     body = (
       <ShowcaseStage
         key={`${beat.surface}-${state.beatIndex}`}

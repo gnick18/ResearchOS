@@ -5,7 +5,6 @@ import {
   readTourResume,
   hasTourResume,
   clearTourResume,
-  beginTourDemoSession,
   endTourDemoSession,
   type StorageLike,
   type TourResumeState,
@@ -125,35 +124,6 @@ describe("tour-demo-session resume marker", () => {
     expect(hasTourResume(null)).toBe(false);
     expect(() => saveTourResume(STATE, null)).not.toThrow();
     expect(() => clearTourResume(null)).not.toThrow();
-  });
-});
-
-describe("beginTourDemoSession", () => {
-  it("saves the marker BEFORE navigating, stashes the route, hard-navs to /demo", () => {
-    const order: string[] = [];
-    let saved: TourResumeState | null = null;
-    let stashed: string | null = null;
-    let navigated: string | null = null;
-    beginTourDemoSession(STATE, {
-      saveMarker: (s) => {
-        order.push("save");
-        saved = s;
-      },
-      storePreDemoRoute: (r) => {
-        order.push("stash");
-        stashed = r;
-      },
-      currentRoute: () => "/datahub?doc=1",
-      navigate: (u) => {
-        order.push("navigate");
-        navigated = u;
-      },
-    });
-    expect(saved).toEqual(STATE);
-    expect(stashed).toBe("/datahub?doc=1");
-    expect(navigated).toBe("/demo");
-    // Marker must be persisted before the navigation tears the page down.
-    expect(order).toEqual(["save", "stash", "navigate"]);
   });
 });
 

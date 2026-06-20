@@ -128,46 +128,14 @@ export function clearTourResume(
 }
 
 // ---------------------------------------------------------------------------
-// Begin / exit orchestration (the demo enter + exit, mirroring DevDemoToggleButton).
+// Exit orchestration (the demo exit, mirroring DevDemoToggleButton).
 //
-// These own the ORDER of operations; every side effect is injected so they are
-// pure to test (assert "marker saved before navigate", "real folder restored
-// before clearing demo + leaving") with no window / file-system. TourHost wires
-// the real helpers (storePreDemoRoute / restorePreDemoStateOrClear /
-// clearDemoMode / consumePreDemoRoute) + window.location at the call site. Only
-// the actual navigation is browser-side (checkpoints A/D). Entering demo is a
-// HARD nav to /demo so FileSystemProvider remounts and its initialize() installs
-// the fixture (which is what calls backupRealHandleForDemo + markDemoMode) -- a
-// soft router.push would skip the remount and leave the real folder unbacked.
+// Owns the ORDER of operations; every side effect is injected so it is pure to
+// test (assert "real folder restored before clearing demo + leaving") with no
+// window / file-system. TourHost wires the real helpers
+// (restorePreDemoStateOrClear / clearDemoMode / consumePreDemoRoute) +
+// window.location at the call site. Only the actual navigation is browser-side.
 // ---------------------------------------------------------------------------
-
-/** Injected side effects for beginning the tour demo (the "begin show" reload). */
-export interface BeginTourDemoDeps {
-  /** Persist the resume marker (defaults to saveTourResume). */
-  saveMarker: (state: TourResumeState) => void;
-  /** Stash the route to return to on exit (the real storePreDemoRoute). */
-  storePreDemoRoute: (route: string) => void;
-  /** The current route to stash (pathname + search). */
-  currentRoute: () => string;
-  /** Hard navigation into demo (window.location.assign). */
-  navigate: (url: string) => void;
-}
-
-/**
- * Begin the tour-scoped demo: persist the resume marker, stash the return route,
- * then HARD-navigate to /demo so FileSystemProvider remounts into the fixture.
- * The marker is saved FIRST so a resume is possible the instant the new page
- * mounts. Call this behind the opaque "Setting the stage" screen so the reload
- * is invisible. The demo sticky itself is set by initialize() on the /demo load.
- */
-export function beginTourDemoSession(
-  state: TourResumeState,
-  deps: BeginTourDemoDeps,
-): void {
-  deps.saveMarker(state);
-  deps.storePreDemoRoute(deps.currentRoute());
-  deps.navigate("/demo");
-}
 
 /** Injected side effects for exiting the tour demo (complete / skip). */
 export interface EndTourDemoDeps {
