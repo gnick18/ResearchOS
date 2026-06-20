@@ -139,6 +139,13 @@ export async function materializeLabView(
   // a single file aggregates many announcement records.
   const announcementEntries: unknown[] = [];
 
+  // CLASS DASHBOARD (CT-5 + CT-3) is also lab-wide-public and a singleton: the
+  // instructor's one `class_dashboard` record. We cache its raw plaintext to the
+  // root _class_dashboard.json so the student workbench can read the template
+  // synchronously (the same pattern announcements use). Last writer wins (the
+  // record is a singleton, so there is normally exactly one).
+  let classDashboardText: string | null = null;
+
   for (const rec of records) {
     // RESIDENCY: never write the viewer's own records back from R2.
     if (rec.isOwn) {
@@ -157,6 +164,13 @@ export async function materializeLabView(
         // whole _announcements.json write. listAnnouncements() is itself
         // defensive against a malformed file, but a clean write is preferable.
       }
+      continue;
+    }
+
+    // CLASS DASHBOARD: cache the raw plaintext for the workbench to read. The
+    // record is a singleton; keep the last one seen.
+    if (rec.recordType === "class_dashboard") {
+      classDashboardText = text;
       continue;
     }
 
@@ -194,6 +208,16 @@ export async function materializeLabView(
     const path = "_announcements.json";
     const fileBody = { version: 1 as const, announcements: announcementEntries };
     await writer.writeText(path, JSON.stringify(fileBody));
+    written.push(path);
+  }
+
+  // CLASS DASHBOARD: write the cached singleton to the root _class_dashboard.json
+  // so the student workbench reads the template folder-locally. Only write when a
+  // record was actually pulled, so an empty pull never clobbers a previously
+  // cached template.
+  if (classDashboardText !== null) {
+    const path = "_class_dashboard.json";
+    await writer.writeText(path, classDashboardText);
     written.push(path);
   }
 

@@ -9,6 +9,7 @@ import {
   type TrashEntityType,
 } from "./trash";
 import { recordProjectActivity } from "./project-activity/event-log";
+import { classCreateSharedWithSeed } from "./lab/class-dashboard-store";
 import type { RetentionEntry, RetentionEntryCreate } from "./lab/retention";
 import { HISTORY_ENGINE_ENABLED, recordNoteHistory, recordTaskHistory, recordProjectHistory, recordInventoryItemVersion, recordInventoryStockVersion } from "./history";
 import type { HistoryEditKind } from "./history";
@@ -1025,6 +1026,12 @@ export const tasksApi = {
     // location later.
     const currentUser = (await getCurrentUserCached()) ?? "";
 
+    // CT-3 visibility default: in a class folder, a NEW student-authored task /
+    // experiment is seeded with the class visibility default ("collaborative" =>
+    // a whole-class "*" read entry; "private"/absent => empty). Outside a class
+    // (or flag off) this resolves to [] so the create is byte-identical.
+    const classSeededSharedWith = await classCreateSharedWithSeed(currentUser);
+
     const task = await tasksStore.create({
       project_id: data.project_id ?? 0,
       name: data.name,
@@ -1055,7 +1062,7 @@ export const tasksApi = {
         qpcr_analysis: a.qpcr_analysis ?? null,
       })),
       owner: currentUser,
-      shared_with: [],
+      shared_with: classSeededSharedWith,
       // Phase 6a portable identity: mint once at create time.
       source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
         ? crypto.randomUUID()
@@ -5816,6 +5823,12 @@ export const notesApi = {
     // defensively in the popup's owner resolution.
     const author = (await getCurrentUserCached()) ?? "";
 
+    // CT-3 visibility default: a NEW student notebook in a class folder inherits
+    // the class visibility default. Empty outside a class (or flag off), and we
+    // only attach `shared_with` when there is a seed, so a non-class / flag-off
+    // note keeps the field absent exactly as before.
+    const classSeededSharedWith = await classCreateSharedWithSeed(author);
+
     return notesStore.create({
       title: data.title,
       description: data.description ?? "",
@@ -5826,6 +5839,9 @@ export const notesApi = {
       created_at: now,
       updated_at: now,
       username: author,
+      ...(classSeededSharedWith.length > 0
+        ? { shared_with: classSeededSharedWith }
+        : {}),
       // Phase 6a portable identity: mint once at create time.
       source_uuid: (typeof crypto !== "undefined" && "randomUUID" in crypto)
         ? crypto.randomUUID()
