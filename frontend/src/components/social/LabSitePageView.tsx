@@ -43,6 +43,8 @@ import LabCitation from "@/components/social/LabCitation";
 import LabCollaborationActions from "@/components/social/LabCollaborationActions";
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import { labLinkBase, labSamePath } from "@/lib/social/lab-collab";
+import { BADGES_ENABLED } from "@/lib/badges/config";
+import BadgeSection, { demoBadgeMetrics } from "@/components/badges/BadgeSection";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
@@ -203,6 +205,16 @@ export default function LabSitePageView({
               pageTitle={title}
               pagePath={normPath}
             />
+          )}
+
+          {/* Achievement badges (badges v1, flag-gated, dark by default). Only
+              on the home page so it is not repeated on every subpage. Real
+              activity metrics are not plumbed to this server route yet, so v1
+              feeds the section representative demo metrics (the hook-in point
+              for real metrics is BadgeSection's `metrics` prop). When the flag
+              is off this renders nothing and the page is byte-identical. */}
+          {BADGES_ENABLED && normPath === "" && (
+            <BadgeSection profileId={slug} metrics={demoBadgeMetrics()} />
           )}
         </div>
       </section>
