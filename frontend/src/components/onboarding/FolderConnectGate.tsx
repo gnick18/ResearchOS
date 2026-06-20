@@ -350,11 +350,15 @@ export default function FolderConnectGate({
   // The connect surface. Shown when no folder is attached: after a cancelled
   // picker (retry here), or on the sign-in-with-provider resume path.
   return (
-    <div className="light-scope fixed inset-0 z-[100] flex items-center justify-center bg-white">
+    <div className="light-scope fixed inset-0 z-[100] overflow-y-auto bg-white">
       <VersionBadge tone="surface" className="fixed top-3 left-4 z-[110]" />
       <BackdropTexture />
 
-      <div className="relative z-10 w-full max-w-2xl mx-4">
+      {/* Scrollable, vertically-centered wrapper: centers the gate when it fits
+          and scrolls (top reachable) on a short window, so the gate can never
+          trap content below the fold. */}
+      <div className="relative z-10 flex min-h-full items-center justify-center px-4 py-12">
+      <div className="w-full max-w-4xl">
         <button
           type="button"
           onClick={onBack}
@@ -363,27 +367,12 @@ export default function FolderConnectGate({
           <span aria-hidden>&larr;</span> Back
         </button>
 
-        <h1 className="mb-6 text-center text-display font-extrabold tracking-tight text-foreground">
-          {accountSaveFraming
-            ? "Save your account on your disk"
-            : pendingSignInProvider
-              ? "Connect your folder to finish signing in"
-              : "Connect your folder"}
-        </h1>
-        {accountSaveFraming && (
-          <p className="-mt-3 mb-6 text-center text-body text-foreground-muted max-w-xl mx-auto">
-            You are signed in. Pick a folder to keep your notebook and account.
-            Everything stays local, this folder is your account. A brand-new
-            folder starts a fresh account, and if the folder already holds this
-            account we just unlock it.
-          </p>
-        )}
-
-        {/* BeakerBot side column with the opt-in walkthrough CTA. On lg+ this
-            floats in the right margin; on smaller screens it stacks above. */}
-        <div className="mb-6 flex flex-col items-center lg:fixed lg:top-6 lg:right-6 lg:left-auto lg:mb-0 lg:w-64 lg:z-40">
+        {/* Header: mascot + title + the opt-in walkthrough, in-flow and centered
+            (no longer a floating right-margin column) so it never collides with
+            the always-visible Sign out and the side margins are not wasted. */}
+        <div className="mb-6 flex flex-col items-center text-center">
           <div
-            className="mb-2 flex h-24 w-24 items-center justify-center"
+            className="mb-2 flex h-16 w-16 items-center justify-center"
             data-testid="gate-beakerbot"
           >
             <BeakerBot
@@ -393,79 +382,98 @@ export default function FolderConnectGate({
               ariaLabel="BeakerBot"
             />
           </div>
-          <div className="relative w-full max-w-xs">
-            <div
-              aria-hidden
-              className="absolute -top-2 left-1/2 h-4 w-4 -translate-x-1/2 rotate-45 bg-surface-raised border-l border-t border-border"
-            />
-            <div className="relative rounded-2xl bg-surface-raised border border-border px-3 py-3 text-center shadow-lg dark:shadow-black/40">
-              <p className="text-title font-medium leading-snug text-foreground">
-                New here? It is strongly recommended to take a short onboarding
-                walkthrough (3 minutes). Returning? Just take it from here.
-              </p>
-            </div>
-          </div>
+          <h1 className="text-display font-extrabold tracking-tight text-foreground">
+            {accountSaveFraming
+              ? "Save your account on your disk"
+              : pendingSignInProvider
+                ? "Connect your folder to finish signing in"
+                : "Connect your folder"}
+          </h1>
+          {accountSaveFraming && (
+            <p className="mt-2 max-w-xl text-body text-foreground-muted">
+              You are signed in. Pick a folder to keep your notebook and account.
+              Everything stays local, this folder is your account. A brand-new
+              folder starts a fresh account, and if the folder already holds this
+              account we just unlock it.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setWalkthroughOpen(true)}
             data-testid="gate-walkthrough-open"
-            className="mt-4 inline-flex items-center gap-2 rounded-lg bg-brand-action/10 dark:bg-brand-action/15 px-4 py-2 text-body font-semibold text-sky-700 dark:text-sky-100 border border-sky-400/40 dark:border-sky-300/40 transition-colors hover:bg-brand-action/20 dark:hover:bg-brand-action/25 hover:text-sky-800 dark:hover:text-white hover:border-sky-400/70 dark:hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:focus-visible:outline-sky-300"
+            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-action/10 dark:bg-brand-action/15 px-4 py-2 text-body font-semibold text-sky-700 dark:text-sky-100 border border-sky-400/40 dark:border-sky-300/40 transition-colors hover:bg-brand-action/20 dark:hover:bg-brand-action/25 hover:text-sky-800 dark:hover:text-white hover:border-sky-400/70 dark:hover:border-sky-300/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-500 dark:focus-visible:outline-sky-300"
           >
-            Take the 3-minute walkthrough
+            New here? Take the 3-minute walkthrough
           </button>
         </div>
 
-        {/* One-click reconnect to the remembered folder. Shown when a previous
-            folder is on record (e.g. after a reload, where Chrome drops the
-            readwrite grant so the silent reconnect cannot re-attach). The click
-            is a user gesture, which is what requestPermission needs, so this
-            re-permissions the stored handle without the OS picker. The
-            drag/browse card below stays as the path to a different folder. */}
-        {lastConnectedFolder && (
-          <div className="max-w-xl mx-auto mb-5">
-            <div className="rounded-2xl border border-blue-400/40 bg-blue-500/10 dark:bg-blue-500/15 px-5 py-4 text-center">
-              <p className="text-body text-foreground">
-                You were last connected to{" "}
-                <span className="font-semibold">{lastConnectedFolder}</span>.
+        {/* Two paths side by side (Grant 2026-06-19): return to a saved folder
+            (left) and start a new one (right). The left side renders only when
+            there IS something to return to, otherwise the new-folder card takes
+            the full width and centers, so a brand-new lab head is never shown an
+            empty column. Spreading the two paths across the width is what lets
+            the whole gate fit on one laptop screen without scrolling. */}
+        <div
+          className={`grid items-start gap-5 ${
+            lastConnectedFolder || rememberedFolders.length > 1
+              ? "lg:grid-cols-2"
+              : "mx-auto max-w-xl"
+          }`}
+        >
+          {(lastConnectedFolder || rememberedFolders.length > 1) && (
+            <div className="rounded-2xl border border-border bg-surface-raised p-5">
+              <p className="mb-3 text-meta font-medium uppercase tracking-wide text-foreground-faint">
+                Pick up where you left off
               </p>
-              <button
-                onClick={handleReconnect}
-                disabled={isLoading}
-                data-testid="gate-reconnect-folder"
-                className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg btn-brand px-5 py-2.5 text-body font-semibold text-white transition-all disabled:opacity-50"
-              >
-                {isLoading ? (
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
-                ) : (
-                  <>
-                    <Icon name="folder" className="h-4 w-4" />
-                    Reconnect {lastConnectedFolder}
-                  </>
-                )}
-              </button>
-              <p className="mt-2 text-meta text-foreground-muted">
-                Chrome asks you to allow access again after a reload. No need to
-                find the folder, just choose Allow.
-              </p>
+              {/* One-click reconnect to the remembered folder. The click is a
+                  user gesture (what requestPermission needs), so it re-permissions
+                  the stored handle without the OS picker. */}
+              {lastConnectedFolder && (
+                <div className="rounded-xl border border-blue-400/40 bg-blue-500/10 dark:bg-blue-500/15 px-4 py-4 text-center">
+                  <p className="text-body text-foreground">
+                    You were last connected to{" "}
+                    <span className="font-semibold">{lastConnectedFolder}</span>.
+                  </p>
+                  <button
+                    onClick={handleReconnect}
+                    disabled={isLoading}
+                    data-testid="gate-reconnect-folder"
+                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-lg btn-brand px-5 py-2.5 text-body font-semibold text-white transition-all disabled:opacity-50"
+                  >
+                    {isLoading ? (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+                    ) : (
+                      <>
+                        <Icon name="folder" className="h-4 w-4" />
+                        Reconnect {lastConnectedFolder}
+                      </>
+                    )}
+                  </button>
+                  <p className="mt-2 text-meta text-foreground-muted">
+                    Chrome asks you to allow access again after a reload. No need
+                    to find the folder, just choose Allow.
+                  </p>
+                </div>
+              )}
+              {/* Remembered folders (multi-folder): one-click switch without the
+                  OS picker. Renders only when more than one is remembered. */}
+              {rememberedFolders.length > 1 && (
+                <div className={lastConnectedFolder ? "mt-4" : ""}>
+                  <p className="mb-2 text-meta font-medium text-foreground-muted">
+                    Your folders
+                  </p>
+                  <FolderSwitcher variant="panel" />
+                </div>
+              )}
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Remembered folders (Phase A, multi-folder). Lists every folder the
-            app remembers so the user can one-click switch without the OS
-            picker. Renders nothing unless NEXT_PUBLIC_MULTI_FOLDER is on and
-            more than one folder is remembered, so single-folder users see only
-            the reconnect card above and the browse card below, unchanged. */}
-        {rememberedFolders.length > 1 && (
-          <div className="max-w-xl mx-auto mb-5">
-            <p className="mb-2 text-meta font-medium text-foreground-muted">
-              Your folders
+          <div>
+          {(lastConnectedFolder || rememberedFolders.length > 1) && (
+            <p className="mb-3 text-meta font-medium uppercase tracking-wide text-foreground-faint">
+              Start a new folder
             </p>
-            <FolderSwitcher variant="panel" />
-          </div>
-        )}
-
-        <div className="max-w-xl mx-auto">
+          )}
           <div
             data-testid="link-folder-drop-zone"
             onDragEnter={handleDragEnter}
@@ -547,6 +555,7 @@ export default function FolderConnectGate({
               )}
             </div>
           </div>
+          </div>
         </div>
 
         {error && (
@@ -575,6 +584,7 @@ export default function FolderConnectGate({
         )}
 
         <GateFooter onBugReport={openBugReport} />
+      </div>
       </div>
 
       {/* Post-abort recovery modal. Chrome wraps a user cancel and a blocked

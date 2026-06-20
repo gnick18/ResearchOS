@@ -28,7 +28,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { hostedAssetId } from "./lab-site-hosted";
-import { RESERVED_SLUGS, normalizeSlug } from "./slug-registry";
+import { RESERVED_SLUGS } from "./slug-registry";
 
 // ---------------------------------------------------------------------------
 // Per-lab BYO identifiers (R2 key namespace + billing asset id)
@@ -392,14 +392,19 @@ export function resolveAppOriginLabRedirect(args: {
   const path = args.pathname.replace(/^\/+/, "");
   if (path === "") return null;
   const firstSeg = path.split("/")[0] ?? "";
-  const slug = normalizeSlug(firstSeg);
-  // Must be a clean slug label and NOT a reserved app route / word.
-  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(slug)) return null;
-  if (RESERVED_SLUGS.has(slug)) return null;
-  // Preserve the sub-path after the slug (original case); the slug itself is
-  // normalized to its canonical lowercase form for the subdomain host.
+  // Match the RAW first segment against the slug charset, NOT normalizeSlug(seg).
+  // A real lab slug in a citation link is already a clean lowercase label, so a
+  // stored lab is matched exactly. Critically, we must NOT normalize first: a root
+  // static file like "frappe-gantt.css" / "robots.txt" / "sitemap.xml" / a path
+  // with uppercase or underscores is NOT a lab link, and normalizeSlug would
+  // rescue "frappe-gantt.css" into the slug-shaped "frappe-gantt-css" and 308 it to
+  // a phantom subdomain (the matcher excludes .svg/.png but not .css/.txt/.xml). A
+  // dot or any non-slug character in the raw segment therefore passes through here.
+  if (!/^[a-z0-9][a-z0-9-]{0,62}$/.test(firstSeg)) return null;
+  if (RESERVED_SLUGS.has(firstSeg)) return null;
+  // Preserve the sub-path after the slug.
   const rest = path.slice(firstSeg.length);
-  return `${labSiteOrigin(slug)}${rest}`;
+  return `${labSiteOrigin(firstSeg)}${rest}`;
 }
 
 // ---------------------------------------------------------------------------
