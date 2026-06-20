@@ -13,6 +13,13 @@ import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 import { getLabRemote, appendRoleRemote } from "./lab-do-client";
 import { openLabKeyCopy, setMemberAdmin } from "./lab-key";
 import { verifyMembershipLog, type LabRecord } from "./lab-membership";
+import {
+  postMemberProposal,
+  listMemberProposals,
+  dismissMemberProposal,
+  type LabMemberProposal,
+  type LabMemberProposalKind,
+} from "./lab-member-proposals";
 import { listLabAccepts, type StoredLabAccept } from "./lab-accept-client";
 import { finalizeLabAccepts, type FinalizeOutcome } from "./lab-invite-flow";
 import {
@@ -203,4 +210,113 @@ export async function setLabManagerForHead(params: {
   return { record };
 }
 
+// ── Propose-and-ratify member changes (Lab Manager Phase 1) ──────────────────
+// A Lab Manager cannot sign roster changes, so they PROPOSE an add or remove and
+// the head ratifies through the normal membership controls. All three wrappers
+// open the current lab key from the relay envelope the same way the membership
+// helpers above do (any roster member holds a sealed copy), then call the pure
+// lab-member-proposals primitives.
+
+/** MANAGER: propose a member change into the head's prefix. Resolves the head
+ *  username from the verified relay record, opens the proposer's lab-key copy, and
+ *  posts the proposal. The head reviews + completes it; nothing is mutated here. */
+export async function submitMemberProposal(params: {
+  labId: string;
+  /** The proposing manager's username. */
+  username: string;
+  identity: StoredIdentity;
+  kind: LabMemberProposalKind;
+  /** For "remove": the existing member's username. Empty for "add". */
+  subjectUsername?: string;
+  /** For "add": the handle / email to invite. Empty for "remove". */
+  target?: string;
+  note?: string;
+  /** Injected for tests; defaults to crypto.randomUUID + Date.now. */
+  idImpl?: () => string;
+  nowImpl?: () => number;
+}): Promise<{ proposal: LabMemberProposal }> {
+  const remote = await getLabRemote(params.labId);
+  if (!remote || !remote.record) {
+    throw new Error("submitMemberProposal: lab not found");
+  }
+  const head = remote.record.head.username;
+  const labKey = await openLabKeyForHead(
+    params.labId,
+    params.username,
+    params.identity,
+  );
+  const proposal: LabMemberProposal = {
+    id: (params.idImpl ?? (() => crypto.randomUUID()))(),
+    kind: params.kind,
+    proposer: params.username,
+    subjectUsername: params.subjectUsername ?? "",
+    target: params.target ?? "",
+    note: params.note ?? "",
+    proposedAt: (params.nowImpl ?? (() => Date.now()))(),
+  };
+  await postMemberProposal({
+    labId: params.labId,
+    head,
+    proposal,
+    labKey,
+    signerEd25519Priv: params.identity.keys.signing.privateKey,
+    signerEd25519Pub: params.identity.keys.signing.publicKey,
+  });
+  return { proposal };
+}
+
+/** HEAD: list the pending member-change proposals managers have submitted. */
+export async function loadMemberProposals(params: {
+  labId: string;
+  /** The head's username (proposals live under the head's prefix). */
+  username: string;
+  identity: StoredIdentity;
+}): Promise<LabMemberProposal[]> {
+  const labKey = await openLabKeyForHead(
+    params.labId,
+    params.username,
+    params.identity,
+  );
+  return listMemberProposals({
+    labId: params.labId,
+    head: params.username,
+    labKey,
+    signerEd25519Priv: params.identity.keys.signing.privateKey,
+    signerEd25519Pub: params.identity.keys.signing.publicKey,
+  });
+}
+
+/** HEAD: dismiss (tombstone) a proposal after completing or declining it. The
+ *  head prefix owner is resolved from the verified record so a manager calling
+ *  this (to retract their own proposal) targets the same key. */
+export async function resolveMemberProposal(params: {
+  labId: string;
+  /** The acting user's username (head or the proposing manager). */
+  username: string;
+  identity: StoredIdentity;
+  proposalId: string;
+  nowImpl?: () => number;
+}): Promise<void> {
+  const remote = await getLabRemote(params.labId);
+  if (!remote || !remote.record) {
+    throw new Error("resolveMemberProposal: lab not found");
+  }
+  const head = remote.record.head.username;
+  const labKey = await openLabKeyForHead(
+    params.labId,
+    params.username,
+    params.identity,
+  );
+  await dismissMemberProposal({
+    labId: params.labId,
+    head,
+    proposalId: params.proposalId,
+    labKey,
+    signerEd25519Priv: params.identity.keys.signing.privateKey,
+    signerEd25519Pub: params.identity.keys.signing.publicKey,
+    nowMs: (params.nowImpl ?? (() => Date.now()))(),
+  });
+}
+
 export type { SealOutcome };
+export type { LabMemberProposal };

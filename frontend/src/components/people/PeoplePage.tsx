@@ -14,11 +14,12 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useLabSession } from "@/hooks/useLabSession";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLabData } from "@/hooks/useLabData";
@@ -28,7 +29,13 @@ import {
   LAB_ROSTER_QUERY_KEY,
 } from "@/hooks/useLabRoster";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
-import { setLabManagerForHead } from "@/lib/lab/lab-head-membership";
+import {
+  setLabManagerForHead,
+  submitMemberProposal,
+  loadMemberProposals,
+  resolveMemberProposal,
+  type LabMemberProposal,
+} from "@/lib/lab/lab-head-membership";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import {
   fetchLabRoster,
@@ -79,7 +86,11 @@ function shortDate(iso: string | null): string | null {
 
 export default function PeoplePage() {
   const { currentUser } = useCurrentUser();
-  const isLabHead = useIsLabHead(currentUser);
+  // Lab Manager Phase 1: the People page opens to a Lab Manager too (in propose
+  // mode), so gate access on PI POWERS but keep isHead separate so the head-only
+  // controls (promote/demote, ratify) never show for a manager.
+  const isHead = useIsLabHead(currentUser) === true;
+  const hasPiPowers = useHasPiPowers(currentUser);
   const session = useLabSession();
   const labId = (session && !session.loading ? session.labId : null) ?? null;
 
@@ -148,12 +159,12 @@ export default function PeoplePage() {
   const [selected, setSelected] = useState<RosterRow | null>(null);
   const queryClient = useQueryClient();
 
-  if (isLabHead === false) {
+  if (hasPiPowers === false) {
     return (
       <div className="mx-auto max-w-3xl px-4 py-10">
         <p className="text-meta text-foreground-muted">
-          The People page is the lab head&apos;s view of the lab. Sign in as the
-          PI to manage your roster.
+          The People page is the lab head&apos;s and lab managers&apos; view of
+          the lab. Sign in as the PI or a lab manager to see your roster.
         </p>
       </div>
     );
@@ -181,7 +192,7 @@ export default function PeoplePage() {
             <span className="rounded-full bg-surface-sunken px-3 py-1 text-meta font-medium text-foreground-muted">
               {activeCount} active
             </span>
-            {isLabHead && (
+            {isHead && (
               <Tooltip
                 label="Invite a member"
                 body="Opens Settings, where you can search the directory, invite by email, or create an invite link."
@@ -198,6 +209,10 @@ export default function PeoplePage() {
           </div>
         )}
       </div>
+
+      {isHead && labId && currentUser && (
+        <ManagerRequestsSection labId={labId} headUsername={currentUser} />
+      )}
 
       {isLoading ? (
         <p className="text-meta text-foreground-muted">Loading your lab…</p>
@@ -400,6 +415,8 @@ export default function PeoplePage() {
           row={selected}
           workload={workloadByUser.get(selected.username)}
           labId={labId}
+          isHead={isHead}
+          currentUser={currentUser}
           onChanged={() =>
             queryClient.invalidateQueries({ queryKey: LAB_ROSTER_QUERY_KEY })
           }
@@ -410,18 +427,126 @@ export default function PeoplePage() {
   );
 }
 
+// --- manager requests (propose-and-ratify, Phase 1) -------------------------
+// The head sees pending member-change requests their Lab Managers submitted. The
+// head reviews each, completes the real add/remove through the membership
+// controls (Settings), and dismisses it. A nudge queue, not a silent mutation.
+
+function ManagerRequestsSection({
+  labId,
+  headUsername,
+}: {
+  labId: string;
+  headUsername: string;
+}) {
+  const [proposals, setProposals] = useState<LabMemberProposal[] | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    const identity = getSessionIdentity();
+    if (!identity) return;
+    try {
+      const list = await loadMemberProposals({
+        labId,
+        username: headUsername,
+        identity,
+      });
+      setProposals(list);
+    } catch {
+      setProposals([]);
+    }
+  }, [labId, headUsername]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  async function dismiss(id: string) {
+    const identity = getSessionIdentity();
+    if (!identity) return;
+    setBusyId(id);
+    try {
+      await resolveMemberProposal({
+        labId,
+        username: headUsername,
+        identity,
+        proposalId: id,
+      });
+      await reload();
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  if (!proposals || proposals.length === 0) return null;
+
+  return (
+    <div className="mb-5 space-y-2 rounded-xl border border-brand-action/30 bg-brand-action/5 p-4">
+      <p className="text-body font-semibold text-foreground">
+        Requests from your lab managers
+      </p>
+      <p className="text-meta text-foreground-muted">
+        Your managers cannot change the roster themselves, so they send these for
+        you to act on. Complete the change in Settings, then dismiss the request.
+      </p>
+      <ul className="space-y-2 pt-1">
+        {proposals.map((p) => (
+          <li
+            key={p.id}
+            className="flex items-start justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2"
+          >
+            <div className="min-w-0 text-meta">
+              <p className="text-foreground">
+                <span className="font-medium">{p.proposer}</span>
+                {p.kind === "remove"
+                  ? ` asks to remove ${p.subjectUsername}`
+                  : ` asks to invite ${p.target || "a new member"}`}
+              </p>
+              {p.note && (
+                <p className="text-foreground-muted">&ldquo;{p.note}&rdquo;</p>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href="/settings?section=members"
+                className="rounded-lg bg-brand-action/10 px-2.5 py-1 text-meta font-medium text-brand-action hover:bg-brand-action/20"
+              >
+                Manage membership
+              </Link>
+              <button
+                type="button"
+                onClick={() => void dismiss(p.id)}
+                disabled={busyId === p.id}
+                className="rounded-lg px-2.5 py-1 text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
+              >
+                {busyId === p.id ? "..." : "Dismiss"}
+              </button>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 // --- member detail panel (PE-4) ---------------------------------------------
 
 function MemberPanel({
   row,
   workload,
   labId,
+  isHead,
+  currentUser,
   onChanged,
   onClose,
 }: {
   row: RosterRow;
   workload: Workload | undefined;
   labId: string | null;
+  /** Whether the VIEWER is the lab head (vs a Lab Manager). Head-only controls
+   *  (promote/demote) show only when true; a manager sees propose controls. */
+  isHead: boolean;
+  currentUser: string | null;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -433,8 +558,15 @@ function MemberPanel({
   // Never offered for the PI's own entry (the head holds every power already) and
   // only when we have a labId to act on. Optimistic close + roster refetch on success.
   const isHeadRow = row.account_type === "lab_head";
+  const isSelf = !!currentUser && row.username === currentUser;
   const [managerBusy, setManagerBusy] = useState(false);
   const [managerError, setManagerError] = useState<string | null>(null);
+
+  // Manager propose-and-ratify (Phase 1): a manager cannot sign a roster change,
+  // so they REQUEST a removal and the head ratifies it through the membership
+  // controls. State for the request action.
+  const [proposeBusy, setProposeBusy] = useState(false);
+  const [proposeMsg, setProposeMsg] = useState<string | null>(null);
 
   async function toggleLabManager() {
     if (!labId || managerBusy) return;
@@ -462,6 +594,37 @@ function MemberPanel({
       );
     } finally {
       setManagerBusy(false);
+    }
+  }
+
+  async function requestRemoval() {
+    if (!labId || proposeBusy || !currentUser) return;
+    const identity = getSessionIdentity();
+    if (!identity) {
+      setProposeMsg(
+        "Your identity is locked. Reconnect your lab folder and try again.",
+      );
+      return;
+    }
+    setProposeBusy(true);
+    setProposeMsg(null);
+    try {
+      await submitMemberProposal({
+        labId,
+        username: currentUser,
+        identity,
+        kind: "remove",
+        subjectUsername: row.username,
+      });
+      setProposeMsg(
+        "Request sent. The lab head will see it and decide whether to remove this member.",
+      );
+    } catch (err) {
+      setProposeMsg(
+        err instanceof Error ? err.message : "Could not send the request.",
+      );
+    } finally {
+      setProposeBusy(false);
     }
   }
 
@@ -539,9 +702,9 @@ function MemberPanel({
           </Link>
         </div>
 
-        {/* Lab Manager (Phase 1): delegate operational powers to a member. Never
-            shown for the PI's own row. */}
-        {!isHeadRow && (
+        {/* Lab Manager (Phase 1): the HEAD delegates operational powers to a
+            member. Head-only and never for the PI's own row. */}
+        {isHead && !isHeadRow && (
           <div className="space-y-2 rounded-lg border border-border bg-surface px-4 py-3">
             <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
@@ -575,6 +738,36 @@ function MemberPanel({
               <p className="text-meta text-rose-600 dark:text-rose-400">
                 {managerError}
               </p>
+            )}
+          </div>
+        )}
+
+        {/* Manager propose-and-ratify (Phase 1): a manager cannot sign a roster
+            change, so they request a removal and the head ratifies it. Shown only
+            to a manager viewing another non-head member. */}
+        {!isHead && !isHeadRow && !isSelf && (
+          <div className="space-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-body font-medium text-foreground">
+                  Request removal
+                </p>
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  Send the lab head a request to remove this member. Only the head
+                  can remove someone, so this queues it for their decision.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={requestRemoval}
+                disabled={proposeBusy || !labId}
+                className="shrink-0 rounded-lg border border-border bg-surface px-3 py-2 text-meta font-medium text-foreground transition hover:bg-surface-hover disabled:opacity-50"
+              >
+                {proposeBusy ? "Sending..." : "Request removal"}
+              </button>
+            </div>
+            {proposeMsg && (
+              <p className="text-meta text-foreground-muted">{proposeMsg}</p>
             )}
           </div>
         )}
