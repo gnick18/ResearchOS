@@ -87,4 +87,32 @@ describe("computeEarnedBadges", () => {
       "one-year",
     ]);
   });
+
+  it("locks course-complete with no award, even with all metrics maxed", () => {
+    const earned = computeEarnedBadges({
+      experiments: 1000,
+      isFounding: true,
+      tenureDays: 365,
+      hasExternalShare: true,
+      hasCompanionSite: true,
+    });
+    expect(earned).not.toContain("course-complete");
+  });
+
+  it("earns an awarded badge only when granted, ignoring unknown grants", () => {
+    expect(computeEarnedBadges(EMPTY, ["course-complete"])).toContain(
+      "course-complete",
+    );
+    expect(computeEarnedBadges(EMPTY, ["not-a-badge"])).not.toContain(
+      "course-complete",
+    );
+    expect(computeEarnedBadges(EMPTY)).not.toContain("course-complete");
+  });
+
+  it("does not let an award unlock a metric badge", () => {
+    // Granting a metric badge's id must not bypass its metric criterion.
+    expect(computeEarnedBadges(EMPTY, ["experiments-100"])).not.toContain(
+      "experiments-100",
+    );
+  });
 });

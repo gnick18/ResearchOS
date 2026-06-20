@@ -18,14 +18,23 @@
 import type { IconName } from "@/components/icons/registry";
 
 /** Broad grouping for the bin and for ring-color fallback by category. */
-export type BadgeCategory = "status" | "milestone" | "activity" | "community";
+export type BadgeCategory = "status" | "milestone" | "activity" | "community" | "class";
 
 /** The rule that decides whether a badge is earned, evaluated in earn.ts. */
 export type BadgeCriteria =
   | { kind: "founding" }
   | { kind: "count"; metric: "experiments"; threshold: number }
   | { kind: "event"; event: "external_share" | "companion_site" }
-  | { kind: "tenure"; days: number };
+  | { kind: "tenure"; days: number }
+  // Instructor-granted (class mode), NOT computed from metrics. Earned when the
+  // badge id appears in the awardedBadgeIds passed to computeEarnedBadges. The
+  // grant is an instructor-authored record the holder reads over class mode's
+  // relay team-key transport (per-student for v1; class-wide "*" awards and
+  // class-aggregate badges keyed by labId are phase 2, that residency substrate
+  // is not finished yet). Aligns with the classroom lane: the holder is the
+  // account identity, the class id is the labId, and class-ness is read from
+  // classConfig.isClass / lab_kind, never from the membership role.
+  | { kind: "awarded" };
 
 export interface Badge {
   /** Stable id, also the localStorage pin key and the earn.ts return value. */
@@ -68,6 +77,8 @@ export const BADGE_COLORS = {
   teal: "#1D9E75",
   /** Activity accent, blue (e.g. companion site live). */
   blue: "#378ADD",
+  /** Class / awarded accent, a warm rose for instructor-granted badges. */
+  class: "#D4537E",
 } as const;
 
 export type BadgeColorKey = keyof typeof BADGE_COLORS;
@@ -136,6 +147,18 @@ export const BADGE_CATALOG: Badge[] = [
     // Registry `today` is the calendar glyph (concept "Calendar / today").
     glyph: "today",
     criteria: { kind: "tenure", days: 365 },
+  },
+  {
+    id: "course-complete",
+    label: "Course complete",
+    description: "Awarded by the instructor for finishing the course.",
+    category: "class",
+    ring: BADGE_COLORS.class,
+    // Instructor-granted (class mode). A dedicated graduation or medal glyph
+    // would read better than `check` and is flagged for Grant's sign-off
+    // alongside the globe glyph.
+    glyph: "check",
+    criteria: { kind: "awarded" },
   },
 ];
 
