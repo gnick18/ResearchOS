@@ -14,6 +14,7 @@ import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useAppStore } from "@/lib/store";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { getPiViewMode } from "@/hooks/usePiViewMode";
 import { decideLandingRedirect } from "./page-landing-redirect";
 import type { Task } from "@/lib/types";
@@ -48,6 +49,13 @@ export default function HomePage() {
   // instead of compounding into a second redirect via defaultLandingTab.
   const defaultLandingTab = useAppStore((s) => s.defaultLandingTab);
   const isLabHead = useIsLabHead(currentUser || null);
+  // CM-P2B: a class instructor (lab_head + class folder) must not bounce to the
+  // research /lab-overview as their home. `useIsClassMode` returns `undefined`
+  // while in flight; we pass that through so decideLandingRedirect short-circuits
+  // (via the isLabHead === undefined gate) until the role read settles, and the
+  // class branch only applies once class mode resolves true. Always false with
+  // NEXT_PUBLIC_CLASS_MODE off, so the bounce is byte-identical to today.
+  const isClassMode = useIsClassMode(currentUser || null);
   useEffect(() => {
     // "/" renders nothing now, so it ALWAYS bounces to the role landing,
     // EXCEPT while a deep-link is being handled (a popup is opening on "/")
@@ -60,6 +68,7 @@ export default function HomePage() {
       suppress: hasDeepLink || selectedTask !== null,
       currentUser,
       isLabHead,
+      isClassMode,
       defaultLandingTab,
       fromRedirect: searchParams?.get("from") ?? null,
       tourActive: false,
@@ -81,6 +90,7 @@ export default function HomePage() {
     currentUser,
     defaultLandingTab,
     isLabHead,
+    isClassMode,
     router,
     searchParams,
     selectedTask,

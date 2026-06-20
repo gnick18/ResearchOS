@@ -26,6 +26,14 @@ export interface LandingRedirectInput {
   /** Whether the active user is a lab head (PI). `undefined` while the role
    *  read is in flight (the decision short-circuits until it resolves). */
   isLabHead: boolean | null | undefined;
+  /** Class Mode (CM-P2B): whether the active folder is a class this user
+   *  instructs. A class instructor is a lab_head by role, so without this they
+   *  would bounce to the RESEARCH /lab-overview as their home, which is wrong
+   *  for a classroom. When true the role default lands them on /workbench (a
+   *  neutral, class-appropriate home that always exists) instead, until the
+   *  dedicated class overview ships in Stage 3. Defaults to false / undefined
+   *  (treated as a research lab), so flag-off behavior is byte-identical. */
+  isClassMode?: boolean | null | undefined;
   /** The user's configured default landing tab (store value). */
   defaultLandingTab: string | null | undefined;
   /** `?from=` sentinel value (set when another surface bounced us to
@@ -115,10 +123,16 @@ export function decideLandingRedirect(
   // `?from=` sentinel only matters here as a loop guard: a non-PI bounced
   // off /lab-overview lands on /workbench (the role default already differs
   // from /lab-overview, so there is no ping-pong).
+  // CM-P2B: a class instructor (lab_head + class folder) is NOT dumped into the
+  // research /lab-overview. They land on /workbench, the neutral home that
+  // always exists, until the dedicated class overview ships in Stage 3. A
+  // research PI is unchanged. classMode false / absent keeps the legacy bounce.
   const roleDefault = input.isLabHead
-    ? input.piViewMode === "my-work"
+    ? input.isClassMode === true
       ? "/workbench"
-      : "/lab-overview"
+      : input.piViewMode === "my-work"
+        ? "/workbench"
+        : "/lab-overview"
     : "/workbench";
   if (input.fromRedirect && `/${input.fromRedirect}` === roleDefault) {
     // Defensive: the bounce-source equals our role default. Stay on "/"

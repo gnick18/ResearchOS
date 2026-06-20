@@ -28,14 +28,29 @@ import {
 } from "@/lib/ai/tools/lab-head";
 import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
 import { useAccountType } from "@/hooks/useAccountType";
+import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 export default function LabHeadCopilotMount() {
   const { currentUser } = useFileSystem();
   const accountType = useAccountType(currentUser ?? null);
 
+  // Class Mode (CM-P2B, addendum H2): a class instructor is a lab_head by role,
+  // so this research PI copilot (grant / RPPR / inventory framed) would mount
+  // for them and offer the wrong toolset. Suppress the research PI tool suite
+  // + the ask-bar door when the active folder is a class. A class-specific tool
+  // subset is a later stage; this stage only withholds the research tools so
+  // they are never offered in a classroom. The general BeakerBot (the global
+  // BeakerSearchProvider + palette) is untouched and stays available.
+  //
+  // useIsClassMode returns `undefined` while the read is in flight; we collapse
+  // that to "not a class" so the existing research mount is unchanged until the
+  // read settles (and is byte-identical everywhere with class mode off, since
+  // no folder carries lab_kind === "class" then).
+  const isClassMode = useIsClassMode(currentUser ?? null) === true;
+
   const isLabHead = accountType === "lab_head";
-  const shouldMount = AI_ASSISTANT_ENABLED && isLabHead;
+  const shouldMount = AI_ASSISTANT_ENABLED && isLabHead && !isClassMode;
 
   useEffect(() => {
     if (!shouldMount) return;
