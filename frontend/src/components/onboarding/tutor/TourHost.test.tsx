@@ -122,4 +122,25 @@ describe("TourHost is mounted in the real app flow (NOT /dev-only)", () => {
     );
     expect(providers).toMatch(/<TourHost\b/);
   });
+
+  it("also mounts <TourHost> in the demo branch, gated on hasTourResume()", () => {
+    // The tutor's deep "coupled" beats hard-reload into /demo, which hits the
+    // isDemoOrWikiCapture early-return branch, NOT the main authed render. Without a
+    // mount there the picker's "Start the tour" loads the demo but the guided tour
+    // never resumes. It must be gated on hasTourResume() so a normal public /demo
+    // visitor never triggers the tutor. This locks both halves of that fix.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const providers = readFileSync(
+      join(here, "../../../lib/providers.tsx"),
+      "utf8",
+    );
+    expect(providers).toMatch(
+      /import\s+\{\s*hasTourResume\s*\}\s+from\s+["']@\/lib\/onboarding\/tour-demo-session["']/,
+    );
+    // The demo-branch mount is the hasTourResume()-gated one.
+    expect(providers).toMatch(/hasTourResume\(\)\s*&&\s*<TourHost\b/);
+    // Two TourHost render sites total: the main authed render + the demo branch.
+    const mountCount = (providers.match(/<TourHost\b/g) ?? []).length;
+    expect(mountCount).toBeGreaterThanOrEqual(2);
+  });
 });
