@@ -7,7 +7,7 @@ import {
   DEPT_PER_LAB_DISCOUNT_CENTS,
   DEPT_USAGE_DISCOUNT_PCT,
 } from "../catalog";
-import { MODEL_A_PLANS } from "../model-a/pricing";
+import { FOUNDING_LAB_BASE_CENTS, MODEL_A_PLANS } from "../model-a/pricing";
 
 describe("usd", () => {
   it("formats whole and fractional dollars", () => {
@@ -20,11 +20,21 @@ describe("usd", () => {
 });
 
 describe("PLAN_PRICES", () => {
-  it("derives the base figure from MODEL_A_PLANS (single source)", () => {
+  it("derives solo and dept bases from MODEL_A_PLANS (single source)", () => {
     expect(PLAN_PRICES.solo.baseCents).toBe(MODEL_A_PLANS.solo.baseFeeCents);
-    expect(PLAN_PRICES.lab.baseCents).toBe(MODEL_A_PLANS.lab.baseFeeCents);
     expect(PLAN_PRICES.dept.baseCents).toBe(MODEL_A_PLANS.dept.baseFeeCents);
     expect(PLAN_PRICES.solo.base).toBe(usd(MODEL_A_PLANS.solo.baseFeeCents));
+  });
+
+  it("shows lab at the founding lock-in rate, below the steady-state base", () => {
+    expect(PLAN_PRICES.lab.baseCents).toBe(FOUNDING_LAB_BASE_CENTS);
+    expect(PLAN_PRICES.lab.base).toBe(usd(FOUNDING_LAB_BASE_CENTS));
+    expect(PLAN_PRICES.lab.founding).toBe(true);
+    expect(FOUNDING_LAB_BASE_CENTS).toBeLessThan(MODEL_A_PLANS.lab.baseFeeCents);
+  });
+
+  it("marks department as contact/TBD, not a price", () => {
+    expect(PLAN_PRICES.dept.contactOnly).toBe(true);
   });
 
   it("carries the usage markup and per-lab suffix", () => {
@@ -41,10 +51,10 @@ describe("AI_PACK_DOLLARS", () => {
   });
 });
 
-describe("department volume discount (derived, customer-facing)", () => {
-  it("is the per-lab dollars off the lab base", () => {
+describe("department steady-state discount (operator-only)", () => {
+  it("is the per-lab dollars off the lab base, from MODEL_A_PLANS", () => {
     expect(DEPT_PER_LAB_DISCOUNT_CENTS).toBe(
-      PLAN_PRICES.lab.baseCents - PLAN_PRICES.dept.baseCents,
+      MODEL_A_PLANS.lab.baseFeeCents - MODEL_A_PLANS.dept.baseFeeCents,
     );
     expect(usd(DEPT_PER_LAB_DISCOUNT_CENTS)).toBe("$5");
   });

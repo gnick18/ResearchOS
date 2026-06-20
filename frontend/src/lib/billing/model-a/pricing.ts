@@ -53,6 +53,20 @@ export const MODEL_A_PLANS: Record<ModelAPlanId, ModelAPlan> = {
   dept: { id: "dept", name: "Department", audience: "dept", baseFeeCents: 3500, usageMarkup: 6, produce: true },
 };
 
+/**
+ * Founding lab lock-in rate (Grant 2026-06-19). Labs that sign up during the
+ * founding window lock in $25/mo per lab FOR LIFE, as long as they never lapse a
+ * payment or cancel. This is the public lab price today; it sits below the
+ * `MODEL_A_PLANS.lab` steady-state base above (which stays the engine + operator
+ * modeling number and is NOT shown publicly) and rises for labs that join later.
+ * The lifetime lock-in is a commitment honored when billing goes live, which
+ * needs a per-lab founding-cohort record so the engine charges this rate for
+ * grandfathered labs. Billing is OFF during the beta, so there is nothing to
+ * enforce yet (FLAG: wire the founding cohort into the billing data model at
+ * go-live). Solo stays $3 and dept is contact/TBD.
+ */
+export const FOUNDING_LAB_BASE_CENTS = 2500;
+
 /** Run the card on file once a payer's accrued balance crosses this (~$5), or at
  *  cancellation. Sized to keep Stripe's $0.30/charge fee a small share of each run. */
 export const ACCRUAL_CHARGE_THRESHOLD_CENTS = 500;

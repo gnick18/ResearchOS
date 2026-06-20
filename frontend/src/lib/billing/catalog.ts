@@ -9,7 +9,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { MODEL_A_PLANS } from "./model-a/pricing";
+import { FOUNDING_LAB_BASE_CENTS, MODEL_A_PLANS } from "./model-a/pricing";
 
 /** Format integer cents as a compact USD string ("$3", "$3.50", "$12.99"). */
 export function usd(cents: number): string {
@@ -30,6 +30,12 @@ export interface PlanPriceDisplay {
   baseSuffix: string;
   /** The usage markup multiplier (5x solo, 7x lab, 6x dept). */
   usageMarkup: number;
+  /** Lab only: the displayed base is the founding lock-in rate, below the
+   *  MODEL_A_PLANS steady-state base. */
+  founding?: boolean;
+  /** Dept only: pricing is TBD, so the surface shows a contact button, not a
+   *  price. */
+  contactOnly?: boolean;
 }
 
 function planDisplay(id: PaidPlanId, baseSuffix: string): PlanPriceDisplay {
@@ -48,8 +54,16 @@ function planDisplay(id: PaidPlanId, baseSuffix: string): PlanPriceDisplay {
  *  lab and dept bill the base per lab. */
 export const PLAN_PRICES: Record<PaidPlanId, PlanPriceDisplay> = {
   solo: planDisplay("solo", "/mo"),
-  lab: planDisplay("lab", "/mo per lab"),
-  dept: planDisplay("dept", "/mo per lab"),
+  // Lab is shown publicly at the FOUNDING lock-in rate, below the engine
+  // steady-state base in MODEL_A_PLANS (which is never shown publicly).
+  lab: {
+    ...planDisplay("lab", "/mo per lab"),
+    baseCents: FOUNDING_LAB_BASE_CENTS,
+    base: usd(FOUNDING_LAB_BASE_CENTS),
+    founding: true,
+  },
+  // Department pricing is being revisited, so it shows contact/TBD publicly.
+  dept: { ...planDisplay("dept", "/mo per lab"), contactOnly: true },
 };
 
 /** Prepaid AI token pack dollar tiers. The packs ARE these amounts (the AI meter
@@ -63,14 +77,14 @@ export const SPONSOR_TIERS = {
   instituteMonthly: 100,
 } as const;
 
-// Department is the institutional volume tier, priced BELOW a standalone lab.
-// Customer-facing copy frames that as a DISCOUNT off the lab rate, never as an
-// internal markup. Both figures derive from the plan config, so the copy stays
-// truthful automatically if a price moves.
+// Department pricing is contact/TBD on the public surface (Grant 2026-06-19), so
+// these discount constants are now OPERATOR-ONLY (the /admin modeling tool). They
+// describe the steady-state dept vs lab economics from MODEL_A_PLANS, NOT public
+// copy, so they stay stable while the public lab price is the founding lock-in.
 
 /** Dollars off the per-lab base a department pays vs a standalone lab (e.g. $5). */
 export const DEPT_PER_LAB_DISCOUNT_CENTS =
-  PLAN_PRICES.lab.baseCents - PLAN_PRICES.dept.baseCents;
+  MODEL_A_PLANS.lab.baseFeeCents - MODEL_A_PLANS.dept.baseFeeCents;
 
 /** Percent off cloud usage a department gets vs a standalone lab, from the lower
  *  usage multiplier (lab 7x vs dept 6x -> about 14% off). Rounded for copy. */

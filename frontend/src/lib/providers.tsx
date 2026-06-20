@@ -433,6 +433,10 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname === "/app" ||
     pathname === "/labs" ||
     pathname === "/departments" ||
+    // /departments/contact (the dept reach-out form) and any future dept
+    // marketing subpage are public too, so the reach-out link does not bounce to
+    // the folder-connect gate.
+    pathname?.startsWith("/departments/") ||
     pathname === "/about" ||
     pathname === "/transparency" ||
     pathname === "/open-source" ||
