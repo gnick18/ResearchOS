@@ -55,8 +55,12 @@ describe("autoOpenOpForKind", () => {
     // rail's protein op shimmers to invite the click; opening it stays explicit.
     expect(autoOpenOpForKind("feature-cds")).toBeNull();
   });
-  it("feature-primer opens Primers", () => {
-    expect(autoOpenOpForKind("feature-primer")).toBe("primers");
+  it("feature-primer does NOT auto-open Primers (the rail op shimmers instead)", () => {
+    // Picking a primer must not auto-pop the Primers panel either. A single click
+    // selects and shimmers the rail Primers op; a double click opens it. This
+    // matches feature-cds so a single click never auto-opens a tool for ANY
+    // feature.
+    expect(autoOpenOpForKind("feature-primer")).toBeNull();
   });
   it("none does not auto-open (organism is whole-sequence, not a fresh selection)", () => {
     expect(autoOpenOpForKind("none")).toBeNull();
