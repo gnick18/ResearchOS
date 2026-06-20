@@ -165,6 +165,8 @@ export async function POST(request: Request): Promise<Response> {
     pinnedWorks: parsed.pinnedWorks,
     hiddenWorks: parsed.hiddenWorks,
     notifyOnCollabInvite: parsed.notifyOnCollabInvite,
+    earnedBadgeIds: parsed.earnedBadgeIds,
+    pinnedBadgeIds: parsed.pinnedBadgeIds,
     issuedAt: parsed.issuedAt,
   });
 
@@ -200,6 +202,8 @@ export async function POST(request: Request): Promise<Response> {
     pinnedWorks: parsed.pinnedWorks,
     hiddenWorks: parsed.hiddenWorks,
     notifyOnCollabInvite: parsed.notifyOnCollabInvite,
+    earnedBadgeIds: parsed.earnedBadgeIds,
+    pinnedBadgeIds: parsed.pinnedBadgeIds,
   });
 
   return json(200, { ok: true });

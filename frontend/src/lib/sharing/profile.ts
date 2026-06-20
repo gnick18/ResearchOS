@@ -42,9 +42,18 @@ export interface ProfileData {
    * but the recipient's preference decides whether it goes out).
    */
   notifyOnCollabInvite: boolean;
+  /**
+   * Badge snapshot ids (badges phase 2). Published so the server-rendered public
+   * profile can show earned and pinned badges without reading the local folder
+   * (which is inaccessible server-side). Absent lists default to [] and publish
+   * an empty snapshot, rendering nothing on the public page (back-compat safe).
+   */
+  earnedBadgeIds: string[];
+  pinnedBadgeIds: string[];
 }
 
-export interface PublishedProfile extends Omit<ProfileData, "notifyOnCollabInvite"> {
+export interface PublishedProfile
+  extends Omit<ProfileData, "notifyOnCollabInvite" | "earnedBadgeIds" | "pinnedBadgeIds"> {
   /**
    * The recipient's notify preference as published. Optional on the wire because
    * a profile stored before this field existed has no value; readers coerce a
@@ -56,6 +65,13 @@ export interface PublishedProfile extends Omit<ProfileData, "notifyOnCollabInvit
    * OAuth login was on a consumer email (gmail, outlook, etc.). */
   affiliationDomain: string | null;
   updatedAt?: string;
+  /**
+   * Badge ids are optional on the published profile wire type because an old
+   * row or an old API response may omit them. The public render defaults to []
+   * for missing values (empty snapshot = no badges shown). Back-compat safe.
+   */
+  earnedBadgeIds?: string[];
+  pinnedBadgeIds?: string[];
 }
 
 export interface ProfileSearchResult extends PublishedProfile {
@@ -88,6 +104,8 @@ function buildProfilePayloadBytes(
     pinnedWorks?: string[];
     hiddenWorks?: string[];
     notifyOnCollabInvite?: boolean;
+    earnedBadgeIds?: string[];
+    pinnedBadgeIds?: string[];
     issuedAt: string;
   },
 ): Uint8Array {
@@ -108,6 +126,13 @@ function buildProfilePayloadBytes(
   ];
   if (action === "profile") {
     lines.push(`notifyOnCollabInvite=${notify ? "true" : "false"}`);
+    // Badge lines (badges phase 2). Absent = empty list = "". An older client
+    // that omits these fields sends "" for both, which the server reconstructs
+    // identically (it also defaults to []), so old signatures keep validating.
+    // The position (after notifyOnCollabInvite, before issuedAt) is fixed and
+    // MUST stay byte-identical with buildProfilePayload in signature.ts.
+    lines.push(`earnedBadges=${(data.earnedBadgeIds ?? []).join(",")}`);
+    lines.push(`pinnedBadges=${(data.pinnedBadgeIds ?? []).join(",")}`);
   }
   lines.push(`issuedAt=${data.issuedAt}`);
   return new TextEncoder().encode(lines.join("\n"));
@@ -239,6 +264,8 @@ export async function publishProfile(
         pinnedWorks: data.pinnedWorks,
         hiddenWorks: data.hiddenWorks,
         notifyOnCollabInvite: data.notifyOnCollabInvite,
+        earnedBadgeIds: data.earnedBadgeIds,
+        pinnedBadgeIds: data.pinnedBadgeIds,
         signature,
         issuedAt,
       }),

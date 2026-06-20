@@ -128,6 +128,15 @@ export interface ProfilePayloadInput {
    * validate. See buildProfilePayload.
    */
   notifyOnCollabInvite?: boolean;
+  /**
+   * Badge snapshot ids (badges phase 2). Absent (older client) defaults to []
+   * on both signer and verifier, so old signatures keep validating. The field
+   * is only signed for "profile" (upsert) actions; "delete-profile" carries no
+   * profile fields. Position in the signed string is after notifyOnCollabInvite
+   * and before issuedAt -- MUST match the client's buildProfilePayloadBytes.
+   */
+  earnedBadgeIds?: string[];
+  pinnedBadgeIds?: string[];
   issuedAt: string;
 }
 
@@ -157,6 +166,13 @@ export function buildProfilePayload(input: ProfilePayloadInput): Uint8Array {
   ];
   if (input.action === "profile") {
     lines.push(`notifyOnCollabInvite=${notify ? "true" : "false"}`);
+    // Badge lines (badges phase 2). Absent = empty list = "". An older client
+    // that omits these fields sends "" for both, which the server reconstructs
+    // identically (it also defaults to []), so old signatures keep validating.
+    // The position (after notifyOnCollabInvite, before issuedAt) is fixed and
+    // MUST stay byte-identical with buildProfilePayloadBytes in profile.ts.
+    lines.push(`earnedBadges=${(input.earnedBadgeIds ?? []).join(",")}`);
+    lines.push(`pinnedBadges=${(input.pinnedBadgeIds ?? []).join(",")}`);
   }
   lines.push(`issuedAt=${input.issuedAt}`);
   return utf8ToBytes(lines.join("\n"));

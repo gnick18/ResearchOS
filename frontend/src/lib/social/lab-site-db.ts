@@ -53,6 +53,13 @@ export interface LabSiteRow {
   labOwnerKey: string;
   labSlug: string;
   createdAt: string;
+  /**
+   * The owner's published badge snapshot for this lab, as raw JSON text
+   * (serialized by serializeBadgeSnapshot). Null when the owner has never
+   * published badges. The public page parses this via parseBadgeSnapshotJson
+   * and renders BadgePublicView; a null column renders nothing.
+   */
+  badgeSnapshotJson: string | null;
 }
 
 /** A lab_site_pages row as stored. */
@@ -146,17 +153,30 @@ export async function ensureLabSiteSchema(): Promise<void> {
     ALTER TABLE lab_site_pages
       ADD COLUMN IF NOT EXISTS hosted_json text
   `;
+  // Badges publish path: the owner's published badge snapshot for this lab.
+  // Stored at the lab level (lab_sites) because badges represent the lab's
+  // overall earned activity, not any individual page. Added as a nullable
+  // column via IF NOT EXISTS so the schema-ensure stays idempotent; existing
+  // rows keep badge_snapshot_json = NULL = "no published snapshot", and the
+  // public page renders nothing for badges (BadgePublicView no-ops on an empty
+  // snapshot). The column is written only when the owner explicitly publishes.
+  await sql`
+    ALTER TABLE lab_sites
+      ADD COLUMN IF NOT EXISTS badge_snapshot_json text
+  `;
 }
 
 function rowToSite(r: {
   lab_owner_key: string;
   lab_slug: string;
   created_at: string;
+  badge_snapshot_json?: string | null;
 }): LabSiteRow {
   return {
     labOwnerKey: r.lab_owner_key,
     labSlug: r.lab_slug,
     createdAt: r.created_at,
+    badgeSnapshotJson: r.badge_snapshot_json ?? null,
   };
 }
 
@@ -261,11 +281,11 @@ export async function getSiteByOwner(
   if (!labOwnerKey) return null;
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, lab_slug, created_at
+    SELECT lab_owner_key, lab_slug, created_at, badge_snapshot_json
     FROM lab_sites
     WHERE lab_owner_key = ${labOwnerKey}
     LIMIT 1
-  `) as Array<{ lab_owner_key: string; lab_slug: string; created_at: string }>;
+  `) as Array<{ lab_owner_key: string; lab_slug: string; created_at: string; badge_snapshot_json?: string | null }>;
   return rows[0] ? rowToSite(rows[0]) : null;
 }
 
@@ -278,11 +298,11 @@ export async function getSiteBySlug(labSlug: string): Promise<LabSiteRow | null>
   if (!labSlug) return null;
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, lab_slug, created_at
+    SELECT lab_owner_key, lab_slug, created_at, badge_snapshot_json
     FROM lab_sites
     WHERE lab_slug = ${labSlug}
     LIMIT 1
-  `) as Array<{ lab_owner_key: string; lab_slug: string; created_at: string }>;
+  `) as Array<{ lab_owner_key: string; lab_slug: string; created_at: string; badge_snapshot_json?: string | null }>;
   return rows[0] ? rowToSite(rows[0]) : null;
 }
 
@@ -320,6 +340,30 @@ export async function createSite(
     ON CONFLICT (lab_owner_key) DO UPDATE SET lab_slug = EXCLUDED.lab_slug
   `;
   return getSiteByOwner(labOwnerKey);
+}
+
+/**
+ * Writes (or clears) the lab-level badge snapshot. Called by the badges PUT
+ * endpoint after the owner confirms their pinned selection. Passing null clears
+ * a previously published snapshot so the public page renders nothing for badges.
+ *
+ * The snapshot is a LAB-LEVEL field (one snapshot per lab, not per page) because
+ * badges represent overall lab activity, not a single page's content.
+ * ensureLabSiteSchema ensures the badge_snapshot_json column exists before any
+ * write, so the first call on a pre-badges deployment migrates forward in place.
+ */
+export async function upsertLabBadgeSnapshot(
+  labOwnerKey: string,
+  badgeSnapshotJson: string | null,
+): Promise<void> {
+  if (!labOwnerKey) return;
+  await ensureLabSiteSchema();
+  const sql = getSql();
+  await sql`
+    UPDATE lab_sites
+    SET badge_snapshot_json = ${badgeSnapshotJson}
+    WHERE lab_owner_key = ${labOwnerKey}
+  `;
 }
 
 // ---------------------------------------------------------------------------

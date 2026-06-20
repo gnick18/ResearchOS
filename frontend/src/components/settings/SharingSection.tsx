@@ -86,6 +86,10 @@ import {
   publishProfile,
   unpublishProfile,
 } from "@/lib/sharing/profile";
+import BadgeEditor from "@/components/badges/BadgeEditor";
+import { BADGES_ENABLED } from "@/lib/badges/config";
+import { buildBadgeSnapshot, normalizePins } from "@/lib/badges/snapshot";
+import { loadBadgeMetrics } from "@/lib/badges/metrics";
 import { trackProfilePublished } from "@/lib/analytics/events";
 import {
   MAX_LENGTH_NAME,
@@ -966,12 +970,36 @@ export function ProfileEditorCard() {
   // Email-nudge preference. Defaults to true (opted in) for a brand-new profile
   // and reads the published value (already coerced to a boolean) when editing.
   const [draftNotify, setDraftNotify] = useState(true);
+  // Badge draft state (badges phase 2). earnedBadgeIds is computed once on mount
+  // from real folder metrics so the editor knows which badges are pinnable.
+  // draftPinnedBadges is the owner's chosen pin set, initialized from the
+  // published profile when editing opens.
+  const [earnedBadgeIds, setEarnedBadgeIds] = useState<string[]>([]);
+  const [draftPinnedBadges, setDraftPinnedBadges] = useState<string[]>([]);
 
   // Load on mount
   useEffect(() => {
     let cancelled = false;
     fetchMyProfile().then((p) => {
       if (!cancelled) setProfile(p);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Compute earned badge ids from real folder metrics on mount (badges phase 2).
+  // Runs once; safe to fail silently (metrics loader never throws). Only runs
+  // when the badge flag is on so this component is byte-identical when off.
+  useEffect(() => {
+    if (!BADGES_ENABLED) return;
+    let cancelled = false;
+    loadBadgeMetrics().then((metrics) => {
+      if (cancelled) return;
+      const snapshot = buildBadgeSnapshot(metrics, []);
+      setEarnedBadgeIds(snapshot.earnedBadgeIds);
+    }).catch(() => {
+      // Metrics unavailable (no folder connected): leave earned as [].
     });
     return () => {
       cancelled = true;
@@ -985,9 +1013,14 @@ export function ProfileEditorCard() {
     setDraftPinned(profile?.pinnedWorks ?? []);
     setDraftHidden(profile?.hiddenWorks ?? []);
     setDraftNotify(profile?.notifyOnCollabInvite ?? true);
+    // Restore the published pin set, re-normalizing against the current earned
+    // set so a stale published pin (badge since de-earned) is quietly dropped.
+    setDraftPinnedBadges(
+      normalizePins(profile?.pinnedBadgeIds ?? [], earnedBadgeIds),
+    );
     setError(null);
     setEditing(true);
-  }, [profile]);
+  }, [profile, earnedBadgeIds]);
 
   const handlePublicationChange = useCallback(
     (pinned: string[], hidden: string[]) => {
@@ -1026,6 +1059,9 @@ export function ProfileEditorCard() {
     // call at the top of save. Reflect it in the draft so the input shows the
     // cleaned form if the user cancels and re-opens.
     if (name !== draftName.trim()) setDraftName(name);
+    // Normalize pins one more time before publish so a race between earning
+    // and editing cannot publish a pin the badge engine has not validated.
+    const publishedPinnedBadges = normalizePins(draftPinnedBadges, earnedBadgeIds);
     const result = await publishProfile({
       displayName: name,
       affiliation,
@@ -1033,6 +1069,8 @@ export function ProfileEditorCard() {
       pinnedWorks: draftPinned,
       hiddenWorks: draftHidden,
       notifyOnCollabInvite: draftNotify,
+      earnedBadgeIds,
+      pinnedBadgeIds: publishedPinnedBadges,
     });
     setBusy(false);
 
@@ -1051,7 +1089,7 @@ export function ProfileEditorCard() {
     const updated = await fetchMyProfile();
     setProfile(updated);
     setEditing(false);
-  }, [draftName, draftAffiliation, draftOrcid, draftPinned, draftHidden, draftNotify]);
+  }, [draftName, draftAffiliation, draftOrcid, draftPinned, draftHidden, draftNotify, draftPinnedBadges, earnedBadgeIds]);
 
   const remove = useCallback(async () => {
     setBusy(true);
@@ -1238,6 +1276,23 @@ export function ProfileEditorCard() {
                   pinned={draftPinned}
                   hidden={draftHidden}
                   onChange={handlePublicationChange}
+                />
+              </div>
+            )}
+
+            {BADGES_ENABLED && earnedBadgeIds.length > 0 && (
+              <div className="border-t border-border pt-3">
+                <p className="text-meta font-medium text-foreground mb-1.5">
+                  Badges
+                </p>
+                <p className="mb-2 text-meta text-foreground-muted leading-relaxed">
+                  Pin your earned badges to feature them on your public profile.
+                  Changes take effect when you save.
+                </p>
+                <BadgeEditor
+                  earnedBadgeIds={earnedBadgeIds}
+                  pinnedBadgeIds={draftPinnedBadges}
+                  onChange={setDraftPinnedBadges}
                 />
               </div>
             )}

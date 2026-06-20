@@ -147,6 +147,10 @@ export async function POST(request: Request): Promise<Response> {
         pinnedWorks: [],
         hiddenWorks: [],
         notifyOnCollabInvite: true,
+        // Badge ids are not signed at the bind step; the user publishes them
+        // later from the profile editor after earning them in-app.
+        earnedBadgeIds: [],
+        pinnedBadgeIds: [],
       });
     } catch {
       // Profile is best-effort; the user can finish it later in Settings.

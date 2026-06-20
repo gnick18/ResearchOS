@@ -125,7 +125,7 @@ function makeFakeDeps() {
     },
     createSite: async (labOwnerKey, labSlug) => {
       sites.set(labOwnerKey, { labOwnerKey, labSlug });
-      return { labOwnerKey, labSlug, createdAt: "now" };
+      return { labOwnerKey, labSlug, createdAt: "now", badgeSnapshotJson: null };
     },
     upsertPage: async ({ labOwnerKey, path, title, bodyMd }) => {
       const key = `${labOwnerKey}::${path}`;

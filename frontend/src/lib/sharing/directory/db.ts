@@ -421,6 +421,15 @@ export interface DirectoryProfile {
    * true via the column default below.
    */
   notifyOnCollabInvite: boolean;
+  /**
+   * Badge ids stored as parallel comma-joined columns, mirroring the
+   * pinnedWorks / hiddenWorks approach. The public researcher page reads
+   * these to render BadgePublicView; the owner publishes them via
+   * publishProfile. An old row predating the columns reads as [] via
+   * splitCodes(null), rendering nothing (back-compat safe).
+   */
+  earnedBadgeIds: string[];
+  pinnedBadgeIds: string[];
   updatedAt?: string;
 }
 
@@ -478,6 +487,11 @@ export async function ensureProfileSchema(): Promise<void> {
   // read as listed. The public-search route filters WHERE unlisted = false; the
   // authed searchProfiles ignores it (a signed user can find anyone, as before).
   await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS unlisted boolean NOT NULL DEFAULT false`;
+  // Badge snapshot columns (badges phase 2). Comma-joined badge id strings,
+  // mirroring hidden_works / pinned_works. NULL on rows predating badges (back-
+  // compat: reads as an empty snapshot, renders nothing).
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS earned_badge_ids text`;
+  await sql`ALTER TABLE directory_profiles ADD COLUMN IF NOT EXISTS pinned_badge_ids text`;
 }
 
 /**
@@ -487,15 +501,22 @@ export async function ensureProfileSchema(): Promise<void> {
  */
 export async function upsertProfile(profile: DirectoryProfile): Promise<void> {
   const sql = getSql();
+  // Null badge arrays are stored as empty strings (no comma-joined ids). An
+  // explicitly empty list and an absent-column null both read back as [] via
+  // splitCodes, so old rows and new rows with no badges behave identically.
+  const earnedBadges = profile.earnedBadgeIds.join(",");
+  const pinnedBadges = profile.pinnedBadgeIds.join(",");
   await sql`
     INSERT INTO directory_profiles
       (fingerprint, display_name, affiliation, affiliation_domain, orcid,
-       hidden_works, pinned_works, notify_on_collab_invite, updated_at)
+       hidden_works, pinned_works, notify_on_collab_invite,
+       earned_badge_ids, pinned_badge_ids, updated_at)
     VALUES
       (${profile.fingerprint}, ${profile.displayName}, ${profile.affiliation},
        ${profile.affiliationDomain}, ${profile.orcid},
        ${profile.hiddenWorks.join(",")}, ${profile.pinnedWorks.join(",")},
-       ${profile.notifyOnCollabInvite}, now())
+       ${profile.notifyOnCollabInvite},
+       ${earnedBadges}, ${pinnedBadges}, now())
     ON CONFLICT (fingerprint) DO UPDATE SET
       display_name            = EXCLUDED.display_name,
       affiliation             = EXCLUDED.affiliation,
@@ -504,6 +525,8 @@ export async function upsertProfile(profile: DirectoryProfile): Promise<void> {
       hidden_works            = EXCLUDED.hidden_works,
       pinned_works            = EXCLUDED.pinned_works,
       notify_on_collab_invite = EXCLUDED.notify_on_collab_invite,
+      earned_badge_ids        = EXCLUDED.earned_badge_ids,
+      pinned_badge_ids        = EXCLUDED.pinned_badge_ids,
       updated_at              = now()
   `;
 }
@@ -541,6 +564,8 @@ export async function searchProfiles(
       p.hidden_works,
       p.pinned_works,
       p.notify_on_collab_invite,
+      p.earned_badge_ids,
+      p.pinned_badge_ids,
       p.updated_at,
       i.x25519_pub,
       i.ed25519_pub
@@ -563,6 +588,8 @@ export async function searchProfiles(
     hidden_works: string | null;
     pinned_works: string | null;
     notify_on_collab_invite: boolean | null;
+    earned_badge_ids: string | null;
+    pinned_badge_ids: string | null;
     updated_at: string;
     x25519_pub: string;
     ed25519_pub: string;
@@ -577,6 +604,8 @@ export async function searchProfiles(
     hiddenWorks: splitCodes(r.hidden_works),
     pinnedWorks: splitCodes(r.pinned_works),
     notifyOnCollabInvite: r.notify_on_collab_invite ?? true,
+    earnedBadgeIds: splitCodes(r.earned_badge_ids),
+    pinnedBadgeIds: splitCodes(r.pinned_badge_ids),
     updatedAt: r.updated_at,
     x25519PublicKey: r.x25519_pub,
     ed25519PublicKey: r.ed25519_pub,
@@ -737,7 +766,8 @@ export async function getProfileByFingerprint(
   const sql = getSql();
   const rows = (await sql`
     SELECT fingerprint, display_name, affiliation, affiliation_domain, orcid,
-           hidden_works, pinned_works, notify_on_collab_invite, updated_at
+           hidden_works, pinned_works, notify_on_collab_invite,
+           earned_badge_ids, pinned_badge_ids, updated_at
     FROM directory_profiles
     WHERE fingerprint = ${fp}
     LIMIT 1
@@ -750,6 +780,8 @@ export async function getProfileByFingerprint(
     hidden_works: string | null;
     pinned_works: string | null;
     notify_on_collab_invite: boolean | null;
+    earned_badge_ids: string | null;
+    pinned_badge_ids: string | null;
     updated_at: string;
   }>;
   if (rows.length === 0) return null;
@@ -765,6 +797,10 @@ export async function getProfileByFingerprint(
     // A null (column absent on a very old row before the migration ran) reads as
     // the default true.
     notifyOnCollabInvite: r.notify_on_collab_invite ?? true,
+    // Badge columns may be null on rows predating badges; splitCodes returns []
+    // for null, which renders as an empty snapshot (no badges shown).
+    earnedBadgeIds: splitCodes(r.earned_badge_ids),
+    pinnedBadgeIds: splitCodes(r.pinned_badge_ids),
     updatedAt: r.updated_at,
   };
 }
