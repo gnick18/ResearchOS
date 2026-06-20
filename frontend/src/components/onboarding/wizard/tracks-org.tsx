@@ -4,10 +4,11 @@
 // research-workspace steps (no handle, no data folder, no E2E keypair). The
 // admin lands in the /department or /institution portal after finishing.
 //
-// Steps (department): Sign in (no skip) -> Name (no skip) -> Link parent
-//   institution (skip) -> Roster / invites (skip) -> Billing (skip).
+// Steps (department): Sign in (no skip) -> Name (no skip) -> Roster / invites
+//   (skip) -> Billing (skip). The optional parent-institution link is folded
+//   into the name step (no separate page).
 // Steps (institution): Sign in -> Name -> Roster / invites (skip) -> Billing
-//   (skip). No parent-link step (institution is the top tier).
+//   (skip). No parent-link field (institution is the top tier).
 //
 // The org id is created in the name step and threaded to the later steps via a
 // closure ref, so the roster step can mint invites against it. The host (the
@@ -21,7 +22,8 @@
 import type { WizardTrack } from "./wizard-model";
 import SignInStep from "./steps/SignInStep";
 import OrgNameStep, { type OrgKind } from "./steps/OrgNameStep";
-import OrgParentLinkStep from "./steps/OrgParentLinkStep";
+// OrgParentLinkStep.tsx is retired from the dept track (the optional parent link
+// now lives inside OrgNameStep) but the file is kept for reference.
 import OrgRosterStep from "./steps/OrgRosterStep";
 import OrgBillingStep from "./steps/OrgBillingStep";
 
@@ -73,20 +75,9 @@ export function buildOrgTrack(kind: OrgKind, cb: OrgTrackCallbacks = {}): Wizard
           cb.onOrgCreated?.(orgId);
           c.next();
         }}
-      />
-    ),
-  };
-
-  const parentLink = {
-    id: "parent-link",
-    label: "Link institution",
-    skippable: true,
-    render: (c: Parameters<WizardTrack["steps"][number]["render"]>[0]) => (
-      <OrgParentLinkStep
-        onNext={(ref) => {
-          cb.onParentLinked?.(ref);
-          c.next();
-        }}
+        // Department only: capture the optional parent-institution link, folded
+        // into this step. Institution passes it too (a no-op, the field is hidden).
+        onParentRef={(ref) => cb.onParentLinked?.(ref)}
       />
     ),
   };
@@ -109,10 +100,9 @@ export function buildOrgTrack(kind: OrgKind, cb: OrgTrackCallbacks = {}): Wizard
     ),
   };
 
-  const steps =
-    kind === "department"
-      ? [signIn, name, parentLink, roster, billing]
-      : [signIn, name, roster, billing];
+  // Department and institution now share the same shape; the dept-only parent
+  // link lives inside the name step rather than a separate page.
+  const steps = [signIn, name, roster, billing];
 
   return {
     id: kind === "department" ? "org-dept" : "org-institution",

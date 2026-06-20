@@ -76,10 +76,6 @@ export default function OnboardingWizard({
   // The org id created in the org name step, captured so close can route to the
   // portal once the org exists.
   const orgIdRef = useRef<string>("");
-  // The handle claimed in the handle step, captured so the lab step can prefill
-  // the PI display name with it (the track is built once, before the claim, so
-  // the lab step reads this ref lazily via the defaultPiDisplay getter).
-  const handleRef = useRef<string>("");
 
   const isOrg = selection === "org-dept" || selection === "org-inst";
 
@@ -96,11 +92,11 @@ export default function OnboardingWizard({
         // there. Without this the branding was dropped and the lab was created
         // nameless, which re-fired the setup prompt and fell back to the
         // head's username.
+        // The PI name is reused from the signed-in account inside LabStep (it
+        // reads the OAuth session display name), so the wizard no longer carries
+        // a defaultPiDisplay. The earlier handle-based prefill was a bug, it put
+        // the username slug where the PI name belonged.
         return buildPiCreateTrack({
-          onHandleClaimed: (h) => {
-            handleRef.current = h;
-          },
-          defaultPiDisplay: () => handleRef.current,
           onLabCaptured: (result) => {
             stashLabBranding({
               labName: result.labName,

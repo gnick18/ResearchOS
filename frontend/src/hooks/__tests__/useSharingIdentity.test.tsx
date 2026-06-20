@@ -24,6 +24,10 @@ vi.mock("../useCurrentUser", () => ({
 }));
 vi.mock("@/lib/sharing/identity/sidecar", () => ({
   readSharingIdentity: (...args: unknown[]) => readSharingIdentity(...args),
+  // The hook subscribes to this event in an effect (cross-instance resync), so
+  // the mock must carry the constant or the effect mount throws on the missing
+  // named export. Value mirrors the real module.
+  SHARING_IDENTITY_WRITTEN_EVENT: "researchos:sharing-identity-written",
 }));
 vi.mock("@/lib/sharing/identity/storage", () => ({
   hasIdentity: (...args: unknown[]) => hasIdentity(...args),

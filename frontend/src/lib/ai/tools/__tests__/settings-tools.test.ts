@@ -15,6 +15,7 @@ import {
   settingsToolsDeps,
   settingTier,
   isWritableSettingKey,
+  WRITABLE_SETTINGS_CATALOG,
 } from "../settings-tools";
 import { DEFAULT_SETTINGS, type UserSettings } from "@/lib/settings/user-settings";
 
@@ -194,5 +195,30 @@ describe("update_setting write-list enforcement", () => {
     })) as Record<string, unknown>;
     expect(res.ok).toBe(false);
     expect(patchSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe("writable-key catalog (bug #3, model guesses non-obvious keys)", () => {
+  it("enumerates the non-obvious key the model used to miss, with its label", () => {
+    // The original miss was spellCheck -> spellCheckInEditor. The catalog must
+    // name the exact key so the model maps the user's words onto it.
+    expect(WRITABLE_SETTINGS_CATALOG).toContain(
+      "spellCheckInEditor (Spell-check in the editor)",
+    );
+  });
+
+  it("lists enum option values so the model picks a legal value", () => {
+    expect(WRITABLE_SETTINGS_CATALOG).toContain("timeFormat (Time format, options 12h/24h)");
+  });
+
+  it("stays in sync with the write-list (every safe/caution key appears, no sensitive key does)", () => {
+    expect(WRITABLE_SETTINGS_CATALOG).toContain("confirmDestructiveActions"); // caution
+    expect(WRITABLE_SETTINGS_CATALOG).not.toContain("account_type"); // sensitive
+    expect(WRITABLE_SETTINGS_CATALOG).not.toContain("schemaVersion"); // internal
+  });
+
+  it("is wired into both tool descriptions so the model actually sees it", () => {
+    expect(updateSettingTool.description).toContain(WRITABLE_SETTINGS_CATALOG);
+    expect(readSettingTool.description).toContain(WRITABLE_SETTINGS_CATALOG);
   });
 });

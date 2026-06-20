@@ -59,11 +59,19 @@ export async function ensureAiBillingSchema(sql: Sql = getSql()): Promise<void> 
       task_id text,
       prompt_tokens int,
       completion_tokens int,
+      cached_tokens int,
       usd_micros bigint,
       stripe_event_id text,
       created_at timestamptz default now()
     )
   `;
+  // Additive, idempotent backfill of cached_tokens for a ledger created before
+  // prompt-cache accounting (BeakerBot prompt-cache lever, 2026-06-20). cached_tokens
+  // records how many of a turn's prompt_tokens were served from Fireworks' prompt
+  // cache (it is on by default, so a stable ~50k prefix is re-read ~10x cheaper).
+  // It is OUR cost-accounting only, it never changes what the user is charged. Runs
+  // once on the next ledger op against an existing table, a no-op thereafter.
+  await sql`ALTER TABLE ai_ledger ADD COLUMN IF NOT EXISTS cached_tokens int`;
   // A redelivered Stripe top-up event must credit once. A partial unique index on
   // the non-null event ids enforces that at the database level, belt and braces
   // with the application-level idempotency check in creditTokens.

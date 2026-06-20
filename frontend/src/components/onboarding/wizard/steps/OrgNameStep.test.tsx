@@ -1,5 +1,6 @@
 // RTL coverage for OrgNameStep: required-name validation, create success, error
-// surfacing, and the dept-only affiliation field. Uses the createOrg seam so no
+// surfacing, and the dept-only optional parent-institution link field (folded in
+// from the former standalone parent-link step). Uses the createOrg seam so no
 // network is touched.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
@@ -68,7 +69,7 @@ describe("OrgNameStep", () => {
     expect(onCreated).not.toHaveBeenCalled();
   });
 
-  it("shows the affiliation field only for departments", () => {
+  it("shows the parent-institution link field only for departments", () => {
     const { rerender } = render(
       <OrgNameStep
         kind="department"
@@ -77,7 +78,7 @@ describe("OrgNameStep", () => {
       />,
     );
     expect(
-      screen.getByLabelText("Institution affiliation (optional)"),
+      screen.getByLabelText("Link a parent institution (optional)"),
     ).toBeInTheDocument();
     rerender(
       <OrgNameStep
@@ -87,7 +88,47 @@ describe("OrgNameStep", () => {
       />,
     );
     expect(
-      screen.queryByLabelText("Institution affiliation (optional)"),
+      screen.queryByLabelText("Link a parent institution (optional)"),
     ).not.toBeInTheDocument();
+  });
+
+  it("forwards the trimmed parent link via onParentRef on submit (department)", async () => {
+    const onCreated = vi.fn();
+    const onParentRef = vi.fn();
+    render(
+      <OrgNameStep
+        kind="department"
+        onCreated={onCreated}
+        onParentRef={onParentRef}
+        createOrg={async () => ({ ok: true, orgId: "dept-1" })}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Department name"), {
+      target: { value: "Biochem" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Link a parent institution (optional)"),
+      { target: { value: "  https://inst.example/link  " } },
+    );
+    fireEvent.click(screen.getByText("Create and continue"));
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith("dept-1"));
+    expect(onParentRef).toHaveBeenCalledWith("https://inst.example/link");
+  });
+
+  it("forwards null via onParentRef when the parent link is left blank", async () => {
+    const onParentRef = vi.fn();
+    render(
+      <OrgNameStep
+        kind="department"
+        onCreated={vi.fn()}
+        onParentRef={onParentRef}
+        createOrg={async () => ({ ok: true, orgId: "dept-1" })}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Department name"), {
+      target: { value: "Biochem" },
+    });
+    fireEvent.click(screen.getByText("Create and continue"));
+    await waitFor(() => expect(onParentRef).toHaveBeenCalledWith(null));
   });
 });

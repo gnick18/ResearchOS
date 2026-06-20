@@ -483,15 +483,22 @@ export async function gateToolCall(
     // usable, BeakerBot does not ask permission to click to a page or point at a
     // button. A destructive-looking target was already caught above and skips this.
     if (tool.immutable) return { proceed: true };
+    // An APPROVED plan (the user approved a propose_plan card THIS turn) runs its
+    // non-destructive steps free in BOTH modes. In plan mode this is the existing
+    // behavior; in step mode this is the per-turn auto-plan elevation (auto-plan-
+    // offer, 2026-06-19 spec). The user gave informed consent on the visible plan
+    // card listing every step, so we do not re-confirm each listed step. This is
+    // per-turn only (planState is a per-run flag, the persisted mode is unchanged),
+    // and the destructive hard-stop checked above is never bypassed.
+    if (deps.planState.approved) return { proceed: true };
     if (reviewMode === "plan") {
-      // Whole-plan. An instant previewable tool that is not an action runs free
-      // (today's behavior). A plan-approved action also runs free.
+      // Whole-plan, no explicit plan approval yet. An instant previewable tool that
+      // is not an action runs free (today's behavior). An action falls through to
+      // the single-confirm lone-step fallback.
       if (tool.previewable && !tool.action) return { proceed: true };
-      if (deps.planState.approved) return { proceed: true };
-      // Otherwise fall through to the single-confirm lone-step fallback.
     }
-    // Step-by-step always falls through to a per-step confirm, an approved plan
-    // does NOT skip it, every action OR previewable step is reviewed.
+    // Step-by-step with NO approved plan always falls through to a per-step confirm,
+    // every action OR previewable step is reviewed individually.
   }
 
   // We reach here when a confirm is required. Without an approver we cannot

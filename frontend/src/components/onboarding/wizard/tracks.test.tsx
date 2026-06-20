@@ -50,27 +50,20 @@ function skips(track: ReturnType<typeof buildSoloFreeTrack>) {
 }
 
 describe("buildSoloFreeTrack", () => {
-  it("has sign-in, handle, profile, folder, preferred-name in order", () => {
+  it("has sign-in, identity, folder in order (merged handle+profile+greeting)", () => {
     expect(ids(buildSoloFreeTrack())).toEqual([
       "sign-in",
-      "handle",
-      "profile",
+      "identity",
       "folder",
-      "preferred-name",
     ]);
   });
 
-  it("makes sign-in, handle, and folder required; profile + preferred-name skippable", () => {
-    // Go-live: the folder step is unskippable (no folder = no app). The demo
-    // escape FolderStep renders is the only way past it without connecting. The
-    // preferred-name closer is a skippable nicety (never a soft-lock).
-    expect(skips(buildSoloFreeTrack())).toEqual([
-      false,
-      false,
-      true,
-      false,
-      true,
-    ]);
+  it("makes every step required (handle is required in the merged identity step)", () => {
+    // Go-live: the folder step is unskippable (no folder = no app). The merged
+    // identity step is also unskippable because the handle inside it is required;
+    // the rest of the profile is optional on the page itself, so it never
+    // soft-locks.
+    expect(skips(buildSoloFreeTrack())).toEqual([false, false, false]);
   });
 });
 
@@ -86,26 +79,17 @@ describe("buildSoloLocalTrack", () => {
 });
 
 describe("buildPiCreateTrack", () => {
-  it("appends a non-skippable lab-setup step before the folder, then the name closer", () => {
+  it("has sign-in, identity, lab-setup, folder in order (merged identity step)", () => {
     expect(ids(buildPiCreateTrack())).toEqual([
       "sign-in",
-      "handle",
-      "profile",
+      "identity",
       "lab-setup",
       "folder",
-      "preferred-name",
     ]);
   });
 
-  it("makes lab-setup and folder required (name to create, folder to work)", () => {
-    expect(skips(buildPiCreateTrack())).toEqual([
-      false,
-      false,
-      true,
-      false,
-      false,
-      true,
-    ]);
+  it("makes every step required (identity holds the required handle)", () => {
+    expect(skips(buildPiCreateTrack())).toEqual([false, false, false, false]);
   });
 
   // Regression: the wizard host once called buildPiCreateTrack() with no
@@ -137,14 +121,25 @@ describe("buildPiCreateTrack", () => {
       defaultPiDisplay: () => handle,
     });
 
-    // The handle is claimed DURING the wizard, after the track was built.
-    const handleEl = elementFor(stepById(track, "handle"), stubControls());
-    (handleEl.props as { onClaimed: (h: string) => void }).onClaimed("egt");
+    // The handle is claimed DURING the wizard (the merged identity step submit
+    // forwards it), after the track was built.
+    const identityEl = elementFor(stepById(track, "identity"), stubControls());
+    (identityEl.props as { onSubmit: (h: string) => void }).onSubmit("egt");
 
     // The lab step, rendered after the claim, must see the fresh handle.
     const labEl = elementFor(stepById(track, "lab-setup"), stubControls());
     expect((labEl.props as { defaultPiDisplay?: string }).defaultPiDisplay).toBe(
       "egt",
     );
+  });
+
+  it("the identity step submit forwards the claimed handle and advances", () => {
+    const onHandleClaimed = vi.fn();
+    const controls = stubControls();
+    const track = buildPiCreateTrack({ onHandleClaimed });
+    const el = elementFor(stepById(track, "identity"), controls);
+    (el.props as { onSubmit: (h: string) => void }).onSubmit("egt");
+    expect(onHandleClaimed).toHaveBeenCalledWith("egt");
+    expect(controls.next).toHaveBeenCalledTimes(1);
   });
 });

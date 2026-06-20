@@ -12,9 +12,10 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import FileDropzone from "@/components/ui/FileDropzone";
 import BeakerBot from "@/components/BeakerBot";
+import { fetchSessionDisplayName } from "@/lib/account/session-display-name";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import {
   validateAvatar,
@@ -40,6 +41,11 @@ export interface ProfileStepProps {
    * error.
    */
   saveProfile?: (fields: ProfileStepFields) => Promise<{ ok: boolean; error?: string }>;
+  /**
+   * Test/host seam: override the OAuth-name prefill source. Defaults to the live
+   * session display name so the user confirms their name rather than retyping it.
+   */
+  fetchDisplayName?: () => Promise<string>;
 }
 
 async function defaultSave(
@@ -94,8 +100,23 @@ function readFileAsDataUrl(file: File): Promise<string> {
 export default function ProfileStep({
   onSaved,
   saveProfile = defaultSave,
+  fetchDisplayName = fetchSessionDisplayName,
 }: ProfileStepProps) {
   const [displayName, setDisplayName] = useState("");
+
+  // Prefill the display name from the OAuth session so the user confirms the
+  // name they already gave the provider instead of typing it a second time. Only
+  // fills an empty field, so it never clobbers something the user typed first.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const name = await fetchDisplayName();
+      if (live && name) setDisplayName((prev) => prev || name);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [fetchDisplayName]);
   const [affiliation, setAffiliation] = useState("");
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [bio, setBio] = useState("");

@@ -25,6 +25,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 
+import { enterDemo } from "@/lib/demo/enter-demo";
+
 import LightOnly from "@/components/LightOnly";
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
@@ -190,8 +192,19 @@ export function OAuthFirstLanding({
                 <Icon name="map" className="h-3.5 w-3.5 text-brand-action" />
                 See the tour
               </button>
+              {/* Keep the next/link href for accessibility and middle-click, but
+                  intercept the click to enter the demo with a HARD navigation. A
+                  soft client-side nav does not remount FileSystemProvider, so its
+                  once-on-mount initialize() effect never re-runs, the demo fixture
+                  never installs, and the page falls through to the connect-folder
+                  gate (and the loading screen never shows). See lib/demo/enter-demo.ts
+                  + DevDemoToggleButton. */}
               <Link
                 href="/demo"
+                onClick={(e) => {
+                  e.preventDefault();
+                  enterDemo();
+                }}
                 className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-border bg-surface-sunken px-3.5 py-2 text-xs font-semibold text-foreground hover:bg-surface-raised hover:border-foreground-muted transition-colors"
               >
                 <Icon name="eye" className="h-3.5 w-3.5 text-brand-action" />

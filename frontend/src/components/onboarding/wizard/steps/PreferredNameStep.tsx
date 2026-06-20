@@ -11,11 +11,13 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { savePreferredName } from "@/lib/account/preferred-name";
+import { fetchSessionDisplayName } from "@/lib/account/session-display-name";
+import { firstName } from "@/lib/greeting/greeting-name";
 
 export interface PreferredNameStepProps {
   /** Advance once the preferred name is saved (or left blank and saved). */
@@ -25,15 +27,36 @@ export interface PreferredNameStepProps {
    * the step without touching settings storage.
    */
   savePreferred?: (name: string) => Promise<{ ok: boolean }>;
+  /**
+   * Test/host seam: override the OAuth-name prefill source. Defaults to the live
+   * session display name, of which we take the first name as the greeting.
+   */
+  fetchDisplayName?: () => Promise<string>;
 }
 
 export default function PreferredNameStep({
   onSaved,
   savePreferred,
+  fetchDisplayName = fetchSessionDisplayName,
 }: PreferredNameStepProps) {
   const { currentUser } = useCurrentUser();
   const [name, setName] = useState("");
   const [saving, setSaving] = useState(false);
+
+  // Prefill the greeting with the first name from the OAuth display name, so the
+  // closer is a one-tap confirm rather than yet another name to type. Only fills
+  // an empty field.
+  useEffect(() => {
+    let live = true;
+    void (async () => {
+      const full = await fetchDisplayName();
+      const first = firstName(full);
+      if (live && first) setName((prev) => prev || first);
+    })();
+    return () => {
+      live = false;
+    };
+  }, [fetchDisplayName]);
 
   const doSave =
     savePreferred ?? ((value: string) => savePreferredName(currentUser ?? "", value));
@@ -56,11 +79,11 @@ export default function PreferredNameStep({
         />
       </div>
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-        What do you like to be called?
+        What do you want BeakerBot to call you?
       </h1>
       <p className="mb-6 mt-2 text-sm text-foreground-muted">
-        I will greet you by this name. Most people just use a first name. You can
-        change it anytime in Settings.
+        This can be a nickname, and you can change it anytime later. Most people
+        just use a first name.
       </p>
 
       <div className="w-full text-left">

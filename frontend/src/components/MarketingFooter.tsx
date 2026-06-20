@@ -1,9 +1,12 @@
+"use client";
+
 import type { ReactNode } from "react";
 
 import Link from "next/link";
 
 import MadeInMadison from "@/components/MadeInMadison";
 import Wordmark from "@/components/Wordmark";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
@@ -103,6 +106,25 @@ function FooterLinkItem({ link }: { link: FooterLink }) {
       >
         {link.label}
       </a>
+    );
+  }
+  // The live-demo link must HARD-navigate so FileSystemProvider remounts and
+  // installs the demo fixture. A soft client-side push leaves the once-on-mount
+  // effect un-fired, so the fixture never installs and the page falls through to
+  // the connect-folder gate. See lib/demo/enter-demo.ts. This is a public footer,
+  // so rememberRoute stays off (exit falls back to "/").
+  if (link.href === "/demo") {
+    return (
+      <Link
+        href={link.href}
+        onClick={(e) => {
+          e.preventDefault();
+          enterDemo();
+        }}
+        className={className}
+      >
+        {link.label}
+      </Link>
     );
   }
   return (

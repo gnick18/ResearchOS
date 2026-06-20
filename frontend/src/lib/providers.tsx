@@ -51,6 +51,8 @@ import OnboardingWizard, {
 } from "@/components/onboarding/wizard/OnboardingWizard";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { stripEntryIntentParams } from "@/lib/onboarding/entry-intent-params";
+import { computeResumeStepId } from "@/lib/onboarding/wizard-resume-step";
+import { hasStashedLabBranding } from "@/lib/onboarding/lab-branding-stash";
 import { SOCIAL_LAYER_ENABLED, LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import { isLabPublicHost } from "@/lib/social/lab-byo";
 import {
@@ -234,6 +236,55 @@ function useResearchWizardReturn(): WizardSelection | null {
     },
     () => null,
   );
+}
+
+// The step a resumed research wizard should land on. Resolves the first step the
+// user has not completed (via computeResumeStepId) so a re-entry continues rather
+// than restarting at "identity" and re-asking the handle / name / lab name. ready
+// is false until the async handle check resolves, so the host can wait before
+// mounting the wizard at the wrong step (the shell reads initialStepId only on
+// mount). On any fetch failure it falls back to the safe default ("identity"),
+// the first step, so a hiccup never skips a needed step.
+function useResearchWizardResumeStep(
+  selection: WizardSelection | null,
+): { ready: boolean; stepId: string } {
+  const [state, setState] = useState<{ ready: boolean; stepId: string }>({
+    ready: false,
+    stepId: "identity",
+  });
+  useEffect(() => {
+    if (!selection) {
+      setState({ ready: true, stepId: "identity" });
+      return;
+    }
+    let live = true;
+    void (async () => {
+      let handleClaimed = false;
+      try {
+        const res = await fetch("/api/account/profile", {
+          headers: { accept: "application/json" },
+        });
+        if (res.ok) {
+          const data = (await res.json()) as {
+            profile?: { handle?: string | null } | null;
+          };
+          handleClaimed = Boolean(data?.profile?.handle);
+        }
+      } catch {
+        // Network hiccup: keep handleClaimed false so we resume at "identity",
+        // the safe first-step default. Never skip a step on a failed check.
+      }
+      const stepId = computeResumeStepId(selection, {
+        handleClaimed,
+        hasBranding: hasStashedLabBranding(),
+      });
+      if (live) setState({ ready: true, stepId });
+    })();
+    return () => {
+      live = false;
+    };
+  }, [selection]);
+  return state;
 }
 
 // Guards the provider OAuth redirect so it fires exactly once per page load even
@@ -519,6 +570,10 @@ function AppContent({ children }: { children: ReactNode }) {
   const researchWizardReturn = ONBOARDING_WIZARD_ENABLED
     ? researchWizardReturnRaw
     : null;
+  // Resolve where a resumed wizard should land (first incomplete step), so a
+  // re-entry continues instead of restarting at the handle. Not ready until the
+  // async handle check resolves.
+  const researchWizardResume = useResearchWizardResumeStep(researchWizardReturn);
   // Splash plays once per tab session (survives reloads, so dev reloads and
   // returning users do not replay it; a brand-new tab plays it). Skippable.
   // True once today's launch splash has played. Read from the per-day stamp so
@@ -925,15 +980,31 @@ function AppContent({ children }: { children: ReactNode }) {
     !isConnected &&
     !isDemoOrWikiCapture()
   ) {
+    // Wait for the resume step to resolve before mounting, since the shell reads
+    // initialStepId only on mount. A brief inline loader avoids a flash of the
+    // handle step (then a jump) on a re-entry that should skip ahead.
+    if (!researchWizardResume.ready) {
+      return (
+        <div
+          className="flex min-h-screen items-center justify-center bg-surface"
+          role="status"
+          aria-label="Loading"
+        >
+          <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-[#1283c9]" />
+        </div>
+      );
+    }
     // Note: this intentionally stays mounted through needsInitialization so the
     // wizard FolderStep shows its inline "initialize this folder" prompt, rather
     // than yielding to FolderConnectGate (which would be the bounce we are
     // removing). isConnected flips true once init completes, yielding to the app.
+    // initialStepId is the first incomplete step, so a re-entry continues instead
+    // of restarting at the handle and re-asking the name / lab name.
     return (
       <QueryClientProvider client={queryClient}>
         <OnboardingWizard
           selection={researchWizardReturn}
-          initialStepId="handle"
+          initialStepId={researchWizardResume.stepId}
           onClose={() => {
             // The selection lives in the URL marker, so strip it or this branch
             // re-renders in a close loop. Closing drops to the app root in its

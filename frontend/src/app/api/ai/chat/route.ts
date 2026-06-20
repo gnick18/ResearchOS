@@ -119,20 +119,31 @@ function jsonError(status: number, message: string): Response {
   });
 }
 
-/** The token counts an OpenAI-compatible response reports in its `usage` block. */
+/** The token counts an OpenAI-compatible response reports in its `usage` block.
+ *  prompt_tokens_details.cached_tokens is the OpenAI-compatible field Fireworks
+ *  uses to report how many input tokens were served from its prompt cache. */
 type ProviderUsage = {
   prompt_tokens?: number;
   completion_tokens?: number;
+  prompt_tokens_details?: { cached_tokens?: number } | null;
 };
 
-/** Pulls prompt/completion token counts out of an unknown `usage` value, 0 when
- *  absent or malformed, so a missing usage block never throws on the hot path. */
-function readUsage(usage: unknown): { prompt: number; completion: number } {
+/** Pulls prompt/completion/cached token counts out of an unknown `usage` value,
+ *  0 when absent or malformed, so a missing usage block never throws on the hot
+ *  path. cached is a SUBSET of prompt (input tokens served from the prompt cache),
+ *  recorded for cost accounting only, it never changes what the user is charged. */
+function readUsage(usage: unknown): {
+  prompt: number;
+  completion: number;
+  cached: number;
+} {
   const u = (usage ?? {}) as ProviderUsage;
   const prompt = typeof u.prompt_tokens === "number" ? u.prompt_tokens : 0;
   const completion =
     typeof u.completion_tokens === "number" ? u.completion_tokens : 0;
-  return { prompt, completion };
+  const cachedRaw = u.prompt_tokens_details?.cached_tokens;
+  const cached = typeof cachedRaw === "number" ? cachedRaw : 0;
+  return { prompt, completion, cached };
 }
 
 /**
@@ -147,12 +158,14 @@ async function meter(
   taskId: string,
   prompt: number,
   completion: number,
+  cached: number,
 ): Promise<void> {
   try {
     await recordUsage(ownerKey, {
       taskId,
       promptTokens: prompt,
       completionTokens: completion,
+      cachedTokens: cached,
     });
   } catch {
     // Swallowed on purpose, the response is already on its way to the browser.
@@ -409,8 +422,8 @@ export async function POST(request: Request): Promise<Response> {
     } catch {
       usage = undefined;
     }
-    const { prompt, completion } = readUsage(usage);
-    await meter(ownerKey, taskId, prompt, completion);
+    const { prompt, completion, cached } = readUsage(usage);
+    await meter(ownerKey, taskId, prompt, completion, cached);
     return new Response(text, {
       status: 200,
       headers: {
@@ -446,6 +459,7 @@ export async function POST(request: Request): Promise<Response> {
     let buffer = "";
     let prompt = 0;
     let completion = 0;
+    let cached = 0;
     try {
       for (;;) {
         const { done, value } = await reader.read();
@@ -468,6 +482,7 @@ export async function POST(request: Request): Promise<Response> {
                   // last seen values are the turn's totals.
                   prompt = u.prompt;
                   completion = u.completion;
+                  cached = u.cached;
                 }
               } catch {
                 // A non-JSON or partial data line, ignore and keep scanning.
@@ -481,7 +496,7 @@ export async function POST(request: Request): Promise<Response> {
       // A drain failure must not affect the client stream, which is independent.
     } finally {
       reader.releaseLock();
-      await meter(meterOwnerKey, taskId, prompt, completion);
+      await meter(meterOwnerKey, taskId, prompt, completion, cached);
     }
   })();
 

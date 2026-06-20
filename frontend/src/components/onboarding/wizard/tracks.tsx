@@ -1,14 +1,13 @@
 "use client";
 
 // Track builders for the onboarding wizard. Each builder assembles the step
-// components into a WizardTrack the shell can drive, honoring the spec's
-// per-step skip table:
+// components into a WizardTrack the shell can drive. The account tracks merge the
+// former Handle, Profile, and Preferred-name pages into ONE Identity step so a
+// fresh sign-in has fewer pages to clear before reaching the folder:
 //
-//   Solo (free):  Sign in (no skip) -> Handle (no skip) -> Profile (skip)
-//                 -> Folder (skip)
-//   Solo (local): Folder only (single step, no sign in / handle / profile)
-//   PI / lab:     Sign in -> Handle -> Profile (skip) -> Lab setup (no skip)
-//                 -> Folder (skip)
+//   Solo (free):  Sign in (no skip) -> Identity (no skip) -> Folder (no skip)
+//   Solo (local): Folder + Preferred-name (no account, kept as is)
+//   PI / lab:     Sign in -> Identity -> Lab setup (no skip) -> Folder
 //
 // The org-admin track (Track 3) is built in tracks-org.tsx (Phase 4).
 //
@@ -20,10 +19,11 @@
 
 import type { WizardTrack } from "./wizard-model";
 import SignInStep from "./steps/SignInStep";
-import HandleStep from "./steps/HandleStep";
-import ProfileStep from "./steps/ProfileStep";
+import IdentityStep from "./steps/IdentityStep";
 import LabStep, { type LabStepResult } from "./steps/LabStep";
 import FolderStep from "./steps/FolderStep";
+// PreferredNameStep is still used by the local-only track (no account, so no
+// merged Identity step); the merged Identity step saves the greeting itself.
 import PreferredNameStep from "./steps/PreferredNameStep";
 
 /** Optional hooks the host passes to capture step output. */
@@ -47,7 +47,7 @@ function resolveDefaultPiDisplay(
   return typeof hook === "function" ? hook() : hook;
 }
 
-/** Solo researcher, free account: sign in, handle, profile, folder. */
+/** Solo researcher, free account: sign in, identity, folder. */
 export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
   return {
     id: "solo-free",
@@ -66,23 +66,20 @@ export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
         ),
       },
       {
-        id: "handle",
-        label: "Handle",
+        id: "identity",
+        label: "Profile",
+        // Merged handle + profile + greeting page. Not skippable because the
+        // handle is required (it is the directory id); the rest of the profile is
+        // optional on the page itself, so it never soft-locks.
         skippable: false,
         render: (c) => (
-          <HandleStep
-            onClaimed={(h) => {
+          <IdentityStep
+            onSubmit={(h) => {
               cb.onHandleClaimed?.(h);
               c.next();
             }}
           />
         ),
-      },
-      {
-        id: "profile",
-        label: "Profile",
-        skippable: true,
-        render: (c) => <ProfileStep onSaved={c.next} />,
       },
       {
         id: "folder",
@@ -92,16 +89,6 @@ export function buildSoloFreeTrack(cb: TrackCallbacks = {}): WizardTrack {
         // FolderStep renders. (Was skippable in the pre-go-live wizard.)
         skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
-      },
-      {
-        id: "preferred-name",
-        label: "Your name",
-        // Lightweight closer: BeakerBot asks what to call the user and saves it as
-        // their preferred greeting name. Skippable, so it never soft-locks the
-        // flow, and placed AFTER the folder so the folder-local save lands on a
-        // connected folder (the account-scoped copy rides along when its flag is on).
-        skippable: true,
-        render: (c) => <PreferredNameStep onSaved={c.next} />,
       },
     ],
   };
@@ -135,7 +122,7 @@ export function buildSoloLocalTrack(): WizardTrack {
   };
 }
 
-/** PI / lab head, create path: solo steps + a lab-setup step before the folder. */
+/** PI / lab head, create path: sign in, identity, lab setup, folder. */
 export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
   return {
     id: "pi-create",
@@ -155,23 +142,20 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
         ),
       },
       {
-        id: "handle",
-        label: "Handle",
+        id: "identity",
+        label: "Profile",
+        // Merged handle + profile + greeting page (see buildSoloFreeTrack). The
+        // claimed handle is forwarded so the lab-setup step can prefill the PI
+        // display name with it.
         skippable: false,
         render: (c) => (
-          <HandleStep
-            onClaimed={(h) => {
+          <IdentityStep
+            onSubmit={(h) => {
               cb.onHandleClaimed?.(h);
               c.next();
             }}
           />
         ),
-      },
-      {
-        id: "profile",
-        label: "Profile",
-        skippable: true,
-        render: (c) => <ProfileStep onSaved={c.next} />,
       },
       {
         id: "lab-setup",
@@ -195,15 +179,6 @@ export function buildPiCreateTrack(cb: TrackCallbacks = {}): WizardTrack {
         // FolderStep renders. (Was skippable in the pre-go-live wizard.)
         skippable: false,
         render: (c) => <FolderStep onConnected={c.next} />,
-      },
-      {
-        id: "preferred-name",
-        label: "Your name",
-        // Lightweight, skippable greeting-name closer (see the solo-free track).
-        // After the folder so the folder-local save lands on a connected folder;
-        // the account-scoped copy rides along when its flag is on.
-        skippable: true,
-        render: (c) => <PreferredNameStep onSaved={c.next} />,
       },
     ],
   };
