@@ -11,6 +11,11 @@
 // links that the /api/account/public payload already returns). With the flag off
 // it renders the original thin card, byte-for-byte unchanged.
 //
+// Labs section: behind NEXT_PUBLIC_LAB_SITES (reuses the lab-sites flag) the
+// profile shows the researcher's publicly-listed lab memberships, each linking
+// to the lab's companion site when one exists. Privacy rule: only LISTED labs
+// (directory_labs.listed = true) are shown; unlisted labs are omitted.
+//
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import Link from "next/link";
@@ -24,8 +29,9 @@ import Wordmark from "@/components/Wordmark";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import OrcidPublications from "@/components/researchers/OrcidPublications";
 import { Icon, type IconName } from "@/components/icons";
-import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+import { SOCIAL_LAYER_ENABLED, LAB_SITES_ENABLED } from "@/lib/social/config";
 import type { ProfileLinks } from "@/lib/account/account-profile-validation";
+import type { ResearcherLabEntry } from "@/lib/account/researcher-labs";
 
 interface PublicProfile {
   handle: string;
@@ -53,11 +59,83 @@ function linkItems(
   return items;
 }
 
+// ---------------------------------------------------------------------------
+// Labs section (behind LAB_SITES_ENABLED)
+// ---------------------------------------------------------------------------
+
+interface LabsSectionProps {
+  labs: ResearcherLabEntry[];
+}
+
+function LabsSection({ labs }: LabsSectionProps) {
+  if (labs.length === 0) return null;
+  return (
+    <div className="mt-6">
+      <h2 className="mb-3 text-meta font-semibold uppercase tracking-wider text-foreground-muted">
+        Labs
+      </h2>
+      <ul className="space-y-2">
+        {labs.map((lab) => {
+          const labUrl = lab.slug
+            ? `https://${lab.slug}.research-os.com`
+            : null;
+          const roleLabel = lab.isPi ? "Principal investigator" : "Member";
+          const inner = (
+            <div className="flex items-center gap-3">
+              {/* vial is the standard lab-ware silhouette in the icon registry */}
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-surface-subtle text-foreground-muted">
+                <Icon name="vial" className="h-4 w-4" />
+              </span>
+              <div className="min-w-0">
+                <p className="truncate text-body font-medium text-foreground">
+                  {lab.name}
+                </p>
+                <p className="text-meta text-foreground-muted">
+                  {roleLabel}
+                  {lab.institution ? ` · ${lab.institution}` : ""}
+                </p>
+              </div>
+              {labUrl && (
+                <span className="ml-auto shrink-0 text-foreground-muted">
+                  <Icon name="share" className="h-3.5 w-3.5" />
+                </span>
+              )}
+            </div>
+          );
+
+          if (labUrl) {
+            return (
+              <li key={lab.name}>
+                <a
+                  href={labUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded-xl border border-border bg-surface px-4 py-3 transition hover:border-brand-action hover:shadow-sm"
+                >
+                  {inner}
+                </a>
+              </li>
+            );
+          }
+          return (
+            <li key={lab.name}>
+              <div className="block rounded-xl border border-border bg-surface px-4 py-3">
+                {inner}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 export default function HandleProfilePage() {
   const params = useParams<{ handle: string }>();
   const handle = Array.isArray(params?.handle) ? params.handle[0] : params?.handle;
   const [state, setState] = useState<"loading" | "found" | "missing">("loading");
   const [profile, setProfile] = useState<PublicProfile | null>(null);
+  const [labs, setLabs] = useState<ResearcherLabEntry[]>([]);
 
   useEffect(() => {
     if (!handle) {
@@ -81,6 +159,30 @@ export default function HandleProfilePage() {
         }
       } catch {
         if (alive) setState("missing");
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [handle]);
+
+  // Fetch labs independently so a slow DB join does not block the profile card.
+  // Gated on LAB_SITES_ENABLED so the fetch never fires when the flag is off.
+  useEffect(() => {
+    if (!handle || !LAB_SITES_ENABLED) return;
+    let alive = true;
+    void (async () => {
+      try {
+        const res = await fetch(
+          `/api/account/public/labs?handle=${encodeURIComponent(handle)}`,
+        );
+        const data = (await res.json().catch(() => ({ labs: [] }))) as {
+          labs?: ResearcherLabEntry[];
+        };
+        if (!alive) return;
+        setLabs(data.labs ?? []);
+      } catch {
+        // Fail silently: the profile renders without labs rather than erroring.
       }
     })();
     return () => {
@@ -159,6 +261,11 @@ export default function HandleProfilePage() {
                     ))}
                   </div>
                 )}
+
+                {/* Labs section: publicly-listed labs this researcher belongs to.
+                    Gated on LAB_SITES_ENABLED; renders nothing when the flag is
+                    off or when the researcher has no listed memberships. */}
+                {LAB_SITES_ENABLED && <LabsSection labs={labs} />}
 
                 {/* Auto-pulled public works when an ORCID iD is linked. Reuses the
                     same OrcidPublications panel + /api/orcid/works proxy as the
