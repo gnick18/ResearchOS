@@ -1500,13 +1500,13 @@ const ICONS_RAW = {
     concept: "Researcher network / hub of nodes connected to a center (the public .com network)",
     body: (
       <>
-        <line x1="12" y1="9.9" x2="12" y2="6" />
-        <line x1="10.5" y1="13.4" x2="6.9" y2="16.7" />
-        <line x1="13.5" y1="13.4" x2="17.1" y2="16.7" />
+        <line x1="12" y1="9.9" x2="12" y2="5.9" />
+        <line x1="10.2" y1="13.05" x2="6.7" y2="15.05" />
+        <line x1="13.8" y1="13.05" x2="17.3" y2="15.05" />
         <circle cx="12" cy="12" r="2.1" />
         <circle cx="12" cy="4" r="1.9" />
-        <circle cx="5.5" cy="18" r="1.9" />
-        <circle cx="18.5" cy="18" r="1.9" />
+        <circle cx="5.1" cy="16" r="1.9" />
+        <circle cx="18.9" cy="16" r="1.9" />
       </>
     ),
   },
