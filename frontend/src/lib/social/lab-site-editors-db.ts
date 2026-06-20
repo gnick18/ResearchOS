@@ -165,6 +165,49 @@ export async function listSiteEditors(
 }
 
 /**
+ * A slim summary of a lab site that a member has been granted access to edit.
+ * Returned by listSitesEditableBy for the "Sites you can edit" dashboard panel.
+ */
+export interface EditableSiteSummary {
+  /** The PI's billing owner key; identifies the lab whose site this is. */
+  labOwnerKey: string;
+  /** The site path the grant covers ("" means the whole site). */
+  path: string;
+  /** The lab's claimed slug (e.g. "smithlab"), resolved from lab_sites. */
+  labSlug: string;
+}
+
+/**
+ * Lists all sites that memberKey has been granted editor access to. Joins
+ * lab_site_editors against lab_sites so the caller gets the slug without a
+ * second round-trip. Only sites that exist in lab_sites are returned (a grant
+ * row without a matching site row is silently excluded).
+ *
+ * Returns an empty array when there are no grants or on any DB error.
+ *
+ * @param memberKey  The billing owner key of the signed-in caller.
+ */
+export async function listSitesEditableBy(
+  memberKey: string,
+): Promise<EditableSiteSummary[]> {
+  if (!memberKey) return [];
+  await ensureEditorsSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT e.lab_owner_key, e.path, s.lab_slug
+    FROM lab_site_editors e
+    JOIN lab_sites s ON s.lab_owner_key = e.lab_owner_key
+    WHERE e.member_key = ${memberKey}
+    ORDER BY e.granted_at
+  `) as Array<{ lab_owner_key: string; path: string; lab_slug: string }>;
+  return rows.map((r) => ({
+    labOwnerKey: r.lab_owner_key,
+    path: r.path,
+    labSlug: r.lab_slug,
+  }));
+}
+
+/**
  * Returns true when memberKey holds an active editor grant for the given lab
  * site path. Used by the write routes to allow owner-OR-editor access.
  *

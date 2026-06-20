@@ -17,6 +17,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import FileDropzone from "@/components/ui/FileDropzone";
@@ -954,8 +955,106 @@ function SlugRenameSection({
   );
 }
 
+// ---------------------------------------------------------------------------
+// GrantedSitesSection: "Sites you can edit" (visible to granted editors only)
+// ---------------------------------------------------------------------------
+
+interface GrantedSiteEntry {
+  labOwnerKey: string;
+  path: string;
+  labSlug: string;
+}
+
+/**
+ * Fetches GET /api/social/lab-site/editable on mount and renders a list of
+ * companion sites the signed-in member has been granted editor access to.
+ * Each entry links to the dashboard pre-scoped to that site (sets the
+ * siteOwnerKey URL param so the dashboard loads the PI's site, not the
+ * caller's own). Renders nothing when the caller has no grants.
+ *
+ * Security: the server derives the caller from the session and only returns
+ * sites they are genuinely granted. No owner key is passed from the client.
+ *
+ * @param currentSiteOwnerKey  When the dashboard is already scoped to a
+ *   granted site, pass that owner key so the section can highlight it.
+ */
+function GrantedSitesSection({
+  currentSiteOwnerKey,
+}: {
+  currentSiteOwnerKey?: string;
+}) {
+  const [sites, setSites] = useState<GrantedSiteEntry[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/social/lab-site/editable");
+        if (!res.ok) return;
+        const data = (await res.json()) as { sites: GrantedSiteEntry[] };
+        setSites(Array.isArray(data.sites) ? data.sites : []);
+      } catch {
+        // Non-fatal: if the request fails the section simply stays hidden.
+      }
+    })();
+  }, []);
+
+  if (sites.length === 0) return null;
+
+  return (
+    <section className="mb-6 rounded-xl border border-border bg-surface-raised p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon name="users" className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-medium text-foreground">
+          Sites you can edit
+        </h2>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+        Lab owners have granted you editor access to these companion sites. You
+        can create, edit, and publish pages on each one.
+      </p>
+      <ul className="divide-y divide-border rounded-lg border border-border">
+        {sites.map((s) => {
+          const isActive = currentSiteOwnerKey === s.labOwnerKey;
+          return (
+            <li
+              key={`${s.labOwnerKey}-${s.path}`}
+              className="flex items-center justify-between px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {s.labSlug}.research-os.com
+                </p>
+                {isActive && (
+                  <p className="text-[11px] text-brand-600 dark:text-brand-400">
+                    Currently editing
+                  </p>
+                )}
+              </div>
+              {isActive ? (
+                <span className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                  Open
+                </span>
+              ) : (
+                <Tooltip label={`Open the builder for ${s.labSlug}.research-os.com`}>
+                  <Link
+                    href={`/account/lab-site?siteOwnerKey=${encodeURIComponent(s.labOwnerKey)}`}
+                    className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs"
+                  >
+                    <Icon name="pencil" className="h-3.5 w-3.5" /> Edit
+                  </Link>
+                </Tooltip>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export default function LabSiteDashboard({
   demoReadOnly = false,
+  siteOwnerKey: siteOwnerKeyProp,
 }: {
   /**
    * Read-only demo walkthrough (demo-lab-network Phase 2). When true the dashboard
@@ -966,6 +1065,18 @@ export default function LabSiteDashboard({
    * `?demo=fakeyeast-lab` turns it on), so it can never affect a real lab.
    */
   demoReadOnly?: boolean;
+  /**
+   * When a granted editor opens a PI's site, the route passes the site owner key
+   * here (resolved from the ?siteOwnerKey= URL param). The dashboard then loads
+   * THAT lab's site and pages instead of the caller's own, and threads the owner
+   * key through every save and publish request so the write routes apply their
+   * isSiteEditor check server-side.
+   *
+   * When undefined the dashboard behaves exactly as before (loads the caller's own
+   * site, no siteOwnerKey in any request body). The PI's own dashboard never
+   * receives this prop.
+   */
+  siteOwnerKey?: string;
 }) {
   const [load, setLoad] = useState<LoadState>("loading");
   const [site, setSite] = useState<SiteSummary | null>(null);
@@ -1003,7 +1114,12 @@ export default function LabSiteDashboard({
 
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/social/lab-site", { method: "GET" });
+      // When the dashboard is scoped to a granted site, add the siteOwnerKey query
+      // param so the server loads that PI's pages (the server re-checks isSiteEditor).
+      const url = siteOwnerKeyProp
+        ? `/api/social/lab-site?siteOwnerKey=${encodeURIComponent(siteOwnerKeyProp)}`
+        : "/api/social/lab-site";
+      const res = await fetch(url, { method: "GET" });
       if (res.status === 401 || res.status === 403 || res.status === 404) {
         setLoad("denied");
         return;
@@ -1022,7 +1138,7 @@ export default function LabSiteDashboard({
     } catch {
       setLoad("error");
     }
-  }, []);
+  }, [siteOwnerKeyProp]);
 
   // Demo walkthrough hydration: load the seeded site + pages from the pure DEMO
   // content WITHOUT any network call, so the wizard tour never reads or writes the
@@ -1103,9 +1219,14 @@ export default function LabSiteDashboard({
 
       if (isBlocks && !demoReadOnly) {
         // Fetch the existing blocks_json for this page so the canvas is pre-populated.
+        // When a granted editor is editing a PI's site, include siteOwnerKey so the
+        // server authorizes via isSiteEditor and returns that PI's blocks (not the
+        // caller's own). The server re-checks the grant on every fetch.
         try {
+          const blocksParams = new URLSearchParams({ path: page.path });
+          if (siteOwnerKeyProp) blocksParams.set("siteOwnerKey", siteOwnerKeyProp);
           const res = await fetch(
-            `/api/social/lab-site/page/blocks?path=${encodeURIComponent(page.path)}`,
+            `/api/social/lab-site/page/blocks?${blocksParams.toString()}`,
           );
           if (res.ok) {
             const data = (await res.json()) as { blocksJson?: string | null };
@@ -1135,7 +1256,7 @@ export default function LabSiteDashboard({
     }
     setEditorMsg(null);
     },
-    [demoReadOnly],
+    [demoReadOnly, siteOwnerKeyProp],
   );
 
   const newPage = useCallback((asBlocks = false) => {
@@ -1205,12 +1326,18 @@ export default function LabSiteDashboard({
       editorPath === "__new__" ? "" : (editorPath ?? "");
 
     if (editorIsBlocks) {
-      // Blocks page: save via the canvas API route.
+      // Blocks page: save via the canvas API route. Include siteOwnerKey when
+      // editing a PI's site as a granted editor (server re-checks isSiteEditor).
       const blocksJson = editorBlocksJson ?? "[]";
       const res = await fetch("/api/social/lab-site/page/blocks", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ path, title: editorTitle, blocksJson }),
+        body: JSON.stringify({
+          path,
+          title: editorTitle,
+          blocksJson,
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
       });
       if (!res.ok) throw new Error("Could not save the draft.");
       const data = (await res.json()) as { path: string };
@@ -1218,7 +1345,7 @@ export default function LabSiteDashboard({
       return data.path;
     }
 
-    // Markdown page: original path.
+    // Markdown page: original path. Include siteOwnerKey for editor-grant path.
     const res = await fetch("/api/social/lab-site/page", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -1226,13 +1353,14 @@ export default function LabSiteDashboard({
         path,
         title: editorTitle,
         bodyMd: editorBody,
+        ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
       }),
     });
     if (!res.ok) throw new Error("Could not save the draft.");
     const data = (await res.json()) as { page: PageSummary };
     setEditorPath(data.page.path);
     return data.page.path;
-  }, [editorPath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson]);
+  }, [editorPath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp]);
 
   const flowOnFreeze = useCallback(async () => {
     // Step 2: freeze (bake) embeds. Returns count + snapshots.
@@ -1279,19 +1407,23 @@ export default function LabSiteDashboard({
     async (savedPath: string, snapshots: Record<string, unknown> | undefined) => {
       // Step 3: flip status to published on the server.
       // Blocks pages use the blocks PUT endpoint; markdown pages use the original.
+      // Include siteOwnerKey when publishing as a granted editor (server re-checks
+      // isSiteEditor before the publish write).
       const endpoint = editorIsBlocks
         ? "/api/social/lab-site/page/blocks"
         : "/api/social/lab-site/page";
       const pub = await fetch(endpoint, {
         method: "PUT",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify(
-          snapshots ? { path: savedPath, snapshots } : { path: savedPath },
-        ),
+        body: JSON.stringify({
+          path: savedPath,
+          ...(snapshots ? { snapshots } : {}),
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
       });
       if (!pub.ok) throw new Error("Could not publish.");
     },
-    [editorIsBlocks],
+    [editorIsBlocks, siteOwnerKeyProp],
   );
 
   const flowOnCheck = useCallback(async () => {
@@ -1362,12 +1494,17 @@ export default function LabSiteDashboard({
       const path = editorPath === "__new__" ? "" : editorPath;
       try {
         if (editorIsBlocks) {
-          // Blocks page save.
+          // Blocks page save. Include siteOwnerKey for the editor-grant path.
           const blocksJson = editorBlocksJson ?? "[]";
           const res = await fetch("/api/social/lab-site/page/blocks", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ path, title: editorTitle, blocksJson }),
+            body: JSON.stringify({
+              path,
+              title: editorTitle,
+              blocksJson,
+              ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+            }),
           });
           if (!res.ok) {
             setEditorMsg("Could not save the draft.");
@@ -1377,7 +1514,7 @@ export default function LabSiteDashboard({
           setEditorPath(data.path);
           setEditorMsg("Draft saved.");
         } else {
-          // Markdown page save (original path).
+          // Markdown page save (original path). Include siteOwnerKey for editor-grant path.
           const res = await fetch("/api/social/lab-site/page", {
             method: "POST",
             headers: { "content-type": "application/json" },
@@ -1385,6 +1522,7 @@ export default function LabSiteDashboard({
               path,
               title: editorTitle,
               bodyMd: editorBody,
+              ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
             }),
           });
           if (!res.ok) {
@@ -1403,7 +1541,7 @@ export default function LabSiteDashboard({
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson],
+    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp],
   );
 
   // ---------------------------------------------------------------------------
@@ -1455,6 +1593,41 @@ export default function LabSiteDashboard({
               the published markdown, the same view a lab head uses to write.
             </p>
           </div>
+        )}
+
+        {/* Granted-editor context banner: shown when the dashboard is scoped to
+            another PI's site. Lets the editor know they are acting as a granted
+            editor, not the site owner, and provides a link back to their own
+            dashboard. Hidden in demo mode (siteOwnerKeyProp is never set in demo). */}
+        {siteOwnerKeyProp && !demoReadOnly && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-surface-sunken p-4">
+            <Icon name="users" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                Editing as a granted editor
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                You are managing this companion site on behalf of its owner. You
+                can create, edit, and publish pages. Only the site owner can grant
+                or revoke editor access.
+              </p>
+            </div>
+            <Tooltip label="Go back to your own lab site dashboard">
+              <Link
+                href="/account/lab-site"
+                className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs"
+              >
+                My site
+              </Link>
+            </Tooltip>
+          </div>
+        )}
+
+        {/* "Sites you can edit" section: shown when the caller is on their OWN
+            dashboard (no siteOwnerKeyProp) and has at least one editor grant.
+            Hidden in demo mode. Fetches lazily so it never blocks the main load. */}
+        {!siteOwnerKeyProp && !demoReadOnly && (
+          <GrantedSitesSection currentSiteOwnerKey={siteOwnerKeyProp} />
         )}
 
         {load === "loading" && (
@@ -1613,7 +1786,10 @@ export default function LabSiteDashboard({
               </div>
             </div>
 
-            {!demoReadOnly && (
+            {/* Slug rename and site-editor grants are PI-only controls. A granted
+                editor (siteOwnerKeyProp set) has no authority to rename the slug
+                or manage grants, so both panels are hidden in editor mode. */}
+            {!demoReadOnly && !siteOwnerKeyProp && (
               <SlugRenameSection
                 currentSlug={site.slug}
                 onRenamed={(newSlug) => {
@@ -1622,8 +1798,9 @@ export default function LabSiteDashboard({
               />
             )}
 
-            {/* Site editor grants panel: PI only, hidden in demo mode. */}
-            {!demoReadOnly && <SiteEditorsPanel slug={site.slug} />}
+            {/* Site editor grants panel: PI only, hidden in demo mode and in
+                granted-editor mode. */}
+            {!demoReadOnly && !siteOwnerKeyProp && <SiteEditorsPanel slug={site.slug} />}
 
             <div className="mb-8">
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">
@@ -1668,15 +1845,20 @@ export default function LabSiteDashboard({
               )}
             </div>
 
-            {LAB_BYO_SITES_ENABLED && !demoReadOnly && (
+            {/* BYO upload and GitHub-connect are PI-only (they manage the lab's
+                static-site source, not page content). Hidden in demo mode and
+                in granted-editor mode. */}
+            {LAB_BYO_SITES_ENABLED && !demoReadOnly && !siteOwnerKeyProp && (
               <ByoUploadSection slug={site.slug} />
             )}
-            {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection slug={site.slug} />}
+            {LAB_BYO_SITES_ENABLED && !demoReadOnly && !siteOwnerKeyProp && (
+              <ByoGithubSection slug={site.slug} />
+            )}
 
             {/* Lab badges (badges phase 2, flag-gated). Lets the lab head pin
-                earned badges and publish them to the public lab page. Inert
-                when BADGES_ENABLED is false so the flag controls visibility. */}
-            {BADGES_ENABLED && (
+                earned badges and publish them to the public lab page. PI-only,
+                hidden in demo mode and in granted-editor mode. */}
+            {BADGES_ENABLED && !siteOwnerKeyProp && (
               <LabBadgesSection demoReadOnly={demoReadOnly} />
             )}
 

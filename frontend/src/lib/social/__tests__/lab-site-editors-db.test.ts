@@ -200,6 +200,61 @@ describe("listSiteEditors", () => {
 });
 
 // ---------------------------------------------------------------------------
+// listSitesEditableBy
+// ---------------------------------------------------------------------------
+
+describe("listSitesEditableBy", () => {
+  it("returns an empty array when memberKey is empty", async () => {
+    const mod = await loadModule();
+    const result = await mod.listSitesEditableBy("");
+    expect(sqlMock).toHaveBeenCalledTimes(0);
+    expect(result).toEqual([]);
+  });
+
+  it("returns an empty array when no grants exist", async () => {
+    const mod = await loadModule();
+    // schema (2) + JOIN SELECT (1)
+    sqlMock
+      .mockResolvedValueOnce([]) // CREATE TABLE
+      .mockResolvedValueOnce([]) // CREATE INDEX
+      .mockResolvedValueOnce([]); // SELECT (no rows)
+    const result = await mod.listSitesEditableBy(MEMBER);
+    expect(result).toEqual([]);
+  });
+
+  it("maps raw JOIN rows to EditableSiteSummary shape", async () => {
+    const mod = await loadModule();
+    sqlMock
+      .mockResolvedValueOnce([]) // CREATE TABLE
+      .mockResolvedValueOnce([]) // CREATE INDEX
+      .mockResolvedValueOnce([
+        { lab_owner_key: OWNER, path: "", lab_slug: "smithlab" },
+      ]);
+    const result = await mod.listSitesEditableBy(MEMBER);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      labOwnerKey: OWNER,
+      path: "",
+      labSlug: "smithlab",
+    });
+  });
+
+  it("passes memberKey as a query parameter (not a filter applied in JS)", async () => {
+    const mod = await loadModule();
+    sqlMock
+      .mockResolvedValueOnce([]) // CREATE TABLE
+      .mockResolvedValueOnce([]) // CREATE INDEX
+      .mockResolvedValueOnce([]);
+    await mod.listSitesEditableBy(MEMBER);
+    // The SELECT call is the third one. The member_key interpolation should be
+    // present as a positional param (the tagged-template interleaved values).
+    const selectCall = sqlMock.mock.calls[2];
+    const values = selectCall.slice(1);
+    expect(values).toContain(MEMBER);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isSiteEditor
 // ---------------------------------------------------------------------------
 
