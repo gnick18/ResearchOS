@@ -31,6 +31,8 @@ import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import {
   folderLabLabel,
+  folderKindBadge,
+  folderDisplayName,
   discoveredLabSublabel,
 } from "@/lib/file-system/folder-lab-label";
 import { LAB_AS_FOLDER_ENABLED } from "@/lib/lab/lab-as-folder-config";
@@ -41,6 +43,20 @@ import { checkAndEnterLab } from "@/lib/lab/lab-member-activation";
 import { fetchLabProfile } from "@/lib/lab/lab-profile-client";
 import { getCurrentUser } from "@/lib/file-system/indexeddb-store";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+
+// Static pill classes per brand token (REFINEMENT 3 visual key). Tailwind v4
+// only emits utilities it can see as whole strings, so the brand-token -> class
+// pair is spelled out here rather than interpolated. Mirrors the existing Active
+// pill (bg-accent/10 text-accent): a soft tint fill with the AA-legible token as
+// the text color. folderKindBadge owns the role -> token mapping; this is just
+// the lookup from that token to the two real classes.
+const KIND_PILL_CLASS: Record<string, string> = {
+  "brand-ink": "bg-brand-ink/10 text-brand-ink",
+  "brand-action": "bg-brand-action/10 text-brand-action",
+  "brand-purple": "bg-brand-purple/10 text-brand-purple",
+  "brand-teach": "bg-brand-teach/10 text-brand-teach",
+  "brand-teach-soft": "bg-brand-teach-soft/10 text-brand-teach-soft",
+};
 
 /** Format a lastOpenedAt timestamp as a short, calm relative string. */
 function relativeOpened(ts: number): string {
@@ -84,7 +100,7 @@ export default function FolderSwitcher({
     directoryName,
     switchFolder,
     forgetFolder,
-    renameFolder,
+    setFolderNickname,
     connect,
     listFolders,
   } = useFileSystem();
@@ -296,29 +312,30 @@ export default function FolderSwitcher({
     }
   }
 
-  function startRename(id: string, name: string) {
+  // REFINEMENT 3 nickname editing. Seeds the draft with the current nickname (not
+  // the real name) so an existing nickname is edited in place and a blank field
+  // means "no nickname yet". The real folder name is never touched.
+  function startNickname(id: string, currentNickname: string) {
     if (busy) return;
     setEditingId(id);
-    setDraftName(name);
+    setDraftName(currentNickname);
   }
 
-  function cancelRename() {
+  function cancelNickname() {
     setEditingId(null);
     setDraftName("");
   }
 
-  async function saveRename(id: string) {
-    const next = draftName.trim();
-    if (!next) {
-      cancelRename();
-      return;
-    }
+  async function saveNickname(id: string) {
+    // A blank draft is a valid save here: it CLEARS the nickname so the row falls
+    // back to the real folder name. The writer trims and drops the key.
+    const next = draftName;
     setBusy(true);
     try {
-      await renameFolder(id, next);
+      await setFolderNickname(id, next);
     } finally {
       setBusy(false);
-      cancelRename();
+      cancelNickname();
     }
   }
 
@@ -367,25 +384,26 @@ export default function FolderSwitcher({
                   value={draftName}
                   autoFocus
                   disabled={busy}
-                  aria-label={`Rename ${f.name}`}
+                  placeholder={f.name}
+                  aria-label={`Nickname for ${f.name}`}
                   onChange={(e) => setDraftName(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       e.preventDefault();
-                      void saveRename(f.id);
+                      void saveNickname(f.id);
                     } else if (e.key === "Escape") {
                       e.preventDefault();
-                      cancelRename();
+                      cancelNickname();
                     }
                   }}
                   className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1 text-sm text-foreground outline-none focus:border-accent"
                 />
-                <Tooltip label="Save name" placement="left">
+                <Tooltip label="Save nickname" placement="left">
                   <button
                     type="button"
-                    aria-label="Save name"
+                    aria-label="Save nickname"
                     disabled={busy}
-                    onClick={() => void saveRename(f.id)}
+                    onClick={() => void saveNickname(f.id)}
                     className="rounded-md p-1 text-foreground-muted transition hover:bg-surface-raised hover:text-foreground disabled:opacity-30"
                   >
                     <Icon name="check" className="h-3.5 w-3.5" />
@@ -394,9 +412,9 @@ export default function FolderSwitcher({
                 <Tooltip label="Cancel" placement="left">
                   <button
                     type="button"
-                    aria-label="Cancel rename"
+                    aria-label="Cancel nickname"
                     disabled={busy}
-                    onClick={cancelRename}
+                    onClick={cancelNickname}
                     className="rounded-md p-1 text-foreground-muted transition hover:bg-surface-raised hover:text-foreground disabled:opacity-30"
                   >
                     <Icon name="close" className="h-3.5 w-3.5" />
@@ -425,8 +443,27 @@ export default function FolderSwitcher({
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center gap-1.5">
                     <span className="truncate text-sm font-medium text-foreground">
-                      {f.name}
+                      {folderDisplayName(f)}
                     </span>
+                    {/* REFINEMENT 3 visual key. A short colored text pill per
+                        folder KIND (solo / head / member / class / student), so a
+                        profile holding several kinds can tell them apart at a
+                        glance. Rides MULTI_FOLDER (this whole component is gated on
+                        it), NOT class-gated, since it helps every multi-folder
+                        user. No new glyph, the colored pill IS the key. */}
+                    {(() => {
+                      const badge = folderKindBadge(f);
+                      const pill =
+                        KIND_PILL_CLASS[badge.token] ??
+                        KIND_PILL_CLASS["brand-ink"];
+                      return (
+                        <span
+                          className={`inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[10px] font-medium ${pill}`}
+                        >
+                          {badge.label}
+                        </span>
+                      );
+                    })()}
                     {isActive && (
                       <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
                         <Icon name="check" className="h-3 w-3" />
@@ -455,12 +492,12 @@ export default function FolderSwitcher({
                 </span>
               </button>
               {showManage && (
-                <Tooltip label="Rename this folder" placement="left">
+                <Tooltip label="Nickname this folder" placement="left">
                   <button
                     type="button"
-                    aria-label={`Rename ${f.name}`}
+                    aria-label={`Nickname ${f.name}`}
                     disabled={busy}
-                    onClick={() => startRename(f.id, f.name)}
+                    onClick={() => startNickname(f.id, f.nickname ?? "")}
                     className="rounded-md p-1 text-foreground-muted opacity-0 transition hover:bg-surface-raised hover:text-foreground group-hover:opacity-100 disabled:opacity-30"
                   >
                     <Icon name="pencil" className="h-3.5 w-3.5" />

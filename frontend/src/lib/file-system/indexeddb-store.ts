@@ -969,6 +969,11 @@ export interface RememberedFolder {
   labId?: string;
   /** Cached cosmetic lab name for the switcher label. Absent when unknown. */
   labName?: string;
+  /** User-chosen per-folder nickname (REFINEMENT 3). When set, the switcher
+   *  displays this instead of `name`; the real `name` is always preserved so
+   *  clearing the nickname restores it. Absent on rows the user never nicknamed
+   *  and on legacy rows, so this is shape-additive and flag-off byte-identical. */
+  nickname?: string;
 }
 
 /** Persisted metadata row (no handle, the handle lives in the object store). The
@@ -980,6 +985,9 @@ interface RememberedFolderMeta {
   labRole?: RememberedFolderLabRole;
   labId?: string;
   labName?: string;
+  /** User-chosen per-folder nickname (REFINEMENT 3). Optional + additive; see
+   *  RememberedFolder.nickname. Never overwrites the real folder name. */
+  nickname?: string;
 }
 
 /** Generate a stable, collision-resistant folder id. We cannot derive a sync
@@ -1214,6 +1222,7 @@ export async function listRememberedFolders(): Promise<RememberedFolder[]> {
       ...(m.labRole !== undefined ? { labRole: m.labRole } : {}),
       ...(m.labId !== undefined ? { labId: m.labId } : {}),
       ...(m.labName !== undefined ? { labName: m.labName } : {}),
+      ...(m.nickname !== undefined ? { nickname: m.nickname } : {}),
     });
   }
   out.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
@@ -1459,5 +1468,40 @@ export async function renameRememberedFolder(
   await writeFolderMetas(
     scope,
     metas.map((m) => (m.id === id ? { ...m, name: trimmed } : m)),
+  );
+}
+
+/**
+ * Set (or clear) one remembered folder's user-chosen nickname within the current
+ * account scope (REFINEMENT 3). Unlike renameRememberedFolder this NEVER touches
+ * the real `name`, so the original folder name is always preserved and a nickname
+ * is a pure presentation overlay. A blank or whitespace-only nickname CLEARS the
+ * field (the row falls back to displaying its real name). lastOpenedAt, the lab
+ * fields, the active pointer, and the on-disk folder are all left untouched.
+ *
+ * No-op in a demo tab.
+ */
+export async function setRememberedFolderNickname(
+  id: string,
+  nickname: string,
+): Promise<void> {
+  if (isDemoTab()) return;
+  const trimmed = nickname.trim();
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
+  if (!metas.some((m) => m.id === id)) return;
+  await writeFolderMetas(
+    scope,
+    metas.map((m) => {
+      if (m.id !== id) return m;
+      if (!trimmed) {
+        // Clear: drop the key entirely so the row is shape-identical to one that
+        // was never nicknamed.
+        const { nickname: _drop, ...rest } = m;
+        void _drop;
+        return rest;
+      }
+      return { ...m, nickname: trimmed };
+    }),
   );
 }
