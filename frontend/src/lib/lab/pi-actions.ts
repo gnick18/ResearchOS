@@ -51,6 +51,15 @@ import { notificationCategory } from "@/lib/notifications/preferences";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { notifyRecipient } from "@/lib/mobile-relay/client";
+import { CLASS_MODE_ENABLED } from "./class-mode-config";
+import {
+  planAssignmentFanout,
+  type AssignmentChecklistItem,
+  type AssignmentVisibility,
+} from "./class-assignment";
+import { publishAssignmentRecord } from "./class-assignment-store";
+import { returnNotebook } from "./class-submission";
+import type { LabMember } from "./lab-membership";
 
 // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 = WRITE
 // routing for the lab-head approval / decline / flag writes. The pre-read +
@@ -82,6 +91,9 @@ import type {
   LabTaskAssignmentNotification,
   LabPurchaseApprovalNotification,
   LabFlagForReviewNotification,
+  LabClassAssignmentNotification,
+  LabClassReturnedNotification,
+  ClassSubmission,
   PiFlag,
 } from "../types";
 
@@ -511,6 +523,289 @@ export async function assignTask(args: AssignTaskArgs): Promise<PiActionResult<A
         field_path: "assignee",
         old_value: before.assignee ?? null,
         new_value: args.assignee,
+      },
+    ]);
+  } catch (err) {
+    return { ok: false, reason: "audit", error: err, value };
+  }
+
+  return { ok: true, value };
+}
+
+// ── Class Mode: assign a method to a class (CT-2 live wiring) ────────────
+//
+// Models assignTask exactly (role-gate the instructor, write the record, fan a
+// notification + an audit entry per student) but per the C2 invariant the fan-out
+// is ONE INSTRUCTOR-OWNED shared assignment record (under the instructor's own
+// owner-prefix, NEVER under a student) plus a per-student notification, NOT a
+// write into each student's folder. The pure planner (class-assignment.ts) builds
+// the descriptors; this is the live writer.
+//
+// Gated behind NEXT_PUBLIC_CLASS_MODE. Flag off, the action refuses cleanly
+// (returns a data-write failure, no record written, no notification, no audit), so
+// a stray caller in a flag-off build is a no-op exactly like today.
+
+export interface AssignMethodToClassArgs {
+  /** The instructor (head) username, the audit actor + the sole record owner. */
+  actor: string;
+  /** The class lab identifier (the relay namespace the record lands in). */
+  labId: string;
+  /** Stable assignment id (a portable string id, the link target for notebooks). */
+  assignmentId: string;
+  /** Display title shown to students. */
+  title: string;
+  /** Optional longer prompt / instructions. */
+  description?: string;
+  /** The method the protocol was authored as (copied by reference into notebooks). */
+  templateMethodId?: number;
+  /** Checklist steps seeded into each student notebook. */
+  checklist: AssignmentChecklistItem[];
+  /** private (subkey-sealed student work) or collaborative (team-key). */
+  visibility: AssignmentVisibility;
+  /**
+   * The relay-roster students (non-head members). MUST come from
+   * getLabRemote(labId).record.members filtered to non-head, NOT useLabData().users,
+   * because the students live in their own folders and only the signed relay roster
+   * names them. The caller passes that filtered list.
+   */
+  students: LabMember[];
+  /** When true, share the record to "*" (whole class); otherwise per-student. */
+  wholeClass?: boolean;
+  /** The class team key (the assignment prompt is sealed under it, server-blind). */
+  teamKey: Uint8Array;
+  /** The instructor's lab signing keypair (the relay verifies the signer). */
+  signerEd25519Priv: Uint8Array;
+  signerEd25519Pub: Uint8Array;
+}
+
+export interface AssignMethodToClassValue {
+  assignmentId: string;
+  /** The instructor-owned record key segment (owner/recordType/recordId). */
+  owner: string;
+  /** Number of students notified. */
+  notified: number;
+}
+
+export async function assignMethodToClass(
+  args: AssignMethodToClassArgs,
+): Promise<PiActionResult<AssignMethodToClassValue>> {
+  // 0a. Flag gate. Class Mode does not half-ship. Flag off, refuse cleanly so no
+  //     record, notification, or audit is ever authored (byte-identical to today).
+  if (!CLASS_MODE_ENABLED) {
+    return dataWriteFailure(
+      new Error("assignMethodToClass: class mode is disabled (NEXT_PUBLIC_CLASS_MODE off)"),
+    );
+  }
+
+  // 0b. Role gate. Only a lab head (the instructor) may assign to a class.
+  const gate = await assertLabHeadActor("assignMethodToClass");
+  if (gate) return gate;
+
+  // 1. Plan the C2-correct fan-out. The planner throws on a malformed roster (the
+  //    instructor listed as their own student, an empty instructor), so an invalid
+  //    assignment never reaches the relay. Classify any planner throw as a
+  //    data-write failure (nothing was written).
+  let plan;
+  try {
+    plan = planAssignmentFanout({
+      assignmentId: args.assignmentId,
+      title: args.title,
+      description: args.description,
+      templateMethodId: args.templateMethodId,
+      checklist: args.checklist,
+      visibility: args.visibility,
+      instructor: args.actor,
+      students: args.students,
+      assignedAt: new Date().toISOString(),
+      wholeClass: args.wholeClass,
+    });
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // 2. The single instructor-owned write. owner = the instructor (the planner
+  //    stamped it); the team key seals the prompt; the relay verifies the signer.
+  try {
+    await publishAssignmentRecord({
+      labId: args.labId,
+      write: plan.instructorWrite,
+      teamKey: args.teamKey,
+      signerEd25519Priv: args.signerEd25519Priv,
+      signerEd25519Pub: args.signerEd25519Pub,
+    });
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // Record write landed. From here we are on the partial-success path.
+  const value: AssignMethodToClassValue = {
+    assignmentId: args.assignmentId,
+    owner: plan.instructorWrite.owner,
+    notified: plan.notifications.length,
+  };
+
+  // 3. Notify every student. Done BEFORE the audit emit so a failing audit append
+  //    does not block the bells (notification writes swallow their own errors).
+  const now = new Date().toISOString();
+  await Promise.all(
+    plan.notifications.map(async (n) => {
+      const notif: LabClassAssignmentNotification = {
+        id: newId(),
+        type: "lab_class_assignment",
+        from_user: args.actor,
+        owner_username: args.actor,
+        assignment_id: n.assignmentId,
+        title: n.title,
+        created_at: now,
+        read: false,
+      };
+      await appendNotification(n.toUser, notif);
+      void buzzRecipientPhone(n.toUser, "lab_class_assignment");
+    }),
+  );
+
+  // 4. Audit one entry per student. The assignment is authored under the
+  //    instructor's own prefix, but the forensic record is "instructor assigned X
+  //    to student S", so we stamp one entry per target student. A failing audit
+  //    append surfaces as the "audit" reason without rolling back the record.
+  try {
+    await Promise.all(
+      plan.notifications.map((n) =>
+        appendAuditEntries(n.toUser, [
+          {
+            session_id: LAB_HEAD_ACTION_SESSION,
+            actor: args.actor,
+            target_user: n.toUser,
+            record_type: "task",
+            record_id: args.assignmentId,
+            field_path: "class_assignment",
+            old_value: null,
+            new_value: args.assignmentId,
+          },
+        ]),
+      ),
+    );
+  } catch (err) {
+    return { ok: false, reason: "audit", error: err, value };
+  }
+
+  return { ok: true, value };
+}
+
+// ── Class Mode: return a submitted notebook (CT-4 live wiring) ───────────
+//
+// The INSTRUCTOR returns a student's submitted notebook with freeform feedback.
+// Mirrors assignTask: role-gate the head, owner-routed tasksApi.update into the
+// STUDENT's record (readable + writable by the head because the head co-owns the
+// per-student subkey, Stage 1), plus an audit entry + a notification. The legal
+// transition (submitted -> returned, throws otherwise) lives in the pure
+// returnNotebook; this is the live cross-owner writer. NO score is ever stored.
+//
+// Gated behind NEXT_PUBLIC_CLASS_MODE. Flag off, refuses cleanly (no write, no
+// audit, no notification), byte-identical to today.
+
+export interface ReturnNotebookArgs {
+  /** The instructor (head) username, the audit actor. */
+  actor: string;
+  /** The student who owns the notebook (the cross-owner write target). */
+  targetOwner: string;
+  /** The numeric notebook task id in the student's namespace. */
+  taskId: number;
+  /** The freeform instructor feedback (no numeric score). */
+  instructorNote: string;
+  /** Denormalized notebook name for the bell row. */
+  taskName?: string;
+}
+
+export interface ReturnNotebookValue {
+  taskId: number;
+  submission: ClassSubmission;
+}
+
+export async function returnNotebookForStudent(
+  args: ReturnNotebookArgs,
+): Promise<PiActionResult<ReturnNotebookValue>> {
+  // 0a. Flag gate. Class Mode does not half-ship.
+  if (!CLASS_MODE_ENABLED) {
+    return dataWriteFailure(
+      new Error("returnNotebookForStudent: class mode is disabled (NEXT_PUBLIC_CLASS_MODE off)"),
+    );
+  }
+
+  // 0b. Role gate. Only a lab head (the instructor) may return a notebook.
+  const gate = await assertLabHeadActor("returnNotebookForStudent");
+  if (gate) return gate;
+
+  // 1. Pre-read the student's notebook so the transition runs against the live
+  //    submission and the audit can carry the old value.
+  let before;
+  try {
+    before = await rawTasksApi.get(args.taskId, args.targetOwner);
+    if (!before) {
+      throw new Error(
+        `returnNotebookForStudent: task ${args.taskId} not found in ${args.targetOwner}'s folder`,
+      );
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // 2. The legal transition (submitted -> returned). Throws on an illegal source
+  //    state (never submitted, or already returned without a fresh submit), which
+  //    classifies as a data-write failure (nothing written).
+  let next: ClassSubmission;
+  try {
+    next = returnNotebook(before.submission, args.instructorNote);
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // 3. Owner-routed write into the STUDENT's record.
+  let updated;
+  try {
+    updated = await rawTasksApi.update(
+      args.taskId,
+      { submission: next },
+      args.targetOwner,
+    );
+    if (!updated) {
+      throw new Error("returnNotebookForStudent: tasksApi.update returned null");
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  const value: ReturnNotebookValue = { taskId: args.taskId, submission: next };
+
+  // 4. Notify the student their work was returned with feedback. Before the audit
+  //    emit so a failing audit append does not block the bell.
+  if (args.targetOwner !== args.actor) {
+    const notif: LabClassReturnedNotification = {
+      id: newId(),
+      type: "lab_class_returned",
+      from_user: args.actor,
+      owner_username: args.targetOwner,
+      task_id: args.taskId,
+      task_name: args.taskName ?? updated.name,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    await appendNotification(args.targetOwner, notif);
+    void buzzRecipientPhone(args.targetOwner, "lab_class_returned");
+  }
+
+  // 5. Audit. A failing append surfaces as the "audit" reason without rolling back.
+  try {
+    await appendAuditEntries(args.targetOwner, [
+      {
+        session_id: LAB_HEAD_ACTION_SESSION,
+        actor: args.actor,
+        target_user: args.targetOwner,
+        record_type: "task",
+        record_id: args.taskId,
+        field_path: "submission.status",
+        old_value: before.submission?.status ?? "not_submitted",
+        new_value: next.status,
       },
     ]);
   } catch (err) {
