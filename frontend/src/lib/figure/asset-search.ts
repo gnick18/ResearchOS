@@ -134,6 +134,35 @@ const SYNONYM_GROUPS: string[][] = [
   ["earth", "globe", "world", "planet"],
   ["arrow", "pointer", "direction"],
   ["clock", "time", "timer", "stopwatch"],
+  // --- Electronics / circuit symbols (2026-06-19, the KiCad + chris-pikul +
+  //     Wikimedia electronics expansion) ---
+  ["resistor", "resistance", "potentiometer", "rheostat", "ohm"],
+  ["capacitor", "capacitance", "cap"],
+  ["inductor", "inductance", "coil", "choke", "solenoid"],
+  ["transistor", "bjt", "mosfet", "jfet", "fet", "npn", "pnp"],
+  ["diode", "led", "light emitting diode", "zener", "rectifier"],
+  ["op-amp", "opamp", "operational amplifier"],
+  ["logic gate", "and gate", "or gate", "nand", "nor", "xor", "inverter", "not gate", "buffer gate"],
+  ["transformer", "primary winding", "secondary winding"],
+  ["integrated circuit", "ic", "chip", "microchip", "microcontroller", "mcu"],
+  ["connector", "header", "plug", "socket", "jack", "terminal"],
+  ["battery", "power supply", "voltage source", "current source"],
+  ["relay", "contactor", "solid state relay"],
+  ["fuse", "circuit breaker", "varistor"],
+  ["antenna", "aerial", "dipole"],
+  ["ground", "gnd", "earth ground"],
+  ["circuit", "schematic", "wiring diagram", "circuit diagram"],
+  // --- Physics (the janosh + Wikimedia physics-diagram expansion) ---
+  ["feynman diagram", "particle interaction", "scattering diagram"],
+  ["optics", "lens", "refraction", "reflection", "prism", "ray diagram"],
+  ["wave", "waveform", "wavelength", "amplitude", "oscillation"],
+  ["pendulum", "harmonic motion", "simple harmonic", "oscillator"],
+  ["force", "free body diagram", "vector field", "newton"],
+  ["kinematics", "velocity", "acceleration", "trajectory", "projectile"],
+  ["thermodynamics", "entropy", "carnot", "heat engine", "isotherm"],
+  ["quantum", "qubit", "superposition", "wavefunction", "bloch sphere"],
+  ["magnetic field", "magnet", "magnetism", "magnetic flux"],
+  ["electric field", "electric charge", "coulomb", "field lines"],
 ];
 
 /** token -> set of synonym terms (each term may itself be multi-word). */
