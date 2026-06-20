@@ -27,6 +27,7 @@ import { choreographyFor } from "@/lib/onboarding/showcase-choreography";
 import type { Surface } from "@/lib/onboarding/reel-director";
 import PresenterCursor from "./PresenterCursor";
 import BeakerSays from "./BeakerSays";
+import SurfacePage, { surfaceControl } from "./SurfacePage";
 import TutorScreen from "./TutorScreen";
 
 export interface ShowcaseStageProps {
@@ -113,48 +114,14 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
             {surfaceLabel(surface)}
           </span>
         </div>
-        {/* The primary control the cursor heads to, absolutely placed so the
-            presenter cursor tip lands exactly on it (TARGET_POS matches). */}
+        {/* The action control the cursor heads to (verb matches the surface),
+            absolutely placed so the presenter cursor tip lands on it (TARGET_POS). */}
         <span className="absolute right-4 top-[13px] rounded-lg border border-[var(--line2,#d2d5cd)] bg-[var(--sunken,#f1f2ef)] px-2.5 py-1 text-xs font-semibold text-[var(--muted,#6b716a)]">
-          + New
+          {surfaceControl(surface)}
         </span>
 
-        {/* page content: a few sample rows, with the reveal row appearing on click */}
-        <div className="flex flex-col gap-2 p-4">
-          {[
-            { dot: "var(--brand,#1d9e75)", title: "Sample item one", sub: "in progress", meta: "64%" },
-            { dot: "var(--info,#2563eb)", title: "Sample item two", sub: "ready to review", meta: "100%" },
-            { dot: "var(--amber,#b9770f)", title: "Sample item three", sub: "queued", meta: "20%" },
-          ].map((row) => (
-            <div
-              key={row.title}
-              className="flex items-center gap-3 rounded-lg border border-[var(--line,#e3e5e0)] px-3 py-2.5"
-            >
-              <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: row.dot }} />
-              <div className="flex-1">
-                <div className="text-[13px] font-semibold text-[var(--fg,#1f2421)]">{row.title}</div>
-                <div className="text-[11.5px] text-[var(--muted,#6b716a)]">{row.sub}</div>
-              </div>
-              <span className="text-xs text-[var(--muted,#6b716a)]">{row.meta}</span>
-            </div>
-          ))}
-          {/* the reveal: the new object the demo adds, fading + lifting into place */}
-          <div
-            className="flex items-center gap-3 rounded-lg border-2 border-[var(--brand,#1d9e75)] bg-[var(--brand-soft,#e7f6ef)] px-3 py-2.5 transition-all duration-700"
-            style={{
-              opacity: revealed ? 1 : 0,
-              transform: revealed ? "translateY(0)" : "translateY(8px)",
-            }}
-          >
-            <span className="h-2.5 w-2.5 flex-none rounded-full bg-[var(--brand,#1d9e75)]" />
-            <div className="flex-1">
-              <div className="text-[13px] font-semibold text-[var(--fg,#1f2421)]">
-                {choreography.seedKind.replace(/_/g, " ")}
-              </div>
-              <div className="text-[11.5px] text-[var(--muted,#6b716a)]">just added</div>
-            </div>
-          </div>
-        </div>
+        {/* The surface-specific page body + the result the demo reveals on click. */}
+        <SurfacePage surface={surface} revealed={revealed} />
 
         <PresenterCursor
           x={cursorVisible ? TARGET_POS.x : null}
