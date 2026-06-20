@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
+import ToolSitePageView from "@/components/social/ToolSitePageView";
 import {
   isLabByoSitesEnabled,
   isLabSitesEnabled,
@@ -21,6 +22,10 @@ import {
   DEMO_LAB_CARD,
   isDemoLabSlug,
 } from "@/lib/social/demo-lab";
+// Phase A: tool-type repo render. Reads the tool connection metadata from the
+// lab_tool_github table (created lazily by ensureLabToolSchema). Inert when no
+// tool connection exists for the lab.
+import { getToolByOwner } from "@/lib/social/lab-tool-db";
 
 /**
  * Public lab companion-site route (lab-domains Phase 2, social lane).
@@ -77,24 +82,29 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
   let publishedPages: import("@/lib/social/lab-site-db").PublishedPageEntry[] =
     [];
   let hasByo = false;
+  let toolRow: import("@/lib/social/lab-tool-db").LabToolGithubRow | null = null;
   try {
     slugRow = await getSlug(slug);
     const site = slugRow ? await getSiteBySlug(slug) : null;
     hasSite = site !== null;
     if (site) {
-      // Fetch the current page + the published list in parallel to keep latency
-      // minimal. The BYO check is conditional on the BYO flag so it is a no-op
-      // query when the flag is off.
-      const [pageResult, pagesResult, byoResult] = await Promise.all([
+      // Fetch the current page, published list, BYO state, and tool connection
+      // in parallel to keep latency minimal. The BYO and tool checks are each
+      // conditional so they are no-op queries when the respective table is absent.
+      const [pageResult, pagesResult, byoResult, toolResult] = await Promise.all([
         getPage(site.labOwnerKey, path),
         listPublishedPages(site.labOwnerKey).catch(() => []),
         isLabByoSitesEnabled()
           ? getByoSiteByOwner(site.labOwnerKey).catch(() => null)
           : Promise.resolve(null),
+        // Phase A: try to read the tool connection metadata. Fails gracefully
+        // (null) when the table does not exist or the lab has no tool connection.
+        getToolByOwner(site.labOwnerKey).catch(() => null),
       ]);
       page = pageResult;
       publishedPages = pagesResult;
       hasByo = byoResult !== null;
+      toolRow = toolResult;
     }
   } catch {
     return {
@@ -104,6 +114,7 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
       page: null,
       publishedPages: [],
       hasByo: false,
+      toolRow: null,
     };
   }
   const decision = resolvePublicPage({
@@ -112,7 +123,7 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
     hasSite,
     page,
   });
-  return { decision, slug, path, page, publishedPages, hasByo };
+  return { decision, slug, path, page, publishedPages, hasByo, toolRow };
 }
 
 export async function generateMetadata({
@@ -145,8 +156,41 @@ export default async function LabSitePublicPage({
     page,
     publishedPages,
     hasByo,
+    toolRow,
   } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
+
+  // Phase A: if this lab has a tool connection, render the software-companion
+  // page view instead of the native lab-site page view. The tool row carries
+  // the repo metadata for the header (name, description, language, license,
+  // links). The page body (README or wiki page) is the same `page.bodyMd`
+  // that the native view would use, because tool ingest stores its content in
+  // the same lab-site page store. This branch is flag-gated by LAB_SITES_ENABLED
+  // (the route 404s when the flag is off, so toolRow can only be non-null when
+  // the flag is already on).
+  if (toolRow) {
+    const latestReleaseUrl =
+      toolRow.latestRelease
+        ? `${toolRow.htmlUrl}/releases/tag/${encodeURIComponent(toolRow.latestRelease)}`
+        : null;
+    return (
+      <ToolSitePageView
+        slug={slug}
+        repoName={toolRow.repoName}
+        repoDescription={toolRow.repoDescription}
+        primaryLanguage={toolRow.primaryLanguage}
+        license={toolRow.license}
+        repoUrl={toolRow.htmlUrl}
+        latestReleaseUrl={latestReleaseUrl}
+        latestReleaseTag={toolRow.latestRelease}
+        logoUrl={toolRow.logoUrl}
+        bodyMd={page.bodyMd}
+        publishedPages={publishedPages}
+        currentPath={normPath}
+      />
+    );
+  }
+
   // Origin cutover note: the research-os.com move 308s an old research-os.app/<slug>
   // link to the per-lab subdomain for citation continuity. That redirect lives in
   // middleware (proxy.ts, resolveAppOriginLabRedirect), NOT here: a Server Component
