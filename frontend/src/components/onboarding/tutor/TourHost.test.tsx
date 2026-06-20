@@ -123,24 +123,16 @@ describe("TourHost is mounted in the real app flow (NOT /dev-only)", () => {
     expect(providers).toMatch(/<TourHost\b/);
   });
 
-  it("also mounts <TourHost> in the demo branch, gated on hasTourResume()", () => {
-    // The tutor's deep "coupled" beats hard-reload into /demo, which hits the
-    // isDemoOrWikiCapture early-return branch, NOT the main authed render. Without a
-    // mount there the picker's "Start the tour" loads the demo but the guided tour
-    // never resumes. It must be gated on hasTourResume() so a normal public /demo
-    // visitor never triggers the tutor. This locks both halves of that fix.
+  it("plays the deep demos inline (no /demo warp), so the tour never navigates away", () => {
+    // No-warp redesign (2026-06-19): the deep demos render as a centered preloaded
+    // page popup in place, NOT a hard-reload into /demo. So OnboardingTutor must
+    // not hand off to the host warp on "Start the tour" (it dispatches beginReel),
+    // and the deep_demo beat must render the contained ShowcaseStage, never the
+    // real-page LiveCursorLayer. This locks the tour to the in-place popup.
     const here = dirname(fileURLToPath(import.meta.url));
-    const providers = readFileSync(
-      join(here, "../../../lib/providers.tsx"),
-      "utf8",
-    );
-    expect(providers).toMatch(
-      /import\s+\{\s*hasTourResume\s*\}\s+from\s+["']@\/lib\/onboarding\/tour-demo-session["']/,
-    );
-    // The demo-branch mount is the hasTourResume()-gated one.
-    expect(providers).toMatch(/hasTourResume\(\)\s*&&\s*<TourHost\b/);
-    // Two TourHost render sites total: the main authed render + the demo branch.
-    const mountCount = (providers.match(/<TourHost\b/g) ?? []).length;
-    expect(mountCount).toBeGreaterThanOrEqual(2);
+    const tutor = readFileSync(join(here, "./OnboardingTutor.tsx"), "utf8");
+    expect(tutor).not.toMatch(/onBeginShow\s*\(/); // never triggers the warp
+    expect(tutor).not.toMatch(/<LiveCursorLayer\b/); // no real-page overlay
+    expect(tutor).toMatch(/<ShowcaseStage\b/); // deep demos use the contained stage
   });
 });

@@ -35,9 +35,27 @@ export interface ShowcaseStageProps {
   onDone: () => void;
 }
 
-// Placeholder anchor for the cursor + target marker on the stand-in stage. The
-// live phase replaces this with the real element rect.
-const TARGET_POS = { x: 320, y: 150 };
+// Anchor for the cursor + target marker on the preloaded-page stage: the primary
+// control in the page header (the "add" button the cursor heads to). Coordinates
+// are within the relative stage frame below.
+const TARGET_POS = { x: 486, y: 46 };
+
+// A short, friendly page title per surface so the stage reads as a real ResearchOS
+// page (the no-warp redesign: a preloaded page popup, not the live app). Falls back
+// to a title-cased surface name. The deeper per-surface page content is a follow-up.
+const SURFACE_LABEL: Record<string, string> = {
+  workbench: "Workbench",
+  sequences: "Sequence editor",
+  datahub: "Data Hub",
+  phylo: "Phylo Studio",
+  methods: "Methods",
+  chemistry: "Chemistry",
+  inventory: "Inventory",
+  people: "People",
+};
+function surfaceLabel(surface: string): string {
+  return SURFACE_LABEL[surface] ?? surface.charAt(0).toUpperCase() + surface.slice(1);
+}
 
 /** Humanize a raw [data-tutor-target] id (e.g. "phylo-export-tab",
  *  "datahub-analyze-button") into a short readable control label for the stand-in
@@ -108,26 +126,60 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
         </span>
       </div>
 
-      {/* The stand-in stage. relative so the cursor + bubble position within it. */}
-      <div className="relative h-72 w-full max-w-xl overflow-hidden rounded-xl border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)]">
-        {/* the seeded object + the reveal, as a simple before/after */}
-        <div className="absolute left-5 top-5 text-xs font-semibold text-[var(--muted,#6b716a)]">
-          {choreography.seedKind.replace(/_/g, " ")}
+      {/* The preloaded-page stage: a realistic ResearchOS page that pops up in
+          place (no warp into the live app). relative so the cursor + bubble + the
+          target marker position within it. */}
+      <div className="relative h-[330px] w-[560px] max-w-full overflow-hidden rounded-2xl border border-[var(--line,#e3e5e0)] bg-[var(--surface,#fff)] shadow-sm">
+        {/* page header: the surface title + the primary control the cursor heads to */}
+        <div className="flex items-center justify-between border-b border-[var(--line,#e3e5e0)] px-4 py-3">
+          <div className="flex items-center gap-2">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand,#1d9e75)]" />
+            <span className="text-sm font-semibold text-[var(--fg,#1f2421)]">
+              {surfaceLabel(surface)}
+            </span>
+          </div>
+          <span className="rounded-lg border border-[var(--line2,#d2d5cd)] bg-[var(--sunken,#f1f2ef)] px-2.5 py-1 text-xs font-semibold text-[var(--muted,#6b716a)]">
+            + New
+          </span>
         </div>
-        <div
-          className="absolute left-5 top-12 h-16 w-28 rounded-lg border border-[var(--line2,#d2d5cd)] bg-[var(--surface,#fff)] transition-opacity"
-          style={{ opacity: 1 }}
-        />
-        {/* reveal result */}
-        <div
-          className="absolute h-20 w-32 rounded-lg border border-[var(--brand,#1d9e75)] bg-[var(--surface,#fff)] shadow-md transition-all duration-700"
-          style={{
-            left: 260,
-            top: 110,
-            opacity: revealed ? 1 : 0,
-            transform: revealed ? "scale(1)" : "scale(0.6)",
-          }}
-        />
+
+        {/* page content: a few sample rows, with the reveal row appearing on click */}
+        <div className="flex flex-col gap-2 p-4">
+          {[
+            { dot: "var(--brand,#1d9e75)", title: "Sample item one", sub: "in progress", meta: "64%" },
+            { dot: "var(--info,#2563eb)", title: "Sample item two", sub: "ready to review", meta: "100%" },
+            { dot: "var(--amber,#b9770f)", title: "Sample item three", sub: "queued", meta: "20%" },
+          ].map((row) => (
+            <div
+              key={row.title}
+              className="flex items-center gap-3 rounded-lg border border-[var(--line,#e3e5e0)] px-3 py-2.5"
+            >
+              <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ background: row.dot }} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[var(--fg,#1f2421)]">{row.title}</div>
+                <div className="text-[11.5px] text-[var(--muted,#6b716a)]">{row.sub}</div>
+              </div>
+              <span className="text-xs text-[var(--muted,#6b716a)]">{row.meta}</span>
+            </div>
+          ))}
+          {/* the reveal: the new object the demo adds, fading + lifting into place */}
+          <div
+            className="flex items-center gap-3 rounded-lg border-2 border-[var(--brand,#1d9e75)] bg-[var(--brand-soft,#e7f6ef)] px-3 py-2.5 transition-all duration-700"
+            style={{
+              opacity: revealed ? 1 : 0,
+              transform: revealed ? "translateY(0)" : "translateY(8px)",
+            }}
+          >
+            <span className="h-2.5 w-2.5 flex-none rounded-full bg-[var(--brand,#1d9e75)]" />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-[var(--fg,#1f2421)]">
+                {choreography.seedKind.replace(/_/g, " ")}
+              </div>
+              <div className="text-[11.5px] text-[var(--muted,#6b716a)]">just added</div>
+            </div>
+          </div>
+        </div>
+
         {/* target marker for the control the cursor heads to */}
         {cursorVisible ? (
           <div

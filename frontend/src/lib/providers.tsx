@@ -63,7 +63,6 @@ import MilestoneTwirlMount from "@/components/onboarding/MilestoneTwirlMount";
 import IdleAnimationManager from "@/components/onboarding/IdleAnimationManager";
 import { POPUP_ANIMATIONS_ENABLED } from "@/lib/animations/popup-gate";
 import TourHost from "@/components/onboarding/tutor/TourHost";
-import { hasTourResume } from "@/lib/onboarding/tour-demo-session";
 import WhatsNewManager from "@/components/WhatsNewManager";
 import WikiCaptureBodyClass from "@/components/WikiCaptureBodyClass";
 import RecordingModeBodyClass from "@/components/RecordingModeBodyClass";
@@ -871,15 +870,6 @@ function AppContent({ children }: { children: ReactNode }) {
         <CaptureInboxPoller />
         <TodaySnapshotPublisher />
         <FocusContextPublisher />
-        {/* TourHost also mounts in the demo branch, but ONLY when a coupled-tour
-            resume marker is present: the tutor's deep beats run by hard-reloading
-            into /demo, which lands here (the isDemoOrWikiCapture early return), NOT
-            the main authed render below, so without this the picker's "Start the
-            tour" reloads into the demo and the guided tour never resumes. Gated on
-            hasTourResume() (the same signal AppShell uses) so a NORMAL public /demo
-            visitor never mounts the tutor, even if the demo fixture user reads as
-            fresh; only an in-flight coupled tour resumes here. */}
-        {hasTourResume() && <TourHost username={currentUser} />}
         <>{children}</>
       </QueryClientProvider>
     );
