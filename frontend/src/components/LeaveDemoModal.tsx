@@ -8,6 +8,8 @@ import {
   clearAllStickyDemoFlags,
   isTutorialMode,
 } from "@/lib/file-system/wiki-capture-mock";
+import { clearTourProgress } from "@/lib/onboarding/tour-progress";
+import { clearTourResume } from "@/lib/onboarding/tour-demo-session";
 
 interface Props {
   isOpen: boolean;
@@ -54,6 +56,17 @@ export default function LeaveDemoModal({ isOpen, onClose }: Props) {
   }, []);
 
   const goHome = useCallback(async () => {
+    // Defense-in-depth for the demo trap (2026-06-19): the onboarding tutor's
+    // durable progress lives in localStorage and survives a tab close, so a
+    // half-finished `playing` run used to re-seed demo on the next boot. The
+    // no-warp redesign already stops the tutor from entering demo, but leaving the
+    // demo is an explicit "get me out" action, so also drop any tour progress +
+    // resume marker here. A legit no-warp tour never enters demo, so it can never
+    // surface the Leave-demo control, which means this can only ever clear the
+    // stuck legacy state and never kills an in-flight tour.
+    clearTourProgress();
+    clearTourResume();
+
     if (isTutorialMode()) {
       // Tutorial: don't touch IndexedDB — the parent tab needs it.
       // Clear EVERY sticky sessionStorage flag (demo-mode plus any

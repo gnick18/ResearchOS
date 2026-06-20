@@ -135,4 +135,18 @@ describe("TourHost is mounted in the real app flow (NOT /dev-only)", () => {
     expect(tutor).not.toMatch(/<LiveCursorLayer\b/); // no real-page overlay
     expect(tutor).toMatch(/<ShowcaseStage\b/); // deep demos use the contained stage
   });
+
+  it("TourHost never re-enters /demo on resume (the prod demo-trap fix)", () => {
+    // The prod trap (2026-06-19): TourHost kept the pre-redesign resume path that
+    // hard-reloaded a persisted `playing` run into /demo on every boot, so a
+    // signed-in user with a real folder got warped into the demo sample lab and
+    // could not get back out (Reconnect bounced through /demo). The no-warp tutor
+    // plays inline, so TourHost must NOT begin a demo session or hand the tutor the
+    // warp props. endTourDemoSession (the one-way EXIT rescue for users already
+    // stuck in demo) is still allowed. Lock both so the trap can never come back.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const host = readFileSync(join(here, "./TourHost.tsx"), "utf8");
+    expect(host).not.toMatch(/beginTourDemoSession/); // never enters demo on resume
+    expect(host).not.toMatch(/onBeginShow=/); // no warp handoff to the tutor
+  });
 });
