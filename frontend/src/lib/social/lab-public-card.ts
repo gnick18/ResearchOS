@@ -11,9 +11,9 @@
 //   - getAccountProfile:    the PI's @handle (and display name fallback)
 //   - getBindingByHash:     the PI key fingerprint for the trust badge
 //
-// Members are shown as the PI plus a count (memberCount); the full per-member
-// @handle roster is a later enrichment, not needed for the first real-lab cut.
-// Any failure resolves to null so a hiccup just falls back to the bare page.
+// The member avatars are the lab's active members who have claimed a public
+// handle (capped); the true total stays memberCount. Any failure resolves to
+// null (or an empty roster) so a hiccup just falls back to the bare page.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -25,6 +25,11 @@ import {
   getProfileByFingerprint,
 } from "@/lib/sharing/directory/db";
 import { getAccountProfile } from "@/lib/account/account-profile";
+import { listLabMembers } from "@/lib/billing/lab";
+
+// Cap on the member avatars resolved for the public header. The true total still
+// comes from memberCount; this only bounds the per-member handle lookups.
+const MEMBER_AVATAR_CAP = 12;
 
 /**
  * The public card for a real lab by slug, or null when the slug has no lab site,
@@ -51,6 +56,28 @@ export async function getLabPublicCard(slug: string): Promise<DemoLabCard | null
       ? await getProfileByFingerprint(binding.fingerprint).catch(() => null)
       : null;
 
+    // Public member roster: the lab's ACTIVE members who have CLAIMED a public
+    // handle (an unclaimed member has no public identity to show, so they are
+    // counted in memberCount but not listed). Capped, and a failure just yields
+    // an empty list (PI plus count still renders).
+    const roster = await listLabMembers(ownerKey).catch(() => []);
+    const activeKeys = roster
+      .filter((m) => m.status === "active")
+      .slice(0, MEMBER_AVATAR_CAP)
+      .map((m) => ({ key: m.memberOwnerKey, label: m.label }));
+    const resolved = await Promise.all(
+      activeKeys.map(async ({ key, label }) => {
+        const p = await getAccountProfile(key).catch(() => null);
+        if (!p?.handle) return null;
+        return {
+          handle: p.handle,
+          name: p.displayName || p.handle,
+          role: label || "Member",
+        };
+      }),
+    );
+    const members = resolved.filter((m): m is NonNullable<typeof m> => m !== null);
+
     return {
       slug: site.labSlug,
       name: lab.name,
@@ -60,7 +87,7 @@ export async function getLabPublicCard(slug: string): Promise<DemoLabCard | null
         name: lab.piDisplayName || profile?.displayName || lab.name,
         role: "Principal investigator",
       },
-      members: [],
+      members,
       memberCount: lab.memberCount,
       verifiedDomain: dirProfile?.affiliationDomain ?? "",
       keyFingerprint: binding?.fingerprint ?? "",
