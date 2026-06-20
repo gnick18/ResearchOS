@@ -261,6 +261,46 @@ describe("shouldGateForClaim (app-wide require-account gate)", () => {
         }),
       ).toBe(false);
     });
+
+    // Undetermined-read guard (login-flash fix, 2026-06-20): a STALLED identity
+    // read settles status to a fallback "none" that means "could not read", not
+    // "no account here". It must not flash the auto-claim gate at a signed-in
+    // user whose identity is actually present and merely slow to read (the FSA
+    // sidecar read stalls on a cloud-synced folder or a fresh remount from the
+    // "Lab" / "My work" header toggle).
+    it("does NOT block a signed-in user on a STALLED 'none' (could-not-read, not a confirmed no-account)", () => {
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "none",
+          identityStalled: true,
+        }),
+      ).toBe(false);
+    });
+
+    it("STILL blocks a signed-in user on a SETTLED 'none' (real fresh-folder dead zone, stalled false)", () => {
+      // The auto-claim intent is preserved: a genuine no-identity read (settled,
+      // not stalled) still opens the gate. Explicit `identityStalled: false`
+      // mirrors the default so the distinction from the stalled case is clear.
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "none",
+          identityStalled: false,
+        }),
+      ).toBe(true);
+      // Omitting identityStalled defaults to false, so the four-state callers are
+      // unaffected and the dead-zone gate still fires.
+      expect(
+        shouldGateForClaim({
+          ...blocking,
+          hasCloudSession: true,
+          identityStatus: "none",
+        }),
+      ).toBe(true);
+    });
   });
 });
 

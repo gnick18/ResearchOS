@@ -121,6 +121,23 @@ export function isStandaloneLocalKeypairCreateVisible(opts: {
  * key lives on another device) is left OUT of the signed-in branch on purpose:
  * that is the cross-device restore case (S3), out of Phase 1 scope, so its
  * behavior is unchanged here.
+ *
+ * UNDETERMINED-READ GUARD (login-flash fix, 2026-06-20): the signed-in branch
+ * must NOT fire on a STALLED identity read. useSharingIdentity reads the sidecar
+ * over File System Access, which "can stall or reject without ever settling" (its
+ * own note), especially on a cloud-synced folder (OneDrive / iCloud) or on a
+ * fresh remount when the header view toggle ("Lab" vs "My work") navigates to the
+ * other home route and tears the shell down and rebuilds it. When every read
+ * attempt times out, the hook settles status to a determinate "none" with
+ * `stalled` true. That fallback "none" means "could not read", NOT "no account
+ * here", so treating it as the deferred-mint dead zone wrongly flashes the
+ * auto-claim gate (a login-like "Setting up your account" screen) at a signed-in
+ * user whose identity is actually present and merely slow to read. Gating only on
+ * a SETTLED, non-stalled "none" keeps the auto-claim intent (a real fresh-folder
+ * user is a settled "none", stalled false) while a transient stall renders the
+ * app, not the gate, until the retry resolves the true status. The signed-out
+ * branch already requires "ready", so a stalled "none" never reaches it; this
+ * guards the one branch that reads "none" as a trigger.
  */
 export function shouldGateForClaim(opts: {
   requireAccount: boolean;
@@ -130,6 +147,13 @@ export function shouldGateForClaim(opts: {
   identityStatus: "loading" | "none" | "needs-restore" | "ready";
   published: boolean;
   hasCloudSession: boolean | null;
+  /**
+   * Whether the identity read STALLED (every attempt timed out or threw, so the
+   * "none" status is a determinate fallback for "could not read", not a confirmed
+   * "no account"). Optional, defaults to false so the four-state callers and the
+   * existing tests are unaffected; only the auto-claim branch consults it.
+   */
+  identityStalled?: boolean;
 }): boolean {
   // Shared preconditions for either branch. These encode the no-soft-lock
   // invariant: require-account on, a real OAuth claim path exists, a user is
@@ -153,8 +177,13 @@ export function shouldGateForClaim(opts: {
   // Branch 2 (auto-claim, new): a signed-IN user with no usable identity yet
   // (the deferred-mint dead zone). Fires only on status "none", never "ready",
   // so it cannot loop on a lagging publish (see the NO-LOOP GUARD note above).
+  // `!identityStalled` excludes a stalled fallback "none" (could-not-read), so a
+  // transient File System Access stall on remount does not flash the gate (see
+  // the UNDETERMINED-READ GUARD note above).
   const signedInNoIdentity =
-    opts.hasCloudSession === true && opts.identityStatus === "none";
+    opts.hasCloudSession === true &&
+    opts.identityStatus === "none" &&
+    !opts.identityStalled;
 
   return signedOutLocalOnly || signedInNoIdentity;
 }
