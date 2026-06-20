@@ -35,9 +35,9 @@ vi.mock("./folder-account-scope", () => ({
 const FOLDERS_KEY = "research-os-folders";
 
 describe("folderKindBadge (per-kind color + badge)", () => {
-  it("maps head to brand-action 'Lab head'", () => {
+  it("maps head to the gold brand-lead 'Lab head'", () => {
     expect(folderKindBadge({ labRole: "head" })).toEqual({
-      token: "brand-action",
+      token: "brand-lead",
       label: "Lab head",
     });
   });
@@ -49,16 +49,16 @@ describe("folderKindBadge (per-kind color + badge)", () => {
     });
   });
 
-  it("maps class to the teaching amber 'Class'", () => {
+  it("maps class to the teaching teal 'Class'", () => {
     expect(folderKindBadge({ labRole: "class" })).toEqual({
       token: "brand-teach",
       label: "Class",
     });
   });
 
-  it("maps student to the teaching green 'Student'", () => {
+  it("maps student to the rose brand-learn 'Student'", () => {
     expect(folderKindBadge({ labRole: "student" })).toEqual({
-      token: "brand-teach-soft",
+      token: "brand-learn",
       label: "Student",
     });
   });

@@ -88,13 +88,13 @@ export interface FolderKindBadge {
 export function folderKindBadge(folder: FolderLabIdentity): FolderKindBadge {
   switch (folder.labRole) {
     case "head":
-      return { token: "brand-action", label: "Lab head" };
+      return { token: "brand-lead", label: "Lab head" };
     case "member":
       return { token: "brand-purple", label: "Lab member" };
     case "class":
       return { token: "brand-teach", label: "Class" };
     case "student":
-      return { token: "brand-teach-soft", label: "Student" };
+      return { token: "brand-learn", label: "Student" };
     case "solo":
     default:
       // solo, absent, or any future/unknown role falls back to neutral ink.

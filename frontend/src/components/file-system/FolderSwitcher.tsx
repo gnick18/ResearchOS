@@ -53,10 +53,10 @@ import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 // the lookup from that token to the two real classes.
 const KIND_PILL_CLASS: Record<string, string> = {
   "brand-ink": "bg-brand-ink/10 text-brand-ink",
-  "brand-action": "bg-brand-action/10 text-brand-action",
+  "brand-lead": "bg-brand-lead/10 text-brand-lead",
   "brand-purple": "bg-brand-purple/10 text-brand-purple",
   "brand-teach": "bg-brand-teach/10 text-brand-teach",
-  "brand-teach-soft": "bg-brand-teach-soft/10 text-brand-teach-soft",
+  "brand-learn": "bg-brand-learn/10 text-brand-learn",
 };
 
 /** Format a lastOpenedAt timestamp as a short, calm relative string. */

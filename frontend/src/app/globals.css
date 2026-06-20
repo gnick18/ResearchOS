@@ -1373,19 +1373,19 @@
   /* Channel purple (the YouTube avatar background in brand/README.md). Pairs
    * with brand-sky for the dark-surface logo pill on the auth screens. */
   --color-brand-purple: #5b47d6;
-  /* Teaching accents (folder-switcher visual key for class / student folders).
-   * The four blues + purple above already key solo / head / member, so a profile
-   * that holds a class they teach AND a class they take needs two MORE hues that
-   * are distinct from the blues and from each other and still pass WCAG AA for
-   * small text on white (used as text-{token} on a soft bg-{token}/10 pill).
-   *   brand-teach        Teaching amber for a CLASS folder (the instructor side).
-   *                      ~4.6:1 on white.
-   *   brand-teach-soft   Teaching green for a STUDENT folder (the enrolled side).
-   *                      ~4.5:1 on white. Distinct from amber and from the blues.
-   * PROVISIONAL palette pending Grant's sign-off, kept here as single-source
-   * brand tokens so the five-kind key is retuned in one place. */
-  --color-brand-teach: #b45309;
-  --color-brand-teach-soft: #0f766e;
+  /* Folder-switcher visual key for the five folder kinds. A profile can hold
+   * all of them at once, so each kind gets a distinct hue that passes WCAG AA
+   * for small text on white (used as text-{token} on a soft bg-{token}/10 pill).
+   * The full five-kind mapping (signed off by Grant 2026-06-19):
+   *   solo    -> brand-ink     (neutral near-black)
+   *   head    -> brand-lead    (gold / yellow, ~5:1 on white; pairs with the crown)
+   *   member  -> brand-purple
+   *   class   -> brand-teach   (teaching teal, ~4.8:1 on white)
+   *   student -> brand-learn   (rose, ~5:1 on white; warm contrast to the teal)
+   * Kept as single-source brand tokens so the key is retuned in one place. */
+  --color-brand-lead: #a16207;
+  --color-brand-teach: #0f766e;
+  --color-brand-learn: #be123c;
 }
 
 body {
