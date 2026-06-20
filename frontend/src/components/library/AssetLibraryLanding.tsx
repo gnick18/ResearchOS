@@ -112,7 +112,7 @@ export default function AssetLibraryLanding() {
           </Reveal>
           <Reveal as="div" delay={60}>
             <h1 className="mx-auto mt-4 max-w-3xl text-balance text-4xl font-bold tracking-tight sm:text-5xl">
-              Thousands of open scientific icons, free to use and remix.
+              Around 30,000 open scientific icons, free to use and remix.
             </h1>
           </Reveal>
           <Reveal as="div" delay={120}>

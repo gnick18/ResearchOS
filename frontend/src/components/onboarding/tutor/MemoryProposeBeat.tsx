@@ -8,7 +8,7 @@
 // where the first write happens. Either choice advances. No emojis, no
 // em-dashes, no mid-sentence colons.
 
-import BeakerBot from "@/components/BeakerBot";
+import BeakerSays from "./BeakerSays";
 import TutorScreen from "./TutorScreen";
 
 export interface MemoryProposeBeatProps {
@@ -26,17 +26,12 @@ export default function MemoryProposeBeat({
 }: MemoryProposeBeatProps) {
   return (
     <TutorScreen>
-      <div className="w-full max-w-md">
-        <div className="mb-4 flex items-start gap-2">
-          <span className="h-8 w-8 flex-none">
-            <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
-          </span>
-          <div className="rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3 py-2 text-sm">
-            I keep a little memory just for you, private and never shared with
-            your lab. Anytime you tell me to remember something, it sticks across
-            all our chats.
-          </div>
-        </div>
+      <div className="w-full max-w-xl">
+        <BeakerSays>
+          I keep a little memory just for you, private and never shared with your
+          lab. Anytime you tell me to remember something, it sticks across all our
+          chats.
+        </BeakerSays>
 
         <div className="rounded-xl border border-[var(--violet,#7c4dca)] bg-[var(--violet-soft,#efe7fb)] px-3 py-3">
           <div className="mb-1.5 text-xs font-bold uppercase tracking-wide text-[var(--violet-ink,#5b34a0)]">

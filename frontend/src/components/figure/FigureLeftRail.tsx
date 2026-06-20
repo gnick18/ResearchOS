@@ -275,11 +275,11 @@ function IconsPanel({ onPick }: { onPick: (a: LibraryAsset) => void }) {
   // 9-section corpus stays scannable; selecting a leaf keeps its section open.
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
-  // Debounced query so we don't re-rank 14k assets on every keystroke.
+  // Debounced query so we don't re-rank 30k assets on every keystroke.
   const [debouncedQuery, setDebouncedQuery] = useState("");
 
   // Recently-inserted + starred icons, loaded from localStorage on mount so the
-  // most-used few are one click away (a 14k library makes re-searching tedious).
+  // most-used few are one click away (a 30k library makes re-searching tedious).
   const [recentUids, setRecentUids] = useState<string[]>([]);
   const [favUids, setFavUids] = useState<string[]>([]);
 

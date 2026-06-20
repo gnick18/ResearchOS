@@ -26,7 +26,7 @@ import {
 import { choreographyFor } from "@/lib/onboarding/showcase-choreography";
 import type { Surface } from "@/lib/onboarding/reel-director";
 import PresenterCursor from "./PresenterCursor";
-import BeakerBot from "@/components/BeakerBot";
+import BeakerSays from "./BeakerSays";
 import TutorScreen from "./TutorScreen";
 
 export interface ShowcaseStageProps {
@@ -95,20 +95,12 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
 
   return (
     <TutorScreen contentClassName="flex-col">
-      {/* Beaker himself, full size + a live speech bubble, OUTSIDE the page card,
-          exactly like the intro beats (welcome / interest picker). His narration
-          updates per step. The page card below is what he is showing. */}
-      <div className="mb-3 flex w-[560px] max-w-full items-start gap-3">
-        <div className="h-40 w-40 flex-none">
-          <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
-        </div>
-        <div
-          className="mt-7 rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3.5 py-2.5 text-base text-[var(--fg,#1f2421)]"
-          style={{ fontFamily: "var(--font-ai)" }}
-        >
-          {narration(state) ?? "Watch, I will show you around this page."}
-        </div>
-      </div>
+      {/* Beaker himself, full size + live speech bubble, OUTSIDE the page card,
+          the same shared composition as every other beat. His narration updates
+          per step; the page card below is what he is showing. */}
+      <BeakerSays className="w-[560px] max-w-full">
+        {narration(state) ?? "Watch, I will show you around this page."}
+      </BeakerSays>
 
       {/* The preloaded-page stage: a realistic ResearchOS page that pops up in
           place (no warp into the live app). relative so the cursor + the target

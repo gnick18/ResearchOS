@@ -1,5 +1,5 @@
 // Recently-used + favorited icons for the Figure composer's asset picker. With a
-// 14k-icon open library, people re-insert the same handful constantly (their
+// 30k-icon open library, people re-insert the same handful constantly (their
 // organism, their assay glyph, their arrows); this keeps last-used + starred
 // icons one click away instead of re-searching every time. Two layers:
 //   - pure list reducers (pushRecent / toggleFavorite), unit-tested, no DOM,
