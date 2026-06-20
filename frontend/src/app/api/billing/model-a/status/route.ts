@@ -11,7 +11,13 @@ import { auth } from "@/lib/sharing/auth";
 import { json } from "@/lib/sharing/directory/guard";
 import { isBillingEnabled } from "@/lib/billing/config";
 import { ownerKeyForEmail } from "@/lib/billing/owner";
-import { resolveModelAPlanId, isProduceEntitled } from "@/lib/billing/model-a/resolve";
+import {
+  resolveModelAPlanId,
+  isProduceEntitled,
+  getEffectiveModelAPlanId,
+} from "@/lib/billing/model-a/resolve";
+import { getSponsoringLab } from "@/lib/billing/lab";
+import { getLabNameByPiKey } from "@/lib/sharing/directory/db";
 import {
   getCloudBalance,
   getCloudPaymentMethod,
@@ -22,6 +28,29 @@ import { labTrialPhase } from "@/lib/billing/model-a/lab-trial";
 
 export const runtime = "nodejs";
 
+/**
+ * The lab that actively covers this member, for the settings "covered by X lab"
+ * line, or null. A member is covered only when (1) a lab sponsors them and (2)
+ * that lab's PI resolves to a real paid or comped plan, so a member sponsored by
+ * a lab whose PI is still free is NOT reported as covered (no false claim). The
+ * lab name comes from the directory listing keyed by the PI owner key. Any error
+ * resolves to null so a lookup hiccup never blocks the status read.
+ */
+async function resolveSponsoringLab(
+  ownerKey: string,
+): Promise<{ name: string } | null> {
+  try {
+    const sponsorKey = await getSponsoringLab(ownerKey);
+    if (!sponsorKey || sponsorKey === ownerKey) return null;
+    const sponsorPlan = await getEffectiveModelAPlanId(sponsorKey);
+    if (sponsorPlan === "free") return null;
+    const name = await getLabNameByPiKey(sponsorKey);
+    return { name: name ?? "your lab" };
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(): Promise<Response> {
   if (!isBillingEnabled()) return json(404, { error: "not found" });
 
@@ -31,16 +60,20 @@ export async function GET(): Promise<Response> {
 
   const ownerKey = ownerKeyForEmail(email);
   try {
-    const [planId, accruedCents, capCents, card, produceEntitled, trial] = await Promise.all([
-      resolveModelAPlanId(ownerKey),
-      getCloudBalance(ownerKey),
-      getMonthlyCap(ownerKey),
-      getCloudPaymentMethod(ownerKey),
-      // Resolves a free member to their sponsoring PI, so a paid-lab member reads
-      // as entitled to the produce features (send, co-edit, pairing) the PI covers.
-      isProduceEntitled(ownerKey),
-      getLabTrialState(ownerKey),
-    ]);
+    const [planId, accruedCents, capCents, card, produceEntitled, trial, sponsoringLab] =
+      await Promise.all([
+        resolveModelAPlanId(ownerKey),
+        getCloudBalance(ownerKey),
+        getMonthlyCap(ownerKey),
+        getCloudPaymentMethod(ownerKey),
+        // Resolves a free member to their sponsoring PI, so a paid-lab member reads
+        // as entitled to the produce features (send, co-edit, pairing) the PI covers.
+        isProduceEntitled(ownerKey),
+        getLabTrialState(ownerKey),
+        // The lab that covers this member, so settings can say "covered by X lab"
+        // instead of looking like the membership did nothing.
+        resolveSponsoringLab(ownerKey),
+      ]);
     // Trial fields drive the settings countdown line and the day-90 pause prompt.
     // trialPhase is the single shared decision; trialEndsAt feeds the countdown.
     const trialPhase = labTrialPhase(trial);
@@ -53,6 +86,7 @@ export async function GET(): Promise<Response> {
       trialEndsAt: trial.trialEndsAt,
       trialPhase,
       trialPaused: trialPhase === "ended_no_card",
+      sponsoringLab,
     });
   } catch {
     return json(500, { error: "status failed" });

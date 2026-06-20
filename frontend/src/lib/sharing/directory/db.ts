@@ -997,6 +997,27 @@ export async function setLabListed(
 }
 
 /**
+ * The display name of the lab a given PI owns, resolved by their owner-key hash
+ * (pi_email_hash equals ownerKeyForEmail of the PI). Returns null when the PI
+ * owns no directory lab row. Used to label a member's "covered by X lab" line in
+ * settings without exposing the PI email or any other lab field. Picks the most
+ * recently updated row if a PI somehow has more than one (a PI owns one lab).
+ */
+export async function getLabNameByPiKey(
+  piEmailHash: string,
+): Promise<string | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT name
+    FROM directory_labs
+    WHERE pi_email_hash = ${piEmailHash}
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `) as Array<{ name: string }>;
+  return rows.length ? rows[0].name : null;
+}
+
+/**
  * Returns the directory row for a single lab, or null when none exists.
  */
 export async function getLabListing(

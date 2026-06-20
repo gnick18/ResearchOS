@@ -16,6 +16,7 @@
 
 import React, { useEffect, useState } from "react";
 import { PLAN_PRICES, usd, type PaidPlanId } from "@/lib/billing/catalog";
+import { Icon } from "@/components/icons";
 
 export type LabTrialPhase =
   | "none"
@@ -34,6 +35,14 @@ export interface ModelAStatus {
   trialPhase?: LabTrialPhase;
   /** True when an expired trial has no card, so the lab is paused. */
   trialPaused?: boolean;
+  /**
+   * The lab that covers this member, or null. Present only when a lab actively
+   * sponsors the signed-in user (its PI is on a paid or comped plan), so the UI
+   * can say "covered by X lab" rather than leaving a member to think their own
+   * plan is all there is. A member keeps their own plan badge; coverage is in
+   * addition, not a replacement.
+   */
+  sponsoringLab?: { name: string } | null;
 }
 
 type Load =
@@ -88,10 +97,47 @@ function Ready({
   status: ModelAStatus;
   onChange: (s: ModelAStatus) => void;
 }) {
-  return status.planId === "free" ? (
-    <FreePanel onChange={onChange} />
-  ) : (
-    <PaidPanel status={status} onChange={onChange} />
+  const panel =
+    status.planId === "free" ? (
+      <FreePanel onChange={onChange} />
+    ) : (
+      <PaidPanel status={status} onChange={onChange} />
+    );
+  // A member's own plan is independent of lab coverage, so the banner sits above
+  // whichever panel they see (free, solo-comped, etc.). Coverage adds to their
+  // plan, it does not replace it.
+  return (
+    <div className="space-y-4">
+      {status.sponsoringLab && <CoverageBanner labName={status.sponsoringLab.name} />}
+      {panel}
+    </div>
+  );
+}
+
+// ---- Member coverage banner ----
+//
+// A lab member is covered for the paid cloud features (sending, live co-editing,
+// app pairing) by their lab's plan, even while their own plan reads free or solo.
+// Without this line a member sees only their personal plan and reasonably thinks
+// joining the lab did nothing, so we state plainly what the lab covers and that
+// the PI is billed, not them.
+function CoverageBanner({ labName }: { labName: string }) {
+  return (
+    <div className="flex items-start gap-3 rounded-2xl border border-green-200 bg-green-50 p-4 dark:border-green-500/30 dark:bg-green-500/15">
+      <span className="mt-0.5 text-green-700 dark:text-green-300">
+        <Icon name="shield" className="h-5 w-5" />
+      </span>
+      <div className="text-sm">
+        <p className="font-semibold text-green-900 dark:text-green-200">
+          Covered by {labName}
+        </p>
+        <p className="mt-1 leading-relaxed text-green-800 dark:text-green-300">
+          Your lab covers cloud features like sending outside your folder and
+          live co-editing, so you do not need a paid plan of your own. Your lab
+          head is billed for the shared pool, never you.
+        </p>
+      </div>
+    </div>
   );
 }
 
