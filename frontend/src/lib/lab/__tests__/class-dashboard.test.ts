@@ -7,6 +7,8 @@ import {
   resolveClassDashboard,
   defaultResolvedClassDashboard,
   seedSharedWithForVisibility,
+  resolveClassStudentNav,
+  CLASS_STUDENT_NAV_DEFAULT,
   decodeClassDashboard,
   encodeClassDashboard,
   WORKBENCH_TAB_ORDER,
@@ -134,5 +136,40 @@ describe("encode / decode round-trip", () => {
     );
     expect(decoded?.rev).toBe(0);
     expect(decoded?.tabs).toEqual(["notes"]);
+  });
+});
+
+describe("resolveClassStudentNav (CT-6)", () => {
+  it("absent template => the coursework default allowlist", () => {
+    const set = resolveClassStudentNav(null);
+    expect([...set].sort()).toEqual([...CLASS_STUDENT_NAV_DEFAULT].sort());
+    // The coursework default hides research-lab screens.
+    expect(set.has("/gantt")).toBe(false);
+    expect(set.has("/purchases")).toBe(false);
+    expect(set.has("/inventory")).toBe(false);
+    expect(set.has("/links")).toBe(false);
+    // ...and keeps the home + science tools.
+    expect(set.has("/workbench")).toBe(true);
+    expect(set.has("/methods")).toBe(true);
+    expect(set.has("/datahub")).toBe(true);
+  });
+
+  it("absent `nav` on a present template => the coursework default", () => {
+    const set = resolveClassStudentNav({ rev: 1, tabs: ["notes"] });
+    expect([...set].sort()).toEqual([...CLASS_STUDENT_NAV_DEFAULT].sort());
+  });
+
+  it("present `nav` => exactly the instructor's choice, with /workbench force-kept", () => {
+    const set = resolveClassStudentNav({ rev: 2, nav: ["/methods", "/gantt"] });
+    expect(set.has("/methods")).toBe(true);
+    expect(set.has("/gantt")).toBe(true); // the instructor turned it on
+    expect(set.has("/workbench")).toBe(true); // never hidden (no soft-lock)
+    expect(set.has("/datahub")).toBe(false); // not chosen
+  });
+
+  it("never strands the student even if the instructor clears the nav", () => {
+    const set = resolveClassStudentNav({ rev: 3, nav: [] });
+    expect(set.has("/workbench")).toBe(true);
+    expect(set.size).toBe(1);
   });
 });

@@ -188,3 +188,18 @@ export function filterResearcherItems(
   if (!classMode) return researcher;
   return researcher.filter((item) => !CLASS_HIDDEN_NAV_HREFS.has(item.href));
 }
+
+/**
+ * CT-6: slim a class STUDENT's top-nav to the instructor's allowlist. Keeps only
+ * the items whose href is in `allowed` (resolveClassStudentNav). Applied ONLY for
+ * a class student (the caller gates on useIsClassStudent + the flag), so a
+ * research-lab / solo / instructor / flag-off nav is never touched. /workbench is
+ * always in `allowed` (the resolver force-adds it), so the student keeps their
+ * home, no soft-lock. Hiding here is nav-visibility only, never a route gate.
+ */
+export function filterClassStudentNav(
+  items: NavItem[],
+  allowed: ReadonlySet<string>,
+): NavItem[] {
+  return items.filter((item) => allowed.has(item.href));
+}

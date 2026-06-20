@@ -40,7 +40,9 @@ import {
   lensLabel,
   buildLabLensItems,
   filterResearcherItems,
+  filterClassStudentNav,
 } from "@/lib/lab/class-chrome";
+import { useClassDashboard } from "@/hooks/useClassDashboard";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
@@ -331,6 +333,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   const isClassStudent = useIsClassStudent(currentUser ?? null) === true;
   const showStudentAssignments = CLASS_MODE_ENABLED && isClassStudent && !!currentUser;
   const assignmentCount = useStudentAssignmentCount(showStudentAssignments);
+  // CT-6: the instructor-controlled student nav allowlist (coursework default when
+  // unset). Applied to the researcher nav below ONLY for a class student.
+  const { studentNav } = useClassDashboard(currentUser ?? null);
   const [assignmentsDrawerOpen, setAssignmentsDrawerOpen] = useState(false);
 
   // PI view mode (NAV-1/2/3): a lab head defaults to the lab lens and can flip to
@@ -416,8 +421,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       filtered.filter((item) => item.href !== HOME_HREF),
       classMode,
     );
+    // CT-6: a class STUDENT sees only the instructor's allowlist (coursework
+    // default when unset). /workbench is always kept (the resolver force-adds it),
+    // and this hides nav entries only, never gates routes (no soft-lock). For a
+    // non-class member, a research lab, or flag-off, isClassStudent is false and
+    // this is a no-op.
+    if (isClassStudent) {
+      return filterClassStudentNav(researcher, studentNav);
+    }
     return researcher;
-  }, [filtered, labLens, classMode]);
+  }, [filtered, labLens, classMode, isClassStudent, studentNav]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
