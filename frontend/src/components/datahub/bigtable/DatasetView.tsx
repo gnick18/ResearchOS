@@ -43,6 +43,7 @@ import DatasetExportDialog from "./DatasetExportDialog";
 import Tooltip from "@/components/Tooltip";
 import { isBigTableEnabled } from "@/lib/datahub/config";
 import { humanizeEngineError } from "@/lib/datahub/transform/validate";
+import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 
 /** How many rows to fetch per engine page. The grid windows the DOM; this is the
  *  network-equivalent batch the engine returns per LIMIT/OFFSET call. */
@@ -111,6 +112,14 @@ export default function DatasetView({
   const [showExport, setShowExport] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Nudge the Transform button when this large dataset opens, but only up to a few
+  // times per device. Transform is the powerful action here and easy to walk past,
+  // so the shimmer invites discovery without nagging a power user. A click retires
+  // the cue for good via markNudgeUsed below.
+  const nudgeTransform = useNudge("datahub-transform", {
+    eligible: onOpenTransform != null,
+  });
 
   // Delete this whole large dataset (its parquet + sidecar). Large datasets had
   // no delete affordance before; the editable lane has had one. Confirmed inline,
@@ -311,13 +320,16 @@ export default function DatasetView({
         {onOpenTransform && (
           <button
             type="button"
-            onClick={onOpenTransform}
-            className={`ros-btn-neutral datahub-transform-shimmer inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground ${
-              analyzeEnabled ? "" : "ml-auto"
-            }`}
+            onClick={() => {
+              markNudgeUsed("datahub-transform");
+              onOpenTransform();
+            }}
+            className={`ros-btn-neutral inline-flex items-center gap-1.5 px-2.5 py-1 text-meta font-medium text-foreground ${
+              nudgeTransform ? "ros-nudge-shimmer " : ""
+            }${analyzeEnabled ? "" : "ml-auto"}`}
             data-testid="bigtable-open-transform"
           >
-            <span className="relative z-10 inline-flex items-center gap-1.5">
+            <span className="inline-flex items-center gap-1.5">
               <Icon name="transform" className="h-3.5 w-3.5" />
               Transform
             </span>

@@ -178,10 +178,10 @@ describe("SequenceOperationsRail", () => {
       />,
     );
     const primersBtn = container.querySelector('[data-op="primers"]') as HTMLElement;
-    expect(primersBtn.classList.contains("seq-rail-shimmer")).toBe(true);
+    expect(primersBtn.classList.contains("ros-nudge-shimmer")).toBe(true);
     // Only the nudged op shimmers; siblings stay calm.
     const alignBtn = container.querySelector('[data-op="align"]') as HTMLElement;
-    expect(alignBtn.classList.contains("seq-rail-shimmer")).toBe(false);
+    expect(alignBtn.classList.contains("ros-nudge-shimmer")).toBe(false);
   });
 
   it("does NOT shimmer the nudged op when it is the active (already open) op", () => {
@@ -194,7 +194,7 @@ describe("SequenceOperationsRail", () => {
       />,
     );
     const primersBtn = container.querySelector('[data-op="primers"]') as HTMLElement;
-    expect(primersBtn.classList.contains("seq-rail-shimmer")).toBe(false);
+    expect(primersBtn.classList.contains("ros-nudge-shimmer")).toBe(false);
   });
 
   it("shimmers no op when nudgeId is null", () => {
@@ -206,7 +206,7 @@ describe("SequenceOperationsRail", () => {
         nudgeId={null}
       />,
     );
-    expect(container.querySelector(".seq-rail-shimmer")).toBeNull();
+    expect(container.querySelector(".ros-nudge-shimmer")).toBeNull();
   });
 
   it("draws the amber dot badge when an op carries one (e.g. Tree with an organism)", () => {

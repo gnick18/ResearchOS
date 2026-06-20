@@ -279,7 +279,7 @@ function RailGroupAndButton({
   op: RailOperation;
   active: boolean;
   onPick: (id: string) => void;
-  /** When true, shimmer this rail button to invite a click (see seq-rail-shimmer
+  /** When true, shimmer this rail button to invite a click (see ros-nudge-shimmer
    *  in globals.css). Only set when the op is not the active one. */
   nudge?: boolean;
 }) {
@@ -302,7 +302,7 @@ function RailGroupAndButton({
             active
               ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
               : "border-transparent text-foreground-muted hover:bg-surface-sunken"
-          } ${nudge ? "seq-rail-shimmer" : ""}`}
+          } ${nudge ? "ros-nudge-shimmer" : ""}`}
         >
           {op.badge != null ? <Badge badge={op.badge} /> : null}
           {op.icon}

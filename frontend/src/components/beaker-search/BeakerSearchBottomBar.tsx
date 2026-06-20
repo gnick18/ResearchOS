@@ -124,7 +124,7 @@ export default function BeakerSearchBottomBar() {
                 e.stopPropagation();
                 openBeakerBot();
               }}
-              className="beakerbot-ai-shimmer flex-none cursor-pointer rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
+              className="ros-nudge-shimmer flex-none cursor-pointer rounded-md border border-border bg-surface-sunken px-1.5 py-0.5 text-[11px] font-semibold"
             >
               Cmd J
             </kbd>

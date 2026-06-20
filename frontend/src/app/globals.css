@@ -1793,7 +1793,7 @@ body {
  * sky ring stays lit between sweeps, so the op reads as inviting without ever
  * auto-opening. NO overflow clipping here, the rail badge must stay visible.
  * Sky / action brand color 26 160 230 (#1AA0E6), action-deep 18 131 201. */
-@keyframes seq-rail-shimmer {
+@keyframes ros-nudge-shimmer {
   0% {
     background-position: -140% 0;
     box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
@@ -1807,7 +1807,17 @@ body {
   }
 }
 
-.seq-rail-shimmer {
+/* The single canonical "shimmer to nudge discovery" cue, driven by the useNudge
+   hook (lib/ui/use-nudge.ts) or, for an always-on hint, applied directly. A soft
+   sky sheen sweeps across a faint gradient while a subtle sky ring stays lit
+   between sweeps, so the target reads as inviting without auto-opening. NO overflow
+   clipping here, a badge or chip inside must stay visible. The three older
+   shimmers (seq-rail, beakerbot-ai, datahub-transform) now alias this one so the
+   look and the anti-annoyance behavior are identical everywhere. */
+.ros-nudge-shimmer,
+.seq-rail-shimmer,
+.beakerbot-ai-shimmer,
+.datahub-transform-shimmer {
   background-image: linear-gradient(
     115deg,
     transparent 0%,
@@ -1818,11 +1828,14 @@ body {
   );
   background-size: 220% 100%;
   background-repeat: no-repeat;
-  animation: seq-rail-shimmer 2s ease-in-out infinite;
+  animation: ros-nudge-shimmer 2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .seq-rail-shimmer {
+  .ros-nudge-shimmer,
+  .seq-rail-shimmer,
+  .beakerbot-ai-shimmer,
+  .datahub-transform-shimmer {
     animation: none;
     background-image: none;
     box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
@@ -2117,98 +2130,9 @@ body.recording-mode * {
   }
 }
 
-/* BeakerBot AI shortcut shimmer (2026-06-14). The "Cmd J" hint on the ask bar
-   gets a slow brand-rainbow sheen swept across its text, so it reads as the
-   special "this opens the AI" chip without shouting. The base color on BOTH ends
-   is brand-action, so the gradient loops seamlessly (no visible jump). The text
-   is clipped to the gradient, so only the glyphs shimmer, not the chip. */
-@keyframes beakerbot-ai-shimmer {
-  from {
-    background-position: 160% center;
-  }
-  to {
-    background-position: -160% center;
-  }
-}
-.beakerbot-ai-shimmer {
-  /* Subtle by design: the text sits at the SAME muted color as the plain Cmd K
-     chip, and only a soft PASTEL rainbow glint (the --brand-rainbow ramp, not the
-     vivid one) sweeps through, as a narrow band. So the chip blends with the bar
-     at rest and just catches a gentle rainbow shimmer as it passes. */
-  background-image: linear-gradient(
-    100deg,
-    var(--foreground-muted) 0%,
-    var(--foreground-muted) 42%,
-    #ffd2b0 47%,
-    #b7ebb1 50%,
-    #a6d2f4 53%,
-    #d6b5f0 56%,
-    var(--foreground-muted) 60%,
-    var(--foreground-muted) 100%
-  );
-  background-size: 260% auto;
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
-  animation: beakerbot-ai-shimmer 4.2s linear infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .beakerbot-ai-shimmer {
-    /* Settle on the calm muted fill (identical to the Cmd K chip) when motion is
-       reduced. */
-    animation: none;
-    background-image: none;
-    -webkit-text-fill-color: var(--foreground-muted);
-    color: var(--foreground-muted);
-  }
-}
-
-/* Data Hub large-table Transform shimmer (2026-06-18). Transform is the most
-   powerful action in large-table mode (it opens the rule-builder, where every
-   filter/derive/aggregate runs over the whole dataset in DuckDB), so it is easy
-   to walk past. The button keeps its calm neutral face and just catches a slow
-   pastel-rainbow sheen that sweeps across every few seconds, the same
-   brand-rainbow family as the BeakerBot ask bar. The sheen rides a clipped
-   ::before band so the face is untouched at rest, and the label/icon sit on a
-   z-raised span so they stay crisp as the band passes. */
-@keyframes datahub-transform-shimmer {
-  0% {
-    transform: translateX(-160%);
-  }
-  /* Hold off-screen after each pass so the gleam is occasional, not constant. */
-  55%,
-  100% {
-    transform: translateX(320%);
-  }
-}
-.datahub-transform-shimmer {
-  position: relative;
-  overflow: hidden;
-}
-.datahub-transform-shimmer::before {
-  content: "";
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 0;
-  width: 45%;
-  pointer-events: none;
-  background: linear-gradient(
-    100deg,
-    transparent 0%,
-    rgba(255, 210, 176, 0.5) 30%,
-    rgba(183, 235, 177, 0.5) 45%,
-    rgba(166, 210, 244, 0.5) 60%,
-    rgba(214, 181, 240, 0.5) 75%,
-    transparent 100%
-  );
-  transform: translateX(-160%);
-  animation: datahub-transform-shimmer 4.6s ease-in-out infinite;
-}
-@media (prefers-reduced-motion: reduce) {
-  .datahub-transform-shimmer::before {
-    animation: none;
-    display: none;
-  }
-}
+/* The BeakerBot "Cmd J" ask-bar hint and the Data Hub large-table Transform
+   button used to carry their own one-off shimmer recipes. They now share the one
+   canonical .ros-nudge-shimmer cue defined above (aliased there), so the look and
+   the anti-annoyance behavior are identical across the app. The Cmd J chip applies
+   the class directly and stays always-on by design, the Transform button is gated
+   through the useNudge throttle at its call site. */

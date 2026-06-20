@@ -72,7 +72,7 @@ export function autoOpenOpForKind(kind: SelectionKind): string | null {
       // Picking a gene of interest no longer yanks the protein analysis open.
       // Instead the rail's protein op SHIMMERS to invite the user to click it,
       // so the heavy panel only mounts on a deliberate pick. See the nudge wired
-      // in SequenceEditView and the seq-rail-shimmer style.
+      // in SequenceEditView and the ros-nudge-shimmer style.
       return null;
     case "feature-primer":
       return "primers";
