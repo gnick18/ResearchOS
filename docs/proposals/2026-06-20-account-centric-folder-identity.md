@@ -78,6 +78,8 @@ This is the same target the 2026-06-15 redesign locked (its section 3). Stated a
 
 4. Foreign-account takeover warning. When an account connects a folder whose recorded owner is a DIFFERENT account, the app warns before binding. The user can cancel (keep the folder under the original owner, open it read-or-share only) or deliberately take over (rebind, with eyes open). This is the new surface that does not exist today and is the heart of Grant's ask.
 
+5. Takeover removes shared files the new account cannot read (Grant). The files SHARED TO the original account are sealed to that account's keypair, so a different account that takes over genuinely cannot decrypt or view them, and should not retain another account's shared documents. So the takeover warning quantifies them and the takeover removes their local copies. The new account's OWN authored content is never touched. See the audit and steps in section 4 under "Shared-file removal on takeover".
+
 ## 4. Gap audit, what needs to be made
 
 Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and the files it touches.
@@ -98,6 +100,16 @@ Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and th
 - DOES NOT EXIST.
 - BUILD, medium to large. On connect or auto-claim, compare the signed-in account against the folder-owner record. On mismatch, show a warning before binding, with a clear cancel and a deliberate "take over this folder" path. Must honor the no-soft-locks rule (`[[feedback_no_soft_locks]]`), every state needs a visible escape. Touches a new modal under `frontend/src/components/account/`, the auto-claim gate (`RequireAccountGate.tsx`, `require-account.ts`), and the connect path (`file-system-context.tsx`).
 
+### Shared-file removal on takeover (the data-handling half of the warning)
+- AUDIT. There are two physically different shared-file paths in a folder, and only ONE is recipient-sealed, so only one is the removal target.
+  - Cross-boundary (sealed) shares, the REMOVAL TARGET. A bundle is sealed to the recipient's X25519 key via `sealToRecipient` / `openSealed` (`frontend/src/lib/sharing/encryption.ts`), fetched through `receiveRawShare` (`frontend/src/lib/sharing/relay/client.ts`), then imported as records under `users/<currentUser>/{notes,projects,methods,experiments,tasks,sequences}/<id>.json`, each STAMPED with `received_from`, `received_from_fingerprint`, `received_at` (`note-transfer.ts:376`, `sequence-transfer.ts:246`, `import/apply.ts:56`; typed in `types.ts`). Sealed to the prior identity, so the new account cannot decrypt or view them.
+  - Intra-lab references, NOT removed. `users/<u>/_shared_with_me.json` (`SharedManifest`, `local-api.ts:8111` / `:8122`) only points at records living in OTHER lab members' directories in the same folder. Not keypair-sealed, they belong to other members, not the prior owning account. Out of scope for removal.
+- BUILD, medium and FLAG (touches on-disk records + the manifest). On a confirmed takeover:
+  - DETECT + COUNT. The "files you do not have permission to view" set is exactly the records carrying a `received_from_fingerprint` whose value does not match the new account's fingerprint. Count them for the warning (X).
+  - WARN with Grant's copy, shown only when X > 0. "There are X shared files that you do not have permission to view. Taking over this folder will mean the local copies of those shared documents will be removed from this folder."
+  - REMOVE SAFELY. On confirm, delete those flagged local record copies (and prune any dangling `_shared_with_me` entries that referenced them). The EXCLUSION GUARD is the absence of `received_from_fingerprint`, which strictly preserves the new account's own authored content. The user's own data is never in the removal set.
+  - Touches a new helper (e.g. `frontend/src/lib/sharing/foreign-share-sweep.ts`), the takeover modal, and the connect/claim path. Re-key target on rebind is `users/<username>/_sharing_identity.json` (`identity/sidecar.ts`).
+
 ### Migration of existing folders
 - PARTIAL. The 2026-06-15 redesign already chose clean reset for the under-ten beta (its locked decision 3) and the first-account registry inherit exists (`indexeddb-store.ts:1115`).
 - BUILD, small. On first connect under the new model, stamp the current signed-in account as the folder owner if no owner record exists (adopt, do not warn, for an unowned legacy folder). Only a folder that already has an owner record different from the signed-in account triggers the warning. Touches the folder-owner write path.
@@ -113,6 +125,8 @@ Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and th
 4. Legacy multi-user folders. A real shared folder today has several `users/` dirs and no owner record. On first connect under the new model, do we adopt the connecting account as sole owner (risk, strands the co-members' claim), record ALL published `users/` as co-owners, or prompt the connecting account to declare ownership? This interacts with decision 1.
 
 5. Does the per-folder `users/` directory stay or collapse. Long term, does each folder keep a `users/<username>/` per account (today's shape, supports genuine co-located multi-user), or collapse to a single account-owned data root with sharing handled across folders (the cleaner account-centric end state)? The 2026-06-15 redesign leans toward the latter for solo, but multi-user shared folders still need the former. Confirm the intended end state.
+
+6. How the unreadable shared files are removed. Grant's rule is to remove the local copies the new account cannot read. Do we (a) hard-delete them, (b) move them to the folder trash so a wrong takeover is recoverable for a window, or (c) zip-and-set-aside a backup the way the image cleanup script does? The trash route is the safest default (a mistaken takeover is undoable), at the cost of leaving the unreadable ciphertext on disk until the trash is emptied. Recommend (b) unless you want them gone immediately.
 
 ## 6. Risks and non-goals
 
