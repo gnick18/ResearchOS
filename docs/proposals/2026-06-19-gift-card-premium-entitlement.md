@@ -100,16 +100,16 @@ say, 12 months.
 - Does NOT change any locked pricing in `assumptions.ts` / `plans.ts` / PRICING.md, a
   comp is an operator override on top, not a price change. See [[feedback_pricing_decisions_locked]].
 
-## 5. Open questions for Grant
+## 5. Decisions (Grant, 2026-06-19, LOCKED)
 
-1. Does a comped plan also comp AI tokens, or is AI always a separate gift? (Default
-   recommendation: separate, so a comp does not silently hand out unbounded AI spend.)
-2. Which tiers are giftable, just `lab`, or `solo`/`lab`/`dept` all? (Recommendation:
-   all three, the picker is the same cost.)
-3. Default duration for the picker (recommendation: 12 months) and is "permanent"
-   allowed for special cases like a co-founder lab?
-4. On expiry, confirm the lab reverts to free + the 30-day lab-site reclaim grace (vs a
-   longer courtesy window for comped labs).
+1. AI tokens: SEPARATE. A comped plan unlocks plan features only, never AI tokens. AI
+   stays its own ai-ledger gift, so a comp never hands out unbounded AI spend.
+2. Giftable tiers: ALL THREE (`solo` | `lab` | `dept`).
+3. Duration: FIXED MONTHS ONLY, no permanent comps. A comped tier ALWAYS has an
+   `expires_at` (the issuer must pick a month count; "permanent" is not offered for a
+   comped tier). Allowance-only grants keep their existing optional-expiry behavior.
+4. On expiry: the lab reverts to free and the existing 30-day lab-site reclaim grace
+   applies (no special longer window for comps).
 
 ## 6. First use after sign-off
 
