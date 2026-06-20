@@ -79,11 +79,11 @@ export default function PreferredNameStep({
         />
       </div>
       <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
-        What do you like to be called?
+        What do you want BeakerBot to call you?
       </h1>
       <p className="mb-6 mt-2 text-sm text-foreground-muted">
-        I will greet you by this name. Most people just use a first name. You can
-        change it anytime in Settings.
+        This can be a nickname, and you can change it anytime later. Most people
+        just use a first name.
       </p>
 
       <div className="w-full text-left">
