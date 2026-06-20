@@ -102,13 +102,16 @@ lab.
 ## Open and pending
 
 - FINAL lock after the Grant + Emile meeting. This is the working version.
-- The public `/pricing` page and its components are still built for the dead
-  GB-ladder model and need a full rebuild to Model A. The page is currently in a
-  Beaker maintenance state on prod, so there is no rush. Same for `/about`
-  (solo-founder story, hidden until remade with Emile as co-founder).
-- `frontend/src/lib/pricing/assumptions.ts` and `frontend/src/lib/billing/plans.ts`
-  (the source-of-truth code) still encode the GB ladder and get reshaped to
-  Model A as part of that page rebuild. Until then, `service-model.ts` is the
-  accurate model.
+- The public `/pricing` page is ALREADY rebuilt to Model A (scorecard tiers,
+  catalog-driven prices via `PlanPriceCallout` reading `MODEL_A_PLANS`, no GB
+  ladder). Catalog base fees verified 2026-06-19: solo $3 / 5x, lab $40 / 7x,
+  dept $35 / 6x (`frontend/src/lib/billing/model-a/pricing.ts`). It stays in the
+  Beaker maintenance state on prod only until Grant flips `NEXT_PUBLIC_PRICING_LIVE`.
+  `/about` is likewise already the two-founder story (Emile is a co-founder on the
+  page) and just needs its maintenance gate flipped.
+- The DEAD `frontend/src/lib/pricing/assumptions.ts` + `frontend/src/lib/billing/plans.ts`
+  still encode the old GB ladder, but the public `/pricing` page does NOT use them
+  (it reads the Model-A catalog). They feed the operator `/admin` modeling tool and
+  are a separate cleanup. `service-model.ts` remains the accurate service model there.
 - Exact per-user cloud usage (relay writes) is the #1 beta unknown; the dials
   here are honest estimates, grounded later from `collab_owner_writes`.

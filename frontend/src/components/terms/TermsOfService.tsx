@@ -7,7 +7,7 @@
  * that the software is free and open source under the AGPLv3 (the license
  * governs the code, these terms govern the hosted service and the optional paid
  * services), that the everyday app is local-first so the user's data stays in
- * their own folder, and that the only paid parts are optional cloud storage and
+ * their own folder, and that the paid parts are the cloud-service plans plus
  * the metered AI assistant. Whether those services are currently free during the
  * beta or live and billed is determined by storageBillingOn and aiBillingOn,
  * which are read from server env flags by the page and passed in as props.
@@ -20,7 +20,7 @@
  * folder so anyone can read it, and it is excluded from the wiki-coverage map.
  *
  * DRAFT pending Grant's (and ideally a lawyer's) review before it ships. The
- * billing terms mirror docs/branding/BILLING_FACTS.md; the privacy split mirrors
+ * billing terms mirror docs/branding/PRICING.md; the privacy split mirrors
  * /privacy. Set the real EFFECTIVE_DATE at publish.
  *
  * Voice rules: warm and concept-first. No em-dashes, no emojis, no mid-sentence
@@ -131,9 +131,10 @@ export default function TermsOfService({
                 </>
               ) : (
                 <>
-                  The only paid parts are optional cloud storage and the metered
-                  AI assistant, and both are free during the beta. You can stop
-                  using them at any time, with no lock-in.
+                  The paid parts are the cloud-service plans, which are a base
+                  fee plus your actual cloud usage, and the metered AI assistant,
+                  and all of them are free during the beta. You can stop using
+                  them at any time, with no lock-in.
                 </>
               )}
             </li>
@@ -181,7 +182,7 @@ export default function TermsOfService({
           <p>
             These terms instead govern the optional service we operate for you,
             the hosted app at research-os.app, the sharing and collaboration
-            features, and the paid cloud storage and AI assistant. If anything
+            features, and the paid cloud-service plans and AI assistant. If anything
             here ever appears to conflict with the AGPLv3 as it applies to the
             software itself, the license controls for the software.
           </p>

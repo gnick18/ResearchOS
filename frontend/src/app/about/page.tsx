@@ -173,7 +173,7 @@ export default function AboutPage() {
           <BeakerBot
             pose="idle"
             animated={false}
-            className="h-40 w-40 text-sky-500"
+            className="h-40 w-40"
             ariaLabel="BeakerBot updating the about page"
           />
           <h1 className="mt-6 text-2xl font-semibold text-foreground sm:text-3xl">
@@ -491,9 +491,11 @@ export default function AboutPage() {
             </h2>
             <p className="mt-4 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
               ResearchOS is a registered Wisconsin LLC with real banking and
-              payment processing in place. The local app and every feature stay
-              free. The only paid parts are optional cloud storage and the
-              optional AI assistant, both metered at cost. Full breakdown on the{" "}
+              payment processing in place. The local app is free and open source.
+              The paid parts are the cloud-service plans for solo researchers,
+              labs, and departments, a small base fee plus your actual cloud usage
+              at a small markup; storage is at roughly cost and AI is a separate
+              metered add-on. Full breakdown on the{" "}
               <Link
                 href="/pricing"
                 className="font-medium text-brand-action underline-offset-2 hover:underline"
@@ -513,6 +515,11 @@ export default function AboutPage() {
                 GitHub Sponsors
               </Link>
               {" "}are enough to keep it free and open for the whole research community.
+            </p>
+            <p className="mt-3 max-w-[64ch] text-meta leading-relaxed text-foreground-muted">
+              Support for this research was provided by the University of
+              Wisconsin-Madison, Office of the Vice Chancellor for Research with
+              funding from the Wisconsin Alumni Research Foundation.
             </p>
             <p className="mt-3 max-w-[64ch] text-body leading-relaxed text-foreground-muted">
               We are two researchers on the same team, and the goal is not to get
