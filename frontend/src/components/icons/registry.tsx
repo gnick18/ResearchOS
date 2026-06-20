@@ -716,6 +716,17 @@ const ICONS_RAW = {
       </>
     ),
   },
+  mortarboard: {
+    concept: "Class / classroom (a graduation cap, Class Mode)",
+    body: (
+      <>
+        <path d="M12 4 21 8.5 12 13 3 8.5 12 4Z" />
+        <path d="M6.5 10.4v3.1c0 1.4 2.5 2.4 5.5 2.4s5.5-1 5.5-2.4v-3.1" />
+        <path d="M21 8.5V14" />
+        <circle cx="21" cy="15" r="1" fill="currentColor" stroke="none" />
+      </>
+    ),
+  },
 
   // ── Vial / reagent (Inventory tab, chunk-5 bot 2026-06-07) ──────────────
   // Standard lab-ware silhouette: a narrow cylinder with a rounded bottom.
