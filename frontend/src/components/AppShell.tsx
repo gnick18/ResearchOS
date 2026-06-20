@@ -54,6 +54,10 @@ import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useIsClassMode } from "@/hooks/useIsClassMode";
+import { useIsClassStudent } from "@/hooks/useIsClassStudent";
+import { useStudentAssignmentCount } from "@/hooks/useStudentAssignmentCount";
+import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
+import StudentAssignmentsDrawer from "@/components/lab-overview/StudentAssignmentsDrawer";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { hasTourResume } from "@/lib/onboarding/tour-demo-session";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
@@ -319,6 +323,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // lab_kind === "class", so `classMode` is always false and every consumer
   // below resolves to its byte-identical research-lab value.
   const classMode = useIsClassMode(currentUser ?? null) === true;
+
+  // Class Mode (CT-2): a STUDENT (class member) gets a global Assignments entry in
+  // the top nav, with a count badge, that opens a slide-over so they can peek at or
+  // submit an assignment from any page. The dedicated workbench Assignments tab is
+  // the full home; this is the everywhere shortcut. Both render ClassAssignmentsPanel.
+  const isClassStudent = useIsClassStudent(currentUser ?? null) === true;
+  const showStudentAssignments = CLASS_MODE_ENABLED && isClassStudent && !!currentUser;
+  const assignmentCount = useStudentAssignmentCount(showStudentAssignments);
+  const [assignmentsDrawerOpen, setAssignmentsDrawerOpen] = useState(false);
 
   // PI view mode (NAV-1/2/3): a lab head defaults to the lab lens and can flip to
   // their personal "My work" researcher view. Only affects the nav for a lab head.
@@ -624,6 +637,30 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
               the Cmd-K palette; the redundant top-nav button is gone. */}
           <NotificationBadge pill={tinted} />
           <InboxBadge />
+          {/* Class Mode (CT-2): the student Assignments entry. Opens the slide-over
+              so a student can act on an assignment from any page. Count badge hidden
+              at zero. Only for a class student (flag + role gated). */}
+          {showStudentAssignments ? (
+            <Tooltip label="Assignments" placement="bottom">
+              <button
+                type="button"
+                aria-label="Open your assignments"
+                onClick={() => setAssignmentsDrawerOpen(true)}
+                className={`relative p-1.5 rounded-full transition-colors ${
+                  tinted
+                    ? "bg-white/75 text-gray-700 hover:bg-white shadow-sm"
+                    : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+                }`}
+              >
+                <Icon name="mortarboard" className="w-[18px] h-[18px]" />
+                {assignmentCount > 0 ? (
+                  <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-teal-600 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-surface-raised">
+                    {assignmentCount}
+                  </span>
+                ) : null}
+              </button>
+            </Tooltip>
+          ) : null}
           {/* Timers button. Opens the Timers popup (running countdowns + new
               timer). A count badge shows how many are running, hidden at zero. */}
           <Tooltip label="Timers" placement="bottom">
@@ -798,6 +835,15 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       </div>
 
       <InboxToast />
+      {/* Class Mode (CT-2): the global student-assignments slide-over, opened from
+          the top-nav Assignments entry. Only rendered while open + for a class
+          student, so it is inert everywhere else. */}
+      {showStudentAssignments && assignmentsDrawerOpen && currentUser ? (
+        <StudentAssignmentsDrawer
+          currentUser={currentUser}
+          onClose={() => setAssignmentsDrawerOpen(false)}
+        />
+      ) : null}
       {/* Lab head UX polish manager Bug 3 (2026-05-24): global Undo
        *  toast for soft-deleted notes. Mounted once at the shell so
        *  every notesApi.delete call site can pop a "Deleted X — Undo"
