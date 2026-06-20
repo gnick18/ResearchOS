@@ -23,6 +23,9 @@ import { Icon } from "@/components/icons";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { useWorkbenchBeakerSource } from "./useWorkbenchBeakerSource";
 import { useClassDashboard } from "@/hooks/useClassDashboard";
+import { useIsClassStudent } from "@/hooks/useIsClassStudent";
+import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
+import ClassAssignmentsPanel from "@/components/lab-overview/ClassAssignmentsPanel";
 import type {
   WorkbenchPendingOpen,
   WorkbenchSelection,
@@ -159,6 +162,14 @@ export default function WorkbenchPage() {
     isForced: classDashboardForced,
   } = useClassDashboard(currentUser || null);
 
+  // Class Mode (CT-2): a STUDENT (member of a class folder) lands here (the
+  // landing redirect sends lab_head -> /lab-overview, everyone else -> /workbench),
+  // so their assignments panel mounts above the workbench tabs. Gated student-only
+  // + flag-off inert, so a research-lab / solo / instructor workbench is unchanged.
+  const isClassStudent = useIsClassStudent(currentUser || null);
+  const showStudentAssignments =
+    CLASS_MODE_ENABLED && isClassStudent === true && !!currentUser;
+
   // A tab is renderable iff it survives the forced template AND its own gate
   // (oneonone keeps its existing visibility rule). When not forced, the resolved
   // set is the full default order, so every tab passes this check unchanged.
@@ -279,6 +290,22 @@ export default function WorkbenchPage() {
             )}
           </div>
         )}
+        {/* Class assignments (CT-2): the student opens an assignment to start
+            their notebook and submit it. Above the tabs so it leads the student
+            workbench. Student-only + flag-off inert. */}
+        {showStudentAssignments && currentUser && (
+          <div className="mb-4 rounded-lg border border-border bg-surface-raised p-4">
+            <h3 className="text-body font-semibold text-foreground">
+              Your assignments
+            </h3>
+            <p className="mt-0.5 mb-3 text-meta text-foreground-muted">
+              Open an assignment to start your notebook, then submit it when you
+              are done.
+            </p>
+            <ClassAssignmentsPanel currentUser={currentUser} />
+          </div>
+        )}
+
         {/* Compact header: the page title + its subtitle sit INLINE with the
             tabs in a single band, instead of stacking a tall title row above a
             separate tab row. Reclaims the vertical space the stacked chrome
