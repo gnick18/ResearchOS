@@ -89,26 +89,50 @@ function Ready({
   onChange: (s: ModelAStatus) => void;
 }) {
   return status.planId === "free" ? (
-    <FreePanel />
+    <FreePanel onChange={onChange} />
   ) : (
     <PaidPanel status={status} onChange={onChange} />
   );
 }
 
 // ---- Free owner: the upgrade pitch ----
-function FreePanel() {
+//
+// Solo path: card-setup -> Stripe Checkout (saves a card; charged at the $5 threshold).
+// Lab path: start-trial -> 90-day no-card free trial, then reload into PaidPanel.
+//   Per PRICING.md (Grant 2026-06-19): "Solo keeps the save-a-card-at-signup flow;
+//   only the lab tier gets the no-card trial." Consistent with the onboarding path:
+//   AccountTierChooser -> LabCreateResume -> start-trial (never card-setup for Lab).
+//   After the trial starts we reload the status so the panel transitions to PaidPanel
+//   showing the trial countdown. No Stripe redirect for Lab.
+function FreePanel({ onChange }: { onChange: (s: ModelAStatus) => void }) {
   const [busy, setBusy] = useState<PaidPlanId | null>(null);
 
-  async function start(planId: PaidPlanId) {
-    setBusy(planId);
+  async function startSolo() {
+    setBusy("solo");
     try {
       const res = await fetch("/api/billing/model-a/card-setup", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ planId }),
+        body: JSON.stringify({ planId: "solo" }),
       });
       const data = (await res.json()) as { url?: string };
       if (data.url) window.location.href = data.url;
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function startLabTrial() {
+    setBusy("lab");
+    try {
+      await fetch("/api/billing/model-a/start-trial", { method: "POST" });
+      // Reload the status so the panel transitions to PaidPanel with the trial
+      // countdown. A network hiccup here is non-fatal; the user can reload.
+      const res = await fetch("/api/billing/model-a/status");
+      if (res.ok) {
+        const status = (await res.json()) as ModelAStatus;
+        onChange(status);
+      }
     } finally {
       setBusy(null);
     }
@@ -123,31 +147,47 @@ function FreePanel() {
         plans, billed for what you actually use.
       </p>
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
-        {(["solo", "lab"] as PaidPlanId[]).map((id) => {
-          const p = PLAN_PRICES[id];
-          return (
-            <div key={id} className="rounded-xl border border-border p-4">
-              <div className="font-bold text-foreground">{p.name}</div>
-              <div className="mt-0.5 text-sm text-foreground-muted">
-                <span className="font-semibold text-foreground">{p.base}</span>
-                {p.baseSuffix} plus your cloud usage
-              </div>
-              <button
-                type="button"
-                className={`${btn} mt-3 w-full`}
-                onClick={() => start(id)}
-                disabled={busy !== null}
-              >
-                {busy === id ? "Starting..." : `Start ${p.name}`}
-              </button>
-            </div>
-          );
-        })}
+        {/* Solo: save a card now, charged at the $5 threshold. */}
+        <div className="rounded-xl border border-border p-4">
+          <div className="font-bold text-foreground">{PLAN_PRICES.solo.name}</div>
+          <div className="mt-0.5 text-sm text-foreground-muted">
+            <span className="font-semibold text-foreground">{PLAN_PRICES.solo.base}</span>
+            {PLAN_PRICES.solo.baseSuffix} plus your cloud usage
+          </div>
+          <button
+            type="button"
+            className={`${btn} mt-3 w-full`}
+            onClick={startSolo}
+            disabled={busy !== null}
+          >
+            {busy === "solo" ? "Starting..." : `Start ${PLAN_PRICES.solo.name}`}
+          </button>
+          <p className="mt-2 text-xs text-foreground-muted">
+            We save a card now and only charge it once your usage passes $5.
+          </p>
+        </div>
+
+        {/* Lab: 90-day free trial, no card at signup (per PRICING.md). */}
+        <div className="rounded-xl border border-border p-4">
+          <div className="font-bold text-foreground">{PLAN_PRICES.lab.name}</div>
+          <div className="mt-0.5 text-sm text-foreground-muted">
+            <span className="font-semibold text-foreground">{PLAN_PRICES.lab.base}</span>
+            {PLAN_PRICES.lab.baseSuffix} plus your cloud usage
+          </div>
+          <button
+            type="button"
+            className={`${btn} mt-3 w-full`}
+            onClick={startLabTrial}
+            disabled={busy !== null}
+          >
+            {busy === "lab" ? "Starting..." : `Start ${PLAN_PRICES.lab.name}`}
+          </button>
+          <p className="mt-2 text-xs text-foreground-muted">
+            90-day free trial, no card needed to start. Add a payment method
+            before day 90 to keep your lab active.
+          </p>
+        </div>
       </div>
-      <p className="mt-3 text-xs text-foreground-muted">
-        We save a card now and only charge it once your usage passes $5, or at
-        cancellation. You set a monthly cap so there are never surprises.
-      </p>
     </div>
   );
 }
