@@ -1,0 +1,321 @@
+// Adversarial tests for the Stage C private-notebook write + read (class-private-notebook.ts).
+//
+// REAL X25519 + XChaCha20-Poly1305 keys (no crypto mocks). The relay is an
+// in-memory store that emulates putLabRecord/getLabRecord/listLabRecords with the
+// REAL team-key AEAD, so each test exercises the FULL two-layer round-trip: the
+// inner subkey seal AND the outer team-key wrap.
+//
+// The load-bearing assertions:
+//   1. A written private notebook round-trips for the STUDENT and the HEAD.
+//   2. A classmate holding the TEAM KEY cannot decrypt it (the whole point).
+//   3. One subkey per student per class: a second write reuses the recovered subkey.
+//   4. Flag OFF refuses (no write).
+//   5. A non-subkeyed (team-key) record passes through the read resolver unchanged.
+//
+// No emojis, no em-dashes, no mid-sentence colons.
+
+import { describe, it, expect, vi, beforeEach } from "vitest";
+import { x25519 } from "@noble/curves/ed25519.js";
+import { bytesToHex, utf8ToBytes } from "@noble/hashes/utils.js";
+
+vi.mock("./class-mode-config", () => ({ CLASS_MODE_ENABLED: true }));
+
+import {
+  generateLabKey,
+  encryptLabData,
+  decryptLabData,
+} from "./lab-key";
+import { encryptTeamRecord } from "./lab-subkey";
+import type { LabMember } from "./lab-membership";
+import {
+  writePrivateNotebookRecord,
+  resolvePulledClassRecord,
+  recoverExistingSubkey,
+  isSubkeyedPrivateRecord,
+} from "./class-private-notebook";
+
+interface Actor {
+  member: LabMember;
+  x25519Priv: Uint8Array;
+}
+
+function makeActor(username: string, role: "head" | "member"): Actor {
+  const enc = x25519.keygen();
+  return {
+    member: {
+      username,
+      x25519PublicKey: bytesToHex(enc.publicKey),
+      ed25519PublicKey: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
+      role,
+    },
+    x25519Priv: enc.secretKey,
+  };
+}
+
+// In-memory relay store keyed by labId/owner/recordType/recordId. The VALUE is the
+// team-key ciphertext exactly as putLabRecord would store it (it AEAD-seals the
+// plaintext under labKey), so getLabRecord decrypts it back under the team key.
+function makeStore() {
+  const store = new Map<string, Uint8Array>();
+  const key = (labId: string, owner: string, rt: string, rid: string) =>
+    `${labId}/${owner}/${rt}/${rid}`;
+
+  const putImpl = vi.fn(async (p: {
+    labId: string;
+    owner: string;
+    recordType: string;
+    recordId: string;
+    plaintext: Uint8Array;
+    labKey: Uint8Array;
+  }) => {
+    store.set(
+      key(p.labId, p.owner, p.recordType, p.recordId),
+      encryptLabData(p.plaintext, p.labKey),
+    );
+  });
+
+  const getImpl = vi.fn(async (p: {
+    labId: string;
+    owner: string;
+    recordType: string;
+    recordId: string;
+    labKey: Uint8Array;
+  }) => {
+    const ct = store.get(key(p.labId, p.owner, p.recordType, p.recordId));
+    if (!ct) throw new Error("getLabRecord: 404");
+    return decryptLabData(ct, p.labKey);
+  });
+
+  const listImpl = vi.fn(async (p: { labId: string; prefix: string }) => {
+    const want = `${p.labId}/${p.prefix}`;
+    return [...store.keys()].filter((k) => k.startsWith(want));
+  });
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { store, putImpl: putImpl as any, getImpl: getImpl as any, listImpl: listImpl as any };
+}
+
+const NOTEBOOK = utf8ToBytes(
+  JSON.stringify({ id: 7, name: "Exam notebook", answer: "the private answer" }),
+);
+
+let signer: { priv: Uint8Array; pub: Uint8Array };
+beforeEach(() => {
+  signer = {
+    priv: crypto.getRandomValues(new Uint8Array(32)),
+    pub: crypto.getRandomValues(new Uint8Array(32)),
+  };
+});
+
+describe("Stage C: the private notebook round-trips for the student and the head", () => {
+  it("writes subkey-sealed, and both the student and the head read it back", async () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const teamKey = generateLabKey();
+    const { putImpl, getImpl, listImpl } = makeStore();
+
+    const res = await writePrivateNotebookRecord({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "7",
+      plaintext: NOTEBOOK,
+      teamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+    expect("subkey" in res).toBe(true);
+
+    // What the relay returns under the TEAM key is the SubkeyedRecord JSON.
+    const teamPlaintext = await getImpl({
+      labId: "class-1",
+      owner: "alice",
+      recordType: "task",
+      recordId: "7",
+      labKey: teamKey,
+    });
+
+    // The student peels the inner subkey and gets the notebook back.
+    const studentOut = resolvePulledClassRecord(
+      teamPlaintext,
+      { username: "alice", x25519PrivateKey: student.x25519Priv },
+      teamKey,
+    );
+    expect(studentOut).toEqual(NOTEBOOK);
+
+    // The head reads every student's private notebook by construction.
+    const headOut = resolvePulledClassRecord(
+      teamPlaintext,
+      { username: "prof", x25519PrivateKey: head.x25519Priv },
+      teamKey,
+    );
+    expect(headOut).toEqual(NOTEBOOK);
+  });
+});
+
+describe("Stage C: a classmate holding the TEAM KEY cannot decrypt the notebook", () => {
+  it("the classmate peels the team layer but hits the inner subkey wall", async () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const classmate = makeActor("mallory", "member"); // holds the team key too
+    const teamKey = generateLabKey();
+    const { putImpl, getImpl, listImpl } = makeStore();
+
+    await writePrivateNotebookRecord({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "7",
+      plaintext: NOTEBOOK,
+      teamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+
+    // The classmate fetches and peels the TEAM layer (they hold the team key).
+    const teamPlaintext = await getImpl({
+      labId: "class-1",
+      owner: "alice",
+      recordType: "task",
+      recordId: "7",
+      labKey: teamKey,
+    });
+
+    // It is a subkeyed private record, so the resolver refuses for the classmate.
+    expect(isSubkeyedPrivateRecord(JSON.parse(new TextDecoder().decode(teamPlaintext)))).toBe(true);
+    expect(() =>
+      resolvePulledClassRecord(
+        teamPlaintext,
+        { username: "mallory", x25519PrivateKey: classmate.x25519Priv },
+        teamKey,
+      ),
+    ).toThrow(/not a recipient/);
+  });
+});
+
+describe("Stage C: one subkey per student per class (reuse on the second write)", () => {
+  it("a second private notebook reuses the recovered subkey", async () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const teamKey = generateLabKey();
+    const { putImpl, getImpl, listImpl } = makeStore();
+
+    const first = await writePrivateNotebookRecord({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "7",
+      plaintext: utf8ToBytes("notebook one"),
+      teamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+    const second = await writePrivateNotebookRecord({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "8",
+      plaintext: utf8ToBytes("notebook two"),
+      teamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+
+    if (!("subkey" in first) || !("subkey" in second)) throw new Error("expected writes");
+    // Same per-student-per-class subkey recovered and reused on the second write.
+    expect(bytesToHex(second.subkey)).toBe(bytesToHex(first.subkey));
+
+    // recoverExistingSubkey returns that same subkey directly.
+    const recovered = await recoverExistingSubkey({
+      labId: "class-1",
+      student: "alice",
+      recoverFor: "alice",
+      x25519PrivateKey: student.x25519Priv,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      teamKey,
+      listImpl,
+      getImpl,
+    });
+    expect(recovered).not.toBeNull();
+    expect(bytesToHex(recovered!)).toBe(bytesToHex(first.subkey));
+  });
+});
+
+describe("Stage C: backward compat + flag off", () => {
+  it("a non-subkeyed (team-key) record passes through the read resolver unchanged", () => {
+    const teamKey = generateLabKey();
+    const viewer = makeActor("anyone", "member");
+    const plainTask = utf8ToBytes(JSON.stringify({ id: 1, name: "ordinary task" }));
+
+    // What pullLabView hands back for a team-key record is the cleartext itself
+    // (the resolver only intercepts the SubkeyedRecord shape).
+    const out = resolvePulledClassRecord(
+      plainTask,
+      { username: "anyone", x25519PrivateKey: viewer.x25519Priv },
+      teamKey,
+    );
+    expect(out).toEqual(plainTask);
+  });
+
+  it("an encryptTeamRecord wrapper is NOT mistaken for a private record", () => {
+    const teamKey = generateLabKey();
+    const wrapper = encryptTeamRecord(utf8ToBytes("collab work"), teamKey);
+    // The team wrapper has a blob but NO subkey envelope, so the guard is false and
+    // the resolver passes the wrapper-JSON bytes through unchanged.
+    expect(isSubkeyedPrivateRecord(wrapper)).toBe(false);
+  });
+});
+
+describe("Stage C: flag OFF refuses the write", () => {
+  it("writePrivateNotebookRecord refuses with the flag off (no put)", async () => {
+    vi.resetModules();
+    vi.doMock("./class-mode-config", () => ({ CLASS_MODE_ENABLED: false }));
+    const { writePrivateNotebookRecord: writeOff } = await import(
+      "./class-private-notebook"
+    );
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const teamKey = generateLabKey();
+    const { putImpl } = makeStore();
+
+    const res = await writeOff({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "7",
+      plaintext: NOTEBOOK,
+      teamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+    });
+    expect("refused" in res).toBe(true);
+    expect(putImpl).not.toHaveBeenCalled();
+
+    vi.doUnmock("./class-mode-config");
+    vi.resetModules();
+  });
+});
