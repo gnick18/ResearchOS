@@ -21,6 +21,7 @@ import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useLabSession } from "@/hooks/useLabSession";
+import { useActiveLabName } from "@/hooks/useActiveLabName";
 import { useQueryClient } from "@tanstack/react-query";
 import { useLabData } from "@/hooks/useLabData";
 import {
@@ -93,6 +94,9 @@ export default function PeoplePage() {
   const hasPiPowers = useHasPiPowers(currentUser);
   const session = useLabSession();
   const labId = (session && !session.loading ? session.labId : null) ?? null;
+  // The lab's cosmetic name, shown as a small eyebrow above the title so the PI
+  // sees WHICH lab this roster belongs to. Best-effort and display-only.
+  const labName = useActiveLabName();
 
   const { data: rows = [], isLoading } = useLabRosterRows();
   const { tasks } = useLabData();
@@ -177,6 +181,11 @@ export default function PeoplePage() {
     <PageContainer width="full" className="py-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="space-y-1">
+          {labName && (
+            <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+              {labName}
+            </p>
+          )}
           <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
             <Icon name="users" className="h-5 w-5" />
             People
