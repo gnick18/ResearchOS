@@ -746,8 +746,16 @@ function AppContent({ children }: { children: ReactNode }) {
   // Operator surfaces render their own page (which carries its OAuth operator
   // sign-in) and nothing else, bypassing every gate and popup below.
   if (isOperatorRoute) {
+    // BeakerSearchProvider here gives the operator console a working Cmd-K
+    // palette (it owns the global Cmd-K listener + renders CommandPalette), so
+    // OperatorShell can register its "jump to any admin section" source. It is
+    // scoped to the operator route, so a non-operator never gets it. The global
+    // object index inside the provider is folder-gated (enabled: !!user), so with
+    // no folder connected on this standalone route it simply reads empty.
     return (
-      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+      <QueryClientProvider client={queryClient}>
+        <BeakerSearchProvider>{children}</BeakerSearchProvider>
+      </QueryClientProvider>
     );
   }
 

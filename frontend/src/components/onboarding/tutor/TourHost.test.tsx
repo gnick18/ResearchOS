@@ -122,4 +122,17 @@ describe("TourHost is mounted in the real app flow (NOT /dev-only)", () => {
     );
     expect(providers).toMatch(/<TourHost\b/);
   });
+
+  it("plays the deep demos inline (no /demo warp), so the tour never navigates away", () => {
+    // No-warp redesign (2026-06-19): the deep demos render as a centered preloaded
+    // page popup in place, NOT a hard-reload into /demo. So OnboardingTutor must
+    // not hand off to the host warp on "Start the tour" (it dispatches beginReel),
+    // and the deep_demo beat must render the contained ShowcaseStage, never the
+    // real-page LiveCursorLayer. This locks the tour to the in-place popup.
+    const here = dirname(fileURLToPath(import.meta.url));
+    const tutor = readFileSync(join(here, "./OnboardingTutor.tsx"), "utf8");
+    expect(tutor).not.toMatch(/onBeginShow\s*\(/); // never triggers the warp
+    expect(tutor).not.toMatch(/<LiveCursorLayer\b/); // no real-page overlay
+    expect(tutor).toMatch(/<ShowcaseStage\b/); // deep demos use the contained stage
+  });
 });

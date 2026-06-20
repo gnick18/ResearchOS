@@ -19,7 +19,6 @@ import {
   initialTutorState,
   currentBeat,
   isFinished,
-  tourResumeMarkerFor,
   type TutorState,
 } from "@/lib/onboarding/tutor-machine";
 import type { Role, GoalKey } from "@/lib/onboarding/reel-director";
@@ -40,7 +39,6 @@ import WelcomeTakeover from "./WelcomeTakeover";
 import InterestPicker from "./InterestPicker";
 import LabHeadDisclosure from "./LabHeadDisclosure";
 import ShowcaseStage from "./ShowcaseStage";
-import LiveCursorLayer from "./LiveCursorLayer";
 import AiDemoBeat from "./AiDemoBeat";
 import MontageBeat from "./MontageBeat";
 import MemoryProposeBeat from "./MemoryProposeBeat";
@@ -98,8 +96,10 @@ export default function OnboardingTutor({
   onRememberFact,
   meter,
   forceEnabled = false,
-  live = false,
-  onBeginShow,
+  // live / onBeginShow are deprecated by the no-warp redesign (2026-06-19): the
+  // deep demos no longer hard-reload into /demo, they play as centered overlays in
+  // place (a preloaded page popup), so the whole reel runs inline regardless of the
+  // live flag. The props stay on the interface so TourHost keeps compiling.
   onProgress,
   initialState,
   displayName,
@@ -163,15 +163,12 @@ export default function OnboardingTutor({
           onSetRole={handleSetRole}
           onToggleGoal={(goal) => dispatch({ type: "toggleGoal", goal })}
           onStart={() => {
-            // LIVE: hand off to the host to enter demo mode + reload, so the deep
-            // demos play over the real page. The host persists the resume marker
-            // first, so the post-reload mount resumes at the first deep demo.
-            // PREVIEW: build the reel inline and play on the stand-in stage.
-            if (live && onBeginShow && state.role) {
-              onBeginShow(tourResumeMarkerFor({ role: state.role, goals: state.goals }));
-            } else {
-              dispatch({ type: "beginReel" });
-            }
+            // No-warp redesign (2026-06-19): build the reel and play it inline as
+            // centered overlays in place. We no longer hand off to the host to
+            // enter demo mode + hard-reload into /demo (the jarring full-page warp);
+            // the deep demos now render as a preloaded centered page popup, so the
+            // app the user is on stays put behind the stage.
+            dispatch({ type: "beginReel" });
           }}
           onSkip={() => dispatch({ type: "skip" })}
           onBack={() => dispatch({ type: "back" })}
@@ -203,15 +200,10 @@ export default function OnboardingTutor({
 
   let body: ReactNode = null;
   if (beat?.kind === "deep_demo" && beat.surface) {
-    // LIVE: the transparent real-page overlay (cursor + soft ring over the real
-    // [data-tutor-target] control). PREVIEW: the self-contained stand-in stage.
-    body = live ? (
-      <LiveCursorLayer
-        key={`${beat.surface}-${state.beatIndex}`}
-        surface={beat.surface}
-        onDone={next}
-      />
-    ) : (
+    // No-warp redesign: every deep demo plays on the self-contained centered stage
+    // (a preloaded page popup over the signature backdrop), never the real-page
+    // LiveCursorLayer overlay, so the tour no longer warps into /demo.
+    body = (
       <ShowcaseStage
         key={`${beat.surface}-${state.beatIndex}`}
         surface={beat.surface}
