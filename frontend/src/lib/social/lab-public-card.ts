@@ -19,7 +19,11 @@
 
 import type { DemoLabCard } from "./demo-lab";
 import { getSiteBySlug } from "./lab-site-db";
-import { getListedLabByPiKey, getBindingByHash } from "@/lib/sharing/directory/db";
+import {
+  getListedLabByPiKey,
+  getBindingByHash,
+  getProfileByFingerprint,
+} from "@/lib/sharing/directory/db";
 import { getAccountProfile } from "@/lib/account/account-profile";
 
 /**
@@ -40,6 +44,12 @@ export async function getLabPublicCard(slug: string): Promise<DemoLabCard | null
       getAccountProfile(ownerKey).catch(() => null),
       getBindingByHash(ownerKey).catch(() => null),
     ]);
+    // The verified institutional domain lives on the PI's directory profile,
+    // keyed by their key fingerprint. It is already null for consumer providers
+    // (gmail, etc.), so an empty string here just hides the badge.
+    const dirProfile = binding?.fingerprint
+      ? await getProfileByFingerprint(binding.fingerprint).catch(() => null)
+      : null;
 
     return {
       slug: site.labSlug,
@@ -52,7 +62,7 @@ export async function getLabPublicCard(slug: string): Promise<DemoLabCard | null
       },
       members: [],
       memberCount: lab.memberCount,
-      verifiedDomain: "",
+      verifiedDomain: dirProfile?.affiliationDomain ?? "",
       keyFingerprint: binding?.fingerprint ?? "",
     };
   } catch {
