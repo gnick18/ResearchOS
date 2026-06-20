@@ -19,4 +19,12 @@
   in tokens.css. Source = the app's marketing self-host bundle (next/font/google
   origin). `system-ui` remains the fallback. To refresh, re-copy from
   docs/marketing/assets/fonts and re-upload `tokens.css` + `fonts/**`.
-- First sync: 2026-06-19. Project id pinned in `design-sync.config.json`.
+- First sync: 2026-06-19. Project id pinned in `.design-sync/config.json` (moved
+  from the legacy root `design-sync.config.json`).
+- Re-sync 2026-06-19: the original project (`cc5da0e3-...`, "ResearchOS Design
+  System") was deleted on claude.ai (get_project 404, list_projects empty), so it
+  was recreated fresh as "ResearchOS Design" (`ea7e3892-aa05-4cdd-b035-73c15744522c`)
+  and all 29 files (tokens.css + 16 cards + fonts/geist.css + 11 woff2) re-uploaded.
+  Token integrity re-verified: 38 tokens defined (size + `-lh` pairs share a line),
+  35 used across cards, 0 undefined. No `_ds_sync.json` anchor for the cards shape
+  (off-converter); each re-sync re-verifies, which is correct here.
