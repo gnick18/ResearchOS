@@ -1,12 +1,14 @@
 // Operator control for gift pools (allowance grants to beta testers etc).
 //
 // GET    /api/admin/grants   list every grant (newest first).
-// POST   /api/admin/grants   { email, bonusGb, bonusWritesMillions, note?,
-//                              expiresAt?, giftTier?, months? }
-//                            issue a gift pool to that email's owner key.
-//                            When giftTier is set, months is required (no
-//                            permanent comped tiers, decision 3). expiresAt
-//                            from months takes precedence over a raw expiresAt.
+// POST   /api/admin/grants   issue a gift pool. Two resolution paths:
+//   { email, ... }           resolve email -> ownerKey (original flow).
+//   { ownerKey, ... }        use the ownerKey directly (roster-row gift flow).
+//   Both accept: bonusGb, bonusWritesMillions, note?, expiresAt?, giftTier?,
+//   months?. When giftTier is set, months is required (no permanent comped
+//   tiers, decision 3). expiresAt from months takes precedence over raw
+//   expiresAt. Providing both email and ownerKey is an error (prevents silent
+//   identity mismatch).
 // DELETE /api/admin/grants   { id }   revoke a grant.
 //
 // Operator-only, gated exactly like /api/admin/breaker (an unknown email gets a
@@ -56,6 +58,7 @@ export async function POST(request: Request): Promise<Response> {
 
   let body: {
     email?: unknown;
+    ownerKey?: unknown;
     bonusGb?: unknown;
     bonusWritesMillions?: unknown;
     note?: unknown;
@@ -70,9 +73,20 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   const email = typeof body.email === "string" ? body.email.trim() : "";
+  const rawOwnerKey = typeof body.ownerKey === "string" ? body.ownerKey.trim() : "";
+
+  // Exactly one identity source must be provided. Accepting both would allow a
+  // silent mismatch where the caller passes an email for display but an
+  // unrelated ownerKey for the actual write.
+  if (email && rawOwnerKey) {
+    return json(400, { error: "Provide email or ownerKey, not both." });
+  }
+  if (!email && !rawOwnerKey) {
+    return json(400, { error: "email or ownerKey is required" });
+  }
+
   const bonusGb = Number(body.bonusGb);
   const bonusWritesMillions = Number(body.bonusWritesMillions);
-  if (!email) return json(400, { error: "email is required" });
   if (!Number.isFinite(bonusGb) || bonusGb < 0) {
     return json(400, { error: "bonusGb must be a non-negative number" });
   }
@@ -123,13 +137,21 @@ export async function POST(request: Request): Promise<Response> {
     });
   }
 
+  // Resolve ownerKey. When the caller passes ownerKey directly (the roster-row
+  // gift path), use it as-is and record the key itself as the label so the
+  // admin roster stays readable. When the caller passes email (the existing
+  // GiftPoolsPanel path), hash it to the owner key and use the email as the
+  // label. The two paths are mutually exclusive (validated above).
+  const resolvedOwnerKey = rawOwnerKey || ownerKeyForEmail(email);
+  const label = email || rawOwnerKey;
+
   try {
     await ensureGrantsSchema();
     const id = await issueGrant({
-      ownerKey: ownerKeyForEmail(email),
+      ownerKey: resolvedOwnerKey,
       bonusBytes: Math.round(bonusGb * BYTES_PER_GB),
       bonusWrites: Math.round(bonusWritesMillions * WRITES_PER_MILLION),
-      label: email,
+      label,
       note: typeof body.note === "string" ? body.note.trim() || null : null,
       expiresAt,
       giftTier,
