@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { signIn, signOut } from "next-auth/react";
+import { signIn } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 import { usersApi } from "@/lib/local-api";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { folderRequiresLogin } from "@/lib/auth/login-policy";
@@ -2629,15 +2630,7 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
                 {sessionStatus === "authenticated" && (
                   <button
                     type="button"
-                    onClick={async () => {
-                      // Full exit (Grant 2026-06-19): clear the sharing session
-                      // AND disconnect the folder, returning to the landing,
-                      // rather than stranding the user on the still-connected
-                      // folder's account chooser. disconnect() is a safe no-op
-                      // when no folder is connected.
-                      await disconnect();
-                      void signOut({ callbackUrl: "/" });
-                    }}
+                    onClick={() => void fullSignOut({ disconnect })}
                     className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
                     data-testid="login-sign-out"
                   >

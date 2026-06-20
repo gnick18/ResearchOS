@@ -18,7 +18,7 @@
 // where the viewer has no session, and off the full app (a connected folder),
 // which has its own account menu.
 
-import { signOut } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import { Icon } from "@/components/icons";
@@ -36,17 +36,7 @@ export default function PersistentGateSignOut() {
         <button
           type="button"
           data-testid="persistent-gate-sign-out"
-          onClick={async () => {
-            // Full exit: drop any folder connection first, then end the OAuth
-            // session and land on the public landing. disconnect() is a safe
-            // no-op when nothing is connected; signOut still runs even if it
-            // throws, so the button can never leave a half-state.
-            try {
-              await disconnect();
-            } finally {
-              void signOut({ callbackUrl: "/" });
-            }
-          }}
+          onClick={() => void fullSignOut({ disconnect })}
           className="flex items-center gap-1.5 rounded-lg border border-border-strong bg-surface-overlay px-3 py-1.5 text-meta font-medium text-foreground-muted shadow-sm transition-colors hover:border-brand-action hover:text-foreground"
         >
           <Icon name="logout" className="h-3.5 w-3.5" />

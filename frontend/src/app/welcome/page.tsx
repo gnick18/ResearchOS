@@ -15,7 +15,8 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
@@ -27,6 +28,9 @@ export default function WelcomeRoute() {
   const router = useRouter();
   // true = signed in, false = signed out, null = still resolving.
   const hasSession = useHasCloudSession();
+  // Forget the connected folder on log-out so the hard reload to "/" shows the
+  // welcome landing instead of auto-reconnecting back into the app.
+  const { disconnect } = useFileSystem();
 
   // Signed-out visitors go straight to the welcome landing at "/".
   useEffect(() => {
@@ -54,7 +58,7 @@ export default function WelcomeRoute() {
               <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
                 <button
                   type="button"
-                  onClick={() => void signOut({ callbackUrl: "/" })}
+                  onClick={() => void fullSignOut({ disconnect })}
                   className="inline-flex items-center gap-2 rounded-full bg-brand-action px-5 py-2.5 text-meta font-semibold text-white transition-opacity hover:opacity-90"
                 >
                   <Icon name="logout" className="h-4 w-4 shrink-0" />

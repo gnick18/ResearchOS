@@ -26,7 +26,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
-import { signOut } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 import {
   useFileSystem,
   isFileSystemAccessSupported,
@@ -727,14 +727,7 @@ function GateFooter({ onBugReport }: { onBugReport: () => void }) {
             </Link>
             <button
               type="button"
-              onClick={async () => {
-                // Full exit (Grant 2026-06-19): clear the sharing session AND
-                // disconnect the folder so Sign out returns to the landing,
-                // never a half-state. disconnect() is a safe no-op if no folder
-                // is connected.
-                await disconnect();
-                void signOut({ callbackUrl: "/" });
-              }}
+              onClick={() => void fullSignOut({ disconnect })}
               className="text-meta text-foreground-muted underline-offset-2 transition-colors hover:text-foreground hover:underline"
               data-testid="gate-sign-out"
             >

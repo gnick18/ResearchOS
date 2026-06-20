@@ -19,8 +19,8 @@
 // text labels only.
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { signOut } from "next-auth/react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 
 import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
@@ -229,9 +229,11 @@ export default function UserAvatarMenu({
   // change because the sticky demo flag is read from sessionStorage.
   const [inDemo, setInDemo] = useState(false);
   const [leaveOpen, setLeaveOpen] = useState(false);
-  // Used on sign-out to forget the connected folder + its persisted handle, so
-  // the post-signout redirect to "/" lands on home, never the folder picker.
-  const { disconnect } = useFileSystem();
+  // disconnect: used on sign-out to forget the connected folder + its persisted
+  // handle, so the post-signout reload lands on the welcome screen, never the
+  // folder picker. connect: powers the distinct "Switch folder" action, which
+  // opens the OS picker so the user can change folders WITHOUT signing out.
+  const { disconnect, connect } = useFileSystem();
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- syncing local state with the external sessionStorage demo flag on every route change
     setInDemo(getDemoMode() && !isWikiCaptureMode() && !isRecordingMode());
@@ -402,20 +404,36 @@ export default function UserAvatarMenu({
             {!inDemo && (
               <>
                 <div className="my-1 h-px bg-border" />
+                {/* Switch folder: a DISTINCT action from sign-out. It keeps the
+                    account session and opens the OS folder picker so the user
+                    can change to a different folder / lab without logging out.
+                    Reuses connect(), the same primitive the header folder
+                    switcher's "Open another folder" uses. Cancelling the OS
+                    picker is a safe no-op (the current folder stays connected),
+                    so this can never trap the user. */}
                 <DropdownItem
                   onClick={(e) => {
                     e.preventDefault();
-                    // Forget the folder BEFORE signing out so "/" cannot
-                    // re-trigger the connect/picker flow from the remembered
-                    // handle. Never block sign-out on a disconnect failure.
-                    void (async () => {
-                      try {
-                        await disconnect();
-                      } catch {
-                        // ignore, sign out regardless
-                      }
-                      await signOut({ callbackUrl: "/" });
-                    })();
+                    close();
+                    void connect();
+                  }}
+                >
+                  <Icon
+                    name="folder"
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  Switch folder
+                </DropdownItem>
+                <div className="my-1 h-px bg-border" />
+                <DropdownItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    // Full logout: end the cloud session, forget the folder, and
+                    // hard-reload to the welcome/login landing (never the folder
+                    // picker). The deterministic ordering lives in fullSignOut so
+                    // every "Sign out" button behaves identically. See its file
+                    // for the next-auth v5 race this avoids.
+                    void fullSignOut({ disconnect });
                   }}
                 >
                   <Icon
