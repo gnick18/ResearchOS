@@ -56,6 +56,16 @@ export default function RequireAccountGate({
   const [wizardOpen, setWizardOpen] = useState(autoClaim);
   const { disconnect } = useFileSystem();
 
+  // Auto-claim degrades to the manual sign-in card when the wizard reports the
+  // live session carries no verifiable email (the dev mock sign-in, or a lapsed /
+  // partial session). The gate fires on "a session exists" but the wizard can
+  // only auto-claim with a verified email in hand, so when those disagree we fall
+  // back to the manual "sign in to claim" path with matching copy rather than
+  // looping the user back into the chooser under an "using your existing sign-in"
+  // promise. The "Use a different folder" escape stays on every state.
+  const [autoClaimUnavailable, setAutoClaimUnavailable] = useState(false);
+  const effectiveAutoClaim = autoClaim && !autoClaimUnavailable;
+
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-surface-sunken px-6">
       <div className="ros-popup-card w-full max-w-md rounded-2xl bg-surface-raised p-8 text-center">
@@ -70,14 +80,16 @@ export default function RequireAccountGate({
           <Wordmark size="sm" textOnly />
         </div>
         <h1 className="mt-4 text-heading font-extrabold text-foreground">
-          {autoClaim ? "Setting up your account" : "Finish creating your account"}
+          {effectiveAutoClaim
+            ? "Setting up your account"
+            : "Finish creating your account"}
         </h1>
         <p className="mt-2 text-body text-foreground-muted leading-relaxed">
-          {autoClaim
+          {effectiveAutoClaim
             ? "You are signed in, so we are setting up this folder's identity now using your existing sign-in. We will show you a recovery code to save in a moment. Your work stays encrypted on your own machine and your private key never leaves this device."
             : "Your account is your identity and your sharing setup, one and the same. Sign in once to claim it. Your work stays encrypted on your own machine and your private key never leaves this device. This is also what lets colleagues find you and lets you join a lab."}
         </p>
-        {!autoClaim && (
+        {!effectiveAutoClaim && (
           <button
             type="button"
             onClick={() => setWizardOpen(true)}
@@ -92,7 +104,7 @@ export default function RequireAccountGate({
         <button
           type="button"
           onClick={() => void disconnect()}
-          className={`${autoClaim ? "mt-6" : "mt-3"} text-meta text-foreground-muted underline-offset-2 hover:underline`}
+          className={`${effectiveAutoClaim ? "mt-6" : "mt-3"} text-meta text-foreground-muted underline-offset-2 hover:underline`}
         >
           Use a different folder
         </button>
@@ -101,7 +113,15 @@ export default function RequireAccountGate({
       {wizardOpen && (
         <SharingSetupWizard
           username={username}
-          autoClaim={autoClaim}
+          autoClaim={effectiveAutoClaim}
+          onAutoClaimUnavailable={() => {
+            // The live session could not be reused (no verifiable email). Drop
+            // the autoClaim presentation and close the auto-opened wizard so the
+            // gate shows the manual sign-in card, whose "Continue with sign-in"
+            // reopens the wizard on the chooser. No loop, copy matches reality.
+            setAutoClaimUnavailable(true);
+            setWizardOpen(false);
+          }}
           onComplete={() => {
             // Re-read identity; once it reads as published the shell releases.
             onClaimed();

@@ -6,6 +6,7 @@ import {
   isLocalPathVisible,
   isStandaloneLocalKeypairCreateVisible,
   shouldGateForClaim,
+  canAutoClaimWithSession,
 } from "./require-account";
 
 describe("isRequireAccountEnabled", () => {
@@ -260,5 +261,35 @@ describe("shouldGateForClaim (app-wide require-account gate)", () => {
         }),
       ).toBe(false);
     });
+  });
+});
+
+// Auto-claim Phase 1 edge-case fix (2026-06-19): the gate opens the wizard in
+// autoClaim mode whenever a cloud session exists, but the wizard can only reuse
+// that session when it carries a verifiable email to bind. This is the single
+// agreement point between the two reads, so a signed-in-but-unverifiable session
+// (the dev mock, or a lapsed / partial session) degrades to the manual sign-in
+// card instead of looping back into the chooser.
+describe("canAutoClaimWithSession (autoClaim session-reuse agreement point)", () => {
+  it("can auto-claim when the session carries a real email to bind", () => {
+    expect(
+      canAutoClaimWithSession({ sessionEmail: "ada@university.edu" }),
+    ).toBe(true);
+  });
+
+  it("trims surrounding whitespace before deciding", () => {
+    expect(
+      canAutoClaimWithSession({ sessionEmail: "  ada@university.edu  " }),
+    ).toBe(true);
+  });
+
+  it("cannot auto-claim a session with no email (the dev mock / lapsed / partial session)", () => {
+    expect(canAutoClaimWithSession({ sessionEmail: null })).toBe(false);
+    expect(canAutoClaimWithSession({ sessionEmail: undefined })).toBe(false);
+  });
+
+  it("cannot auto-claim on an empty or whitespace-only email", () => {
+    expect(canAutoClaimWithSession({ sessionEmail: "" })).toBe(false);
+    expect(canAutoClaimWithSession({ sessionEmail: "   " })).toBe(false);
   });
 });

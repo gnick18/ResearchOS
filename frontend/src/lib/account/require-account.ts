@@ -158,3 +158,29 @@ export function shouldGateForClaim(opts: {
 
   return signedOutLocalOnly || signedInNoIdentity;
 }
+
+/**
+ * Whether the autoClaim wizard can reuse the live OAuth session to claim the
+ * account WITHOUT another sign-in (auto-claim Phase 1 edge-case fix, 2026-06-19).
+ *
+ * shouldGateForClaim opens the gate, and the wizard in autoClaim mode, whenever a
+ * cloud session EXISTS. But auto-claim can only jump straight to keygen when that
+ * session actually carries a verifiable email to bind. A session with no usable
+ * email (the dev mock sign-in, or a lapsed / partial session that resolves with
+ * no email) cannot be auto-claimed. This is the single agreement point between the
+ * two reads that used to disagree: the gate fires on "a session exists", this
+ * fires on "the session has an email to bind". When they disagree the wizard hands
+ * back to the gate, which drops the "using your existing sign-in" presentation and
+ * shows the manual sign-in card (matching copy, no loop) instead of bouncing the
+ * user back into the provider chooser. The "Use a different folder" escape stays
+ * on every state, so this can never soft-lock.
+ *
+ * Returns true ONLY for a non-empty (after trimming) session email.
+ */
+export function canAutoClaimWithSession(opts: {
+  sessionEmail: string | null | undefined;
+}): boolean {
+  return (
+    typeof opts.sessionEmail === "string" && opts.sessionEmail.trim().length > 0
+  );
+}

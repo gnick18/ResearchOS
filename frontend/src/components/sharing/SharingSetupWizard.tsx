@@ -48,6 +48,7 @@ import {
   type SharingIdentitySidecar,
 } from "@/lib/sharing/identity/sidecar";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
+import { canAutoClaimWithSession } from "@/lib/account/require-account";
 import { resolveDevMockSignInOptions } from "@/lib/sharing/dev-mock-email";
 import { trackIdentityCreated } from "@/lib/analytics/events";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
@@ -94,6 +95,16 @@ interface SharingSetupWizardProps {
    * stranded. Used by RequireAccountGate for the signed-in dead-zone case.
    */
   autoClaim?: boolean;
+  /**
+   * Called when autoClaim mode cannot reuse the live session because it carries
+   * no verifiable email (the dev mock sign-in, or a lapsed / partial session).
+   * RequireAccountGate uses this to drop the "using your existing sign-in"
+   * presentation and fall back to its manual sign-in card, so the copy never
+   * promises an auto-claim the wizard cannot deliver and the user never loops
+   * back into the chooser. Optional, a no-op default for the callers that never
+   * pass autoClaim.
+   */
+  onAutoClaimUnavailable?: () => void;
 }
 
 // The query flag the OAuth callbackUrl carries so we know the page reloaded
@@ -123,6 +134,7 @@ export default function SharingSetupWizard({
   onClose,
   initialStep = "choose",
   autoClaim = false,
+  onAutoClaimUnavailable,
 }: SharingSetupWizardProps) {
   const [step, setStep] = useState<Step>(initialStep);
   const [verifiedVia, setVerifiedVia] = useState<VerifiedVia>(null);
@@ -258,9 +270,14 @@ export default function SharingSetupWizard({
   // ignores the provider, so "google" stands in for "verified via the live
   // OAuth session"). No second signIn() redirect.
   //
-  // Fallbacks keep this from ever stranding the user: a session with no email
-  // (lapsed, or ORCID which returns none) leaves the wizard on the chooser, and
-  // the ?sharingClaim resume effect above is mutually exclusive with this one
+  // Fallbacks keep this from ever stranding the user: a session with no usable
+  // email (lapsed, partial, the dev mock, or ORCID which returns none) cannot be
+  // auto-claimed, so we hand back to the caller via onAutoClaimUnavailable, which
+  // drops the autoClaim presentation and shows the manual sign-in card instead of
+  // looping the user back into the chooser under "using your existing sign-in".
+  // canAutoClaimWithSession is the single agreement point with the gate (the gate
+  // fires on "a session exists", this proceeds only on "a verifiable email"). The
+  // ?sharingClaim resume effect above is mutually exclusive with this one
   // (autoClaim openings carry no ?sharingClaim flag), so they never both fire.
   const autoClaimRan = useRef(false);
   useEffect(() => {
@@ -286,21 +303,27 @@ export default function SharingSetupWizard({
         const sessionEmail = session?.user?.email;
         const sessionName = session?.user?.name;
         if (sessionName) setDisplayName(sessionName);
-        if (sessionEmail) {
-          setEmail(sessionEmail);
+        if (canAutoClaimWithSession({ sessionEmail })) {
+          // canAutoClaimWithSession guarantees a non-empty email here.
+          setEmail(sessionEmail!.trim());
           setVerifiedVia("google");
           setStep("generate");
+        } else {
+          // No verifiable email to bind, so we cannot reuse this session. Hand
+          // back to the gate to fall to the manual sign-in card rather than
+          // stranding the user on the chooser under the autoClaim copy.
+          onAutoClaimUnavailable?.();
         }
-        // No session email leaves the wizard on the chooser, a safe place to
-        // finish setup by another method rather than a dead end.
       } catch {
-        // A failed session read just leaves the user on the chooser to retry.
+        // A failed session read means we cannot confirm a reusable session, so
+        // degrade to the manual sign-in card too (a safe, honest fallback).
+        if (!cancelled) onAutoClaimUnavailable?.();
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [autoClaim]);
+  }, [autoClaim, onAutoClaimUnavailable]);
 
   // Probe for an EXISTING local identity once on mount. If this user already has
   // a sealed keypair (sidecar recoveryBlob) AND it is unlocked on this device
