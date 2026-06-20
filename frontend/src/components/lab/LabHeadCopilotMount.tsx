@@ -27,13 +27,12 @@ import {
   LAB_HEAD_SYSTEM_PROMPT,
 } from "@/lib/ai/tools/lab-head";
 import { AI_ASSISTANT_ENABLED } from "@/lib/ai/config";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 
 export default function LabHeadCopilotMount() {
   const { currentUser } = useFileSystem();
-  const accountType = useAccountType(currentUser ?? null);
 
   // Class Mode (CM-P2B, addendum H2): a class instructor is a lab_head by role,
   // so this research PI copilot (grant / RPPR / inventory framed) would mount
@@ -49,7 +48,10 @@ export default function LabHeadCopilotMount() {
   // no folder carries lab_kind === "class" then).
   const isClassMode = useIsClassMode(currentUser ?? null) === true;
 
-  const isLabHead = accountType === "lab_head";
+  // The PI copilot is a delegated power (Lab Manager Phase 1): the lab head OR a
+  // Lab Manager mounts it. Strict === true so the loading (undefined) state does
+  // not mount it prematurely.
+  const isLabHead = useHasPiPowers(currentUser ?? null) === true;
   const shouldMount = AI_ASSISTANT_ENABLED && isLabHead && !isClassMode;
 
   useEffect(() => {

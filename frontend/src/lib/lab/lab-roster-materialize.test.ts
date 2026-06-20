@@ -257,3 +257,40 @@ describe("materializeLabRoster — ghost-cleanup reconcile", () => {
     expect(meta()!.users.carol.color).toBe("#84cc16");
   });
 });
+
+describe("Lab Manager flag materialization (Phase 1)", () => {
+  it("materializes lab_manager:true for a roster member with admin, never for the head", async () => {
+    // Viewer is alice; bob is a Lab Manager (admin), pi is the head.
+    const headMember = member("pi", "head");
+    const bob: LabMember = { ...member("bob", "member"), admin: true };
+    const rec: LabRecord = {
+      head: headMember,
+      members: [headMember, member("alice", "member"), bob],
+    } as LabRecord;
+
+    const { io, store } = makeIO();
+    await materializeLabRoster(rec, "alice", { fileIO: io, fetchProfile: noProfile });
+
+    const bobSettings = store.get("users/bob/settings.json") as Record<string, unknown>;
+    const piSettings = store.get("users/pi/settings.json") as Record<string, unknown>;
+    expect(bobSettings.account_type).toBe("member");
+    expect(bobSettings.lab_manager).toBe(true);
+    // The head holds every power, so the flag is never set on the head.
+    expect(piSettings.account_type).toBe("lab_head");
+    expect(piSettings.lab_manager).toBe(false);
+  });
+
+  it("clears lab_manager back to false when a member is demoted (admin absent on the roster)", async () => {
+    const headMember = member("pi", "head");
+    const rec: LabRecord = {
+      head: headMember,
+      members: [headMember, member("alice", "member"), member("bob", "member")],
+    } as LabRecord;
+    const { io, store } = makeIO();
+    // Pre-seed bob as if a prior run had materialized him as a manager.
+    store.set("users/bob/settings.json", { account_type: "member", lab_manager: true });
+    await materializeLabRoster(rec, "alice", { fileIO: io, fetchProfile: noProfile });
+    const bobSettings = store.get("users/bob/settings.json") as Record<string, unknown>;
+    expect(bobSettings.lab_manager).toBe(false);
+  });
+});

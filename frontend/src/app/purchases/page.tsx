@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { tasksApi, purchasesApi, labApi, fetchAllProjectsIncludingShared, fetchAllTasksIncludingShared } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -149,9 +149,12 @@ function PurchasesPageContent() {
   //    approval queue when their personal /purchases is empty but the
   //    lab queue is not. Mira-the-new-lab-head was concluding "nothing
   //    pending" because /purchases is scoped to her own submissions.
-  const accountType = useAccountType(currentUser || null);
-  const isLabHead = accountType === "lab_head";
-  const awaitingApprovalLabel = isLabHead
+  // Purchase approval is a delegated power (Lab Manager Phase 1): the lab head OR
+  // a Lab Manager can see and act on the lab's pending purchase approvals. A
+  // manager already holds the lab key, so this is an app-level capability, not a
+  // new signer. Strict === true so the loading (undefined) state reads as "no".
+  const canApprovePurchases = useHasPiPowers(currentUser || null) === true;
+  const awaitingApprovalLabel = canApprovePurchases
     ? "Pending approval"
     : "Awaiting approval";
   // Approval is a lab concept (a member submits, a lab head approves). In a
@@ -219,16 +222,16 @@ function PurchasesPageContent() {
   const { data: labPurchaseItems = [] } = useQuery({
     queryKey: ["lab", "purchase-items"],
     queryFn: () => labApi.getAllPurchaseItems(),
-    enabled: isLabHead,
+    enabled: canApprovePurchases,
   });
   const labPendingApprovalCount = useMemo(() => {
-    if (!isLabHead) return 0;
+    if (!canApprovePurchases) return 0;
     let n = 0;
     for (const item of labPurchaseItems) {
       if (!item.approved) n += 1;
     }
     return n;
-  }, [labPurchaseItems, isLabHead]);
+  }, [labPurchaseItems, canApprovePurchases]);
 
   // Filter to purchase tasks only
   const purchaseTasks = useMemo(
@@ -473,7 +476,7 @@ function PurchasesPageContent() {
             Gated to lab_head accounts only (members don't have a queue
             to approve) and to a non-zero count so it disappears once the
             queue is drained. */}
-        {isLabHead && labPendingApprovalCount > 0 && (
+        {canApprovePurchases && labPendingApprovalCount > 0 && (
           <div
             className="mb-4 flex items-center justify-between gap-4 px-4 py-3 rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-500/10"
             role="status"
@@ -882,7 +885,7 @@ function PurchasesPageContent() {
             if (categoryFilter === "misc") {
               filterLabel = `${MISC_CATEGORY_LABEL.toLowerCase()} purchases`;
             } else if (categoryFilter === "awaiting_approval") {
-              filterLabel = isLabHead
+              filterLabel = canApprovePurchases
                 ? "purchases pending your approval"
                 : "purchases awaiting approval";
             } else {

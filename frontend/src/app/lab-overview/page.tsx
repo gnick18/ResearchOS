@@ -9,7 +9,7 @@ import LabOverviewPage from "@/components/lab-overview/LabOverviewPage";
 import LabHeadCopilotMount from "@/components/lab/LabHeadCopilotMount";
 import UserLoginScreen from "@/components/UserLoginScreen";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 
 /**
  * Lab Overview route (lab-overview-page bot, 2026-06-02), PHASE 1.
@@ -31,23 +31,25 @@ export default function LabOverviewRoute() {
   const { currentUser: providerCurrentUser, isLoading: fsLoading } =
     useFileSystem();
   const currentUser = providerCurrentUser ?? "";
-  const accountType = useAccountType(currentUser || null);
+  // Lab Overview is a delegated power (Lab Manager Phase 1): the lab head OR a Lab
+  // Manager may view it. undefined while the capability reads are in flight.
+  const hasPiPowers = useHasPiPowers(currentUser || null);
 
-  // Non-PI: bounce to the home dashboard. Members get no curated Lab
-  // Overview in Phase 1. Guard on a resolved user so we don't bounce
-  // before the account type is known.
+  // Non-PI, non-manager: bounce to the home dashboard. Plain members get no
+  // curated Lab Overview in Phase 1. Guard on a resolved user so we don't bounce
+  // before the capability is known.
   useEffect(() => {
     if (fsLoading) return;
     if (!currentUser) return;
-    // Account-type read still in flight: do NOT bounce yet. Redirecting
-    // while `accountType` is `undefined` ping-pongs with "/"'s role-based
-    // redirect (which sends a PI straight back here) into an infinite loop.
-    // Only bounce once we have a RESOLVED non-lab_head type.
-    if (accountType === undefined) return;
-    if (accountType !== "lab_head") {
+    // Capability read still in flight: do NOT bounce yet. Redirecting while
+    // `hasPiPowers` is `undefined` ping-pongs with "/"'s role-based redirect
+    // (which sends someone with PI powers straight back here) into an infinite
+    // loop. Only bounce once we have a RESOLVED false.
+    if (hasPiPowers === undefined) return;
+    if (hasPiPowers === false) {
       router.replace("/?from=lab-overview");
     }
-  }, [fsLoading, currentUser, accountType, router]);
+  }, [fsLoading, currentUser, hasPiPowers, router]);
 
   // Login gate, mirroring the home page.
   if (!fsLoading && !currentUser) {
@@ -60,9 +62,9 @@ export default function LabOverviewRoute() {
     );
   }
 
-  // While the user/account type resolves, or while a non-PI is being
+  // While the user/capability resolves, or while a non-PI / non-manager is being
   // bounced, show a light spinner instead of flashing the PI page.
-  if (fsLoading || !currentUser || accountType !== "lab_head") {
+  if (fsLoading || !currentUser || hasPiPowers !== true) {
     return (
       <div className="flex-1 flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />

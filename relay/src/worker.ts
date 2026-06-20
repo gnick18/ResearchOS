@@ -3587,7 +3587,10 @@ interface LabMemberWire {
 
 interface LabLogEntryWire {
   seq: number;
-  type: "create" | "add" | "remove" | "rotate";
+  // "role" (Lab Manager Phase 1) is a head-signed roster change that flips a
+  // member's admin flag WITHOUT a key effect, so it behaves like "remove" on this
+  // relay (no envelope, no copy, generation stays put). See the append handler.
+  type: "create" | "add" | "remove" | "rotate" | "role";
   keyGeneration: number;
   roster: LabMemberWire[];
   subject?: LabMemberWire;
@@ -3785,7 +3788,8 @@ export class LabRecordDO {
       e.type !== "create" &&
       e.type !== "add" &&
       e.type !== "remove" &&
-      e.type !== "rotate"
+      e.type !== "rotate" &&
+      e.type !== "role"
     ) {
       return false;
     }

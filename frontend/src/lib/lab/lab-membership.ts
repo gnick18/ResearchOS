@@ -65,10 +65,29 @@ export interface LabMember {
    * JSON.stringify omits it, so older signed rosters stay byte-identical.
    */
   emailHashEnc?: string;
+  /**
+   * Lab Manager delegation (Phase 1, docs/proposals/2026-06-20-lab-admin-delegation-
+   * and-co-pi.md). Set ONLY by a head-signed "role" log entry (setMemberAdmin in
+   * lab-key.ts). It grants the member APP-LEVEL operational powers (approve
+   * purchases, view audit / ops, manage companion-site content, propose member
+   * changes for the head to ratify). It does NOT grant signing authority over this
+   * log, so the head stays the sole signer and the crypto trust model is unchanged.
+   * Absent for the head (the head already holds every power) and for plain members.
+   * Optional and appended last so older signed rosters stay byte-identical
+   * (JSON.stringify omits it when undefined, the same property emailHashEnc relies
+   * on). Always constructed via a spread-append so its runtime key position is
+   * deterministic, which keeps the canonical signed message reproducible.
+   */
+  admin?: true;
 }
 
-/** The kinds of events the log records. */
-export type LabLogEventType = "create" | "add" | "remove" | "rotate";
+/**
+ * The kinds of events the log records. "role" is a head-signed entry that changes
+ * a member's Lab Manager (admin) flag WITHOUT rotating the key or changing the key
+ * generation (an admin grant changes app-level power, not crypto access, so nothing
+ * is resealed). See setMemberAdmin in lab-key.ts.
+ */
+export type LabLogEventType = "create" | "add" | "remove" | "rotate" | "role";
 
 /**
  * One append-only log entry, signed by the head. Every entry chains to the

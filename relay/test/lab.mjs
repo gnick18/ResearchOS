@@ -312,6 +312,60 @@ const gen1Envelope = {
   check("(k) get on a missing lab returns 404", res.status === 404);
 }
 
+// ---- (k2) a "role" append (Lab Manager Phase 1) on a fresh lab ---------------
+// A "role" entry flips a member's admin flag. It carries NO envelope and NO copy
+// (no key effect), keeps the generation put, and must verify under the head. A
+// member-signed "role" must be rejected, so a member cannot self-promote.
+{
+  const labR = `lab-role-${Date.now()}`;
+  const rHead = member("pi", "head");
+  const rAlice = member("alice", "member");
+  const g = signEntry(
+    { seq: 0, type: "create", keyGeneration: 0, roster: [rAlice.member], issuedAt: Date.now(), prevHash: "" },
+    rHead.priv,
+  );
+  await postJson(`/lab/create?lab=${labR}`, {
+    entry: g,
+    envelope: { generation: 0, copies: [] },
+    head: rHead.member,
+  });
+
+  // Head promotes alice to Lab Manager (admin), seq 1, generation stays 0, no side data.
+  const promoted = { ...rAlice.member, admin: true };
+  const roleEntry = signEntry(
+    { seq: 1, type: "role", keyGeneration: 0, roster: [promoted], subject: promoted, issuedAt: Date.now(), prevHash: hashSig(g.signature) },
+    rHead.priv,
+  );
+  {
+    const res = await postJson(`/lab/append?lab=${labR}`, { entry: roleEntry });
+    check("(k2) head-signed role append returns 200", res.status === 200);
+  }
+
+  // The stored roster now carries the admin flag.
+  {
+    const res = await postJson(`/lab/get?lab=${labR}`, {});
+    const data = await res.json();
+    const ok =
+      res.status === 200 &&
+      data.record.keyGeneration === 0 &&
+      data.record.log.length === 2 && // create + role
+      data.record.members.length === 1 &&
+      data.record.members[0].username === "alice" &&
+      data.record.members[0].admin === true;
+    check("(k2) get reflects the materialized admin flag, generation unchanged", ok);
+  }
+
+  // A member-signed "role" (alice trying to keep/grant admin herself) is rejected.
+  {
+    const forged = signEntry(
+      { seq: 2, type: "role", keyGeneration: 0, roster: [promoted], subject: promoted, issuedAt: Date.now(), prevHash: hashSig(roleEntry.signature) },
+      rAlice.priv, // not the head
+    );
+    const res = await postJson(`/lab/append?lab=${labR}`, { entry: forged });
+    check("(k2) member-signed role append rejected (401)", res.status === 401);
+  }
+}
+
 // ---- accept queue: ONE reusable invite link admits MANY members -------------
 // The relay only shape-validates the accept on push (the crypto is the head's
 // job at finalize). What matters at the storage layer is that the queue is keyed

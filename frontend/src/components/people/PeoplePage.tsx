@@ -20,9 +20,16 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { formatUsernameHandle } from "@/lib/account/workspace-username";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useLabSession } from "@/hooks/useLabSession";
+import { useQueryClient } from "@tanstack/react-query";
 import { useLabData } from "@/hooks/useLabData";
-import { useLabRosterRows, type RosterRow } from "@/hooks/useLabRoster";
+import {
+  useLabRosterRows,
+  type RosterRow,
+  LAB_ROSTER_QUERY_KEY,
+} from "@/hooks/useLabRoster";
 import { getLabRemote } from "@/lib/lab/lab-do-client";
+import { setLabManagerForHead } from "@/lib/lab/lab-head-membership";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import {
   fetchLabRoster,
   type LabBillingStatus,
@@ -139,6 +146,7 @@ export default function PeoplePage() {
   }, [labId]);
 
   const [selected, setSelected] = useState<RosterRow | null>(null);
+  const queryClient = useQueryClient();
 
   if (isLabHead === false) {
     return (
@@ -269,6 +277,11 @@ export default function PeoplePage() {
                                 PI
                               </span>
                             )}
+                            {row.lab_manager && (
+                              <span className="rounded bg-brand-action/10 px-1.5 py-0.5 text-meta font-semibold text-brand-action">
+                                Manager
+                              </span>
+                            )}
                             {isSelf && (
                               <span className="rounded bg-blue-100 px-1.5 py-0.5 text-meta font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
                                 You
@@ -386,6 +399,10 @@ export default function PeoplePage() {
         <MemberPanel
           row={selected}
           workload={workloadByUser.get(selected.username)}
+          labId={labId}
+          onChanged={() =>
+            queryClient.invalidateQueries({ queryKey: LAB_ROSTER_QUERY_KEY })
+          }
           onClose={() => setSelected(null)}
         />
       )}
@@ -398,15 +415,56 @@ export default function PeoplePage() {
 function MemberPanel({
   row,
   workload,
+  labId,
+  onChanged,
   onClose,
 }: {
   row: RosterRow;
   workload: Workload | undefined;
+  labId: string | null;
+  onChanged: () => void;
   onClose: () => void;
 }) {
   const label = row.displayName?.trim() || row.username;
   const actionBtn =
     "flex items-center justify-between gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-body text-foreground hover:bg-surface-hover";
+
+  // Lab Manager (Phase 1): the head can delegate operational powers to a member.
+  // Never offered for the PI's own entry (the head holds every power already) and
+  // only when we have a labId to act on. Optimistic close + roster refetch on success.
+  const isHeadRow = row.account_type === "lab_head";
+  const [managerBusy, setManagerBusy] = useState(false);
+  const [managerError, setManagerError] = useState<string | null>(null);
+
+  async function toggleLabManager() {
+    if (!labId || managerBusy) return;
+    const identity = getSessionIdentity();
+    if (!identity) {
+      setManagerError(
+        "Your identity is locked. Reconnect your lab folder and try again.",
+      );
+      return;
+    }
+    setManagerBusy(true);
+    setManagerError(null);
+    try {
+      await setLabManagerForHead({
+        labId,
+        username: row.username,
+        makeAdmin: !row.lab_manager,
+        identity,
+      });
+      onChanged();
+      onClose();
+    } catch (err) {
+      setManagerError(
+        err instanceof Error ? err.message : "Could not update the manager role.",
+      );
+    } finally {
+      setManagerBusy(false);
+    }
+  }
+
   return (
     <LivingPopup
       open
@@ -480,6 +538,46 @@ function MemberPanel({
             <Icon name="chevronRight" className="h-4 w-4 text-foreground-muted" />
           </Link>
         </div>
+
+        {/* Lab Manager (Phase 1): delegate operational powers to a member. Never
+            shown for the PI's own row. */}
+        {!isHeadRow && (
+          <div className="space-y-2 rounded-lg border border-border bg-surface px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-body font-medium text-foreground">
+                  Lab Manager
+                </p>
+                <p className="text-meta text-foreground-muted leading-relaxed">
+                  {row.lab_manager
+                    ? "Can approve purchases, view audit and ops, and propose member changes for you to confirm. You stay the only signer and billing owner."
+                    : "Delegate day-to-day operations (approve purchases, view audit and ops, propose member changes for you to confirm). You stay the only signer and billing owner."}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={toggleLabManager}
+                disabled={managerBusy || !labId}
+                className={`shrink-0 rounded-lg px-3 py-2 text-meta font-medium transition disabled:opacity-50 ${
+                  row.lab_manager
+                    ? "border border-border bg-surface text-foreground hover:bg-surface-hover"
+                    : "btn-brand text-white"
+                }`}
+              >
+                {managerBusy
+                  ? "Saving..."
+                  : row.lab_manager
+                    ? "Remove manager"
+                    : "Make manager"}
+              </button>
+            </div>
+            {managerError && (
+              <p className="text-meta text-rose-600 dark:text-rose-400">
+                {managerError}
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex justify-end pt-1">
           <button
