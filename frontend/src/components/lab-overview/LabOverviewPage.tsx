@@ -420,34 +420,30 @@ export default function LabOverviewPage() {
         </div>
       )}
 
-      {/* OV-3: lab activity beside a People snapshot. */}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <SectionCard
-            title="Lab activity"
-            description="A cross-lab feed of recent experiments, notes, and tasks."
+      {/* OV-3: People workload as a full-width strip, lab activity full-width
+          below in flowing columns. Both use the laptop width instead of a
+          short 1/3 column that left a void beside a long feed. */}
+      <SectionCard
+        title="People"
+        description="Workload across your lab."
+        action={
+          <button
+            type="button"
+            onClick={() => router.push("/people")}
+            className="shrink-0 rounded-md px-2.5 py-1 text-meta font-medium text-brand-action hover:underline"
           >
-            <LabActivityBody surface="canvas" />
-          </SectionCard>
-        </div>
-        <div>
-          <SectionCard
-            title="People"
-            description="Workload across your lab."
-            action={
-              <button
-                type="button"
-                onClick={() => router.push("/people")}
-                className="shrink-0 rounded-md px-2.5 py-1 text-meta font-medium text-brand-action hover:underline"
-              >
-                View all
-              </button>
-            }
-          >
-            <MemberWorkloadBody surface="sidebar" />
-          </SectionCard>
-        </div>
-      </div>
+            View all
+          </button>
+        }
+      >
+        <MemberWorkloadBody surface="strip" />
+      </SectionCard>
+      <SectionCard
+        title="Lab activity"
+        description="A cross-lab feed of recent experiments, notes, and tasks."
+      >
+        <LabActivityBody surface="canvas" wide />
+      </SectionCard>
 
       <AuditTrailViewer open={auditOpen} onClose={() => setAuditOpen(false)} />
 

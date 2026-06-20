@@ -62,6 +62,14 @@ function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+/** Short "Jun 12" style date for the IDP-updated hint; null when unparseable. */
+function shortDate(iso: string | null): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
 export default function PeoplePage() {
   const { currentUser } = useCurrentUser();
   const isLabHead = useIsLabHead(currentUser);
@@ -87,6 +95,14 @@ export default function PeoplePage() {
     }
     return map;
   }, [tasks]);
+
+  // Busiest member's open count, so every workload bar is on a shared scale and
+  // a PI can compare load down the column at a glance.
+  const maxOpen = useMemo(() => {
+    let m = 0;
+    for (const w of workloadByUser.values()) if (w.open > m) m = w.open;
+    return m;
+  }, [workloadByUser]);
 
   // Billing chip per member (best-effort; null when billing is off). Resolve the
   // DO roster to billing statuses, then key by username so it lines up with the
@@ -136,6 +152,7 @@ export default function PeoplePage() {
   }
 
   const activeCount = rows.filter((r) => !r.archived).length;
+  const hasBilling = billingByUser.size > 0;
 
   return (
     <PageContainer width="full" className="py-6">
@@ -181,105 +198,188 @@ export default function PeoplePage() {
           No lab members yet. They appear here as they join your lab folder.
         </p>
       ) : (
-        <ul className="divide-y divide-border overflow-hidden rounded-xl border border-border">
-          {rows.map((row) => {
-            const label = row.displayName?.trim() || row.username;
-            const isSelf = row.username === currentUser;
-            const w = workloadByUser.get(row.username);
-            const billing = billingByUser.get(row.username);
-            const chip = billing ? BILLING_CHIP[billing] : null;
-            return (
-              <li key={row.username}>
-                <button
-                  type="button"
-                  onClick={() => setSelected(row)}
-                  data-tutor-target="people-member-card"
-                  data-testid={`people-row-${row.username}`}
-                  className={`flex w-full items-center gap-3 px-4 py-3 text-left transition hover:bg-surface-hover ${
-                    row.archived ? "bg-surface-sunken" : "bg-surface"
-                  }`}
-                >
-                  <UserAvatar username={row.username} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span
-                        className={`truncate text-body font-medium ${
-                          row.archived
-                            ? "text-foreground-muted"
-                            : "text-foreground"
-                        }`}
-                      >
-                        {label}
-                      </span>
-                      {row.account_type === "lab_head" && (
-                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-meta font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                          PI
-                        </span>
-                      )}
-                      {isSelf && (
-                        <span className="rounded bg-blue-100 px-1.5 py-0.5 text-meta font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
-                          You
-                        </span>
-                      )}
-                      {row.archived && (
-                        <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-meta font-semibold text-foreground-muted">
-                          Archived
-                        </span>
-                      )}
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-meta text-foreground-muted">
-                      <span className="truncate">{formatUsernameHandle(row.username)}</span>
-                      {/* Workload (PE-2). */}
-                      {w && (w.open > 0 || w.overdue > 0) ? (
-                        <span>
-                          {w.open} open
-                          {w.overdue > 0 ? (
-                            <span className="text-rose-600 dark:text-rose-400">
-                              {" "}
-                              · {w.overdue} overdue
+        <div className="overflow-hidden rounded-xl border border-border">
+          <table className="w-full border-collapse text-left">
+            <thead>
+              <tr className="border-b border-border bg-surface-sunken/60 text-meta uppercase tracking-wide text-foreground-muted">
+                <th className="px-4 py-2.5 font-semibold">Member</th>
+                <th className="w-[32%] px-4 py-2.5 font-semibold">Workload</th>
+                <th className="w-[170px] px-4 py-2.5 font-semibold">IDP</th>
+                {hasBilling && (
+                  <th className="w-[150px] px-4 py-2.5 font-semibold">
+                    Cloud seat
+                  </th>
+                )}
+                <th className="w-[150px] px-4 py-2.5 text-right font-semibold">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {rows.map((row) => {
+                const label = row.displayName?.trim() || row.username;
+                const isSelf = row.username === currentUser;
+                const w = workloadByUser.get(row.username);
+                const open = w?.open ?? 0;
+                const overdue = w?.overdue ?? 0;
+                const bluePct =
+                  maxOpen > 0
+                    ? Math.round(((open - overdue) / maxOpen) * 100)
+                    : 0;
+                const redPct =
+                  maxOpen > 0 ? Math.round((overdue / maxOpen) * 100) : 0;
+                const billing = billingByUser.get(row.username);
+                const chip = billing ? BILLING_CHIP[billing] : null;
+                const idpDate = shortDate(row.idpUpdatedAt);
+                return (
+                  <tr
+                    key={row.username}
+                    onClick={() => setSelected(row)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelected(row);
+                      }
+                    }}
+                    data-tutor-target="people-member-card"
+                    data-testid={`people-row-${row.username}`}
+                    className={`cursor-pointer align-middle transition hover:bg-surface-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-action/40 ${
+                      row.archived ? "bg-surface-sunken" : "bg-surface"
+                    }`}
+                  >
+                    {/* Member */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <UserAvatar username={row.username} size="sm" />
+                        <div className="min-w-0">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span
+                              className={`truncate text-body font-medium ${
+                                row.archived
+                                  ? "text-foreground-muted"
+                                  : "text-foreground"
+                              }`}
+                            >
+                              {label}
                             </span>
-                          ) : null}
-                        </span>
-                      ) : (
-                        <span>No open tasks</span>
-                      )}
-                      {/* IDP on file (PE-3), contents-free. */}
-                      <span className="inline-flex items-center gap-1">
-                        {row.idpExists ? (
+                            {row.account_type === "lab_head" && (
+                              <span className="rounded bg-amber-100 px-1.5 py-0.5 text-meta font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
+                                PI
+                              </span>
+                            )}
+                            {isSelf && (
+                              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-meta font-semibold text-blue-800 dark:bg-blue-500/15 dark:text-blue-300">
+                                You
+                              </span>
+                            )}
+                            {row.archived && (
+                              <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-meta font-semibold text-foreground-muted">
+                                Archived
+                              </span>
+                            )}
+                          </div>
+                          <span className="truncate text-meta text-foreground-muted">
+                            {formatUsernameHandle(row.username)}
+                          </span>
+                        </div>
+                      </div>
+                    </td>
+                    {/* Workload (PE-2): shared-scale bar so load is comparable. */}
+                    <td className="px-4 py-3">
+                      <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        <div
+                          className="h-full bg-brand-action"
+                          style={{ width: `${bluePct}%` }}
+                        />
+                        <div
+                          className="h-full bg-rose-500"
+                          style={{ width: `${redPct}%` }}
+                        />
+                      </div>
+                      <div className="mt-1.5 text-meta text-foreground-muted">
+                        {open > 0 ? (
                           <>
-                            <Icon
-                              name="check"
-                              className="h-3 w-3 text-emerald-600 dark:text-emerald-400"
-                            />
-                            IDP on file
+                            <span className="font-medium text-foreground">
+                              {open}
+                            </span>{" "}
+                            open
+                            {overdue > 0 ? (
+                              <span className="text-rose-600 dark:text-rose-400">
+                                {" "}
+                                · {overdue} overdue
+                              </span>
+                            ) : null}
                           </>
                         ) : (
-                          "No IDP on file"
+                          "No open tasks"
                         )}
-                      </span>
-                    </div>
-                  </div>
-                  {chip ? (
-                    <Tooltip
-                      label="Cloud seat"
-                      body="Whether this member's cloud storage sits on a paid seat in your lab's pool."
-                    >
-                      <span
-                        className={`shrink-0 rounded-full px-2.5 py-1 text-meta font-medium ${chip.tone}`}
-                      >
-                        {chip.label}
-                      </span>
-                    </Tooltip>
-                  ) : null}
-                  <Icon
-                    name="chevronRight"
-                    className="h-4 w-4 shrink-0 text-foreground-muted"
-                  />
-                </button>
-              </li>
-            );
-          })}
-        </ul>
+                      </div>
+                    </td>
+                    {/* IDP on file (PE-3), contents-free. */}
+                    <td className="px-4 py-3">
+                      {row.idpExists ? (
+                        <div className="space-y-0.5">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-meta font-medium text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300">
+                            <Icon name="check" className="h-3 w-3" />
+                            On file
+                          </span>
+                          {idpDate && (
+                            <span className="block text-meta text-foreground-muted">
+                              updated {idpDate}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-surface-sunken px-2 py-0.5 text-meta font-medium text-foreground-muted">
+                          Missing
+                        </span>
+                      )}
+                    </td>
+                    {/* Cloud seat (billing chip), only when billing is populated. */}
+                    {hasBilling && (
+                      <td className="px-4 py-3">
+                        {chip ? (
+                          <Tooltip
+                            label="Cloud seat"
+                            body="Whether this member's cloud storage sits on a paid seat in your lab's pool."
+                          >
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-meta font-medium ${chip.tone}`}
+                            >
+                              {chip.label}
+                            </span>
+                          </Tooltip>
+                        ) : (
+                          <span className="text-meta text-foreground-muted">
+                            —
+                          </span>
+                        )}
+                      </td>
+                    )}
+                    {/* Actions: jump straight to Check-ins, plus the open affordance. */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        <Link
+                          href="/workbench?tab=oneonone"
+                          onClick={(e) => e.stopPropagation()}
+                          className="rounded-lg bg-brand-action/10 px-2.5 py-1 text-meta font-medium text-brand-action transition hover:bg-brand-action/20"
+                        >
+                          Check-ins
+                        </Link>
+                        <Icon
+                          name="chevronRight"
+                          className="h-4 w-4 shrink-0 text-foreground-muted"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {selected && (

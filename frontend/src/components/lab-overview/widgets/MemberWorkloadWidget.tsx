@@ -45,10 +45,11 @@ const PEOPLE_ICON = (
  * too — if a viewer slipped through without account_type === lab_head,
  * the body returns null.
  */
-export default function MemberWorkloadWidget(_props?: {
+export default function MemberWorkloadWidget(props?: {
   isEditing?: boolean;
-  surface?: "canvas" | "sidebar";
+  surface?: "canvas" | "sidebar" | "strip";
 }) {
+  const surface = props?.surface;
   const { currentUser } = useCurrentUser();
   const isLabHead = useIsLabHead(currentUser);
   const { users, tasks } = useLabData();
@@ -92,6 +93,63 @@ export default function MemberWorkloadWidget(_props?: {
       <p className="text-meta text-foreground-muted italic">
         No lab members yet.
       </p>
+    );
+  }
+
+  // Strip surface (lab-overview): a full-width responsive grid of compact
+  // member cards, each with a shared-scale workload bar, so a PI reads the
+  // whole lab's load in one glance row instead of a tall narrow column.
+  if (surface === "strip") {
+    const maxOpen = Math.max(1, ...rows.map((r) => r.open));
+    return (
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+        {rows.map((r) => {
+          const bluePct = Math.round(((r.open - r.overdue) / maxOpen) * 100);
+          const redPct = Math.round((r.overdue / maxOpen) * 100);
+          return (
+            <li
+              key={r.username}
+              title={`${r.displayName}. Open: ${r.open} · Overdue: ${r.overdue}`}
+              className="rounded-lg border border-border bg-surface px-3 py-2.5"
+            >
+              <div className="flex items-center gap-2">
+                <UserAvatar username={r.username} size="sm" />
+                <span className="min-w-0 flex-1 truncate text-meta font-medium text-foreground">
+                  {r.displayName}
+                </span>
+              </div>
+              <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken">
+                <div
+                  className="h-full bg-brand-action"
+                  style={{ width: `${bluePct}%` }}
+                />
+                <div
+                  className="h-full bg-rose-500"
+                  style={{ width: `${redPct}%` }}
+                />
+              </div>
+              <div className="mt-1.5 text-meta text-foreground-muted">
+                {r.open > 0 ? (
+                  <>
+                    <span className="font-medium text-foreground tabular-nums">
+                      {r.open}
+                    </span>{" "}
+                    open
+                    {r.overdue > 0 ? (
+                      <span className="text-rose-600 dark:text-rose-400">
+                        {" "}
+                        · {r.overdue} overdue
+                      </span>
+                    ) : null}
+                  </>
+                ) : (
+                  "No open tasks"
+                )}
+              </div>
+            </li>
+          );
+        })}
+      </ul>
     );
   }
 

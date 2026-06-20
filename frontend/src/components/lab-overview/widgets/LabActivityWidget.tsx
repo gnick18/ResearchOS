@@ -189,10 +189,13 @@ const DATE_RANGE_LABEL: Record<DateRange, string> = {
   all: "All time",
 };
 
-export default function LabActivityWidget(_props?: {
+export default function LabActivityWidget(props?: {
   isEditing?: boolean;
   surface?: "canvas" | "sidebar";
+  /** Full-width lab-overview surface: flow date groups into columns. */
+  wide?: boolean;
 }) {
+  const wide = props?.wide;
   const { tasks } = useLabData();
   const [filter, setFilter] = useState<Filter>("all");
   // Phase B Batch B1: time-range pre-filter applied BEFORE the kind
@@ -440,10 +443,20 @@ export default function LabActivityWidget(_props?: {
             yet.
           </p>
         ) : (
-          <div className="space-y-4">
+          <div
+            className={
+              wide
+                ? "gap-x-8 lg:columns-2 xl:columns-3 [&>section]:mb-4 [&>section]:break-inside-avoid"
+                : "space-y-4"
+            }
+          >
             {groupedByDay.map(({ day, items }) => (
               <section key={day}>
-                <h3 className="text-meta uppercase tracking-wider text-foreground-muted font-semibold mb-1.5 sticky top-0 bg-surface-raised py-1">
+                <h3
+                  className={`text-meta uppercase tracking-wider text-foreground-muted font-semibold mb-1.5 bg-surface-raised py-1 ${
+                    wide ? "" : "sticky top-0"
+                  }`}
+                >
                   {day}
                 </h3>
                 <ul className="space-y-1">
