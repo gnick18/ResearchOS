@@ -60,7 +60,7 @@ export default function MadeInMadison({
       >
         {/* WI silhouette: green-gold gradient with a gold Madison star (self-colored) */}
         <Icon name="wisconsin" className="h-5 w-5 flex-none" title="Wisconsin" />
-        <span>Built in {madison}, Wisconsin.</span>
+        <span>Built in {madison}.</span>
       </span>
     );
   }
