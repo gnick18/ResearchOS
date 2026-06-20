@@ -54,6 +54,234 @@ import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
 
+// ---------------------------------------------------------------------------
+// SiteEditorsPanel: "Who can edit this site" (lab owner only)
+// ---------------------------------------------------------------------------
+
+interface EditorEntry {
+  memberKey: string;
+  label: string | null;
+  grantedAt: string;
+}
+
+interface MemberEntry {
+  memberKey: string;
+  label: string | null;
+}
+
+/**
+ * Panel visible ONLY to the lab owner. Lists members who have been granted
+ * editor access to this site, with a revoke control per member, and an "Add
+ * editor" picker showing the lab's active billing members.
+ *
+ * Fetches GET /api/social/lab-site/editors?path= on mount. The owner key is
+ * never passed from the client (the server derives it from the session). All
+ * write actions (POST grant, DELETE revoke) are owner-only server-side.
+ */
+function SiteEditorsPanel({ slug }: { slug: string }) {
+  const [editors, setEditors] = useState<EditorEntry[]>([]);
+  const [members, setMembers] = useState<MemberEntry[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // The path for a whole-site grant is always "".
+  const SITE_PATH = "";
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/social/lab-site/editors?path=${encodeURIComponent(SITE_PATH)}`,
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        editors: EditorEntry[];
+        members: MemberEntry[];
+      };
+      setEditors(Array.isArray(data.editors) ? data.editors : []);
+      setMembers(Array.isArray(data.members) ? data.members : []);
+    } catch {
+      // Non-fatal: panel renders empty on error.
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const grant = useCallback(
+    async (memberKey: string) => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/social/lab-site/editors", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path: SITE_PATH, memberKey }),
+        });
+        if (!res.ok) {
+          setMsg("Could not grant access right now.");
+          return;
+        }
+        setPickerOpen(false);
+        await load();
+      } catch {
+        setMsg("Could not grant access right now.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load],
+  );
+
+  const revoke = useCallback(
+    async (memberKey: string) => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/social/lab-site/editors", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path: SITE_PATH, memberKey }),
+        });
+        if (!res.ok) {
+          setMsg("Could not revoke access right now.");
+          return;
+        }
+        await load();
+      } catch {
+        setMsg("Could not revoke access right now.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load],
+  );
+
+  // Members not already granted (the picker should not show existing editors).
+  const editorKeys = useMemo(() => new Set(editors.map((e) => e.memberKey)), [editors]);
+  const availableMembers = useMemo(
+    () => members.filter((m) => !editorKeys.has(m.memberKey)),
+    [members, editorKeys],
+  );
+
+  // Display label: use the stored email label when available, otherwise shorten
+  // the owner key for readability.
+  function memberLabel(entry: { memberKey: string; label: string | null }): string {
+    if (entry.label) return entry.label;
+    return entry.memberKey.length > 16
+      ? `${entry.memberKey.slice(0, 8)}…`
+      : entry.memberKey;
+  }
+
+  return (
+    <section className="mb-6 rounded-xl border border-border bg-surface-raised p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon name="users" className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-medium text-foreground">
+            Who can edit this site
+          </h2>
+        </div>
+        <Tooltip label="Grant a lab member full create, edit, and publish access to this site">
+          <button
+            type="button"
+            disabled={busy || availableMembers.length === 0}
+            onClick={() => setPickerOpen((v) => !v)}
+            className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs disabled:opacity-50"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" /> Add editor
+          </button>
+        </Tooltip>
+      </div>
+
+      <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+        Granted members can create, edit, and publish pages on{" "}
+        <span className="font-medium">{slug}.research-os.com</span> without
+        needing lab-wide Lab Manager access. Only you can add or remove editors.
+      </p>
+
+      {editors.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No editors yet. Add a lab member to let them manage this site.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {editors.map((e) => (
+            <li
+              key={e.memberKey}
+              className="flex items-center justify-between px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm text-foreground">{memberLabel(e)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Granted{" "}
+                  {new Date(e.grantedAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              <Tooltip label="Remove this editor's access to the site">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void revoke(e.memberKey)}
+                  className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <Icon name="trash" className="h-3.5 w-3.5" /> Revoke
+                </button>
+              </Tooltip>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pickerOpen && availableMembers.length > 0 && (
+        <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Select a lab member to grant editor access:
+          </p>
+          <ul className="divide-y divide-border rounded-lg border border-border bg-background">
+            {availableMembers.map((m) => (
+              <li key={m.memberKey}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void grant(m.memberKey)}
+                  className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-surface-raised disabled:opacity-50"
+                >
+                  {memberLabel(m)}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(false)}
+            className="mt-2 text-xs text-muted-foreground underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {members.length === 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No active lab members to add. Invite members from Lab settings first.
+        </p>
+      )}
+
+      {msg && (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {msg}
+        </p>
+      )}
+    </section>
+  );
+}
+
 /**
  * Lab badges card (badges phase 2). Lets the lab head choose which earned
  * badges to pin and publish them to the lab's public page. Gated on
@@ -1393,6 +1621,9 @@ export default function LabSiteDashboard({
                 }}
               />
             )}
+
+            {/* Site editor grants panel: PI only, hidden in demo mode. */}
+            {!demoReadOnly && <SiteEditorsPanel slug={site.slug} />}
 
             <div className="mb-8">
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">

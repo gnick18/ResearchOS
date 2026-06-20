@@ -16,8 +16,9 @@
 //     data block's embed href via scanBlockEmbedHrefs + bakeOne. Body:
 //     { path, snapshots? }.
 //
-// Auth: same three-check fail-closed sequence as the markdown page route
-// (flag -> session -> owner -> entitlement).
+// Auth: flag -> session -> owner-OR-editor-grant -> entitlement (owner only).
+// A granted editor supplies siteOwnerKey in the request body to identify the
+// site; isSiteEditor verifies the grant server-side. Owner path unchanged.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
@@ -41,29 +42,44 @@ import {
   serializeSnapshotBundle,
 } from "@/lib/social/lab-site-snapshots";
 import { MAX_BLOCKS_JSON_BYTES } from "@/lib/social/lab-site-blocks";
+import { isSiteEditor } from "@/lib/social/lab-site-editors-db";
 
 export const runtime = "nodejs";
 
-/** Shared auth gate for both endpoints. */
-async function authorizeBlocksWrite(): Promise<
+/**
+ * Shared auth gate for all blocks endpoints. Resolves the site owner key from
+ * the session, then allows the write when the caller is the site owner (existing
+ * path) OR holds an active editor grant (new editor-grants path). On the editor
+ * path siteOwnerKey must be passed from the request body.
+ */
+async function authorizeBlocksWrite(siteOwnerKeyFromBody?: string | null): Promise<
   { ok: true; ownerKey: string } | { ok: false; response: Response }
 > {
   if (!isLabSitesEnabled()) {
     return { ok: false, response: json(404, { error: "not found" }) };
   }
   const callerOwnerKey = await resolveCallerOwnerKey();
-  const entitled = callerOwnerKey
-    ? await isLabPublishEntitled(callerOwnerKey)
-    : false;
-  const verdict = authorizeWrite({
-    callerOwnerKey,
-    targetOwnerKey: callerOwnerKey,
-    entitled,
-  });
-  if (verdict.kind === "deny") {
-    return { ok: false, response: json(verdict.status, { error: verdict.error }) };
+  if (!callerOwnerKey) {
+    return { ok: false, response: json(401, { error: "unauthorized" }) };
   }
-  return { ok: true, ownerKey: callerOwnerKey as string };
+
+  // Owner path: caller writes to their own site.
+  const targetOwnerKey = siteOwnerKeyFromBody ?? callerOwnerKey;
+  if (targetOwnerKey === callerOwnerKey) {
+    const entitled = await isLabPublishEntitled(callerOwnerKey);
+    const verdict = authorizeWrite({ callerOwnerKey, targetOwnerKey: callerOwnerKey, entitled });
+    if (verdict.kind === "deny") {
+      return { ok: false, response: json(verdict.status, { error: verdict.error }) };
+    }
+    return { ok: true, ownerKey: callerOwnerKey };
+  }
+
+  // Editor path: caller is not the site owner; verify the editor grant.
+  const granted = await isSiteEditor(targetOwnerKey, "", callerOwnerKey);
+  if (!granted) {
+    return { ok: false, response: json(403, { error: "forbidden" }) };
+  }
+  return { ok: true, ownerKey: targetOwnerKey };
 }
 
 // ---------------------------------------------------------------------------
@@ -71,11 +87,12 @@ async function authorizeBlocksWrite(): Promise<
 // ---------------------------------------------------------------------------
 
 export async function GET(request: Request): Promise<Response> {
-  const gate = await authorizeBlocksWrite();
+  const { searchParams } = new URL(request.url);
+  const siteOwnerKeyParam = searchParams.get("siteOwnerKey");
+  const gate = await authorizeBlocksWrite(siteOwnerKeyParam || null);
   if (!gate.ok) return gate.response;
   const { ownerKey } = gate;
 
-  const { searchParams } = new URL(request.url);
   const path = searchParams.get("path") ?? "";
 
   let blocksJson: string | null;
@@ -112,16 +129,23 @@ function parseSaveBlocksBody(body: unknown): SaveBlocksBody | null {
 // ---------------------------------------------------------------------------
 
 export async function POST(request: Request): Promise<Response> {
-  const gate = await authorizeBlocksWrite();
-  if (!gate.ok) return gate.response;
-  const { ownerKey } = gate;
-
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     body = null;
   }
+  const siteOwnerKeyFromBody =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? ((body as Record<string, unknown>).siteOwnerKey as string | undefined)
+      : undefined;
+
+  const gate = await authorizeBlocksWrite(
+    typeof siteOwnerKeyFromBody === "string" ? siteOwnerKeyFromBody : null,
+  );
+  if (!gate.ok) return gate.response;
+  const { ownerKey } = gate;
+
   const parsed = parseSaveBlocksBody(body);
   if (!parsed) return json(400, { error: "invalid request" });
 
@@ -165,16 +189,23 @@ export async function POST(request: Request): Promise<Response> {
 // ---------------------------------------------------------------------------
 
 export async function PUT(request: Request): Promise<Response> {
-  const gate = await authorizeBlocksWrite();
-  if (!gate.ok) return gate.response;
-  const { ownerKey } = gate;
-
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     body = null;
   }
+  const siteOwnerKeyFromBody =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? ((body as Record<string, unknown>).siteOwnerKey as string | undefined)
+      : undefined;
+
+  const gate = await authorizeBlocksWrite(
+    typeof siteOwnerKeyFromBody === "string" ? siteOwnerKeyFromBody : null,
+  );
+  if (!gate.ok) return gate.response;
+  const { ownerKey } = gate;
+
   // Re-use the shared publish body parser (path + optional snapshots).
   const parsed = parsePublishPageBody(body);
   if (!parsed) return json(400, { error: "invalid request" });
