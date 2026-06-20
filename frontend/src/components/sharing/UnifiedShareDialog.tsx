@@ -43,6 +43,8 @@ import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useLabUserProfileMap } from "@/hooks/useLabUserProfiles";
 import { useArchivedUsers } from "@/hooks/useArchivedUsers";
 import SharingServerCopyNotice from "@/components/sharing/SharingServerCopyNotice";
+import { CopyMoveToFolderButton } from "@/components/transfer/FolderDestinationPicker";
+import type { TransferTarget } from "@/lib/transfer/local-folder-transfer";
 import type {
   Note,
   Task,
@@ -347,6 +349,72 @@ function OutsideTabBody({
   // (capabilities bot, 2026-06-13)
   const { canCollabExternally } = useAccountCapabilities();
 
+  return (
+    <>
+      <OutsideSendBody
+        target={target}
+        onClose={onClose}
+        canCollabExternally={canCollabExternally}
+      />
+      {/* Cross-folder: "Another folder of mine". Flag-gated; renders nothing
+          when CROSS_FOLDER is off, when no eligible destination exists, or for
+          a kind without a two-handle transfer path (CopyMoveToFolderButton
+          self-hides). Same disk, same account, no relay, so this sits below the
+          email-send body as a sibling destination. */}
+      <CrossFolderShareSection target={target} />
+    </>
+  );
+}
+
+/** A short mapping from the dialog's ShareTarget to the cross-folder
+ *  TransferTarget. Returns null for a kind the cross-folder lane cannot transfer
+ *  (the heavy zip-closure kinds and any future unsupported kind), so the section
+ *  renders nothing rather than a doomed button. */
+function toTransferTarget(target: ShareTarget): TransferTarget | null {
+  switch (target.kind) {
+    case "note":
+      return { kind: "note", note: target.note, sourceUsername: target.owner };
+    case "sequence":
+      return {
+        kind: "sequence",
+        sequence: target.sequence,
+        sourceUsername: target.owner,
+      };
+    // method / experiment / project have a relay builder but no two-handle
+    // materialize yet, so they are intentionally not offered here.
+    default:
+      return null;
+  }
+}
+
+/** The "Another folder of mine" destination, shown below the email-send body.
+ *  Self-hides via CopyMoveToFolderButton when the flag is off, when there is no
+ *  eligible destination, or for an unmapped kind. */
+function CrossFolderShareSection({ target }: { target: ShareTarget }) {
+  const transferTarget = toTransferTarget(target);
+  if (!transferTarget) return null;
+  return (
+    <div className="mt-4 border-t border-border pt-4">
+      <p className="mb-2 text-meta text-foreground-muted leading-relaxed">
+        Or put a copy in another of your folders. Same account, no email, no
+        encryption hop, it is a straight disk-to-disk copy.
+      </p>
+      <CopyMoveToFolderButton target={transferTarget} />
+    </div>
+  );
+}
+
+/** The original per-kind email-send body, unchanged. Split out so the
+ *  cross-folder section can sit beside it without re-indenting the switch. */
+function OutsideSendBody({
+  target,
+  onClose,
+  canCollabExternally,
+}: {
+  target: ShareTarget;
+  onClose: () => void;
+  canCollabExternally: boolean;
+}) {
   switch (target.kind) {
     case "note":
       return (
