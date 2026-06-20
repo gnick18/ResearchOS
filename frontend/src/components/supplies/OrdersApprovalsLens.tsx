@@ -172,22 +172,48 @@ function ApprovalRow({
   onChanged: () => void;
 }) {
   const lineTotal = item.total_price ?? 0;
+  const unit = item.price_per_unit ?? 0;
+  // Reorder / chemical identity, whichever is on file, as the item sub-line.
+  const spec = item.catalog_number
+    ? `Cat ${item.catalog_number}`
+    : item.cas
+      ? `CAS ${item.cas}`
+      : null;
   return (
-    <li className="flex items-center gap-3 px-4 py-3">
-      <div className="min-w-0 flex-1">
+    <li className="grid grid-cols-[minmax(0,2.2fr)_minmax(0,1.4fr)_3.5rem_6rem_6.5rem_auto] items-center gap-x-4 px-4 py-3">
+      {/* Item */}
+      <div className="min-w-0">
         <div className="truncate text-body font-medium text-foreground">
           {item.item_name}
         </div>
-        <div className="truncate text-meta text-foreground-muted">
-          {[
-            item.quantity ? `qty ${item.quantity}` : null,
-            item.vendor || null,
-            lineTotal ? `$${lineTotal.toFixed(2)}` : null,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </div>
+        {spec ? (
+          <div className="truncate text-meta text-foreground-muted">{spec}</div>
+        ) : null}
       </div>
+      {/* Vendor + funding */}
+      <div className="min-w-0">
+        <div className="truncate text-meta text-foreground">
+          {item.vendor || "—"}
+        </div>
+        {item.funding_string ? (
+          <div className="truncate text-meta text-foreground-muted">
+            {item.funding_string}
+          </div>
+        ) : null}
+      </div>
+      {/* Qty */}
+      <div className="text-right text-meta tabular-nums text-foreground-muted">
+        ×{item.quantity}
+      </div>
+      {/* Unit price */}
+      <div className="text-right text-meta tabular-nums text-foreground-muted">
+        {unit ? `$${unit.toFixed(2)} ea` : "—"}
+      </div>
+      {/* Line total */}
+      <div className="text-right text-body font-semibold tabular-nums text-foreground">
+        {lineTotal ? `$${lineTotal.toFixed(2)}` : "—"}
+      </div>
+      {/* Decision */}
       <div className="flex flex-none flex-wrap items-center justify-end gap-1.5">
         {item.approved ? <PurchaseApprovalBadge item={item} /> : null}
         {!item.approved && item.declined_at ? (

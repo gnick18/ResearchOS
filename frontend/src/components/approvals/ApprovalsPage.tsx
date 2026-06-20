@@ -228,28 +228,38 @@ export default function ApprovalsPage() {
               return (
                 <li
                   key={key}
-                  className="flex flex-wrap items-center gap-3 bg-surface px-4 py-3"
+                  className="grid grid-cols-[minmax(0,1.4fr)_minmax(0,2fr)_auto] items-center gap-4 bg-surface px-4 py-3"
                 >
-                  <UserAvatar username={rec.owner} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="truncate text-body font-medium text-foreground">
-                        {rec.name}
-                      </span>
-                      <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-meta font-medium text-foreground-muted">
-                        {TYPE_LABEL[rec.recordType]}
-                      </span>
+                  {/* Record + owner */}
+                  <div className="flex min-w-0 items-center gap-3">
+                    <UserAvatar username={rec.owner} size="sm" />
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="truncate text-body font-medium text-foreground">
+                          {rec.name}
+                        </span>
+                        <span className="rounded bg-surface-sunken px-1.5 py-0.5 text-meta font-medium text-foreground-muted">
+                          {TYPE_LABEL[rec.recordType]}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 truncate text-meta text-foreground-muted">
+                        {ownerLabel}
+                      </div>
                     </div>
-                    <div className="mt-0.5 text-meta text-foreground-muted">
-                      {ownerLabel}
-                      {rec.reason ? ` · ${rec.reason}` : ""}
-                    </div>
+                  </div>
+                  {/* Why it was flagged, filling the middle. */}
+                  <div className="min-w-0 text-meta text-foreground-muted">
+                    {rec.reason ? (
+                      <span className="line-clamp-2">{rec.reason}</span>
+                    ) : (
+                      <span className="italic">No reason noted</span>
+                    )}
                   </div>
                   <button
                     type="button"
                     disabled={clearing === key}
                     onClick={() => void clearFlag(rec)}
-                    className="shrink-0 rounded-md border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-50"
+                    className="shrink-0 justify-self-end rounded-md border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:bg-surface-sunken disabled:opacity-50"
                   >
                     {clearing === key ? "Clearing…" : "Clear flag"}
                   </button>
