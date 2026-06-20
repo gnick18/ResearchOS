@@ -44,6 +44,7 @@ import {
   type SubkeyEnvelope,
 } from "./lab-subkey";
 import { CLASS_MODE_ENABLED } from "./class-mode-config";
+import { WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
 import type { LabMember } from "./lab-membership";
 
 /**
@@ -59,6 +60,91 @@ export function isSubkeyedPrivateRecord(value: unknown): value is SubkeyedRecord
   if (typeof env !== "object" || env === null) return false;
   const e = env as Record<string, unknown>;
   return typeof e.owner === "string" && Array.isArray(e.copies);
+}
+
+/**
+ * PARTITION PREDICATE (the single source of truth for the WRITE side). Returns
+ * true iff a record is a PRIVATE student notebook that must be diverted OUT of
+ * the generic team-key push and sealed under the student's per-student subkey.
+ *
+ * The predicate is total and conservative. A record is a private class notebook
+ * iff ALL of these hold:
+ *   1. recordType === "task" (the per-student notebook is a student-owned task),
+ *   2. the canonical task JSON carries a NON-EMPTY string `assignment_id` (the
+ *      back-link to the instructor-owned assignment, Task.assignment_id, CT-2),
+ *   3. it is NOT a COLLABORATIVE class task. Collaborative notebooks ride the
+ *      team key and are seeded with a whole-lab share ("*") by the class
+ *      visibility policy (seedSharedWithForVisibility, class-dashboard.ts:
+ *      collaborative -> ["*"], private -> []). So a class task whose shared_with
+ *      contains the "*" whole-lab sentinel is collaborative and stays on the
+ *      team-key path; the ABSENCE of "*" marks it private.
+ *
+ * WHY shared_with rather than a visibility field: the persisted Task has no
+ * direct visibility field (types.ts); the create-time visibility is encoded in
+ * the seeded shared_with per CT-5. Reading shared_with is therefore the exact,
+ * already-persisted signal, and it keeps the predicate decidable from the
+ * canonical bytes alone (the only thing the sync engine sees).
+ *
+ * EXCLUSIVITY: this predicate is the partition's sole arbiter. Every record for
+ * which it returns false rides the unchanged team-key loop; every record for
+ * which it returns true rides the subkey write path. A record can never satisfy
+ * both, so a private notebook is pushed by exactly one path (no double-push, no
+ * team-key leak alongside the subkey copy).
+ *
+ * Flag off (NEXT_PUBLIC_CLASS_MODE), ALWAYS returns false, so the partition is a
+ * no-op and every record stays on the team-key path, byte-identical to today.
+ *
+ * @param recordType the record's type segment (only "task" can be a notebook).
+ * @param canonicalPlaintext the canonical record JSON bytes (the sync payload).
+ */
+export function isPrivateClassNotebookRecord(
+  recordType: string,
+  canonicalPlaintext: Uint8Array,
+): boolean {
+  if (!CLASS_MODE_ENABLED) return false;
+  if (recordType !== "task") return false;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(new TextDecoder().decode(canonicalPlaintext));
+  } catch {
+    return false;
+  }
+  if (typeof parsed !== "object" || parsed === null) return false;
+  const rec = parsed as Record<string, unknown>;
+  const assignmentId = rec["assignment_id"];
+  if (typeof assignmentId !== "string" || assignmentId.length === 0) {
+    // Not a class notebook (no assignment back-link): team-key path.
+    return false;
+  }
+  // Collaborative class tasks carry the "*" whole-lab sentinel in shared_with
+  // (seedSharedWithForVisibility). Their presence marks collaborative -> team
+  // key. Their ABSENCE marks the private notebook -> subkey path.
+  const sw = rec["shared_with"];
+  if (Array.isArray(sw)) {
+    for (const entry of sw) {
+      if (sharedEntryIsWholeLab(entry)) {
+        // Collaborative class task: stays on the team-key path.
+        return false;
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * True iff one shared_with entry is the "*" whole-lab sentinel, in any of the
+ * supported entry shapes (bare string, `{ username: "*" }`, legacy `{ user }`).
+ * Mirrors sharedEntryName + the WHOLE_LAB_SENTINEL check in lab-read.ts so the
+ * predicate reads the seeded shared_with exactly the way the read path does.
+ */
+function sharedEntryIsWholeLab(entry: unknown): boolean {
+  if (typeof entry === "string") return entry === WHOLE_LAB_SENTINEL;
+  if (typeof entry === "object" && entry !== null) {
+    const e = entry as Record<string, unknown>;
+    if (typeof e["username"] === "string") return e["username"] === WHOLE_LAB_SENTINEL;
+    if (typeof e["user"] === "string") return e["user"] === WHOLE_LAB_SENTINEL;
+  }
+  return false;
 }
 
 /**

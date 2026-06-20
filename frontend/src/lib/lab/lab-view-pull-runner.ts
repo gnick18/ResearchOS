@@ -55,6 +55,7 @@ import {
   materializeLabRoster,
   type RosterMaterializeResult,
 } from "./lab-roster-materialize";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -100,6 +101,19 @@ export interface LabViewPullDeps {
    * this fails.
    */
   verifyImpl?: typeof verifyMembershipLog;
+
+  /**
+   * CLASS MODE: read the unlocked session identity to recover the viewer's
+   * x25519 PRIVATE key, threaded into pullLabView so a private student notebook
+   * (sealed under a per-student subkey) can be peeled for the student and the
+   * head. Default: getSessionIdentity. Per the locked design decision we read
+   * the x25519 priv from the identity at call time and add NO new long-lived
+   * reference on LabSessionState. When the identity is locked / absent we pass
+   * no key, so a subkeyed record simply skips for the viewer (the resolver is a
+   * byte-identical pass-through for every non-subkeyed record). Injected in
+   * tests so the runner stays browser-free.
+   */
+  getIdentityImpl?: typeof getSessionIdentity;
 }
 
 /**
@@ -157,6 +171,7 @@ export async function runLabViewPullForSession(
   const doMaterialize = deps.materializeImpl ?? materializeLabView;
   const doMaterializeRoster = deps.materializeRosterImpl ?? materializeLabRoster;
   const doVerify = deps.verifyImpl ?? verifyMembershipLog;
+  const doGetIdentity = deps.getIdentityImpl ?? getSessionIdentity;
 
   const viewer = session.member.username;
   const labId = session.labId;
@@ -183,6 +198,15 @@ export async function runLabViewPullForSession(
   // groups output by this order and skips its own-record write at materialize.
   const owners = remote.record.members.map((m) => m.username);
 
+  // CLASS MODE: recover the viewer's x25519 PRIVATE key from the unlocked
+  // session identity (decision 1: read from getSessionIdentity, add no new
+  // long-lived reference on LabSessionState). It is threaded into pullLabView so
+  // the read resolver can peel a private student notebook for the student and
+  // the head. When the identity is locked / absent the key is undefined, and a
+  // subkeyed record simply skips for the viewer (the resolver is byte-identical
+  // for every non-subkeyed record, so a non-class pull is unaffected).
+  const viewerX25519Priv = doGetIdentity()?.keys.encryption.privateKey;
+
   // Step 2: pull + decrypt under the in-memory session lab key. pullLabView
   // enforces each record's shared_with for non-own records (per-record sharing),
   // so a non-PI member sees another member's record only when named.
@@ -193,6 +217,7 @@ export async function runLabViewPullForSession(
     labKey: session.labKey,
     signerEd25519Priv: session.signingKeyPair.ed25519Priv,
     signerEd25519Pub: session.signingKeyPair.ed25519Pub,
+    viewerX25519Priv,
   });
 
   // Step 3: materialize ONLY the shared-with-me records into the local folder.

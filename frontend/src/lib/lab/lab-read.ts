@@ -41,6 +41,7 @@
 import { isTombstone } from "./lab-sync";
 import { listLabRecords, getLabRecord } from "./lab-data-client";
 import { WHOLE_LAB_SENTINEL } from "@/lib/sharing/unified";
+import { resolvePulledClassRecord } from "./class-private-notebook";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -180,6 +181,15 @@ function sharedEntryName(entry: unknown): string | null {
  * @param params.labKey             the 32-byte lab symmetric key.
  * @param params.signerEd25519Priv  caller's Ed25519 signing private key.
  * @param params.signerEd25519Pub   caller's Ed25519 signing public key.
+ * @param params.viewerX25519Priv   CLASS MODE (optional). The viewer's x25519
+ *                                  PRIVATE key, used ONLY to peel the inner subkey
+ *                                  layer of a private student notebook via
+ *                                  resolvePulledClassRecord. Absent on every
+ *                                  non-class pull, in which case a subkeyed record
+ *                                  (if any) is simply skipped for the viewer. For
+ *                                  every NON-subkeyed record the resolver is a
+ *                                  byte-identical pass-through, so omitting this key
+ *                                  never changes a non-class lab's view.
  * @param params.listImpl           optional override for `listLabRecords` (tests).
  * @param params.getImpl            optional override for `getLabRecord` (tests).
  * @param params.fetchImpl          optional fetch override forwarded to list/get.
@@ -194,6 +204,7 @@ export async function pullLabView(params: {
   labKey: Uint8Array;
   signerEd25519Priv: Uint8Array;
   signerEd25519Pub: Uint8Array;
+  viewerX25519Priv?: Uint8Array;
   listImpl?: typeof listLabRecords;
   getImpl?: typeof getLabRecord;
   fetchImpl?: typeof fetch;
@@ -231,8 +242,8 @@ export async function pullLabView(params: {
       }
       const [, keyOwner, recordType, recordId] = parts;
 
-      // Decrypt the record.
-      const plaintext = await doGet({
+      // Decrypt the record under the TEAM key.
+      const teamPlaintext = await doGet({
         labId: params.labId,
         owner: keyOwner,
         recordType,
@@ -240,6 +251,35 @@ export async function pullLabView(params: {
         labKey: params.labKey,
         fetchImpl: params.fetchImpl,
       });
+
+      // CLASS MODE subkey peel. A private student notebook rides the team-key
+      // store as a SubkeyedRecord, so the team-key decrypt above yields the
+      // OUTER JSON, not the notebook cleartext. resolvePulledClassRecord peels
+      // the inner subkey layer for the student and the head (the only subkey
+      // recipients). For EVERY other record (no subkey envelope, or non-JSON) it
+      // returns the bytes UNCHANGED, so a non-class lab's view is byte-identical.
+      //
+      // PRIVACY OUTCOME: a classmate who holds only the team key is not a subkey
+      // recipient, so the resolver throws on that one record. We catch and SKIP
+      // it (drop it from this viewer's view) rather than abort the pull, so one
+      // unreadable private notebook never breaks the rest of the viewer's pull.
+      // A viewer with no x25519 key (every non-class pull) also skips a subkeyed
+      // record cleanly, which is the correct privacy default.
+      let plaintext: Uint8Array;
+      try {
+        plaintext = resolvePulledClassRecord(
+          teamPlaintext,
+          {
+            username: params.viewer,
+            x25519PrivateKey: params.viewerX25519Priv ?? new Uint8Array(0),
+          },
+          params.labKey,
+        );
+      } catch {
+        // The viewer cannot decrypt this private record (not a recipient, or no
+        // x25519 key). Drop this one record; the rest of the pull proceeds.
+        continue;
+      }
 
       // Skip tombstones: a deleted record is not part of anyone's view.
       if (isTombstone(plaintext)) continue;
