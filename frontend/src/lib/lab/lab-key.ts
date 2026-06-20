@@ -559,6 +559,82 @@ export function addMember(
 }
 
 /**
+ * Lab Manager delegation (Phase 1, docs/proposals/2026-06-20-lab-admin-delegation-
+ * and-co-pi.md). Promotes a member to Lab Manager (admin) or demotes them back,
+ * by appending a head-signed "role" log entry that carries the updated roster.
+ *
+ * This changes APP-LEVEL power only (the member already holds the lab key, so no
+ * crypto access changes). It therefore does NOT rotate the key, does NOT bump the
+ * key generation, and returns NO new sealed copy, only the updated record. The
+ * head remains the sole signer of the log, so the tamper-evident trust model is
+ * unchanged. The admin flag rides inside the head-signed roster, so a flag set
+ * without a head signature fails verifyMembershipLog.
+ *
+ * The flag is appended last on the member object so the canonical signed message
+ * stays reproducible (see the LabMember.admin note). Demotion omits the key
+ * entirely (object identity minus admin), so a demoted member re-serializes
+ * byte-identical to a member that was never promoted.
+ *
+ * @param currentRecord the lab record before the change.
+ * @param username the member to promote/demote. MUST be a current non-head member.
+ * @param makeAdmin true to grant Lab Manager, false to revoke it.
+ * @param headEd25519PrivateKey the PI's signing key, the sole log signer.
+ * @throws if username is the head (the head needs no flag) or is not a member.
+ * @returns the updated record. No envelope change (no key reseal).
+ */
+export function setMemberAdmin(
+  currentRecord: LabRecord,
+  username: string,
+  makeAdmin: boolean,
+  headEd25519PrivateKey: Uint8Array,
+): { record: LabRecord } {
+  if (username === currentRecord.head.username) {
+    throw new Error("setMemberAdmin: the lab head already holds every power");
+  }
+  const target = currentRecord.members.find((m) => m.username === username);
+  if (!target) {
+    throw new Error(`setMemberAdmin: ${username} is not a member of this lab`);
+  }
+
+  // Build the updated member: append admin last when granting, or strip it
+  // entirely when revoking so a demoted member re-serializes byte-identical to a
+  // never-promoted one.
+  let updated: LabMember;
+  if (makeAdmin) {
+    const { admin: _drop, ...rest } = target;
+    void _drop;
+    updated = { ...rest, admin: true };
+  } else {
+    const { admin: _drop, ...rest } = target;
+    void _drop;
+    updated = rest;
+  }
+
+  const members = currentRecord.members.map((m) =>
+    m.username === username ? updated : m,
+  );
+
+  const entry = appendLogEntry(
+    currentRecord.log,
+    {
+      type: "role",
+      keyGeneration: currentRecord.keyGeneration,
+      roster: members,
+      subject: updated,
+      issuedAt: Date.now(),
+    },
+    headEd25519PrivateKey,
+  );
+
+  const record: LabRecord = {
+    ...currentRecord,
+    members,
+    log: [...currentRecord.log, entry],
+  };
+  return { record };
+}
+
+/**
  * Phase C2 (PI re-admit, docs/proposals/2026-06-15-account-folder-identity-redesign.md
  * §4.4 / §6c): re-admit an EXISTING member who reset their identity (Phase C1
  * resetIdentityKeepData) and now holds a fresh keypair. Their old roster entry's

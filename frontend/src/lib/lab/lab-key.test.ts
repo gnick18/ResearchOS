@@ -30,10 +30,12 @@ import {
   createLab,
   addMember,
   readmitMember,
+  setMemberAdmin,
   type LabKeyEnvelope,
 } from "./lab-key";
 import {
   verifyMembershipLog,
+  appendLogEntry,
   type LabMember,
   type LabRecord,
 } from "./lab-membership";
@@ -185,6 +187,131 @@ describe("addMember without rotation", () => {
     // Log still verifies and carol is on the roster.
     expect(verifyMembershipLog(record).ok).toBe(true);
     expect(record.members.map((m) => m.username)).toContain("carol");
+  });
+});
+
+describe("setMemberAdmin (Lab Manager delegation, Phase 1)", () => {
+  it("promotes a member to admin via a head-signed role entry, log still verifies, no rotation", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+    expect(created.record.keyGeneration).toBe(0);
+
+    const { record } = setMemberAdmin(
+      created.record,
+      "alice",
+      true,
+      head.ed25519Private,
+    );
+
+    // The member now carries admin: true.
+    const promoted = record.members.find((m) => m.username === "alice");
+    expect(promoted?.admin).toBe(true);
+
+    // A head-signed "role" entry was appended, generation UNCHANGED (no reseal).
+    const tail = record.log[record.log.length - 1];
+    expect(tail.type).toBe("role");
+    expect(tail.keyGeneration).toBe(0);
+    expect(record.keyGeneration).toBe(0);
+    expect(record.log.length).toBe(created.record.log.length + 1);
+
+    // The signed log verifies end to end (the flag rides inside the head-signed roster).
+    expect(verifyMembershipLog(record).ok).toBe(true);
+  });
+
+  it("demotion strips the flag so the member re-serializes byte-identical to never-promoted", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+    const before = JSON.stringify(
+      created.record.members.find((m) => m.username === "alice"),
+    );
+
+    const up = setMemberAdmin(created.record, "alice", true, head.ed25519Private);
+    const down = setMemberAdmin(up.record, "alice", false, head.ed25519Private);
+
+    const demoted = down.record.members.find((m) => m.username === "alice")!;
+    expect("admin" in demoted).toBe(false);
+    expect(JSON.stringify(demoted)).toBe(before);
+    expect(verifyMembershipLog(down.record).ok).toBe(true);
+  });
+
+  it("an admin grant does not change the lab key or any member's data access", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+    const aliceKey = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
+    const blob = encryptLabData(utf8ToBytes("standard curve"), aliceKey);
+
+    setMemberAdmin(created.record, "alice", true, head.ed25519Private);
+
+    // The envelope and key are untouched by setMemberAdmin (it returns no copy),
+    // so the same data opens with the same key.
+    const stillAliceKey = openLabKeyCopy(created.envelope, "alice", alice.x25519Private);
+    expect(bytesToHex(stillAliceKey)).toBe(bytesToHex(aliceKey));
+    expect(decryptLabData(blob, stillAliceKey)).toEqual(utf8ToBytes("standard curve"));
+  });
+
+  it("REJECTS a role entry signed by a member instead of the head", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+
+    // Forge: alice tries to grant herself admin by signing a role entry with HER
+    // OWN key. The roster + record agree, but the signature is not the head's.
+    const forgedRoster: LabMember[] = created.record.members.map((m) =>
+      m.username === "alice" ? { ...m, admin: true as const } : m,
+    );
+    const forgedEntry = appendLogEntry(
+      created.record.log,
+      {
+        type: "role",
+        keyGeneration: created.record.keyGeneration,
+        roster: forgedRoster,
+        subject: forgedRoster.find((m) => m.username === "alice"),
+        issuedAt: 123,
+      },
+      alice.ed25519Private, // NOT the head
+    );
+    const forged: LabRecord = {
+      ...created.record,
+      members: forgedRoster,
+      log: [...created.record.log, forgedEntry],
+    };
+
+    const result = verifyMembershipLog(forged);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/bad signature/);
+  });
+
+  it("REJECTS a hand-set admin flag on the record that was never signed", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+
+    // Tamper the materialized record's roster without adding a signed log entry.
+    const tampered: LabRecord = {
+      ...created.record,
+      members: created.record.members.map((m) =>
+        m.username === "alice" ? { ...m, admin: true as const } : m,
+      ),
+    };
+    const result = verifyMembershipLog(tampered);
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/members do not match/);
+  });
+
+  it("throws when the target is the head or not a member", () => {
+    const head = makeMember("pi", "head");
+    const alice = makeMember("alice", "member");
+    const created = createLab("lab-1", head.member, [alice.member], head.ed25519Private);
+
+    expect(() => setMemberAdmin(created.record, "pi", true, head.ed25519Private)).toThrow(
+      /head already holds/,
+    );
+    expect(() => setMemberAdmin(created.record, "ghost", true, head.ed25519Private)).toThrow(
+      /not a member/,
+    );
   });
 });
 
