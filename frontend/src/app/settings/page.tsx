@@ -97,6 +97,7 @@ import ModelABilling from "@/components/billing/ModelABilling";
 import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
+import PinnedFoldersSection from "@/components/file-system/PinnedFoldersSection";
 import { fullSignOut } from "@/lib/auth/full-sign-out";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
@@ -1186,6 +1187,11 @@ function DataFolderSection({
           nothing when the flag is off. */}
       <p className="text-meta text-foreground-muted">Folders you have opened before:</p>
       <FolderSwitcher variant="panel" />
+      {/* Top-bar folder picker: pick which connected folders show as the
+          up-to-three quick-switch chips in the top nav. Same flag gate as the
+          switcher, renders nothing when the flag is off or nothing is
+          remembered. */}
+      <PinnedFoldersSection />
     </SectionShell>
   );
 }

@@ -19,6 +19,7 @@ import {
   forgetRememberedFolder,
   renameRememberedFolder,
   setRememberedFolderNickname,
+  setRememberedFolderPinned,
   getActiveFolderId,
   getRememberedFolderHandle,
   setActiveFolderId,
@@ -168,6 +169,15 @@ interface FileSystemContextValue extends FileSystemState {
    * clears it. No-op when the flag is off.
    */
   setFolderNickname: (id: string, nickname: string) => Promise<void>;
+  /**
+   * Multi-folder (top-bar folder picker). Pin or unpin one remembered folder for
+   * the top-bar quick-switch chips within the current account scope. At most three
+   * folders may be pinned at once; a fourth pin request is refused and resolves to
+   * false (the caller surfaces a "cap reached" note). Unpinning always succeeds.
+   * Never touches the data, the lab fields, the nickname, or the active pointer.
+   * No-op (resolves false) when the flag is off.
+   */
+  setFolderPinned: (id: string, pinned: boolean) => Promise<boolean>;
 }
 
 /** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
@@ -1716,6 +1726,19 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     [],
   );
 
+  const setFolderPinned = useCallback(
+    async (id: string, pinned: boolean): Promise<boolean> => {
+      if (!MULTI_FOLDER_ENABLED) return false;
+      const ok = await setRememberedFolderPinned(id, pinned);
+      // Re-read regardless so the UI reflects the true persisted state even when
+      // a pin was refused by the cap (nothing changed, the list is unchanged).
+      const folders = await listRememberedFolders();
+      setState((prev) => ({ ...prev, rememberedFolders: folders }));
+      return ok;
+    },
+    [],
+  );
+
   const value: FileSystemContextValue = {
     ...state,
     connect,
@@ -1734,6 +1757,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     forgetFolder,
     renameFolder,
     setFolderNickname,
+    setFolderPinned,
   };
 
   return (

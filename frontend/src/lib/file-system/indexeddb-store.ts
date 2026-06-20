@@ -974,6 +974,11 @@ export interface RememberedFolder {
    *  clearing the nickname restores it. Absent on rows the user never nicknamed
    *  and on legacy rows, so this is shape-additive and flag-off byte-identical. */
   nickname?: string;
+  /** User-pinned to the top-bar quick-switch chips (top-bar folder picker).
+   *  At most three folders may be pinned at once (enforced by
+   *  setRememberedFolderPinned). Absent or false means not pinned. Optional +
+   *  additive, so legacy rows and the flag-off path are byte-identical. */
+  pinned?: boolean;
 }
 
 /** Persisted metadata row (no handle, the handle lives in the object store). The
@@ -988,6 +993,9 @@ interface RememberedFolderMeta {
   /** User-chosen per-folder nickname (REFINEMENT 3). Optional + additive; see
    *  RememberedFolder.nickname. Never overwrites the real folder name. */
   nickname?: string;
+  /** User-pinned to the top-bar quick-switch chips. Optional + additive; see
+   *  RememberedFolder.pinned. At most three rows may carry this at once. */
+  pinned?: boolean;
 }
 
 /** Generate a stable, collision-resistant folder id. We cannot derive a sync
@@ -1223,6 +1231,7 @@ export async function listRememberedFolders(): Promise<RememberedFolder[]> {
       ...(m.labId !== undefined ? { labId: m.labId } : {}),
       ...(m.labName !== undefined ? { labName: m.labName } : {}),
       ...(m.nickname !== undefined ? { nickname: m.nickname } : {}),
+      ...(m.pinned !== undefined ? { pinned: m.pinned } : {}),
     });
   }
   out.sort((a, b) => b.lastOpenedAt - a.lastOpenedAt);
@@ -1504,4 +1513,59 @@ export async function setRememberedFolderNickname(
       return { ...m, nickname: trimmed };
     }),
   );
+}
+
+/** The hard cap on how many folders may be pinned to the top-bar quick-switch
+ *  chips at once. The setter enforces this so every caller is safe; a fourth
+ *  pin request is refused (returns false) rather than silently dropping an
+ *  existing pin. */
+export const MAX_PINNED_FOLDERS = 3;
+
+/**
+ * Pin (or unpin) one remembered folder for the top-bar quick-switch chips within
+ * the current account scope. The cap of MAX_PINNED_FOLDERS is enforced HERE, the
+ * single write path, so no caller can exceed it: a request to pin a fourth folder
+ * is REFUSED and resolves to false (the caller surfaces a "cap reached" note).
+ * Unpinning always succeeds. Pinning a folder that is already pinned is a no-op
+ * that resolves to true.
+ *
+ * Like the nickname setter this only flips the additive `pinned` field. When
+ * pinned is false the key is dropped entirely so the row is shape-identical to a
+ * never-pinned one. lastOpenedAt, the lab fields, the nickname, the active
+ * pointer, and the on-disk folder are all left untouched.
+ *
+ * Resolves to true when the row ends in the requested state, false when the cap
+ * blocked a pin (or the id is unknown / a demo tab). No-op in a demo tab.
+ */
+export async function setRememberedFolderPinned(
+  id: string,
+  pinned: boolean,
+): Promise<boolean> {
+  if (isDemoTab()) return false;
+  const scope = await getFolderRegistryScope();
+  const metas = await readFolderMetas(scope);
+  const target = metas.find((m) => m.id === id);
+  if (!target) return false;
+  // Pinning: refuse a fourth pin. An already-pinned row is a no-op success.
+  if (pinned) {
+    const already = target.pinned === true;
+    if (!already) {
+      const pinnedCount = metas.filter((m) => m.pinned === true).length;
+      if (pinnedCount >= MAX_PINNED_FOLDERS) return false;
+    }
+  }
+  await writeFolderMetas(
+    scope,
+    metas.map((m) => {
+      if (m.id !== id) return m;
+      if (!pinned) {
+        // Unpin: drop the key entirely so the row matches a never-pinned one.
+        const { pinned: _drop, ...rest } = m;
+        void _drop;
+        return rest;
+      }
+      return { ...m, pinned: true };
+    }),
+  );
+  return true;
 }
