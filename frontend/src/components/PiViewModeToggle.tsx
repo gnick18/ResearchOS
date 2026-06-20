@@ -18,7 +18,15 @@ const HOME_FOR: Record<PiViewMode, string> = {
   "my-work": "/workbench",
 };
 
-export default function PiViewModeToggle() {
+export default function PiViewModeToggle({
+  // CM-P2B: the "lab" segment label. Defaults to "Lab" (research PI), so the
+  // existing callers are byte-identical. A class instructor passes "Class" so
+  // the lens reads "Class" / "My work". Pure relabel, no behavior change; the
+  // underlying mode value stays "lab".
+  labLabel = "Lab",
+}: {
+  labLabel?: string;
+} = {}) {
   const router = useRouter();
   const { mode, setMode } = usePiViewMode();
 
@@ -51,10 +59,10 @@ export default function PiViewModeToggle() {
     <div
       className="flex items-center gap-0.5 rounded-full border border-border bg-surface px-0.5 py-0.5"
       role="group"
-      aria-label="Lab or personal view"
+      aria-label={`${labLabel} or personal view`}
       data-testid="pi-view-mode-toggle"
     >
-      {seg("lab", "Lab")}
+      {seg("lab", labLabel)}
       {seg("my-work", "My work")}
     </div>
   );

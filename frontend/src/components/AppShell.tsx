@@ -36,6 +36,11 @@ import { readStreak } from "@/lib/streak/streak-sidecar";
 import { writeUserStats } from "@/lib/beakerbot/user-stats-cache";
 import { computeUserStats } from "@/lib/beakerbot/compute-user-stats";
 import { NAV_ITEMS, HOME_HREF } from "@/lib/nav";
+import {
+  lensLabel,
+  buildLabLensItems,
+  filterResearcherItems,
+} from "@/lib/lab/class-chrome";
 import { INVENTORY_ENABLED } from "@/lib/inventory/config";
 import { CHEMISTRY_ENABLED } from "@/lib/chemistry/config";
 import { DATAHUB_ENABLED } from "@/lib/datahub/config";
@@ -48,6 +53,7 @@ import { useUserColors } from "@/hooks/useUserColor";
 import { useErrorReporting } from "@/hooks/useErrorReporting";
 import { useFeaturePicks } from "@/hooks/useFeaturePicks";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { deriveVisibleTabs } from "@/lib/onboarding/feature-picks-tabs";
 import { hasTourResume } from "@/lib/onboarding/tour-demo-session";
 import { usePrefetchOnHover } from "@/lib/perf/use-prefetch-on-hover";
@@ -302,6 +308,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
   // guaranteed-reachable landing tab), so there's no flicker-out risk.
   const isLabHead = useIsLabHead(currentUser ?? null);
 
+  // Class Mode (CM-P2B): is the active folder a teaching class this user heads.
+  // A class instructor is a lab_head by role, so without this the shell would
+  // dress them in the full research-lab chrome (Funding, Approvals, Lab
+  // Overview), which is wrong for a classroom. `useIsClassMode` returns
+  // `undefined` while the read is in flight; we collapse that to `false` so
+  // class chrome never flickers in (mirroring how `isLabHead === undefined` is
+  // treated as not-lab-head). With NEXT_PUBLIC_CLASS_MODE off no folder carries
+  // lab_kind === "class", so `classMode` is always false and every consumer
+  // below resolves to its byte-identical research-lab value.
+  const classMode = useIsClassMode(currentUser ?? null) === true;
+
   // PI view mode (NAV-1/2/3): a lab head defaults to the lab lens and can flip to
   // their personal "My work" researcher view. Only affects the nav for a lab head.
   const { mode: piViewMode } = usePiViewMode();
@@ -369,30 +386,24 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     // are kept OUT of the shared NAV_ITEMS so they never appear for members or in
     // the drag-customize visibleTabs set.
     if (labLens) {
-      const out: NavItem[] = [];
-      for (const item of filtered) {
-        if (item.href === HOME_HREF) {
-          out.push({ href: "/lab-overview", label: "Lab Overview" });
-          out.push({ href: "/people", label: "People" });
-          out.push({ href: "/lab-work", label: "Lab Work" });
-          out.push({ href: "/approvals", label: "Approvals" });
-          out.push({ href: "/activity", label: "Activity" });
-          out.push({ href: "/funding", label: "Funding" });
-        } else if (item.href === "/workbench") {
-          // Researcher home; reachable by flipping to "My work", not in lab lens.
-          continue;
-        } else {
-          out.push(item);
-        }
-      }
-      return out;
+      // CM-P2B: the lab-lens lineup is built by a pure resolver. When classMode
+      // is true the Overview entry reads "Class Overview" and the research-only
+      // PI tabs (Funding, Approvals) + research-only tools (Purchases) are
+      // omitted; the science tools stay. classMode false is byte-identical to
+      // the legacy inline loop.
+      return buildLabLensItems(filtered, classMode);
     }
     // Member, OR a lab head in "My work" mode: the researcher tab set (Workbench
     // landing), with the PI-only tabs hidden. The "My work" toggle in the header
-    // is the way back to the lab lens for a PI.
-    const researcher = filtered.filter((item) => item.href !== HOME_HREF);
+    // is the way back to the lab lens for a PI. CM-P2B also strips the
+    // research-only tools (Purchases) in class mode; filterResearcherItems is
+    // the identity filter when classMode is false.
+    const researcher = filterResearcherItems(
+      filtered.filter((item) => item.href !== HOME_HREF),
+      classMode,
+    );
     return researcher;
-  }, [filtered, labLens]);
+  }, [filtered, labLens, classMode]);
 
   // Supplies hub (Supplies hub, 2026-06-07). When INVENTORY_ENABLED is on,
   // Inventory and Purchases collapse into ONE "Supplies" nav item pointing at
@@ -565,7 +576,10 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             nav between the lab lens and the personal researcher view. */}
         {isLabHead === true && (
           <PillWrap on={tinted}>
-            <PiViewModeToggle />
+            {/* CM-P2B: the lens reads "Class" for a class instructor, "Lab"
+                for a research PI. lensLabel(classMode) is byte-identical to
+                "Lab" when class mode is off. */}
+            <PiViewModeToggle labLabel={lensLabel(classMode)} />
           </PillWrap>
         )}
 
