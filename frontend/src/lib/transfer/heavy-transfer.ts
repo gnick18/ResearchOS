@@ -370,48 +370,35 @@ async function readSourceTask(
   return null;
 }
 
-// ── EXPERIMENT materialize (Stage 2) ───────────────────────────────────────────
+// ── EXPERIMENT + PROJECT materialize (Stage 2 / 3) ─────────────────────────────
 
 /**
- * MATERIALIZE AN EXPERIMENT (task) INTO A DESTINATION FOLDER. The cross-folder
- * twin of the import-apply single-experiment path, writing into a SECOND folder
- * via `dest`.
+ * Localize ONE source task into the destination, the shared core of the
+ * experiment twin and the project twin. Copies every method the task references
+ * (method_ids + method_attachments) into the destination via the method twin,
+ * remaps both reference surfaces, allocates a fresh task id from the destination
+ * per-user counter, writes the task record (owner reset, sharing / provenance /
+ * cross-owner host links / collab ids stripped) bound to `projectId`, and carries
+ * the results subtree.
  *
- * Reads the source task off disk, localizes every method it references (method_ids
- * + method_attachments) by COPYING each referenced method into the destination
- * through materializeMethodToDestination, building a source-method-id ->
- * destination-method-id map. A method that cannot be localized is dropped from
- * both reference surfaces (never left pointing at a method id the destination
- * cannot open), mirroring apply.ts remapMethodIds / remapMethodAttachments.
+ * The method map is SHARED + passed in so the project twin dedups a method
+ * referenced by several of its tasks into ONE destination copy (mirrors
+ * project-apply.ts method dedup). The experiment twin passes a fresh per-call map.
+ * Dependencies are NOT handled here, the caller decides (the experiment twin
+ * drops them; the project twin rebuilds intra-set links after every task lands).
  *
- * Then allocates a fresh task id from the DESTINATION's per-user counter, writes
- * the task record (owner reset to the destination user, project_id reset to 0 =
- * Unfiled since the source project does not exist in the destination, sharing +
- * provenance + cross-owner host links + collab doc ids all stripped), and copies
- * the entire results subtree (notes.md / results.md + the per-tab attachment
- * dirs) into `users/<destUser>/results/task-<newId>/`.
- *
- * DEPENDENCIES are DROPPED. A single experiment's deps reference OTHER tasks not
- * part of this transfer, so the link cannot be honestly rebuilt in the
- * destination (exactly as apply.ts drops a single-task share's deps). The project
- * twin (Stage 3), which carries a whole task set, rebuilds intra-set deps.
- *
- * @param task the source task record (as the caller holds it). Its `id`, `owner`,
- *             `method_ids`, and `method_attachments` drive the reads. We re-read
- *             the canonical record off disk to be robust to a stale copy.
- * @param dest the destination FileService + username.
- * @returns the fresh task id allocated in the destination.
+ * @param projectId the destination project id to bind the new task to (0 = Unfiled
+ *                  for a standalone experiment copy; the fresh project id for a
+ *                  project copy).
+ * @returns the fresh task id.
  */
-export async function materializeExperimentToDestination(
-  task: Task,
+async function localizeTaskIntoDestination(
+  source: Task,
   dest: TargetContext,
+  opts: { methodIdMap: Map<number, number>; projectId: number },
 ): Promise<{ taskId: number }> {
-  const source = (await readSourceTask(task.id, task.owner)) ?? task;
+  const { methodIdMap, projectId } = opts;
 
-  // Localize every referenced method into the destination, building a
-  // source-method-id -> dest-method-id map. A method copied once is reused for
-  // both reference surfaces (method_ids + method_attachments).
-  const methodIdMap = new Map<number, number>();
   const localizeMethod = async (
     sourceMethodId: number,
     owner: string | null | undefined,
@@ -454,8 +441,7 @@ export async function materializeExperimentToDestination(
   const newTask: Task = {
     ...source,
     id: newTaskId,
-    // The source project does not exist in the destination -> Unfiled (0).
-    project_id: 0,
+    project_id: projectId,
     method_ids: newMethodIds,
     method_attachments: newAttachments,
     // Owner-only on arrival.
@@ -508,6 +494,259 @@ export async function materializeExperimentToDestination(
   await copySubtreeToDestination(srcResultsBase, destResultsBase, dest.fileService);
 
   return { taskId: newTaskId };
+}
+
+/**
+ * MATERIALIZE AN EXPERIMENT (task) INTO A DESTINATION FOLDER. Reads the source
+ * task off disk and localizes it via the shared task core, binding it to project
+ * 0 (Unfiled, since the source project does not exist in the destination) and a
+ * fresh per-call method map.
+ *
+ * DEPENDENCIES are DROPPED. A single experiment's deps reference OTHER tasks not
+ * part of this transfer, so the link cannot be honestly rebuilt (exactly as
+ * apply.ts drops a single-task share's deps). The project twin, which carries a
+ * whole task set, rebuilds intra-set deps.
+ */
+export async function materializeExperimentToDestination(
+  task: Task,
+  dest: TargetContext,
+): Promise<{ taskId: number }> {
+  const source = (await readSourceTask(task.id, task.owner)) ?? task;
+  return localizeTaskIntoDestination(source, dest, {
+    methodIdMap: new Map<number, number>(),
+    projectId: 0,
+  });
+}
+
+// ── PROJECT materialize (Stage 3) ──────────────────────────────────────────────
+
+/** Read a project record off the SOURCE disk. Lives at
+ *  `users/<owner>/projects/{id}.json`. Returns null when absent. */
+async function readSourceProject(
+  id: number,
+  owner: string | null | undefined,
+): Promise<Project | null> {
+  if (owner) {
+    const rec = await fileService.readJson<Project>(`users/${owner}/projects/${id}.json`);
+    if (rec) return rec;
+  }
+  return null;
+}
+
+/** List every task in a user's tasks dir that belongs to `projectId`. Reads the
+ *  source disk directly (no local-api). Sorted by id for deterministic ordering. */
+async function listProjectTasks(
+  owner: string,
+  projectId: number,
+): Promise<Task[]> {
+  const dir = `users/${owner}/tasks`;
+  let names: string[] = [];
+  try {
+    names = await fileService.listFiles(dir);
+  } catch {
+    return [];
+  }
+  const out: Task[] = [];
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const rec = await fileService.readJson<Task>(`${dir}/${name}`);
+    if (rec && rec.project_id === projectId) out.push(rec);
+  }
+  return out.sort((a, b) => a.id - b.id);
+}
+
+/** List every dependency record in a user's dependencies dir. Used to rebuild the
+ *  intra-project links whose BOTH endpoints were carried into the destination. */
+async function listDependencies(owner: string): Promise<Dependency[]> {
+  const dir = `users/${owner}/dependencies`;
+  let names: string[] = [];
+  try {
+    names = await fileService.listFiles(dir);
+  } catch {
+    return [];
+  }
+  const out: Dependency[] = [];
+  for (const name of names) {
+    if (!name.endsWith(".json")) continue;
+    const rec = await fileService.readJson<Dependency>(`${dir}/${name}`);
+    if (rec) out.push(rec);
+  }
+  return out;
+}
+
+/** A source sequence (the .gb text + its .meta.json sidecar) filed into a project.
+ *  Read directly off the source disk for the project sequence carry. */
+interface SourceSequenceFile {
+  genbank: string;
+  meta: Record<string, unknown>;
+}
+
+/** List the source sequences whose project_ids include `projectId`, reading the
+ *  `.gb` + `.meta.json` pair off the source disk. Sequences are per-user; the
+ *  meta sidecar carries project_ids (a string array). */
+async function listProjectSequences(
+  owner: string,
+  projectId: number,
+): Promise<SourceSequenceFile[]> {
+  const dir = `users/${owner}/sequences`;
+  let names: string[] = [];
+  try {
+    names = await fileService.listFiles(dir);
+  } catch {
+    return [];
+  }
+  const out: SourceSequenceFile[] = [];
+  for (const name of names) {
+    if (!name.endsWith(".meta.json")) continue;
+    const meta = await fileService.readJson<Record<string, unknown>>(`${dir}/${name}`);
+    if (!meta) continue;
+    const projectIds = Array.isArray(meta.project_ids)
+      ? (meta.project_ids as unknown[]).map((p) => String(p))
+      : [];
+    if (!projectIds.includes(String(projectId))) continue;
+    const id = typeof meta.id === "number" ? meta.id : null;
+    if (id == null) continue;
+    const gbBlob = await fileService.readFileAsBlob(`${dir}/${id}.gb`);
+    if (!gbBlob) continue;
+    const genbank = await gbBlob.text();
+    out.push({ genbank, meta });
+  }
+  return out;
+}
+
+/**
+ * MATERIALIZE A PROJECT INTO A DESTINATION FOLDER. The cross-folder twin of the
+ * always-new project import (project-apply.ts), writing into a SECOND folder via
+ * `dest`. Composes the method twin + the shared task core so the per-task unit of
+ * work is identical to the experiment twin.
+ *
+ * Ordering (mirrors project-apply.ts):
+ *   1. Create the project once in the destination (fresh per-user id, owner reset,
+ *      sharing / provenance / grant link / portable identity stripped).
+ *   2. Localize every task in the project via the shared task core, binding each
+ *      to the new project id. Methods are deduped across the whole project through
+ *      ONE shared method map, so a method referenced by several tasks lands once.
+ *      Build a source-task-id -> dest-task-id map across all tasks.
+ *   3. Rebuild dependencies LAST against the COMPLETE task map: an intra-project
+ *      link whose BOTH endpoints were carried is recreated in the destination;
+ *      any link with a missing endpoint (a task outside this project) is dropped.
+ *   4. Carry every sequence filed into the project, re-filed into the new project
+ *      via project_ids = [String(newProjectId)] (the standalone sequence twin
+ *      lands Unfiled; a project sequence keeps its project membership).
+ *
+ * Which tasks/sequences belong to the project is resolved from the project
+ * OWNER's namespace (task.project_id / sequence.project_ids === source project).
+ * v1 scopes to the owner's own records, the common case for a same-account
+ * cross-folder copy; cross-owner hosted tasks are out of scope (they would need
+ * the hosted-manifest walk, a later lane).
+ *
+ * @returns the fresh project id + how many tasks / sequences landed.
+ */
+export async function materializeProjectToDestination(
+  project: Project,
+  dest: TargetContext,
+): Promise<{ projectId: number; taskCount: number; sequenceCount: number }> {
+  const source = (await readSourceProject(project.id, project.owner)) ?? project;
+  const owner = source.owner;
+
+  // 1. Create the destination project with a fresh per-user id.
+  const newProjectId = await nextUserId(dest.fileService, dest.username, "projects");
+  const projectDir = `users/${dest.username}/projects`;
+  await dest.fileService.ensureDir(projectDir);
+
+  const newProject: Project = {
+    ...source,
+    id: newProjectId,
+    owner: dest.username,
+    shared_with: [],
+    // Strip overlays, provenance, grant link, portable identity, and the
+    // restore-undo window so the copy is a clean native project.
+    is_shared_with_me: undefined,
+    shared_permission: undefined,
+    last_edited_by: undefined,
+    last_edited_at: undefined,
+    funding_account_id: undefined,
+    revert_undo_window: undefined,
+    imported_from: undefined,
+    source_uuid: undefined,
+  };
+  for (const k of [
+    "is_shared_with_me",
+    "shared_permission",
+    "last_edited_by",
+    "last_edited_at",
+    "funding_account_id",
+    "revert_undo_window",
+    "imported_from",
+    "source_uuid",
+  ] as const) {
+    delete (newProject as unknown as Record<string, unknown>)[k];
+  }
+  await dest.fileService.writeJson(`${projectDir}/${newProjectId}.json`, newProject);
+
+  // 2. Localize every task in the project, deduping methods across the whole
+  // project through ONE shared map. Build the source-task-id -> dest-task-id map.
+  const methodIdMap = new Map<number, number>();
+  const taskIdMap = new Map<number, number>();
+  const sourceTasks = await listProjectTasks(owner, source.id);
+  for (const t of sourceTasks) {
+    const { taskId } = await localizeTaskIntoDestination(t, dest, {
+      methodIdMap,
+      projectId: newProjectId,
+    });
+    taskIdMap.set(t.id, taskId);
+  }
+
+  // 3. Rebuild dependencies LAST against the complete map. Only links whose BOTH
+  // endpoints were carried into the destination are recreated; the rest drop.
+  const deps = await listDependencies(owner);
+  const depDir = `users/${dest.username}/dependencies`;
+  let depsWritten = 0;
+  for (const dep of deps) {
+    const newParent = taskIdMap.get(dep.parent_id);
+    const newChild = taskIdMap.get(dep.child_id);
+    if (newParent == null || newChild == null) continue;
+    const newDepId = await nextUserId(dest.fileService, dest.username, "dependencies");
+    await dest.fileService.ensureDir(depDir);
+    await dest.fileService.writeJson(`${depDir}/${newDepId}.json`, {
+      ...dep,
+      id: newDepId,
+      parent_id: newParent,
+      child_id: newChild,
+    });
+    depsWritten += 1;
+  }
+  void depsWritten;
+
+  // 4. Carry every sequence filed into the project, re-filed into the new project.
+  const seqDir = `users/${dest.username}/sequences`;
+  const sourceSeqs = await listProjectSequences(owner, source.id);
+  let sequenceCount = 0;
+  for (const seq of sourceSeqs) {
+    const newSeqId = await nextUserId(dest.fileService, dest.username, "sequences");
+    await dest.fileService.ensureDir(seqDir);
+    // GenBank source FIRST, then the sidecar (the sequence store's torn-write
+    // contract: a half-write leaves only the .gb, which listMeta skips).
+    await dest.fileService.writeText(`${seqDir}/${newSeqId}.gb`, seq.genbank);
+    await dest.fileService.writeJson(`${seqDir}/${newSeqId}.meta.json`, {
+      ...seq.meta,
+      id: newSeqId,
+      // Re-file into the destination project (drop the source's other project
+      // memberships, which are meaningless in the destination). Strip any
+      // cross-boundary provenance so the copy starts clean.
+      project_ids: [String(newProjectId)],
+      received_from: undefined,
+      received_from_fingerprint: undefined,
+      received_at: undefined,
+    });
+    sequenceCount += 1;
+  }
+
+  return {
+    projectId: newProjectId,
+    taskCount: taskIdMap.size,
+    sequenceCount,
+  };
 }
 
 // ── Helpers reused by experiment + project twins (Stage 2 / 3) ─────────────────

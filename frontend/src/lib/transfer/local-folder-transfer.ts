@@ -77,6 +77,7 @@ import {
 import {
   materializeMethodToDestination,
   materializeExperimentToDestination,
+  materializeProjectToDestination,
 } from "@/lib/transfer/heavy-transfer";
 import {
   sequencesApi,
@@ -84,6 +85,7 @@ import {
   notesApi,
   methodsApi,
   tasksApi,
+  projectsApi,
 } from "@/lib/local-api";
 import type { TargetContext } from "@/lib/storage/json-store";
 import type { ReadBundleResult } from "@/lib/sharing/bundle";
@@ -145,6 +147,7 @@ const TWO_HANDLE_KINDS = new Set<TransferKind>([
   "calculator",
   "method",
   "experiment",
+  "project",
 ]);
 
 /** Stable id of a transfer target within its kind, for per-item bulk results and
@@ -188,10 +191,8 @@ export function describeTarget(target: TransferTarget): string {
  *  to refuse with a precise reason rather than a generic failure. */
 function unsupportedReason(kind: TransferKind): string | null {
   if (TWO_HANDLE_KINDS.has(kind)) return null;
-  if (kind === "project") {
-    return `Copying a ${kind} between folders is not supported yet. Use "Send to a person" to share it, or copy it as a note.`;
-  }
-  // Defensive: an unknown kind has no path at all.
+  // Defensive: an unknown kind has no path at all. All known heavy kinds
+  // (method / experiment / project) are now wired with a two-handle twin.
   return `This item type cannot be copied between folders.`;
 }
 
@@ -437,11 +438,23 @@ async function materializeInto(
       const { taskId } = await materializeExperimentToDestination(target.task, ctx);
       return { kind: "experiment", destId: taskId, destUsername: dest.username };
     }
-    default:
-      // Unreachable: unsupportedReason already rejected the heavy kinds above.
+    case "project": {
+      // HEAVY type. The twin reads the source project + its tasks + their
+      // methods + intra-project deps + filed sequences off the source disk and
+      // writes a fresh owner-only copy into the destination via ctx. Source
+      // untouched (COPY).
+      const { projectId } = await materializeProjectToDestination(target.project, ctx);
+      return { kind: "project", destId: projectId, destUsername: dest.username };
+    }
+    default: {
+      // Unreachable: every kind is handled above (TS narrows `target` to
+      // `never` here). Defensive exhaustiveness guard for a future kind added
+      // to the union without a dispatch arm.
+      const unreachable: never = target;
       throw new CrossFolderCopyError(
-        `Copying a ${target.kind} between folders is not supported yet.`,
+        `Copying a ${(unreachable as TransferTarget).kind} between folders is not supported yet.`,
       );
+    }
   }
 }
 
@@ -496,9 +509,17 @@ async function trashSourceVerified(target: TransferTarget): Promise<boolean> {
       const still = await tasksApi.get(target.task.id, target.task.owner);
       return still == null;
     }
+    case "project": {
+      // projectsApi.delete resolves the project's owner from disk itself and
+      // takes only the id; it also cascades to the project's tasks + their
+      // results subtrees + dependency links. Verify-gone reads the project
+      // record back through the owner-routed get.
+      await projectsApi.delete(target.project.id);
+      const still = await projectsApi.get(target.project.id, target.project.owner);
+      return still == null;
+    }
     default:
-      // The remaining heavy kind (project) is refused before any copy, so a
-      // move never reaches here for it. Not-removed defensively.
+      // Every kind is handled above; this is a defensive exhaustiveness guard.
       return false;
   }
 }

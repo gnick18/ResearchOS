@@ -184,6 +184,7 @@ const deletedSeqs = new Set<number>();
 const deletedCalcs = new Set<number>();
 const deletedMethods = new Set<number>();
 const deletedTasks = new Set<number>();
+const deletedProjects = new Set<number>();
 vi.mock("@/lib/local-api", () => ({
   notesApi: {
     delete: vi.fn(async (id: number) => {
@@ -222,6 +223,15 @@ vi.mock("@/lib/local-api", () => ({
     }),
     get: vi.fn(async (id: number) => (deletedTasks.has(id) ? null : { id })),
   },
+  // projectsApi is consumed by the MOVE source-trash for the HEAVY project kind.
+  // delete takes only the id (cascades to tasks + results + deps); get is
+  // owner-routed. Same focus as the other heavy deletes: exercise the ordering.
+  projectsApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedProjects.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedProjects.has(id) ? null : { id })),
+  },
 }));
 
 // Import AFTER vi.mock so the mock is in place.
@@ -236,7 +246,13 @@ import {
   type TransferTarget,
 } from "../local-folder-transfer";
 import * as idb from "@/lib/file-system/indexeddb-store";
-import type { SequenceDetail, CustomCalculator, Method, Task } from "@/lib/types";
+import type {
+  SequenceDetail,
+  CustomCalculator,
+  Method,
+  Task,
+  Project,
+} from "@/lib/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -377,6 +393,52 @@ function makeSourceExperiment(): Task {
   } as unknown as Task;
 }
 
+// A source PROJECT (id 4) the experiment (task 12) belongs to, plus a second
+// task (id 13) so a dependency between them can be rebuilt in the destination.
+function makeSourceProject(): Project {
+  return {
+    id: 4,
+    name: "Lysis grant aims",
+    weekend_active: false,
+    tags: ["aim1"],
+    color: "#abc",
+    created_at: "2026-05-01T00:00:00.000Z",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: SOURCE_USER,
+    shared_with: [],
+    // Fields that MUST be stripped on copy.
+    is_shared_with_me: true,
+    funding_account_id: 9,
+    imported_from: { sender: "x", imported_at: "", source_project_name: "", source_grant: null },
+  } as unknown as Project;
+}
+
+function makeSecondProjectTask(): Task {
+  return {
+    id: 13,
+    project_id: 4,
+    name: "Western blot",
+    start_date: "2026-06-04",
+    duration_days: 1,
+    end_date: "2026-06-04",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [],
+    deviation_log: null,
+    tags: null,
+    sort_order: 1,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [],
+    owner: SOURCE_USER,
+    shared_with: [],
+  } as unknown as Task;
+}
+
 function makeSourceCalculator(): CustomCalculator {
   return {
     id: 3,
@@ -424,6 +486,7 @@ beforeEach(async () => {
   deletedCalcs.clear();
   deletedMethods.clear();
   deletedTasks.clear();
+  deletedProjects.clear();
   sourceRoot = new MockDirectory("source");
   destRoot = new MockDirectory("dest");
   destHandle = destRoot;
@@ -486,11 +549,49 @@ beforeEach(async () => {
     EXP_RESULT_IMG,
   );
 
+  // Seed the source PROJECT (id 4) + a second task (id 13) in it + a dependency
+  // linking 12 -> 13 + a sequence filed into project 4, so the project twin can
+  // carry the whole closure (tasks, intra-project dep, sequence).
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/projects/4.json`,
+    makeSourceProject(),
+  );
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/tasks/13.json`,
+    makeSecondProjectTask(),
+  );
+  await seedJson(sourceRoot, `users/${SOURCE_USER}/dependencies/1.json`, {
+    id: 1,
+    parent_id: 12,
+    child_id: 13,
+    dep_type: "FS",
+  });
+  await writeRaw(
+    sourceRoot,
+    `users/${SOURCE_USER}/sequences/2.gb`,
+    new TextEncoder().encode(GENBANK_TEXT),
+  );
+  await seedJson(sourceRoot, `users/${SOURCE_USER}/sequences/2.meta.json`, {
+    id: 2,
+    display_name: "Project plasmid",
+    project_ids: ["4"],
+    added_at: "2026-06-01T00:00:00.000Z",
+    seq_type: "dna",
+  });
+
   // Seed the DESTINATION folder: a Main user pin + a pre-existing notes counter
   // at 41, so a fresh id must be 42 (proving it comes from the DEST counter). The
   // sequence + calculator counters start unset so a first copy lands id 1.
   await seedJson(destRoot, "users/_user_metadata.json", { main_user: DEST_USER });
-  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, { notes: 41, tasks: 70 });
+  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, {
+    notes: 41,
+    tasks: 70,
+    projects: 50,
+    dependencies: 30,
+    // sequences left unset so a project sequence copy lands id 1.
+  });
   // Methods + structured protocols draw from the GLOBAL counter even when
   // private. Seed it at 100 (methods) / 200 (pcr) so a fresh copy proves its id
   // came from the DESTINATION global counter, not the source method id.
@@ -680,23 +781,18 @@ describe("copyObjectToFolder, other supported types", () => {
     expect(rec.shared_with).toEqual([]);
   });
 
-  it("REFUSES an experiment / project (no two-handle path yet)", async () => {
+  it("DEFENSIVELY refuses an unknown kind (no transfer path at all)", async () => {
     stubDestRegistry("dest-folder", "head");
-    const heavy: TransferTarget = {
-      kind: "project",
-      project: { id: 1, name: "Grant aims" } as unknown as Extract<
-        TransferTarget,
-        { kind: "project" }
-      >["project"],
+    // Every known kind (note/sequence/calculator/method/experiment/project) is
+    // now wired. An unknown kind must still be refused before any write, via the
+    // unsupportedReason defensive fallback.
+    const unknown = {
+      kind: "totally-unknown",
       sourceUsername: SOURCE_USER,
-    };
-    await expect(copyObjectToFolder(heavy, "dest-folder")).rejects.toBeInstanceOf(
+    } as unknown as TransferTarget;
+    await expect(copyObjectToFolder(unknown, "dest-folder")).rejects.toBeInstanceOf(
       CrossFolderCopyError,
     );
-    // Nothing was written into the destination.
-    expect(
-      readRaw(destRoot, `users/${DEST_USER}/projects/1.json`),
-    ).toBeNull();
   });
 });
 
@@ -882,6 +978,91 @@ describe("moveObjectToFolder, EXPERIMENT (heavy type)", () => {
   });
 });
 
+// ── Stage 3 (heavy): PROJECT cross-folder copy / move ─────────────────────────
+
+describe("copyObjectToFolder, PROJECT (heavy type)", () => {
+  it("copies a project: fresh id, its tasks + deduped methods + intra-project dep + filed sequence all carried", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const project = makeSourceProject();
+    const target: TransferTarget = {
+      kind: "project",
+      project,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh project id from the DESTINATION per-user counter (50 -> 51).
+    expect(outcome.kind).toBe("project");
+    expect(outcome.destId).toBe(51);
+
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/projects/51.json`,
+    ) as Project;
+    expect(rec.id).toBe(51);
+    expect(rec.name).toBe("Lysis grant aims");
+    // Owner-only; overlays / grant link / provenance stripped.
+    expect(rec.owner).toBe(DEST_USER);
+    expect(rec.shared_with).toEqual([]);
+    expect(rec.is_shared_with_me).toBeUndefined();
+    expect((rec as { funding_account_id?: number }).funding_account_id).toBeUndefined();
+    expect(rec.imported_from).toBeUndefined();
+
+    // Both project tasks landed (12 -> 71, 13 -> 72), bound to the new project.
+    const t1 = readRawJson(destRoot, `users/${DEST_USER}/tasks/71.json`) as Task;
+    const t2 = readRawJson(destRoot, `users/${DEST_USER}/tasks/72.json`) as Task;
+    expect(t1.project_id).toBe(51);
+    expect(t2.project_id).toBe(51);
+    // The method (id 7) referenced only by task 12 was localized once (id 101).
+    expect(t1.method_ids).toEqual([101]);
+
+    // The intra-project dependency (12 -> 13) was rebuilt against the new task
+    // ids (71 -> 72) with a fresh dest dependency id (30 -> 31).
+    const dep = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/dependencies/31.json`,
+    ) as { id: number; parent_id: number; child_id: number; dep_type: string };
+    expect(dep.parent_id).toBe(71);
+    expect(dep.child_id).toBe(72);
+    expect(dep.dep_type).toBe("FS");
+
+    // The project-filed sequence was carried + re-filed into the NEW project,
+    // with a fresh dest sequence id (unset -> 1).
+    const seqMeta = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/sequences/1.meta.json`,
+    ) as { id: number; display_name: string; project_ids: string[] };
+    expect(seqMeta.id).toBe(1);
+    expect(seqMeta.display_name).toBe("Project plasmid");
+    expect(seqMeta.project_ids).toEqual(["51"]);
+    const seqGb = readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`);
+    expect(seqGb).not.toBeNull();
+
+    // SOURCE untouched: the source project + tasks still present.
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/projects/4.json`)).not.toBeNull();
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/12.json`)).not.toBeNull();
+  });
+});
+
+describe("moveObjectToFolder, PROJECT (heavy type)", () => {
+  it("moves a project: destination gets a fresh-id copy, source is trashed via projectsApi.delete", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const project = makeSourceProject();
+    const target: TransferTarget = {
+      kind: "project",
+      project,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(51);
+    expect(readRaw(destRoot, `users/${DEST_USER}/projects/51.json`)).not.toBeNull();
+    expect(deletedProjects.has(project.id)).toBe(true);
+  });
+});
+
 // ── Stage 2: MOVE (addendum M3, trashing delete + verified ordering) ──────────
 
 describe("moveObjectToFolder", () => {
@@ -972,7 +1153,7 @@ describe("moveObjectToFolder", () => {
 // ── Stage 2: BULK / multi-select ──────────────────────────────────────────────
 
 describe("bulkTransfer", () => {
-  it("copies a mixed batch: a note + a sequence succeed, a no-builder kind is reported failed without aborting", async () => {
+  it("copies a mixed batch: a note + a sequence + a method succeed, an unknown kind is reported failed without aborting", async () => {
     stubDestRegistry("dest-folder", "head");
 
     const items: TransferTarget[] = [
@@ -982,32 +1163,34 @@ describe("bulkTransfer", () => {
         sequence: makeSourceSequence(),
         sourceUsername: SOURCE_USER,
       },
-      // A heavy kind with no two-handle path: must be reported failed, not abort.
+      // A HEAVY method now succeeds in a heterogeneous batch.
       {
-        kind: "project",
-        project: { id: 2, name: "Grant aims" } as unknown as Extract<
-          TransferTarget,
-          { kind: "project" }
-        >["project"],
+        kind: "method",
+        method: makeSourceMarkdownMethod(),
         sourceUsername: SOURCE_USER,
       },
+      // An UNKNOWN kind has no transfer path: it must be reported failed, not
+      // abort the batch (the per-item refusal is reported, not thrown).
+      {
+        kind: "totally-unknown",
+        sourceUsername: SOURCE_USER,
+      } as unknown as TransferTarget,
     ];
 
     const result = await bulkTransfer(items, "dest-folder", "copy");
 
-    expect(result.okCount).toBe(2);
+    expect(result.okCount).toBe(3);
     expect(result.failCount).toBe(1);
     // Item order is preserved.
     expect(result.items[0].ok).toBe(true);
     expect(result.items[1].ok).toBe(true);
-    expect(result.items[2].ok).toBe(false);
-    if (!result.items[2].ok) {
-      expect(result.items[2].reason).toMatch(/not supported yet/i);
-    }
+    expect(result.items[2].ok).toBe(true);
+    expect(result.items[3].ok).toBe(false);
 
-    // Both supported items actually landed in the destination.
+    // The three supported items actually landed in the destination.
     expect(readRaw(destRoot, `users/${DEST_USER}/notes/42.json`)).not.toBeNull();
     expect(readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`)).not.toBeNull();
+    expect(readRaw(destRoot, `users/${DEST_USER}/methods/101.json`)).not.toBeNull();
   });
 
   it("bulk MOVE trashes the source of each successfully copied item", async () => {
