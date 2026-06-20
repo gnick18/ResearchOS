@@ -1497,15 +1497,16 @@ const ICONS_RAW = {
     ),
   },
   network: {
-    concept: "Researcher network / connected nodes (the public .com network)",
+    concept: "Researcher network / hub of nodes connected to a center (the public .com network)",
     body: (
       <>
-        <line x1="11" y1="7" x2="6.2" y2="16" />
-        <line x1="13" y1="7" x2="17.8" y2="16" />
-        <line x1="7.2" y1="18" x2="16.8" y2="18" />
-        <circle cx="12" cy="5" r="2.2" />
-        <circle cx="5" cy="18" r="2.2" />
-        <circle cx="19" cy="18" r="2.2" />
+        <line x1="12" y1="9.9" x2="12" y2="6" />
+        <line x1="10.5" y1="13.4" x2="6.9" y2="16.7" />
+        <line x1="13.5" y1="13.4" x2="17.1" y2="16.7" />
+        <circle cx="12" cy="12" r="2.1" />
+        <circle cx="12" cy="4" r="1.9" />
+        <circle cx="5.5" cy="18" r="1.9" />
+        <circle cx="18.5" cy="18" r="1.9" />
       </>
     ),
   },
