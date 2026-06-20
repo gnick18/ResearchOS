@@ -546,6 +546,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
       identityStatus: identity.status,
       published: identity.published,
       hasCloudSession,
+      // A stalled (could-not-read) identity must not flash the auto-claim gate on
+      // an internal navigation remount, e.g. the "Lab" / "My work" view toggle.
+      identityStalled: identity.stalled,
     });
   if (mustClaimAccount && currentUser) {
     // Auto-claim (Phase 1, D3): when the gate fired for an ALREADY signed-in user
