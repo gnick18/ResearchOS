@@ -27,6 +27,7 @@ import { MULTI_FOLDER_ENABLED } from "./multi-folder-config";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
+import { validateHeadAndSeed } from "../lab/pi-context-seed";
 import { discoverUsers, validateResearchFolder, ensureFolderStructure } from "./user-discovery";
 import { isDirectoryHandleMissing } from "./handle-liveness";
 import { readUserSettings, patchUserSettings, userSettingsFileExists, DEFAULT_SETTINGS } from "../settings/user-settings";
@@ -352,6 +353,56 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     }
   }, []);
 
+  /**
+   * PI-context seed-on-connect (Owen pilot, A7 + addendum M5). A lab head who
+   * lands in a folder that has no settings.json (a brand-new or just-initialized
+   * folder) used to render as an individual, because account_type fell back to
+   * its "member" default and PI context vanished. When the folder switcher
+   * remembered this folder as the account's HEAD folder, re-derive PI context
+   * here, but ONLY after confirming the head match against the signed lab record
+   * (a cached labRole alone never re-PIs a folder, M5). On a confirmed seed we
+   * re-hydrate so the UI paints PI chrome without a reload.
+   *
+   * Flag-gated + best-effort. A normal solo login (no head meta) is a no-op and
+   * stays byte-identical. Runs from BOTH the auto-login connect path (finishConnect)
+   * and the explicit login path (setCurrentUser), so a head who connects then
+   * picks their account on the login screen is covered too.
+   */
+  const maybeSeedPiContext = useCallback(
+    async (username: string) => {
+      if (!MULTI_FOLDER_ENABLED || !username) return;
+      try {
+        const hasOwnSettings = await userSettingsFileExists(username);
+        const settings = await readUserSettings(username);
+        const activeId = await getActiveFolderId();
+        const meta = activeId
+          ? (await listRememberedFolders()).find((f) => f.id === activeId) ??
+            null
+          : null;
+        const result = await validateHeadAndSeed({
+          username,
+          inputs: {
+            currentAccountType: settings.account_type,
+            hasOwnSettings,
+            meta: meta ? { labRole: meta.labRole, labId: meta.labId } : null,
+          },
+        });
+        if (result.seeded) {
+          console.log(
+            `[FileSystemProvider] PI-context seeded for ${username} (lab ${result.labId}).`,
+          );
+          await hydrateSettingsForUser(username);
+        }
+      } catch (err) {
+        console.warn(
+          "[FileSystemProvider] PI-context seed-on-connect failed:",
+          err,
+        );
+      }
+    },
+    [hydrateSettingsForUser],
+  );
+
   const reverifyPermission = useCallback(async (): Promise<boolean> => {
     return fileService.verifyPermission(true);
   }, []);
@@ -639,6 +690,13 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           await hydrateSettingsForUser(currentUser);
         }
 
+        // PI-context seed-on-connect (Owen pilot, A7 + M5). Runs only on the
+        // auto-login paths where setCurrentUser is skipped; the explicit login
+        // path calls maybeSeedPiContext from setCurrentUser instead.
+        if (currentUser) {
+          await maybeSeedPiContext(currentUser);
+        }
+
         // Multi-folder (Phase A): surface the up-to-date remembered set to the
         // switcher UI. Off the critical path (the connect already committed
         // above) and flag-guarded so it is inert when multi-folder is off.
@@ -663,7 +721,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         return false;
       }
     },
-    [hydrateSettingsForUser]
+    [hydrateSettingsForUser, maybeSeedPiContext]
   );
 
   useEffect(() => {
@@ -1472,6 +1530,11 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     await storeCurrentUser(username);
     setState((prev) => ({ ...prev, currentUser: username }));
     await hydrateSettingsForUser(username);
+    // PI-context seed-on-connect (Owen pilot, A7 + M5). A head logging into a
+    // freshly initialized folder that has no PI settings gets their account_type
+    // + lab_id re-derived here, validated against the signed lab record. No-op
+    // for a solo user or a folder that already carries its own settings.
+    await maybeSeedPiContext(username);
     // React Query cache invalidation on user-switch (events-widget
     // user-switch fix 2026-05-25). A live in-tab user swap leaves
     // every cached query keyed against the previous user, so widgets
@@ -1505,7 +1568,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       appQueryClient.removeQueries({ queryKey: [FEED_EVENTS_PREFIX] });
       appQueryClient.invalidateQueries();
     }
-  }, [hydrateSettingsForUser]);
+  }, [hydrateSettingsForUser, maybeSeedPiContext]);
 
   const createUser = useCallback(async (username: string): Promise<boolean> => {
     if (!fileService.isConnected()) return false;

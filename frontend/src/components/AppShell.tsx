@@ -28,6 +28,7 @@ import Wordmark from "./Wordmark";
 import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import LabHeaderLogo from "@/components/lab/LabHeaderLogo";
+import PiContextBanner from "@/components/lab-head/PiContextBanner";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
@@ -771,6 +772,12 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </CollapsibleSidebar>
         ) : null}
         <main className="flex-1 flex flex-col overflow-hidden">
+          {/* PI-context stopgap (Owen pilot, A7 Part 1). Warns a lab head when
+           *  the active folder is not bound to their lab and links to the
+           *  Settings account-type control. Self-gates via usePiContextMismatch
+           *  (validated against the signed lab record) so a real solo user never
+           *  sees it. */}
+          <PiContextBanner username={currentUser ?? null} />
           <LabSessionMount>{children}</LabSessionMount>
         </main>
       </div>
