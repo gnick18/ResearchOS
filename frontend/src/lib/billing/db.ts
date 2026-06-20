@@ -15,10 +15,10 @@
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
 import { FREE_ALLOWANCE_BYTES } from "./config";
-import { getActiveGrant, getActiveCompedTier } from "./grants";
+import { getActiveGrant, getActiveCompedTier, type GiftTier } from "./grants";
 import { getSponsoringLab } from "./lab";
 import { getModelAPlan } from "./model-a/pricing";
-import { getPlan } from "./plans";
+import { getPlan, type Plan } from "./plans";
 
 let sqlSingleton: NeonQueryFunction<false, false> | null = null;
 
@@ -188,6 +188,31 @@ function planStorageBytes(sub: SubscriptionRecord | null): number {
 }
 
 /**
+ * Maps a comped gift tier to the representative flat-plan id used to resolve
+ * storage and activity allowances. We pick the TOP plan in the audience so a
+ * comp confers full premium bandwidth, not some mid-tier cap.
+ *
+ * Model-A plan ids ("solo" / "lab" / "dept") are NOT in the flat catalog, so we
+ * bridge them here to the flat equivalents. Dept uses the lab ceiling because
+ * dept billing lives on the org track (not the per-owner flat catalog). The
+ * mapping is local to allowance resolution; it does NOT affect pricing.
+ */
+const COMP_TIER_PLAN_ID: Record<GiftTier, string> = {
+  solo: "pro",      // top individual flat plan (250 GB, 10 M writes/mo)
+  lab: "lab_pro",   // top lab flat plan (500 GB, 50 M writes/mo)
+  dept: "lab_pro",  // dept org-track: use lab_pro as the ceiling here
+};
+
+/**
+ * The flat Plan that a comped tier confers for allowance resolution, or null
+ * when the tier is not recognizable. Used by quotaBytesForOwner and
+ * activityAllowanceForOwner as the fallback when no real paid plan is active.
+ */
+function planForCompedTier(tier: GiftTier): Plan | null {
+  return getPlan(COMP_TIER_PLAN_ID[tier]) ?? null;
+}
+
+/**
  * Whether a subscription is actively sponsoring a lab, derived from its PLAN (a
  * paid LAB plan) rather than the legacy lab_billing flag, so the plan is the
  * single source of truth in the flat-plan model.
@@ -288,6 +313,15 @@ export async function quotaBytesForOwner(ownerKey: string): Promise<number> {
     const sub = await getSubscription(ownerKey);
     if (sub && sub.status === "active") {
       base = planStorageBytes(sub);
+    } else {
+      // No active real plan. Check for a comped tier. A comp never downgrades a
+      // real active plan (the branch above already handled that). Fail-safe to
+      // no change so a grants hiccup never shrinks the quota.
+      const compedTier = await getActiveCompedTier(ownerKey).catch(() => null);
+      if (compedTier) {
+        const compPlan = planForCompedTier(compedTier);
+        if (compPlan) base = Math.max(FREE_ALLOWANCE_BYTES, compPlan.storageBytes);
+      }
     }
   }
   // Add any operator-issued gift pool on this key (a grant on a PI lifts the
@@ -322,6 +356,15 @@ export async function activityAllowanceForOwner(ownerKey: string): Promise<numbe
     const sub = await getSubscription(ownerKey);
     if (sub && sub.status === "active") {
       base = getPlan(sub.planId)?.activityWritesPerMonth ?? freeWrites;
+    } else {
+      // No active real plan. Check for a comped tier. A comp never downgrades a
+      // real active plan (the branch above already handled that). Fail-safe to
+      // no change so a grants hiccup never reduces the allowance below free.
+      const compedTier = await getActiveCompedTier(ownerKey).catch(() => null);
+      if (compedTier) {
+        const compPlan = planForCompedTier(compedTier);
+        if (compPlan) base = Math.max(freeWrites, compPlan.activityWritesPerMonth);
+      }
     }
   }
   // Add any operator-issued gift pool on this key (activity side). Fail-safe.
