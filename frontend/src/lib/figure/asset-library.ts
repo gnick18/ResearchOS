@@ -228,7 +228,7 @@ const CATEGORY_SECTIONS: { section: string; categories: string[] }[] = [
   },
   { section: "Lab & methods", categories: ["Lab apparatus", "Procedures", "Imaging", "Safety symbols"] },
   { section: "Chemistry", categories: ["Chemistry"] },
-  { section: "Physics & math", categories: ["Physics", "Math"] },
+  { section: "Physics, math & electronics", categories: ["Physics", "Math", "Electronics"] },
   {
     section: "Data & informatics",
     categories: ["Scientific graphs", "Bioinformatics", "Machine learning", "Computer hardware", "Nanotechnology"],
