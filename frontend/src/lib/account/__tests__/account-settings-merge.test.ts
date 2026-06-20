@@ -6,7 +6,8 @@ import { DEFAULT_SETTINGS } from "@/lib/settings/user-settings";
 import type { AccountScopedSettings } from "../account-settings-crypto";
 import {
   accountBlobsEqual,
-  folderHasLiftableSettings,
+  hasLiftableAccountState,
+  hasLiftableOptionalPrefs,
   liftFolderIntoAccount,
   mergeAccountOverFolder,
   resolveIsLabHead,
@@ -274,31 +275,62 @@ describe("liftFolderIntoAccount (Phase 2 preferences)", () => {
   });
 });
 
-describe("folderHasLiftableSettings (the popup trigger)", () => {
-  it("is TRUE when the folder has feeds the empty account lacks (the Owen case)", () => {
-    expect(folderHasLiftableSettings(null, [icsFeed(1)], "member", {})).toBe(true);
-  });
-
-  it("is FALSE when the folder has ONLY a cosmetic preference (no feeds, not a lab head)", () => {
-    // A fresh/near-empty folder still carries default prefs in settings.json.
-    // Prefs alone must NOT trigger the popup (the Owen misfire), they only ride
-    // along when the popup fires for a substantive reason.
-    expect(
-      folderHasLiftableSettings(null, [], "member", { theme: "dark" }),
-    ).toBe(false);
-  });
-
+describe("hasLiftableAccountState (the SILENT auto-lift condition)", () => {
   it("is TRUE when the folder marks a lab head the account has not recorded", () => {
-    expect(folderHasLiftableSettings(null, [], "lab_head", {})).toBe(true);
+    expect(hasLiftableAccountState(null, "lab_head", {})).toBe(true);
   });
 
   it("is FALSE for a lab head once the account already records the capability", () => {
+    expect(hasLiftableAccountState({ labHead: true }, "lab_head", {})).toBe(false);
+  });
+
+  it("is FALSE for a plain member with no name to lift", () => {
+    expect(hasLiftableAccountState(null, "member", {})).toBe(false);
+  });
+
+  it("is TRUE when the folder carries a real displayName the account lacks", () => {
     expect(
-      folderHasLiftableSettings({ labHead: true }, [], "lab_head", {}),
+      hasLiftableAccountState(null, "member", { displayName: "Dr. Owen" }),
+    ).toBe(true);
+  });
+
+  it("is TRUE when the folder carries a real preferredName the account lacks", () => {
+    expect(
+      hasLiftableAccountState(null, "member", { preferredName: "Owen" }),
+    ).toBe(true);
+  });
+
+  it("is FALSE for a null / blank name (a folder default), so no spurious write", () => {
+    expect(
+      hasLiftableAccountState(null, "member", {
+        displayName: null,
+        preferredName: "   ",
+      }),
     ).toBe(false);
   });
 
-  it("is FALSE when the account already has everything the folder offers", () => {
+  it("is FALSE once the account already carries the name", () => {
+    expect(
+      hasLiftableAccountState({ displayName: "Dr. Owen" }, "member", {
+        displayName: "Owen From This Folder",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("hasLiftableOptionalPrefs (the popup trigger)", () => {
+  it("is TRUE when the folder has feeds the empty account lacks (the Owen case)", () => {
+    expect(hasLiftableOptionalPrefs(null, [icsFeed(1)], {})).toBe(true);
+  });
+
+  it("is TRUE when the folder carries a display preference the account lacks", () => {
+    // Display / UI prefs are OPTIONAL, so unlike account-state they DO surface the
+    // consent popup (Grant 2026-06-20).
+    expect(hasLiftableOptionalPrefs(null, [], { theme: "dark" })).toBe(true);
+    expect(hasLiftableOptionalPrefs(null, [], { dateFormat: "YMD" })).toBe(true);
+  });
+
+  it("is FALSE when the account already has every optional setting the folder offers", () => {
     const account: AccountScopedSettings = {
       calendarFeeds: [
         {
@@ -313,13 +345,30 @@ describe("folderHasLiftableSettings (the popup trigger)", () => {
       theme: "dark",
     };
     expect(
-      folderHasLiftableSettings(account, [icsFeed(1)], "member", {
-        theme: "light",
-      }),
+      hasLiftableOptionalPrefs(account, [icsFeed(1)], { theme: "light" }),
     ).toBe(false);
   });
 
-  it("is FALSE when the folder has nothing liftable and the account is empty", () => {
-    expect(folderHasLiftableSettings(null, [], "member", {})).toBe(false);
+  it("is FALSE when the folder has nothing optional and the account is empty", () => {
+    expect(hasLiftableOptionalPrefs(null, [], {})).toBe(false);
+  });
+
+  it("does NOT treat account-state (role + names) as a popup trigger", () => {
+    // The whole point of the split: a lab-head role or a displayName the account
+    // lacks must lift SILENTLY, never open the popup. With no feeds and no optional
+    // prefs, the popup trigger is FALSE even though account-state IS liftable.
+    expect(hasLiftableAccountState(null, "lab_head", { displayName: "Dr. Owen" })).toBe(
+      true,
+    );
+    expect(
+      hasLiftableOptionalPrefs(null, [], { displayName: "Dr. Owen" }),
+    ).toBe(false);
+  });
+
+  it("DOES open the popup when an optional pref is liftable alongside account-state", () => {
+    // Account-state lifts silently AND the popup opens for the optional theme pref.
+    const folderPrefs = { displayName: "Dr. Owen", theme: "dark" };
+    expect(hasLiftableAccountState(null, "lab_head", folderPrefs)).toBe(true);
+    expect(hasLiftableOptionalPrefs(null, [], folderPrefs)).toBe(true);
   });
 });

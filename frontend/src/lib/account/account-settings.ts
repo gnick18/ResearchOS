@@ -296,24 +296,82 @@ function seedIfAbsent<K extends keyof AccountScopedSettings>(
 }
 
 /**
- * Does the folder hold ANY account-scopable setting that the account blob does
- * NOT already carry? This is the popup TRIGGER condition: when true (and the flag
- * is on), the lift-on-connect popup offers to add the folder's settings to the
- * cloud profile; when false (the account already has everything, or the folder
- * has nothing liftable), the popup never shows. Pure, so the trigger rule is
- * testable in isolation. Computed by running the lift and seeing whether it would
- * change the blob.
+ * The account-scopable preference fields that are OPTIONAL (privacy-ish, opt-in):
+ * appearance, formatting, professional mode, companion + notification prefs, and
+ * the nav defaults. These are the ONLY pref fields that may trigger the consent
+ * popup (alongside calendar feeds). The ACCOUNT-STATE fields (displayName,
+ * preferredName) are deliberately NOT here, see hasLiftableAccountState.
  */
-export function folderHasLiftableSettings(
+const OPTIONAL_PREF_KEYS = [
+  "theme",
+  "animationType",
+  "beakerBotAnimations",
+  "coloredHeader",
+  "dateFormat",
+  "timeFormat",
+  "professionalMode",
+  "showCompanionButton",
+  "autoPublishSnapshotsToPhones",
+  "notificationPreferences",
+  "defaultLandingTab",
+  "visibleTabs",
+] as const;
+
+/** A name (displayName / preferredName) worth lifting, so a null / blank default
+ *  never triggers a spurious silent write. Folders default both to null. */
+function isMeaningfulName(value: string | null | undefined): value is string {
+  return typeof value === "string" && value.trim() !== "";
+}
+
+/**
+ * Does the folder carry ACCOUNT-STATE (core identity) the account blob lacks? This
+ * is the user's account ROLE and identity, not an optional preference, so when it
+ * is true the lift happens SILENTLY (no popup, see liftAccountStateSilently). The
+ * three pieces of account state are:
+ *   - the lab-head / PI capability (account_type "lab_head"),
+ *   - the displayName, and
+ *   - the preferredName.
+ * Pure, so the rule is testable in isolation. Mirrors the seed conditions in
+ * liftFolderIntoAccount so "would lift" and "trigger" agree exactly.
+ */
+export function hasLiftableAccountState(
+  existingAccount: AccountScopedSettings | null,
+  folderAccountType: string | undefined,
+  folderPrefs: Pick<
+    FolderAccountScopablePrefs,
+    "displayName" | "preferredName"
+  > = {},
+): boolean {
+  const account = existingAccount ?? {};
+
+  // A real lab-head capability the account has not recorded yet (never a downgrade).
+  const bringsLabHead =
+    folderAccountType === "lab_head" && account.labHead !== true;
+  const bringsDisplayName =
+    account.displayName === undefined && isMeaningfulName(folderPrefs.displayName);
+  const bringsPreferredName =
+    account.preferredName === undefined &&
+    isMeaningfulName(folderPrefs.preferredName);
+
+  return bringsLabHead || bringsDisplayName || bringsPreferredName;
+}
+
+/**
+ * Does the folder hold an OPTIONAL account-scopable setting (calendar feeds or one
+ * of the display / UI preferences) that the account blob does NOT already carry?
+ * This is the consent-popup TRIGGER condition: when true (and the flag is on), the
+ * lift-on-connect popup offers to add the folder's optional settings to the cloud
+ * profile; when false, the popup never shows (account-state still lifts silently,
+ * see hasLiftableAccountState). Pure, so the trigger rule is testable in isolation.
+ *
+ * displayName / preferredName / account_type are account STATE, not preferences,
+ * so they are NEVER part of this trigger (Grant 2026-06-20: a user's account role
+ * and identity are not something they opt out of, they follow the account).
+ */
+export function hasLiftableOptionalPrefs(
   existingAccount: AccountScopedSettings | null,
   folderFeeds: CalendarFeed[],
-  folderAccountType: string | undefined,
-  // Cosmetic preferences (theme, date format, etc.) are intentionally NOT part of
-  // the trigger. Every folder's settings.json carries default prefs, so gating on
-  // them made a fresh/near-empty folder prompt (the Owen misfire). Prefs still
-  // ride along when the popup fires for a substantive reason, they just never
-  // trigger it. Kept in the signature for caller symmetry.
-  _folderPrefs: FolderAccountScopablePrefs = {},
+  folderPrefs: FolderAccountScopablePrefs = {},
 ): boolean {
   const account = existingAccount ?? {};
 
@@ -322,12 +380,15 @@ export function folderHasLiftableSettings(
   // has no feed list yet AND the folder brings at least one real ics feed.
   const folderHasRealFeeds = folderFeeds.some((f) => f.kind === "ics" && f.icsUrl);
   const bringsNewFeeds = folderHasRealFeeds && account.calendarFeeds === undefined;
+  if (bringsNewFeeds) return true;
 
-  // A real lab-head capability the account has not recorded yet (never a downgrade).
-  const bringsLabHead =
-    folderAccountType === "lab_head" && account.labHead !== true;
-
-  return bringsNewFeeds || bringsLabHead;
+  // Any display / UI preference present in the folder that the account blob lacks.
+  // Mirrors seedIfAbsent so "would lift" and "trigger" agree exactly.
+  const acct = account as Record<string, unknown>;
+  const prefs = folderPrefs as Record<string, unknown>;
+  return OPTIONAL_PREF_KEYS.some(
+    (key) => acct[key] === undefined && prefs[key] !== undefined,
+  );
 }
 
 /** Are two account blobs equal for the purpose of skipping a redundant write?
@@ -574,6 +635,39 @@ export async function liftFolderSettingsOnLogin(
     await writeAccountSettings(next);
   }
   return next;
+}
+
+/**
+ * SILENT, best-effort lift of a folder's ACCOUNT-STATE (the lab-head / PI
+ * capability + displayName + preferredName) up into the account blob. Unlike the
+ * consent-popup lift, this carries no preferences and asks NO question, because a
+ * user's account ROLE and core identity are not an optional preference, they
+ * follow the account regardless (Grant 2026-06-20). Idempotent and non-destructive
+ * (reuses liftFolderIntoAccount with no feeds and only the name fields), writes
+ * back ONLY when something new is added, and SWALLOWS every error so it can never
+ * block the app on connect. No-op when the flag is off or no identity is unlocked.
+ */
+export async function liftAccountStateSilently(
+  folderAccountType: string | undefined,
+  displayName?: string | null,
+  preferredName?: string | null,
+): Promise<void> {
+  if (!isAccountSettingsEnabled()) return;
+  try {
+    // Carry only meaningful names so a null / blank folder default never writes a
+    // null over nothing. labHead rides via folderAccountType.
+    const statePrefs: FolderAccountScopablePrefs = {};
+    if (isMeaningfulName(displayName)) statePrefs.displayName = displayName;
+    if (isMeaningfulName(preferredName)) statePrefs.preferredName = preferredName;
+    const existing = await fetchAccountSettings();
+    const next = liftFolderIntoAccount(existing, [], folderAccountType, statePrefs);
+    if (!accountBlobsEqual(existing, next)) {
+      await writeAccountSettings(next);
+    }
+  } catch {
+    // Best-effort: a failed silent lift never blocks the app. The account-state
+    // re-evaluates and lifts on the next connect.
+  }
 }
 
 /**
