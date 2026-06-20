@@ -26,7 +26,12 @@
 // House style, no em-dashes, no emojis, no mid-sentence colons.
 
 import { describe, it, expect, vi } from "vitest";
-import { runAgentLoop, type LoopMessage, type ModelResponse } from "../agent-loop";
+import {
+  runAgentLoop,
+  gateToolCall,
+  type LoopMessage,
+  type ModelResponse,
+} from "../agent-loop";
 import type { AiTool } from "../tools/types";
 import type { ApprovalDecision, ApprovalRequest } from "../tools/types";
 
@@ -420,5 +425,70 @@ describe("onStatus during approval", () => {
     });
 
     expect(statuses).toContain("awaiting-approval");
+  });
+});
+
+// ---- auto-plan elevation: an approved offered-plan runs free in STEP mode ----
+// (auto-plan-offer 2026-06-19 spec, Part B). planState.approved is true because
+// the user approved a propose_plan card THIS turn. The non-destructive steps then
+// proceed without re-confirming, in step mode too, but the destructive hard-stop
+// is never bypassed.
+
+describe("approval gate: auto-plan elevation (approved plan runs free in step mode)", () => {
+  it("step mode + an approved plan proceeds a non-destructive action with NO confirm", async () => {
+    const { tool } = makeActionTool({});
+    const requestApproval = vi.fn(
+      async (): Promise<ApprovalDecision> => "allow",
+    );
+    const res = await gateToolCall(tool, {}, {
+      getReviewMode: () => "step",
+      requestApproval,
+      planState: { approved: true },
+    });
+    expect(res).toEqual({ proceed: true });
+    // The plan card was the consent, so no per-step confirm is raised.
+    expect(requestApproval).not.toHaveBeenCalled();
+  });
+
+  it("step mode + an approved plan STILL hard-stops a destructive step", async () => {
+    const { tool } = makeActionTool({ isDestructiveOverride: true });
+    const requestApproval = vi.fn(
+      async (): Promise<ApprovalDecision> => "allow",
+    );
+    await gateToolCall(tool, {}, {
+      getReviewMode: () => "step",
+      requestApproval,
+      planState: { approved: true },
+    });
+    // The destructive hard-stop is absolute, it confirms even inside an approved
+    // plan, so the elevation must NOT bypass it.
+    expect(requestApproval).toHaveBeenCalledTimes(1);
+  });
+
+  it("step mode with NO approved plan still confirms every action (unchanged default)", async () => {
+    const { tool } = makeActionTool({});
+    const requestApproval = vi.fn(
+      async (): Promise<ApprovalDecision> => "allow",
+    );
+    await gateToolCall(tool, {}, {
+      getReviewMode: () => "step",
+      requestApproval,
+      planState: { approved: false },
+    });
+    expect(requestApproval).toHaveBeenCalledTimes(1);
+  });
+
+  it("plan mode + an approved plan proceeds without a confirm (unchanged)", async () => {
+    const { tool } = makeActionTool({});
+    const requestApproval = vi.fn(
+      async (): Promise<ApprovalDecision> => "allow",
+    );
+    const res = await gateToolCall(tool, {}, {
+      getReviewMode: () => "plan",
+      requestApproval,
+      planState: { approved: true },
+    });
+    expect(res).toEqual({ proceed: true });
+    expect(requestApproval).not.toHaveBeenCalled();
   });
 });

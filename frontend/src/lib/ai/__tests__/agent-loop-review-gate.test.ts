@@ -301,9 +301,11 @@ describe("gate decision table: step mode confirms every step", () => {
     expect(execute).not.toHaveBeenCalled();
   });
 
-  it("an approved plan does NOT skip the per-step confirm in step mode", async () => {
-    // propose_plan approved, then a non-destructive action. Step mode reviews
-    // every step regardless, so this raises TWO approvals (plan + the step).
+  it("an approved plan runs its non-destructive steps free in step mode (auto-plan elevation)", async () => {
+    // propose_plan approved THIS turn, then a non-destructive action. With the
+    // auto-plan elevation (auto-plan-offer 2026-06-19 spec, Part B), the approved
+    // plan card IS the consent, so the step runs WITHOUT a second per-step confirm
+    // even though the persisted mode is step. Only ONE approval is raised (the plan).
     const { tool, execute } = makeActionTool();
     const requests: ApprovalRequest[] = [];
     const requestApproval = vi.fn(
@@ -316,6 +318,39 @@ describe("gate decision table: step mode confirms every step", () => {
       .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
       .mockResolvedValueOnce(
         assistantWithToolCall("propose_plan", { steps: ["Do it"] }),
+      )
+      .mockResolvedValueOnce(assistantWithToolCall("do_action", {}, "call_2"))
+      .mockResolvedValueOnce(assistantFinal("done"));
+
+    await runAgentLoop({
+      messages: [USER],
+      tools: [proposePlanTool, tool],
+      callModel,
+      getReviewMode: () => "step",
+      requestApproval,
+    });
+
+    expect(requests).toHaveLength(1);
+    expect(requests[0].kind).toBe("plan");
+    expect(execute).toHaveBeenCalledTimes(1);
+  });
+
+  it("an approved plan STILL hard-stops a destructive step in step mode", async () => {
+    // The elevation never bypasses the destructive hard-stop. propose_plan approved,
+    // then a DESTRUCTIVE action, which raises its own confirm even inside the plan,
+    // so this raises TWO approvals (plan + the destructive step).
+    const { tool, execute } = makeActionTool({ destructive: true });
+    const requests: ApprovalRequest[] = [];
+    const requestApproval = vi.fn(
+      async (req: ApprovalRequest): Promise<ApprovalDecision> => {
+        requests.push(req);
+        return "allow";
+      },
+    );
+    const callModel = vi
+      .fn<(m: LoopMessage[], t: unknown[]) => Promise<ModelResponse>>()
+      .mockResolvedValueOnce(
+        assistantWithToolCall("propose_plan", { steps: ["Delete it"] }),
       )
       .mockResolvedValueOnce(assistantWithToolCall("do_action", {}, "call_2"))
       .mockResolvedValueOnce(assistantFinal("done"));
