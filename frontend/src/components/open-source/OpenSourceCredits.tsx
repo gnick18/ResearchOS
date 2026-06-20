@@ -108,7 +108,7 @@ function PackageLink({ name, repo }: { name: string; repo: string | null }) {
       href={repo}
       target="_blank"
       rel="noopener noreferrer"
-      className="font-mono text-body text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
+      className="font-mono text-body text-brand-action underline-offset-2 hover:text-brand-ink hover:underline"
     >
       {name}
       <ExternalIcon />
@@ -180,7 +180,7 @@ export default function OpenSourceCredits() {
             For the people who fund the project directly, see{" "}
             <Link
               href="/thanks"
-              className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+              className="font-medium text-brand-action underline-offset-2 hover:underline"
             >
               Sponsors and thanks
             </Link>
@@ -296,7 +296,7 @@ export default function OpenSourceCredits() {
                         href={v.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-title font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
+                        className="text-title font-semibold text-brand-action underline-offset-2 hover:text-brand-ink hover:underline"
                       >
                         {v.name}
                         <ExternalIcon />
@@ -345,7 +345,7 @@ export default function OpenSourceCredits() {
                 its own per-image license; the{" "}
                 <a
                   href="/library"
-                  className="font-medium text-sky-700 underline-offset-2 hover:underline dark:text-sky-300"
+                  className="font-medium text-brand-action underline-offset-2 hover:underline"
                 >
                   asset library
                 </a>{" "}
@@ -375,7 +375,7 @@ export default function OpenSourceCredits() {
                       href={lib.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-title font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:text-sky-900 hover:underline"
+                      className="text-title font-semibold text-brand-action underline-offset-2 hover:text-brand-ink hover:underline"
                     >
                       {lib.name}
                       <ExternalIcon />
@@ -476,10 +476,10 @@ function FeaturedCard({
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="group block rounded-xl border border-sky-100 bg-sky-50/60 p-5 transition-colors hover:border-sky-200 hover:bg-sky-50 dark:hover:bg-brand-action/20"
+      className="group block rounded-xl border border-brand-action/15 bg-brand-action/[0.04] p-5 transition-colors hover:border-brand-action/30 hover:bg-brand-action/[0.06] dark:hover:bg-brand-action/20"
     >
       <div className="mb-2 flex items-center gap-2">
-        <span className="text-title font-semibold text-foreground group-hover:text-sky-800">
+        <span className="text-title font-semibold text-foreground group-hover:text-brand-action">
           {title}
           <ExternalIcon />
         </span>

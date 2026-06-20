@@ -605,7 +605,7 @@ export default function AiPage() {
               />
             </div>
 
-            <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-[#d3deec] bg-sky-50 px-3.5 py-1.5 text-meta font-semibold text-sky-700">
+            <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-brand-action/20 bg-brand-action/[0.06] px-3.5 py-1.5 text-meta font-semibold text-brand-action">
               <span aria-hidden className="text-brand-sky">
                 <Icon name="ask" className="h-3.5 w-3.5" />
               </span>
@@ -635,7 +635,7 @@ export default function AiPage() {
 
             {/* The free-token gift, the hero hook. Shown in tokens, never
                 dollars, matching the usage fixtures and /pricing. */}
-            <div className="mt-7 w-full max-w-md rounded-2xl border border-[#cfe0f3] bg-[#eef5fd] px-5 py-4">
+            <div className="mt-7 w-full max-w-md rounded-2xl border border-brand-action/20 bg-brand-action/[0.05] px-5 py-4">
               <div className="text-lg font-extrabold tracking-tight text-brand-ink">
                 About 1.6 million free tokens to start, no card needed
               </div>
@@ -659,7 +659,7 @@ export default function AiPage() {
               </button>
               <a
                 href="#value"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-brand-action/25 bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 See how cheap it is
                 <span aria-hidden>&darr;</span>
@@ -1061,11 +1061,11 @@ export default function AiPage() {
               </div>
 
               {/* Cost reference card */}
-              <div className="rounded-2xl border border-[#cfe0f3] bg-[#eef5fd] p-6">
+              <div className="rounded-2xl border border-brand-action/20 bg-brand-action/[0.05] p-6">
                 <div className="text-meta font-semibold uppercase tracking-[0.05em] text-[#64748b]">
                   Cost reference
                 </div>
-                <div className="mt-3 divide-y divide-[#dbe6f3]">
+                <div className="mt-3 divide-y divide-brand-action/15">
                   <CostRefRow
                     label="Full task"
                     value="~110,000 tok"
@@ -1082,7 +1082,7 @@ export default function AiPage() {
                     valueClass="text-emerald-600"
                   />
                 </div>
-                <p className="mt-3 border-t border-dashed border-[#cfe0f3] pt-3 text-meta leading-relaxed text-[#64748b]">
+                <p className="mt-3 border-t border-dashed border-brand-action/20 pt-3 text-meta leading-relaxed text-[#64748b]">
                   About 15 tasks free, no card needed.
                 </p>
                 <Link
@@ -1130,7 +1130,7 @@ export default function AiPage() {
               <Link
                 href="/demo"
                 data-testid="ai-cta-demo"
-                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
+                className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-brand-action/25 bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
                 Explore the live demo
                 <span aria-hidden>&rarr;</span>

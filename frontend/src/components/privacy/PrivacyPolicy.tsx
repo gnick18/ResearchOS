@@ -136,7 +136,7 @@ export default function PrivacyPolicy() {
             For the full technical account, see the{" "}
             <Link
               href="/wiki/security"
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               security page
             </Link>
@@ -275,7 +275,7 @@ export default function PrivacyPolicy() {
             writing to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>
@@ -318,7 +318,7 @@ export default function PrivacyPolicy() {
             here can go to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>

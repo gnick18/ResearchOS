@@ -173,7 +173,7 @@ export default function TermsOfService({
             license and the third-party credits on the{" "}
             <Link
               href="/open-source"
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               open source page
             </Link>
@@ -204,7 +204,7 @@ export default function TermsOfService({
             our side, and exactly what and why is spelled out in the{" "}
             <Link
               href="/privacy"
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               privacy policy
             </Link>
@@ -261,7 +261,7 @@ export default function TermsOfService({
             infringes your copyright, write to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>{" "}
@@ -313,7 +313,7 @@ export default function TermsOfService({
                 <> Pricing is shown on the{" "}
                 <Link
                   href="/pricing"
-                  className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+                  className="font-semibold text-brand-action underline-offset-2 hover:underline"
                 >
                   pricing page
                 </Link>
@@ -350,7 +350,7 @@ export default function TermsOfService({
             For the full pricing picture, see the{" "}
             <Link
               href="/pricing"
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               pricing page
             </Link>
@@ -465,7 +465,7 @@ export default function TermsOfService({
             These terms, together with the{" "}
             <Link
               href="/privacy"
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               privacy policy
             </Link>{" "}
@@ -505,7 +505,7 @@ export default function TermsOfService({
             covered here can go to{" "}
             <a
               href={`mailto:${CONTACT_EMAIL}`}
-              className="font-semibold text-sky-700 dark:text-sky-300 underline-offset-2 hover:underline"
+              className="font-semibold text-brand-action underline-offset-2 hover:underline"
             >
               {CONTACT_EMAIL}
             </a>
