@@ -27,6 +27,35 @@ import type { AccountType } from "../settings/user-settings";
 import { folderRequiresLogin } from "../auth/login-policy";
 
 /**
+ * Class Mode (CM-P1): the "is this folder a teaching class" predicate. Pure,
+ * mirrors isLabHead in shape and altitude.
+ *
+ * A folder is a CLASS when it is a lab the active user HEADS that is marked as a
+ * class. Both conditions are required: lab_kind === "class" tags the folder as
+ * teaching, and accountType === "lab_head" confirms the active user is the
+ * instructor (the head role). A student folder (lab_kind "class" but the active
+ * user is a member) is therefore NOT a class folder by this predicate, which is
+ * deliberate: this gates the INSTRUCTOR teaching chrome, not the student view.
+ *
+ * Flag-agnostic by design (like isLabHead). The flag (CLASS_MODE_ENABLED) gates
+ * the WRITERS that ever set lab_kind === "class"; this reader simply answers the
+ * question. With class mode off no folder ever carries lab_kind === "class", so
+ * this returns false everywhere and changes nothing.
+ *
+ * @param accountType the active user's stored role from `_user_settings.account_type`
+ * @param labKind     the folder's `_user_settings.lab_kind` ("lab" | "class" | absent)
+ */
+export function isClassFolder({
+  accountType,
+  labKind,
+}: {
+  accountType: AccountType;
+  labKind: "lab" | "class" | undefined;
+}): boolean {
+  return labKind === "class" && accountType === "lab_head";
+}
+
+/**
  * The PI-role boolean. True when the account is a lab head (principal
  * investigator), false for a regular member. This is the canonical spelling
  * of the `account_type === "lab_head"` check scattered across the PI surfaces.
