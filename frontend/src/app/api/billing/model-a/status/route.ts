@@ -29,23 +29,24 @@ import { labTrialPhase } from "@/lib/billing/model-a/lab-trial";
 export const runtime = "nodejs";
 
 /**
- * The lab that actively covers this member, for the settings "covered by X lab"
- * line, or null. A member is covered only when (1) a lab sponsors them and (2)
+ * The lab that grants this member premium, for the settings "Premium, via X lab"
+ * panel, or null. A member is premium only when (1) a lab sponsors them and (2)
  * that lab's PI resolves to a real paid or comped plan, so a member sponsored by
- * a lab whose PI is still free is NOT reported as covered (no false claim). The
- * lab name comes from the directory listing keyed by the PI owner key. Any error
- * resolves to null so a lookup hiccup never blocks the status read.
+ * a lab whose PI is still free is NOT reported as premium (no false claim). The
+ * lab name comes from the directory listing keyed by the PI owner key, and tier
+ * is the plan the lab confers. Any error resolves to null so a lookup hiccup
+ * never blocks the status read.
  */
 async function resolveSponsoringLab(
   ownerKey: string,
-): Promise<{ name: string } | null> {
+): Promise<{ name: string; tier: "solo" | "lab" | "dept" } | null> {
   try {
     const sponsorKey = await getSponsoringLab(ownerKey);
     if (!sponsorKey || sponsorKey === ownerKey) return null;
     const sponsorPlan = await getEffectiveModelAPlanId(sponsorKey);
     if (sponsorPlan === "free") return null;
     const name = await getLabNameByPiKey(sponsorKey);
-    return { name: name ?? "your lab" };
+    return { name: name ?? "your lab", tier: sponsorPlan };
   } catch {
     return null;
   }

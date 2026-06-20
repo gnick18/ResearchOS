@@ -12,6 +12,7 @@ const STATES: { label: string; status: ModelAStatus }[] = [
   { label: "Solo, no card yet", status: { planId: "solo", accruedCents: 0, capCents: null, hasCard: false } },
   { label: "Lab, card on file, near threshold, $50 cap", status: { planId: "lab", accruedCents: 480, capCents: 5000, hasCard: true } },
   { label: "Lab, over $5, $20 cap", status: { planId: "lab", accruedCents: 1928, capCents: 2000, hasCard: true } },
+  { label: "Member, premium via their lab", status: { planId: "free", accruedCents: 0, capCents: null, hasCard: false, sponsoringLab: { name: "Fungal Interactions Lab", tier: "lab" } } },
 ];
 
 export default function ModelABillingPreview() {
