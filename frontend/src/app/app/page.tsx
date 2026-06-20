@@ -24,6 +24,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
+import { enterDemo } from "@/lib/demo/enter-demo";
 import type { ReactNode } from "react";
 
 import BeakerBot from "@/components/BeakerBot";
@@ -164,6 +166,10 @@ export default function AppPage() {
               </button>
               <Link
                 href="/demo"
+                onClick={(e) => {
+                  e.preventDefault();
+                  enterDemo();
+                }}
                 data-testid="app-hero-demo"
                 className="inline-flex min-h-[44px] items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >
