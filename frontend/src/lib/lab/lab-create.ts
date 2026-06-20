@@ -157,6 +157,12 @@ export async function publishLabRemote(
     piDisplayName?: string;
     /** Cosmetic PI title (Dr. / Prof. / ...) stored in DO meta as pi_title. */
     piTitle?: string;
+    /** Class Mode (CM-P1): when true, skip the public directory upsert entirely.
+     *  A class must NOT be listed in the public lab directory (design FLAG, the
+     *  directory is for research labs only). The signed genesis still publishes
+     *  to the relay so the class team key + roster work; only the directory row
+     *  is suppressed. Defaults to false, so research-lab callers are unchanged. */
+    suppressDirectory?: boolean;
   },
 ): Promise<void> {
   // Cosmetic branding rides into the relay create body (DO meta), NOT the signed
@@ -176,7 +182,9 @@ export async function publishLabRemote(
   // Best-effort: publish a directory row (listed=false) so the lab can later
   // be opted into the listing by the PI. A failure here must never block lab
   // creation -- we simply skip the upsert and the PI can trigger it later.
-  if (opts?.labName?.trim()) {
+  // Class Mode (CM-P1): a class is never directory-listed, so suppressDirectory
+  // skips this upsert entirely regardless of whether a name was supplied.
+  if (!opts?.suppressDirectory && opts?.labName?.trim()) {
     try {
       await fetch("/api/directory/labs/publish", {
         method: "POST",
