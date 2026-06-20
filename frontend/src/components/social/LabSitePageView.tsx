@@ -34,6 +34,7 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
+import LabSiteBlockView from "@/components/social/LabSiteBlockView";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
 import LabIdentityHeader from "@/components/social/LabIdentityHeader";
 import LabSiteNav from "@/components/social/LabSiteNav";
@@ -49,11 +50,13 @@ import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
 import { isDemoLabSlug, type DemoLabCard } from "@/lib/social/demo-lab";
+import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
 export default function LabSitePageView({
   slug,
   title,
   bodyMd,
+  blocksJson,
   snapshots,
   hostedAssets,
   publishedPages,
@@ -66,9 +69,20 @@ export default function LabSitePageView({
   title: string;
   bodyMd: string;
   /**
+   * The block-based page body (P1 companion builder). When non-null, the page
+   * is a BLOCKS page rendered via LabSiteBlockView; bodyMd is ignored. When
+   * null, the page is a markdown page rendered via RenderedMarkdown (existing
+   * behavior, byte-identical to pre-P1). The server route passes this from
+   * lab_site_pages.blocks_json when non-null.
+   *
+   * The snapshots map (below) is also used for baked block embeds: each data
+   * block's sourceId is the key (same href convention as markdown embeds).
+   */
+  blocksJson?: string | null;
+  /**
    * Frozen baked-block snapshots keyed by embed link href (Phase 3b). Passed
    * from the server route as a plain record (serializable across the
-   * server/client boundary); rebuilt into the Map RenderedMarkdown expects.
+   * server/client boundary); rebuilt into the Map RenderedMarkdown / LabSiteBlockView expect.
    * Absent / empty means a text-only page or a page published before Phase 3b,
    * and any block embed then renders the calm unavailable card. A public reader
    * has no local workspace, so blocks render FROZEN, never live.
@@ -116,6 +130,8 @@ export default function LabSitePageView({
 }) {
   const heading = title?.trim() || slug;
   // Rebuild the Map from the serialized record once per snapshots object.
+  // Used by both RenderedMarkdown (markdown path) and LabSiteBlockView (blocks
+  // path); the same keying convention applies to both.
   const bakedEmbeds = useMemo(
     () => new Map<string, BakedEmbed>(Object.entries(snapshots ?? {})),
     [snapshots],
@@ -125,6 +141,14 @@ export default function LabSitePageView({
     () => new Map<string, HostedAssetEntry>(Object.entries(hostedAssets ?? {})),
     [hostedAssets],
   );
+  // Parse the blocks array once per blocksJson string. A null/absent blocksJson
+  // means this is a markdown page; a non-null string (even "[]") is a blocks page.
+  const parsedBlocks = useMemo(
+    () => (blocksJson != null ? parseLabSiteBlocks(blocksJson) : null),
+    [blocksJson],
+  );
+  // True when this page is a blocks page (P1 companion builder path).
+  const isBlocksPage = parsedBlocks !== null;
   // Demo framing is DEMO-SLUG-SCOPED so it can never appear on a real lab's site.
   const isDemo = isDemoLabSlug(slug);
   const pages = publishedPages ?? [];
@@ -187,12 +211,26 @@ export default function LabSitePageView({
             </h1>
           )}
 
-          <RenderedMarkdown
-            content={bodyMd ?? ""}
-            className="prose prose-gray mt-8 max-w-3xl dark:prose-invert"
-            bakedEmbeds={bakedEmbeds}
-            hostedAssets={hostedAssetsMap}
-          />
+          {isBlocksPage ? (
+            /* P1 blocks path: render via LabSiteBlockView. The bakedEmbeds map
+               is passed so data blocks use frozen snapshots on the public page.
+               A public reader has no local workspace so live embeds are never
+               used here; the map replaces the live ObjectEmbed path entirely. */
+            <div className="mt-8">
+              <LabSiteBlockView
+                blocks={parsedBlocks ?? []}
+                bakedEmbeds={bakedEmbeds}
+              />
+            </div>
+          ) : (
+            /* Legacy markdown path: byte-identical to pre-P1. */
+            <RenderedMarkdown
+              content={bodyMd ?? ""}
+              className="prose prose-gray mt-8 max-w-3xl dark:prose-invert"
+              bakedEmbeds={bakedEmbeds}
+              hostedAssets={hostedAssetsMap}
+            />
+          )}
 
           {/* Companion listing (paper pages + BYO link). */}
           <LabCompanionList

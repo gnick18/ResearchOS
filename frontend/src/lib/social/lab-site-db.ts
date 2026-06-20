@@ -95,6 +95,15 @@ export interface LabSitePageRow {
    * R2 CLIENT-SIDE and sends this manifest, and this layer just stores it.
    */
   hostedJson: string | null;
+  /**
+   * The block-based page body (P1 companion builder), as the raw JSON text stored
+   * in the blocks_json column. When non-null, the page is a BLOCKS page and
+   * blocks_json is the canonical body. When null, the page is a MARKDOWN page and
+   * body_md is rendered. Pages are either one or the other; the write helpers
+   * enforce this by clearing the other column on each save. Callers parse via
+   * parseLabSiteBlocks (lab-site-blocks.ts).
+   */
+  blocksJson: string | null;
 }
 
 /**
@@ -168,6 +177,17 @@ export async function ensureLabSiteSchema(): Promise<void> {
     ALTER TABLE lab_sites
       ADD COLUMN IF NOT EXISTS badge_snapshot_json text
   `;
+  // P1 companion-builder: the block-based page representation. Pages are
+  // EITHER markdown (body_md) OR blocks (blocks_json); whichever column is
+  // non-null takes precedence in the renderer. Added as a nullable column via
+  // IF NOT EXISTS so the schema-ensure stays idempotent and a pre-P1
+  // deployment migrates forward in place (existing rows keep blocks_json = NULL
+  // = "markdown page", so the public render falls back to body_md per page).
+  // body_md is kept untouched for the life of the markdown authoring path.
+  await sql`
+    ALTER TABLE lab_site_pages
+      ADD COLUMN IF NOT EXISTS blocks_json text
+  `;
 }
 
 function rowToSite(r: {
@@ -184,7 +204,7 @@ function rowToSite(r: {
   };
 }
 
-/** The raw shape of a lab_site_pages SELECT, including the Phase 3b column. */
+/** The raw shape of a lab_site_pages SELECT, including the Phase 3b+ columns. */
 interface RawPageRow {
   lab_owner_key: string;
   path: string;
@@ -195,6 +215,7 @@ interface RawPageRow {
   updated_at: string;
   snapshots_json?: string | null;
   hosted_json?: string | null;
+  blocks_json?: string | null;
 }
 
 function rowToPage(r: RawPageRow): LabSitePageRow {
@@ -208,6 +229,7 @@ function rowToPage(r: RawPageRow): LabSitePageRow {
     updatedAt: r.updated_at,
     snapshotsJson: r.snapshots_json ?? null,
     hostedJson: r.hosted_json ?? null,
+    blocksJson: r.blocks_json ?? null,
   };
 }
 
@@ -383,7 +405,7 @@ export async function getPage(
   const p = normalizePagePath(path);
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
+    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json, blocks_json
     FROM lab_site_pages
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
     LIMIT 1
@@ -539,9 +561,70 @@ export async function publishPage(
         hosted_json = ${hostedJson},
         updated_at = now()
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
-    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
+    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json, blocks_json
   `) as RawPageRow[];
   return rows[0] ? rowToPage(rows[0]) : null;
+}
+
+// ---------------------------------------------------------------------------
+// blocks_json helpers (P1 companion builder)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the raw blocks_json text for a page, or null when none is stored.
+ * A null return means the page is a markdown page (body_md is the canonical
+ * body). Callers parse the text via parseLabSiteBlocks in lab-site-blocks.ts.
+ */
+export async function getPageBlocksJson(
+  labOwnerKey: string,
+  path: string,
+): Promise<string | null> {
+  if (!labOwnerKey) return null;
+  const p = normalizePagePath(path);
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT blocks_json
+    FROM lab_site_pages
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+    LIMIT 1
+  `) as Array<{ blocks_json?: string | null }>;
+  return rows[0]?.blocks_json ?? null;
+}
+
+/**
+ * Writes (or clears) the blocks_json for a page. When blocksJson is non-null,
+ * the page becomes a BLOCKS page: body_md is set to '' and status resets to
+ * draft so the old markdown body never resurfaces on the public page. When
+ * blocksJson is null, the column is cleared (reverting to a markdown page is
+ * handled by upsertPage, not here). The page must already exist via upsertPage
+ * (or a prior setPageBlocksJson call with a non-null value that created the
+ * row). Returns true when the row was found and updated.
+ *
+ * NOTE: this does NOT create the row if absent. The P2 editor must first call
+ * upsertPage (markdown path) or a future P2 upsertBlocksPage helper to ensure
+ * the row exists before calling this.
+ */
+export async function setPageBlocksJson(
+  labOwnerKey: string,
+  path: string,
+  blocksJson: string | null,
+): Promise<boolean> {
+  if (!labOwnerKey) return false;
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE lab_site_pages
+    SET blocks_json = ${blocksJson},
+        body_md = CASE WHEN ${blocksJson} IS NOT NULL THEN '' ELSE body_md END,
+        status = 'draft',
+        snapshots_json = NULL,
+        hosted_json = NULL,
+        updated_at = now()
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+    RETURNING lab_owner_key
+  `) as Array<{ lab_owner_key: string }>;
+  return rows.length > 0;
 }
 
 // ---------------------------------------------------------------------------
