@@ -80,6 +80,16 @@ This is the same target the 2026-06-15 redesign locked (its section 3). Stated a
 
 5. Takeover removes shared files the new account cannot read (Grant). The files SHARED TO the original account are sealed to that account's keypair, so a different account that takes over genuinely cannot decrypt or view them, and should not retain another account's shared documents. So the takeover warning quantifies them and the takeover removes their local copies. The new account's OWN authored content is never touched. See the audit and steps in section 4 under "Shared-file removal on takeover".
 
+6. Takeover is reversible (Grant, revert ownership). A folder that was taken over keeps a record of the DISPLACED owner, and the shared files swept to trash are tagged with that takeover event. A "Revert ownership" action then undoes the takeover seamlessly. It hands ownership back to the prior owner fingerprint AND restores exactly the trashed shared-file set from that takeover (not unrelated trash). So a mistaken or temporary takeover is one click to undo, and the original owner is never permanently locked out by another login.
+
+## Decisions locked (2026-06-20)
+
+Grant decided the three driving forks. The rest of section 5 stands as written.
+
+- D1 OWNERSHIP. EXCLUSIVE owner. One account owns a folder (owner fingerprint plus email label). A different login is a takeover.
+- D2 WARNING ACTION. WARN then allow rebind. The warning (including the shared-file count) has a real Cancel and a deliberate "Take over this folder" that rebinds. No soft-lock.
+- D6 SHARED-FILE REMOVAL. MOVE TO FOLDER TRASH (recoverable), and add a "Revert ownership" button for a taken-over folder that makes the undo seamless (restores the trashed shares plus hands ownership back). See target-model item 6.
+
 ## 4. Gap audit, what needs to be made
 
 Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and the files it touches.
@@ -94,7 +104,7 @@ Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and th
 
 ### Folder-ownership record (the missing fact)
 - DOES NOT EXIST. Today the only on-disk owner hint is the per-user sidecar `email`, which is per-user, not per-folder, and is not consulted on connect.
-- BUILD, medium and FLAG (new on-disk shape). Write a folder-root ownership marker, for example `users/_folder_owner.json` carrying the owner account's published email and signing public-key fingerprint (the same fingerprint Phase B already compares). Written when an account first claims or initializes a folder, read on every connect. Touches `user-discovery.ts` (or a new `folder-owner.ts`), `file-system-context.tsx` (write on claim, read on connect), and the gitignore list. Note. A signing public key, not email, is the more durable owner key (email can change, the keypair is the identity), so prefer fingerprint as the primary owner key and email as the human-readable label.
+- BUILD, medium and FLAG (new on-disk shape). Write a folder-root ownership marker, for example `users/_folder_owner.json` carrying the owner account's published email and signing public-key fingerprint (the same fingerprint Phase B already compares), PLUS a `previous_owner` fingerprint (or a small takeover-event log) so a revert (D6) can hand ownership back. Written when an account first claims or initializes a folder, updated on a takeover (current + previous), read on every connect. Touches `user-discovery.ts` (or a new `folder-owner.ts`), `file-system-context.tsx` (write on claim, read on connect), and the gitignore list. Note. A signing public key, not email, is the more durable owner key (email can change, the keypair is the identity), so prefer fingerprint as the primary owner key and email as the human-readable label.
 
 ### Takeover warning UX (the heart of the ask)
 - DOES NOT EXIST.
@@ -107,8 +117,12 @@ Grouped. Each item notes ALREADY-EXISTS (reuse) versus BUILD, rough size, and th
 - BUILD, medium and FLAG (touches on-disk records + the manifest). On a confirmed takeover:
   - DETECT + COUNT. The "files you do not have permission to view" set is exactly the records carrying a `received_from_fingerprint` whose value does not match the new account's fingerprint. Count them for the warning (X).
   - WARN with Grant's copy, shown only when X > 0. "There are X shared files that you do not have permission to view. Taking over this folder will mean the local copies of those shared documents will be removed from this folder."
-  - REMOVE SAFELY. On confirm, delete those flagged local record copies (and prune any dangling `_shared_with_me` entries that referenced them). The EXCLUSION GUARD is the absence of `received_from_fingerprint`, which strictly preserves the new account's own authored content. The user's own data is never in the removal set.
-  - Touches a new helper (e.g. `frontend/src/lib/sharing/foreign-share-sweep.ts`), the takeover modal, and the connect/claim path. Re-key target on rebind is `users/<username>/_sharing_identity.json` (`identity/sidecar.ts`).
+  - MOVE TO TRASH SAFELY (D6). On confirm, move those flagged local record copies to the folder TRASH (not hard-delete), TAGGED with the takeover event id so a later revert restores exactly this set (and prune any dangling `_shared_with_me` entries that referenced them). The EXCLUSION GUARD is the absence of `received_from_fingerprint`, which strictly preserves the new account's own authored content. The user's own data is never in the removal set.
+  - Touches a new helper (e.g. `frontend/src/lib/sharing/foreign-share-sweep.ts`), the takeover modal, the folder trash layer, and the connect/claim path. Re-key target on rebind is `users/<username>/_sharing_identity.json` (`identity/sidecar.ts`).
+
+### Revert ownership (D6, makes takeover reversible)
+- DOES NOT EXIST.
+- BUILD, medium. A "Revert ownership" action on a taken-over folder that (1) restores the trashed shared files tagged with that takeover event from the folder trash, and (2) rebinds the owner record back to the displaced owner fingerprint. Requires the owner record to retain the PRIOR owner (a `previous_owner` field or a small takeover-event log) and the trash-tag from the sweep above, so the undo is exact and seamless. Surfaced where the user manages the folder (the takeover banner and Settings, Data folder). Touches the folder-owner write path, the trash-restore path, and a small "reverted" confirmation. Honors no-soft-locks (the revert is itself cancelable).
 
 ### Migration of existing folders
 - PARTIAL. The 2026-06-15 redesign already chose clean reset for the under-ten beta (its locked decision 3) and the first-account registry inherit exists (`indexeddb-store.ts:1115`).
