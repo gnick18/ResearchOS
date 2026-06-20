@@ -26,6 +26,7 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
+import type { IconName } from "@/components/icons";
 import type { RememberedFolder } from "./indexeddb-store";
 
 /** The cached lab fields this helper reads off a remembered folder. */
@@ -130,4 +131,27 @@ export function folderDisplayName(folder: {
 export function discoveredLabSublabel(role?: string): string {
   if (role === "class" || role === "student") return "Student";
   return "Member";
+}
+
+/**
+ * The leading switcher glyph for a remembered folder, by its lab KIND, so a
+ * profile holding several kinds reads each at a glance instead of one generic
+ * folder icon. Grant-approved glyph set (2026-06-19). Pure, flag-free.
+ *   head            -> "crown"       (you lead this lab)
+ *   member          -> "users"       (a lab you are in)
+ *   class / student -> "mortarboard" (the color pill tells the two apart)
+ *   solo / absent   -> "user"        (consistent with folderKindBadge's Solo)
+ */
+export function folderKindIcon(folder: FolderLabIdentity): IconName {
+  switch (folder.labRole) {
+    case "head":
+      return "crown";
+    case "member":
+      return "users";
+    case "class":
+    case "student":
+      return "mortarboard";
+    default:
+      return "user";
+  }
 }

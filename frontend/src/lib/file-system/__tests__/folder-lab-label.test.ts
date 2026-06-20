@@ -8,7 +8,11 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { describe, it, expect } from "vitest";
-import { folderLabLabel, discoveredLabSublabel } from "../folder-lab-label";
+import {
+  folderLabLabel,
+  discoveredLabSublabel,
+  folderKindIcon,
+} from "../folder-lab-label";
 
 describe("folderLabLabel", () => {
   it("labels a legacy row (no cached role) as Solo", () => {
@@ -94,5 +98,25 @@ describe("discoveredLabSublabel", () => {
 
   it("falls back to Member for an unknown role", () => {
     expect(discoveredLabSublabel("ta")).toBe("Member");
+  });
+});
+
+describe("folderKindIcon", () => {
+  it("uses the crown for a lab head", () => {
+    expect(folderKindIcon({ labRole: "head" })).toBe("crown");
+  });
+
+  it("uses the people group for a lab member", () => {
+    expect(folderKindIcon({ labRole: "member" })).toBe("users");
+  });
+
+  it("uses the mortarboard for a class and a student", () => {
+    expect(folderKindIcon({ labRole: "class" })).toBe("mortarboard");
+    expect(folderKindIcon({ labRole: "student" })).toBe("mortarboard");
+  });
+
+  it("uses the single user for solo and for a legacy row with no role", () => {
+    expect(folderKindIcon({ labRole: "solo" })).toBe("user");
+    expect(folderKindIcon({})).toBe("user");
   });
 });

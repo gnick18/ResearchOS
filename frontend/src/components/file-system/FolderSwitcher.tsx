@@ -32,6 +32,7 @@ import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import {
   folderLabLabel,
   folderKindBadge,
+  folderKindIcon,
   folderDisplayName,
   discoveredLabSublabel,
 } from "@/lib/file-system/folder-lab-label";
@@ -376,7 +377,7 @@ export default function FolderSwitcher({
                 className="flex items-center gap-2 px-3 py-2"
               >
                 <Icon
-                  name="folder"
+                  name={folderKindIcon(f)}
                   className="h-4 w-4 shrink-0 text-foreground-muted"
                 />
                 <input
@@ -437,7 +438,7 @@ export default function FolderSwitcher({
                 className="flex min-w-0 flex-1 items-center gap-2 text-left disabled:opacity-50"
               >
                 <Icon
-                  name="folder"
+                  name={folderKindIcon(f)}
                   className="h-4 w-4 shrink-0 text-foreground-muted"
                 />
                 <span className="min-w-0 flex-1">
@@ -542,7 +543,11 @@ export default function FolderSwitcher({
                   >
                     <div className="flex min-w-0 flex-1 items-center gap-2">
                       <Icon
-                        name="users"
+                        name={
+                          d.labRole === "class" || d.labRole === "student"
+                            ? "mortarboard"
+                            : "users"
+                        }
                         className="h-4 w-4 shrink-0 text-foreground-muted"
                       />
                       <span className="min-w-0 flex-1">
@@ -642,6 +647,13 @@ export default function FolderSwitcher({
   // Header variant: a compact pill that shows the active folder name and opens
   // a dropdown of the remembered set.
   const label = directoryName || "Switch folder";
+  // The collapsed trigger shows the ACTIVE folder's kind glyph (crown / users /
+  // mortarboard / user) so the current context reads at a glance, matching the
+  // rows. Falls back to the neutral folder icon when nothing is connected.
+  const activeFolderKindIcon = (() => {
+    const active = folders.find((f) => f.name === directoryName);
+    return active ? folderKindIcon(active) : "folder";
+  })();
   return (
     <div ref={wrapRef} className="relative inline-flex">
       <Tooltip label="Switch folder" placement="bottom">
@@ -661,7 +673,7 @@ export default function FolderSwitcher({
               : "flex max-w-[180px] items-center gap-1.5 rounded-lg px-2 py-1 text-sm text-foreground-muted transition-colors hover:bg-surface-sunken hover:text-foreground"
           }
         >
-          <Icon name="folder" className="h-4 w-4 shrink-0" />
+          <Icon name={activeFolderKindIcon} className="h-4 w-4 shrink-0" />
           <span className="truncate">{label}</span>
           <Icon name="chevronDown" className="h-3.5 w-3.5 shrink-0" />
         </button>
