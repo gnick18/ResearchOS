@@ -11,6 +11,7 @@
 
 import { useEffect } from "react";
 import BeakerBot from "@/components/BeakerBot";
+import BeakerSays from "./BeakerSays";
 import type { AiVariant } from "@/lib/onboarding/reel-director";
 import TutorScreen from "./TutorScreen";
 
@@ -52,6 +53,8 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
   return (
     <TutorScreen>
       <div className="w-full max-w-xl">
+        <BeakerSays>{s.line}</BeakerSays>
+
         <div className="mb-2 flex items-center justify-between text-[10.5px] uppercase tracking-wide text-[var(--faint,#9aa097)]">
           <span>on {s.route}</span>
           <span className="rounded border border-[var(--violet,#7c4dca)] bg-[var(--violet-soft,#efe7fb)] px-1.5 py-0.5 font-bold text-[var(--violet-ink,#5b34a0)]">
@@ -73,15 +76,6 @@ export default function AiDemoBeat({ variant, onDone }: AiDemoBeatProps) {
             <div className="self-start rounded-lg rounded-bl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-2.5 py-1.5">
               {s.reply}
             </div>
-          </div>
-        </div>
-
-        <div className="mt-3 flex items-start gap-2">
-          <span className="h-7 w-7 flex-none">
-            <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
-          </span>
-          <div className="rounded-xl rounded-tl-sm bg-[var(--violet-soft,#efe7fb)] px-3 py-2 text-xs text-[var(--violet-ink,#5b34a0)]">
-            {s.line}
           </div>
         </div>
 
