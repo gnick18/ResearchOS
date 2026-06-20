@@ -74,7 +74,8 @@ import {
   buildCalculatorSendPayload,
   materializeCalculatorToDestination,
 } from "@/lib/sharing/calculator-transfer";
-import { sequencesApi, calculatorsApi, notesApi } from "@/lib/local-api";
+import { materializeMethodToDestination } from "@/lib/transfer/heavy-transfer";
+import { sequencesApi, calculatorsApi, notesApi, methodsApi } from "@/lib/local-api";
 import type { TargetContext } from "@/lib/storage/json-store";
 import type { ReadBundleResult } from "@/lib/sharing/bundle";
 import type {
@@ -126,8 +127,15 @@ export type TransferTarget =
   | { kind: "project"; project: Project; sourceUsername: string };
 
 /** The kinds with a destination-scoped materialize twin wired up here. The rest
- *  are refused (heavy zip-closure types) or have no builder at all. */
-const TWO_HANDLE_KINDS = new Set<TransferKind>(["note", "sequence", "calculator"]);
+ *  are refused (heavy zip-closure types) or have no builder at all. METHOD is the
+ *  first HEAVY type wired (its own destination-scoped twin in heavy-transfer.ts);
+ *  experiment + project follow in later stages. */
+const TWO_HANDLE_KINDS = new Set<TransferKind>([
+  "note",
+  "sequence",
+  "calculator",
+  "method",
+]);
 
 /** Stable id of a transfer target within its kind, for per-item bulk results and
  *  the source delete. Note/sequence/calculator/experiment ids are numeric. */
@@ -170,7 +178,7 @@ export function describeTarget(target: TransferTarget): string {
  *  to refuse with a precise reason rather than a generic failure. */
 function unsupportedReason(kind: TransferKind): string | null {
   if (TWO_HANDLE_KINDS.has(kind)) return null;
-  if (kind === "method" || kind === "experiment" || kind === "project") {
+  if (kind === "experiment" || kind === "project") {
     return `Copying a ${kind} between folders is not supported yet. Use "Send to a person" to share it, or copy it as a note.`;
   }
   // Defensive: an unknown kind has no path at all.
@@ -405,6 +413,13 @@ async function materializeInto(
       const { calculatorId } = await materializeCalculatorToDestination(bytes, ctx);
       return { kind: "calculator", destId: calculatorId, destUsername: dest.username };
     }
+    case "method": {
+      // HEAVY type. The twin reads the source method (record + protocol /
+      // body file) off the source disk and writes a fresh private copy into
+      // the destination via ctx. No source-folder mutation (COPY).
+      const { methodId } = await materializeMethodToDestination(target.method, ctx);
+      return { kind: "method", destId: methodId, destUsername: dest.username };
+    }
     default:
       // Unreachable: unsupportedReason already rejected the heavy kinds above.
       throw new CrossFolderCopyError(
@@ -447,9 +462,18 @@ async function trashSourceVerified(target: TransferTarget): Promise<boolean> {
       );
       return still == null;
     }
+    case "method": {
+      // methodsApi.delete resolves the method's owner namespace from disk
+      // itself (private -> _trash/methods/, public -> hard delete), so it takes
+      // only the id, unlike the per-user note/sequence/calculator deletes.
+      // Verify-gone reads it back through methodsApi.get (owner-routed).
+      await methodsApi.delete(target.method.id);
+      const still = await methodsApi.get(target.method.id, target.method.owner);
+      return still == null;
+    }
     default:
-      // The heavy kinds are refused before any copy, so a move never reaches
-      // here for them. Treat as not-removed defensively.
+      // The remaining heavy kinds (experiment / project) are refused before any
+      // copy, so a move never reaches here for them. Not-removed defensively.
       return false;
   }
 }
