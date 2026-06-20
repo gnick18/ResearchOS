@@ -42,6 +42,7 @@ import BroadcastPanel from "@/components/admin/BroadcastPanel";
 import StorageInventorySection from "@/components/admin/StorageInventorySection";
 import CostBreakerPanel from "@/components/admin/CostBreakerPanel";
 import GiftPoolsPanel from "@/components/admin/GiftPoolsPanel";
+import StageLabPanel from "@/components/admin/StageLabPanel";
 import SpendByCategoryPanel from "@/components/admin/SpendByCategoryPanel";
 import { MarginExplorerTab } from "@/components/admin/PriceModelingModal";
 import LockedPricingPanel from "@/components/admin/LockedPricingPanel";
@@ -158,6 +159,14 @@ const GROUPS: RailGroup[] = [
         icon: "heart",
         desc: "Funded allocations for grants, donations, and gifted tokens. The per-row gift action in the roster is the fast path; this is the bulk management view.",
         keywords: "grants donations tokens comp gift",
+      },
+      {
+        id: "stage-lab",
+        group: "Accounts",
+        title: "Stage Lab",
+        icon: "vial",
+        desc: "Pre-stage a lab for a PI by their email so a single sign-in stands up the whole lab. The PI device runs the real genesis and binds the reserved slug, so the server never sees their private keys.",
+        keywords: "stage provision pi lab onboard reserve slug comp tier genesis",
       },
     ],
   },
@@ -878,6 +887,9 @@ function AccountsTab() {
       </Section>
       <Section section={byId("gift-pools")}>
         <GiftPoolsPanel />
+      </Section>
+      <Section section={byId("stage-lab")}>
+        <StageLabPanel />
       </Section>
     </>
   );
