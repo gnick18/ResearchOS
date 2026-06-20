@@ -245,6 +245,77 @@ export async function releaseSlug(
 }
 
 // ---------------------------------------------------------------------------
+// Staged-provisioning release (unstage lane)
+// ---------------------------------------------------------------------------
+
+/**
+ * The typed result of a releaseReservedSlug attempt.
+ *
+ * "bound"     - the slug has a lab_sites row; it belongs to a live lab and must
+ *               never be freed through this path.
+ * "not-owner" - the slug_registry row exists but ownerKey does not match, so the
+ *               caller does not own it.
+ * "not-found" - no slug_registry row exists for this slug at all.
+ */
+export type ReleaseReservedSlugResult =
+  | { ok: true }
+  | { ok: false; reason: "bound" | "not-owner" | "not-found" };
+
+/**
+ * Releases a slug_registry reservation created during staged PI provisioning.
+ * This is the UNDO path for an operator mistake before the PI has ever signed in.
+ *
+ * Safety rules (all must pass for the DELETE to proceed):
+ *   1. The slug_registry row exists.
+ *   2. The ownerKey on the row matches the caller's piEmailHash.
+ *   3. No lab_sites row references this slug (the PI never ran genesis).
+ *   4. The redirect_to column is null (it is not a retired alias from a rename).
+ *
+ * If any rule fails the function returns { ok:false, reason } and deletes nothing.
+ * Callers MUST check the result; a "bound" result means the staging row should be
+ * treated as consumed and the unstage route must abort without touching anything.
+ */
+export async function releaseReservedSlug(
+  slug: string,
+  ownerKey: string,
+): Promise<ReleaseReservedSlugResult> {
+  if (!slug || !ownerKey) return { ok: false, reason: "not-found" };
+  await ensureSlugRegistrySchema();
+  const sql = getSql();
+
+  // Load the slug_registry row first.
+  const regRows = (await sql`
+    SELECT owner_key, redirect_to
+    FROM slug_registry
+    WHERE slug = ${slug}
+    LIMIT 1
+  `) as Array<{ owner_key: string | null; redirect_to: string | null }>;
+
+  if (regRows.length === 0) return { ok: false, reason: "not-found" };
+  const reg = regRows[0];
+
+  if (reg.owner_key !== ownerKey) return { ok: false, reason: "not-owner" };
+
+  // A redirect_to means this slug was already renamed; treat it as bound for
+  // safety (it would corrupt citation links if freed).
+  if (reg.redirect_to != null) return { ok: false, reason: "bound" };
+
+  // Check for a lab_sites binding (dynamic import to avoid a circular module
+  // dep: lab-site-db imports slug-registry-db, so we import lab-site-db here
+  // lazily rather than at module level).
+  const { getSiteBySlug } = await import("./lab-site-db");
+  const site = await getSiteBySlug(slug);
+  if (site != null) return { ok: false, reason: "bound" };
+
+  // All safety checks passed. Delete the reservation.
+  await sql`
+    DELETE FROM slug_registry
+    WHERE slug = ${slug} AND owner_key = ${ownerKey}
+  `;
+  return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
 // Global-uniqueness seeding (Phase 1)
 // ---------------------------------------------------------------------------
 //
