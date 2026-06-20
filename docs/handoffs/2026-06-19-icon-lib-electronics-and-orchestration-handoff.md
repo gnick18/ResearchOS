@@ -92,10 +92,14 @@ tar pit and Grant approved dropping it:
 
 ## 5. Awaiting Grant (deployed, just needs his eyes; no builds pending)
 
-- /admin redesign + widen: confirm tab order + the Finances sub-group mapping; tweak is a one-liner.
-- Page-width sweep: eyeball lab-overview, funding, people (their grids were left un-reflowed, so they MIGHT read sparse at full width; drop to wide or add a column if so).
-- Gate fixes + trial banner: visual confirm on prod.
-- Onboarding cursor glide + the trial verification items above.
+VERIFICATION PASS 2026-06-19 (takeover session, on Grant's live :3000 via Chrome + code-read + unit tests). Items marked DONE are signed off and need no further action; the two remaining are genuine human-judgment calls.
+
+- DONE (verified, no longer awaiting): **Permanent gate sign-out** confirmed live, top-right "Sign out" renders on both the /admin gate and the account-setup gate, with a "Back to the app" escape, so there is no soft-lock. **/admin operator gating** confirmed live (a non-operator hits Admin-access-required with an escape, not the console). **/admin widen** confirmed in code (`OperatorShell.tsx` content wrapper is `max-w-screen-2xl`). **Two-column folder gate** confirmed in code (`FolderConnectGate.tsx` uses `lg:grid-cols-2` "Pick up where you left off | Start a new folder" with an `overflow-y-auto` backstop and a `max-w-4xl` width-using container; the two columns only render when there is a recent folder to resume, single centered column otherwise by design). **Page-width sweep mechanical half** confirmed in code (lab-experiments, lab-notes, lab-work, approvals, funding, people, lab-overview all carry `width="full"`; researchers, activity, trash carry `width="wide"`). **Trial-countdown logic** confirmed (the 7 `trial-countdown.test.ts` unit tests pass).
+- SUPERSEDED (drop, not mine to verify): the /admin **tab order + Finances sub-group mapping** in this lane (6 tabs Overview/Metrics/Accounts/Finances/Modeling/Comms, Money-in-out/Accounting/Vendors) was REPLACED by the later "admin 7-group IA reorg" (pepper clean-slate lane, 2026-06-19). Current live IA is Dashboard/Accounts/Metrics/Finances/Compliance/Pricing/Comms with Finances subgroups Overview/Ledger/Subscriptions/Payment methods/Cost breaker. Verify that reorg under its own lane, not this one.
+- STILL AWAITING GRANT (genuine human-judgment, cannot be automated):
+  - Page-width "reads sparse?" on lab-overview, funding, people. The pages render full-width correctly (mechanically verified above); whether the un-reflowed grids look sparse depends on real lab data density, which fixture data cannot reproduce, so it needs Grant's eye on his folder. If sparse, drop that page to `width="wide"` or add a grid column.
+  - Trial countdown banner VISUAL at a live lab-head trial state (the logic is green; only the on-screen escalation copy needs an eyeball).
+  - Onboarding cursor glide (live rAF, invisible to automation) and the trial refund/dispute Stripe-test items from section 4.
 
 ## 6. Mechanics + gotchas for the next agent
 
