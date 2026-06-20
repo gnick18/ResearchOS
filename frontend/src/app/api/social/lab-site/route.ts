@@ -41,6 +41,7 @@ import {
   listPages,
 } from "@/lib/social/lab-site-db";
 import { resolveCallerOwnerKey } from "@/lib/social/lab-site-session";
+import { provisionLabDomain } from "@/lib/social/lab-domain-provision";
 import { isLabSitesEnabled } from "@/lib/social/config";
 import {
   isSlugAvailable,
@@ -207,6 +208,13 @@ export async function POST(request: Request): Promise<Response> {
   if (!site) {
     return json(503, { error: "store unavailable" });
   }
+
+  // Register the lab subdomain on Vercel so its TLS cert issues. Best-effort and
+  // idempotent: a failure here (Vercel outage, no token) never blocks the claim,
+  // the daily reconcile cron backfills it. Awaited so the request finishes before
+  // the serverless function can freeze, but the result is intentionally ignored.
+  await provisionLabDomain(site.labSlug);
+
   return json(201, {
     site: { slug: site.labSlug, createdAt: site.createdAt },
   });

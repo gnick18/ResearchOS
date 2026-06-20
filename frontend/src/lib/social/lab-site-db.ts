@@ -287,6 +287,21 @@ export async function getSiteBySlug(labSlug: string): Promise<LabSiteRow | null>
 }
 
 /**
+ * Returns every claimed lab slug. Used by the domain-provision reconcile cron to
+ * ensure each lab subdomain is registered on the Vercel project for its TLS cert.
+ * Read-only, no schema change. Defensive empty array on a missing store so the
+ * cron degrades to a no-op rather than throwing.
+ */
+export async function listAllSiteSlugs(): Promise<string[]> {
+  await ensureLabSiteSchema();
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_slug FROM lab_sites ORDER BY lab_slug
+  `) as Array<{ lab_slug: string }>;
+  return rows.map((r) => r.lab_slug).filter((s): s is string => Boolean(s));
+}
+
+/**
  * Creates (or returns the existing) site row for a lab. Idempotent on
  * lab_owner_key. The slug must already be reserved in slug_registry as kind=lab
  * by the caller; this only records the site-to-slug mapping. If a DIFFERENT lab
