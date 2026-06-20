@@ -44,6 +44,65 @@ export function overviewLabel(classMode: boolean): string {
 }
 
 /**
+ * The Class Materials nav href. The instructor-only surface that lists the
+ * records this instructor shares to the whole class (the "*" sentinel). Lives
+ * only in the class lab-lens lineup; there is no research-lab equivalent, so it
+ * is added ONLY when class mode is active (see buildLabLensItems below). With
+ * NEXT_PUBLIC_CLASS_MODE off no folder is a class so classMode is always false
+ * and this entry never mounts, keeping flag-off parity.
+ */
+export const CLASS_MATERIALS_HREF = "/class-materials";
+
+/**
+ * The class-context relabel of ShareDialog's whole-lab grant. The underlying
+ * grant (the "*" sentinel in shared_with) is UNCHANGED; this is a pure copy
+ * switch so a class instructor reads "the whole class" / "students" instead of
+ * "the whole lab" / "members". classMode false returns the legacy research-lab
+ * copy verbatim, so the dialog is byte-identical when the flag is off.
+ */
+export interface WholeAudienceCopy {
+  /** The recipient-row label for the "*" entry ("Whole class" vs "Whole lab"). */
+  rowLabel: string;
+  /** The "add" toggle copy when the grant is NOT yet present. */
+  addLabel: string;
+  /** The "remove" toggle copy when the grant IS present. */
+  removeLabel: string;
+  /** The helper line under the toggle. */
+  helper: string;
+  /** The aria phrase for "the whole <audience>" in the access-level group. */
+  ariaAudience: string;
+  /** The roster-preview lead-in: builds "All N students" / "Currently includes (N)". */
+  rosterLead: (count: number) => string;
+  /** The empty-roster line. */
+  rosterEmpty: string;
+}
+
+export function wholeAudienceCopy(classMode: boolean): WholeAudienceCopy {
+  if (classMode) {
+    return {
+      rowLabel: "Whole class",
+      addLabel: "+ Share with the whole class",
+      removeLabel: "Remove whole-class share",
+      helper:
+        "Whole-class shares default to read-only. Toggle the level above after adding.",
+      ariaAudience: "the whole class",
+      rosterLead: (count) => `All ${count} students`,
+      rosterEmpty: "No students in this class yet.",
+    };
+  }
+  return {
+    rowLabel: "Whole lab",
+    addLabel: "+ Share with the whole lab",
+    removeLabel: "Remove Whole-lab share",
+    helper:
+      "Whole-lab shares default to read-only. Toggle the level above after adding.",
+    ariaAudience: "the whole lab",
+    rosterLead: (count) => `Currently includes (${count})`,
+    rosterEmpty: "No other active members in this lab yet.",
+  };
+}
+
+/**
  * The PI-only tab hrefs that have NO classroom meaning and are hidden from the
  * lab-lens lineup when class mode is active. Funding (grant money) and
  * Approvals (purchasing approvals) are research-lab management surfaces a CURE
@@ -95,6 +154,13 @@ export function buildLabLensItems(
       out.push({ href: "/activity", label: "Activity" });
       if (!(classMode && CLASS_HIDDEN_PI_HREFS.has("/funding"))) {
         out.push({ href: "/funding", label: "Funding" });
+      }
+      // CT-1: the Class Materials surface is instructor-only and class-only.
+      // It lists the records this instructor shares to the whole class, so it
+      // is added ONLY in class mode (no research-lab equivalent). Placed right
+      // after the PI tabs and before the science tools.
+      if (classMode) {
+        out.push({ href: CLASS_MATERIALS_HREF, label: "Class Materials" });
       }
     } else if (item.href === "/workbench") {
       // Researcher home; reachable by flipping to "My work", not in lab lens.
