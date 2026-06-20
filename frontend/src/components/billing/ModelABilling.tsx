@@ -43,6 +43,13 @@ export interface ModelAStatus {
    * the plan the lab confers.
    */
   sponsoringLab?: { name: string; tier: "solo" | "lab" | "dept" } | null;
+  /**
+   * True when the effective planId is driven by an operator gift comp rather than
+   * a real Stripe subscription. The account hub uses this to show "Comped by
+   * ResearchOS" instead of "Active". Optional + additive; false/undefined = not
+   * comped (normal paid or free state).
+   */
+  isComped?: boolean;
 }
 
 type Load =
