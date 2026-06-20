@@ -74,7 +74,19 @@ import {
   buildCalculatorSendPayload,
   materializeCalculatorToDestination,
 } from "@/lib/sharing/calculator-transfer";
-import { sequencesApi, calculatorsApi, notesApi } from "@/lib/local-api";
+import {
+  materializeMethodToDestination,
+  materializeExperimentToDestination,
+  materializeProjectToDestination,
+} from "@/lib/transfer/heavy-transfer";
+import {
+  sequencesApi,
+  calculatorsApi,
+  notesApi,
+  methodsApi,
+  tasksApi,
+  projectsApi,
+} from "@/lib/local-api";
 import type { TargetContext } from "@/lib/storage/json-store";
 import type { ReadBundleResult } from "@/lib/sharing/bundle";
 import type {
@@ -126,8 +138,17 @@ export type TransferTarget =
   | { kind: "project"; project: Project; sourceUsername: string };
 
 /** The kinds with a destination-scoped materialize twin wired up here. The rest
- *  are refused (heavy zip-closure types) or have no builder at all. */
-const TWO_HANDLE_KINDS = new Set<TransferKind>(["note", "sequence", "calculator"]);
+ *  are refused (heavy zip-closure types) or have no builder at all. METHOD is the
+ *  first HEAVY type wired (its own destination-scoped twin in heavy-transfer.ts);
+ *  experiment + project follow in later stages. */
+const TWO_HANDLE_KINDS = new Set<TransferKind>([
+  "note",
+  "sequence",
+  "calculator",
+  "method",
+  "experiment",
+  "project",
+]);
 
 /** Stable id of a transfer target within its kind, for per-item bulk results and
  *  the source delete. Note/sequence/calculator/experiment ids are numeric. */
@@ -170,10 +191,8 @@ export function describeTarget(target: TransferTarget): string {
  *  to refuse with a precise reason rather than a generic failure. */
 function unsupportedReason(kind: TransferKind): string | null {
   if (TWO_HANDLE_KINDS.has(kind)) return null;
-  if (kind === "method" || kind === "experiment" || kind === "project") {
-    return `Copying a ${kind} between folders is not supported yet. Use "Send to a person" to share it, or copy it as a note.`;
-  }
-  // Defensive: an unknown kind has no path at all.
+  // Defensive: an unknown kind has no path at all. All known heavy kinds
+  // (method / experiment / project) are now wired with a two-handle twin.
   return `This item type cannot be copied between folders.`;
 }
 
@@ -405,11 +424,37 @@ async function materializeInto(
       const { calculatorId } = await materializeCalculatorToDestination(bytes, ctx);
       return { kind: "calculator", destId: calculatorId, destUsername: dest.username };
     }
-    default:
-      // Unreachable: unsupportedReason already rejected the heavy kinds above.
+    case "method": {
+      // HEAVY type. The twin reads the source method (record + protocol /
+      // body file) off the source disk and writes a fresh private copy into
+      // the destination via ctx. No source-folder mutation (COPY).
+      const { methodId } = await materializeMethodToDestination(target.method, ctx);
+      return { kind: "method", destId: methodId, destUsername: dest.username };
+    }
+    case "experiment": {
+      // HEAVY type. The twin reads the source task (record + its referenced
+      // methods + results subtree) off the source disk and writes a fresh
+      // owner-only copy into the destination via ctx. Source untouched (COPY).
+      const { taskId } = await materializeExperimentToDestination(target.task, ctx);
+      return { kind: "experiment", destId: taskId, destUsername: dest.username };
+    }
+    case "project": {
+      // HEAVY type. The twin reads the source project + its tasks + their
+      // methods + intra-project deps + filed sequences off the source disk and
+      // writes a fresh owner-only copy into the destination via ctx. Source
+      // untouched (COPY).
+      const { projectId } = await materializeProjectToDestination(target.project, ctx);
+      return { kind: "project", destId: projectId, destUsername: dest.username };
+    }
+    default: {
+      // Unreachable: every kind is handled above (TS narrows `target` to
+      // `never` here). Defensive exhaustiveness guard for a future kind added
+      // to the union without a dispatch arm.
+      const unreachable: never = target;
       throw new CrossFolderCopyError(
-        `Copying a ${target.kind} between folders is not supported yet.`,
+        `Copying a ${(unreachable as TransferTarget).kind} between folders is not supported yet.`,
       );
+    }
   }
 }
 
@@ -447,9 +492,34 @@ async function trashSourceVerified(target: TransferTarget): Promise<boolean> {
       );
       return still == null;
     }
+    case "method": {
+      // methodsApi.delete resolves the method's owner namespace from disk
+      // itself (private -> _trash/methods/, public -> hard delete), so it takes
+      // only the id, unlike the per-user note/sequence/calculator deletes.
+      // Verify-gone reads it back through methodsApi.get (owner-routed).
+      await methodsApi.delete(target.method.id);
+      const still = await methodsApi.get(target.method.id, target.method.owner);
+      return still == null;
+    }
+    case "experiment": {
+      // tasksApi.delete resolves the task's owner from disk itself and takes
+      // only the id; it also cleans the task's results subtree + dependency
+      // links. Verify-gone reads the record back through the owner-routed get.
+      await tasksApi.delete(target.task.id);
+      const still = await tasksApi.get(target.task.id, target.task.owner);
+      return still == null;
+    }
+    case "project": {
+      // projectsApi.delete resolves the project's owner from disk itself and
+      // takes only the id; it also cascades to the project's tasks + their
+      // results subtrees + dependency links. Verify-gone reads the project
+      // record back through the owner-routed get.
+      await projectsApi.delete(target.project.id);
+      const still = await projectsApi.get(target.project.id, target.project.owner);
+      return still == null;
+    }
     default:
-      // The heavy kinds are refused before any copy, so a move never reaches
-      // here for them. Treat as not-removed defensively.
+      // Every kind is handled above; this is a defensive exhaustiveness guard.
       return false;
   }
 }

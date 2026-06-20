@@ -182,6 +182,9 @@ vi.mock("@/lib/sharing/identity/sidecar", () => ({
 const deletedNotes = new Set<number>();
 const deletedSeqs = new Set<number>();
 const deletedCalcs = new Set<number>();
+const deletedMethods = new Set<number>();
+const deletedTasks = new Set<number>();
+const deletedProjects = new Set<number>();
 vi.mock("@/lib/local-api", () => ({
   notesApi: {
     delete: vi.fn(async (id: number) => {
@@ -201,6 +204,34 @@ vi.mock("@/lib/local-api", () => ({
     }),
     get: vi.fn(async (id: number) => (deletedCalcs.has(id) ? null : { id })),
   },
+  // methodsApi is consumed by the MOVE source-trash for the HEAVY method kind.
+  // delete takes only the id (it resolves the owner namespace itself), and
+  // get is owner-routed; both stubbed here so the cross-folder ORDERING test
+  // focuses on copy-then-delete + verify-source-gone, not the real trash flow.
+  methodsApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedMethods.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedMethods.has(id) ? null : { id })),
+  },
+  // tasksApi is consumed by the MOVE source-trash for the HEAVY experiment kind.
+  // delete takes only the id; get is owner-routed. Same focus as methodsApi:
+  // exercise the cross-folder ordering, not the real task-trash cascade.
+  tasksApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedTasks.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedTasks.has(id) ? null : { id })),
+  },
+  // projectsApi is consumed by the MOVE source-trash for the HEAVY project kind.
+  // delete takes only the id (cascades to tasks + results + deps); get is
+  // owner-routed. Same focus as the other heavy deletes: exercise the ordering.
+  projectsApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedProjects.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedProjects.has(id) ? null : { id })),
+  },
 }));
 
 // Import AFTER vi.mock so the mock is in place.
@@ -215,7 +246,13 @@ import {
   type TransferTarget,
 } from "../local-folder-transfer";
 import * as idb from "@/lib/file-system/indexeddb-store";
-import type { SequenceDetail, CustomCalculator } from "@/lib/types";
+import type {
+  SequenceDetail,
+  CustomCalculator,
+  Method,
+  Task,
+  Project,
+} from "@/lib/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -264,6 +301,144 @@ function makeSourceSequence(): SequenceDetail {
   } as unknown as SequenceDetail;
 }
 
+// A markdown method whose body file lives at the FOLDER root under
+// methods/<slug>/<file>.md (not under users/<u>/). The source_path points there.
+const METHOD_BODY_MD = "# Lyse cells\n\n1. Add buffer\n2. Vortex 30s\n";
+function makeSourceMarkdownMethod(): Method {
+  return {
+    id: 7,
+    name: "Lyse cells",
+    source_path: "methods/lyse-cells/lyse-cells.md",
+    source_pdf_path: null,
+    method_type: "markdown",
+    folder_path: null,
+    parent_method_id: null,
+    tags: ["prep"],
+    is_public: false,
+    created_by: null,
+    owner: SOURCE_USER,
+    shared_with: [],
+    // Read-time overlays + provenance that MUST be stripped on copy.
+    is_shared_with_me: true,
+    shared_permission: "edit",
+    received_from: "someone@example.com",
+    source_uuid: "src-uuid-7",
+  } as unknown as Method;
+}
+
+// A structured PCR method: its source_path references a per-user protocol record
+// that must be re-created in the destination's id-space with the source_path
+// rewritten to the new protocol id.
+function makeSourcePcrMethod(): Method {
+  return {
+    id: 8,
+    name: "Colony PCR",
+    source_path: "pcr://protocol/3",
+    source_pdf_path: null,
+    method_type: "pcr",
+    folder_path: null,
+    parent_method_id: null,
+    tags: null,
+    is_public: false,
+    created_by: null,
+    owner: SOURCE_USER,
+    shared_with: [],
+  } as unknown as Method;
+}
+
+// A source experiment (task) referencing the markdown method (id 7) both via
+// method_ids and via a method_attachment, plus a results subtree.
+const EXP_NOTES_MD = "## Lab notes\n\nRan the lysis at 4C.\n";
+const EXP_RESULT_IMG = new Uint8Array([9, 8, 7, 6, 5]);
+function makeSourceExperiment(): Task {
+  return {
+    id: 12,
+    project_id: 4,
+    name: "Lysis timecourse",
+    start_date: "2026-06-01",
+    duration_days: 3,
+    end_date: "2026-06-03",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [7],
+    deviation_log: null,
+    tags: ["timecourse"],
+    sort_order: 0,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [
+      {
+        method_id: 7,
+        owner: SOURCE_USER,
+        pcr_gradient: null,
+        pcr_ingredients: null,
+        lc_gradient: null,
+        body_override: null,
+        plate_annotation: null,
+        cell_culture_schedule: null,
+        variation_notes: "doubled the buffer",
+        compound_snapshots: null,
+        qpcr_analysis: null,
+      },
+    ],
+    owner: SOURCE_USER,
+    shared_with: [],
+    // Overlays + provenance + collab ids that MUST be stripped on copy.
+    is_shared_with_me: true,
+    shared_permission: "edit",
+    received_from: "lab@example.com",
+    collab_doc_id: "doc-abc",
+  } as unknown as Task;
+}
+
+// A source PROJECT (id 4) the experiment (task 12) belongs to, plus a second
+// task (id 13) so a dependency between them can be rebuilt in the destination.
+function makeSourceProject(): Project {
+  return {
+    id: 4,
+    name: "Lysis grant aims",
+    weekend_active: false,
+    tags: ["aim1"],
+    color: "#abc",
+    created_at: "2026-05-01T00:00:00.000Z",
+    sort_order: 0,
+    is_archived: false,
+    archived_at: null,
+    owner: SOURCE_USER,
+    shared_with: [],
+    // Fields that MUST be stripped on copy.
+    is_shared_with_me: true,
+    funding_account_id: 9,
+    imported_from: { sender: "x", imported_at: "", source_project_name: "", source_grant: null },
+  } as unknown as Project;
+}
+
+function makeSecondProjectTask(): Task {
+  return {
+    id: 13,
+    project_id: 4,
+    name: "Western blot",
+    start_date: "2026-06-04",
+    duration_days: 1,
+    end_date: "2026-06-04",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [],
+    deviation_log: null,
+    tags: null,
+    sort_order: 1,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [],
+    owner: SOURCE_USER,
+    shared_with: [],
+  } as unknown as Task;
+}
+
 function makeSourceCalculator(): CustomCalculator {
   return {
     id: 3,
@@ -309,6 +484,9 @@ beforeEach(async () => {
   deletedNotes.clear();
   deletedSeqs.clear();
   deletedCalcs.clear();
+  deletedMethods.clear();
+  deletedTasks.clear();
+  deletedProjects.clear();
   sourceRoot = new MockDirectory("source");
   destRoot = new MockDirectory("dest");
   destHandle = destRoot;
@@ -324,11 +502,103 @@ beforeEach(async () => {
   );
   await seedJson(sourceRoot, `users/${SOURCE_USER}/_counters.json`, { notes: 5 });
 
+  // Seed the HEAVY method fixtures on the SOURCE disk so the cross-folder method
+  // twin (heavy-transfer.ts) reads them straight off disk, no local-api.
+  //   - the markdown method's record + its body file at the FOLDER root.
+  //   - the PCR method's record + its per-user protocol record.
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/methods/7.json`,
+    makeSourceMarkdownMethod(),
+  );
+  await writeRaw(
+    sourceRoot,
+    "methods/lyse-cells/lyse-cells.md",
+    new TextEncoder().encode(METHOD_BODY_MD),
+  );
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/methods/8.json`,
+    makeSourcePcrMethod(),
+  );
+  await seedJson(sourceRoot, `users/${SOURCE_USER}/pcr_protocols/3.json`, {
+    id: 3,
+    name: "Colony PCR mix",
+    gradient: { initial: [], cycles: [], final: [], hold: null },
+    ingredients: [{ id: "1", name: "Taq", concentration: "5U", amount_per_reaction: "0.2", checked: false }],
+    notes: null,
+    is_public: false,
+    created_by: null,
+  });
+
+  // Seed the source EXPERIMENT (task 12) + its results subtree (notes.md + a
+  // per-tab Results-tab image attachment) so the experiment twin copies them.
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/tasks/12.json`,
+    makeSourceExperiment(),
+  );
+  await writeRaw(
+    sourceRoot,
+    `users/${SOURCE_USER}/results/task-12/notes.md`,
+    new TextEncoder().encode(EXP_NOTES_MD),
+  );
+  await seedBytes(
+    sourceRoot,
+    `users/${SOURCE_USER}/results/task-12/results/Images/gel.png`,
+    EXP_RESULT_IMG,
+  );
+
+  // Seed the source PROJECT (id 4) + a second task (id 13) in it + a dependency
+  // linking 12 -> 13 + a sequence filed into project 4, so the project twin can
+  // carry the whole closure (tasks, intra-project dep, sequence).
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/projects/4.json`,
+    makeSourceProject(),
+  );
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/tasks/13.json`,
+    makeSecondProjectTask(),
+  );
+  await seedJson(sourceRoot, `users/${SOURCE_USER}/dependencies/1.json`, {
+    id: 1,
+    parent_id: 12,
+    child_id: 13,
+    dep_type: "FS",
+  });
+  await writeRaw(
+    sourceRoot,
+    `users/${SOURCE_USER}/sequences/2.gb`,
+    new TextEncoder().encode(GENBANK_TEXT),
+  );
+  await seedJson(sourceRoot, `users/${SOURCE_USER}/sequences/2.meta.json`, {
+    id: 2,
+    display_name: "Project plasmid",
+    project_ids: ["4"],
+    added_at: "2026-06-01T00:00:00.000Z",
+    seq_type: "dna",
+  });
+
   // Seed the DESTINATION folder: a Main user pin + a pre-existing notes counter
   // at 41, so a fresh id must be 42 (proving it comes from the DEST counter). The
   // sequence + calculator counters start unset so a first copy lands id 1.
   await seedJson(destRoot, "users/_user_metadata.json", { main_user: DEST_USER });
-  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, { notes: 41 });
+  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, {
+    notes: 41,
+    tasks: 70,
+    projects: 50,
+    dependencies: 30,
+    // sequences left unset so a project sequence copy lands id 1.
+  });
+  // Methods + structured protocols draw from the GLOBAL counter even when
+  // private. Seed it at 100 (methods) / 200 (pcr) so a fresh copy proves its id
+  // came from the DESTINATION global counter, not the source method id.
+  await seedJson(destRoot, "users/_global_counters.json", {
+    methods: 100,
+    pcr_protocols: 200,
+  });
 });
 
 afterEach(() => {
@@ -511,23 +781,285 @@ describe("copyObjectToFolder, other supported types", () => {
     expect(rec.shared_with).toEqual([]);
   });
 
-  it("REFUSES a method / experiment / project (no two-handle path yet)", async () => {
+  it("DEFENSIVELY refuses an unknown kind (no transfer path at all)", async () => {
     stubDestRegistry("dest-folder", "head");
-    const heavy: TransferTarget = {
-      kind: "method",
-      method: { id: 1, name: "Lyse cells" } as unknown as Extract<
-        TransferTarget,
-        { kind: "method" }
-      >["method"],
+    // Every known kind (note/sequence/calculator/method/experiment/project) is
+    // now wired. An unknown kind must still be refused before any write, via the
+    // unsupportedReason defensive fallback.
+    const unknown = {
+      kind: "totally-unknown",
       sourceUsername: SOURCE_USER,
-    };
-    await expect(copyObjectToFolder(heavy, "dest-folder")).rejects.toBeInstanceOf(
+    } as unknown as TransferTarget;
+    await expect(copyObjectToFolder(unknown, "dest-folder")).rejects.toBeInstanceOf(
       CrossFolderCopyError,
     );
-    // Nothing was written into the destination.
-    expect(
-      readRaw(destRoot, `users/${DEST_USER}/methods/1.json`),
-    ).toBeNull();
+  });
+});
+
+// ── Stage 1 (heavy): METHOD cross-folder copy / move ──────────────────────────
+
+describe("copyObjectToFolder, METHOD (heavy type)", () => {
+  it("copies a MARKDOWN method: fresh global id, body file carried, owner-only, source untouched", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const method = makeSourceMarkdownMethod();
+    const target: TransferTarget = {
+      kind: "method",
+      method,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh id from the DESTINATION GLOBAL counter (100 -> 101), not the source (7).
+    expect(outcome.kind).toBe("method");
+    expect(outcome.destId).toBe(101);
+    const destGlobal = readRawJson(destRoot, "users/_global_counters.json") as {
+      methods: number;
+    };
+    expect(destGlobal.methods).toBe(101);
+
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/methods/101.json`,
+    ) as Method;
+    expect(rec.id).toBe(101);
+    expect(rec.name).toBe("Lyse cells");
+    // Owner-only on arrival, sharing + provenance + portable identity stripped.
+    expect(rec.owner).toBe(DEST_USER);
+    expect(rec.is_public).toBe(false);
+    expect(rec.shared_with).toEqual([]);
+    expect(rec.is_shared_with_me).toBeUndefined();
+    expect(rec.shared_permission).toBeUndefined();
+    expect(rec.received_from).toBeUndefined();
+    expect((rec as { source_uuid?: string }).source_uuid).toBeUndefined();
+    // The body file landed at the destination root under the method slug, with
+    // source_path rewritten to point at the new location.
+    expect(rec.source_path).toBe("methods/lyse-cells/lyse-cells.md");
+    const body = readRaw(destRoot, "methods/lyse-cells/lyse-cells.md");
+    expect(body).not.toBeNull();
+    expect(new TextDecoder().decode(body!)).toBe(METHOD_BODY_MD);
+
+    // SOURCE untouched: the source record + body still present, no id-101 leak.
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/methods/7.json`)).not.toBeNull();
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/methods/101.json`)).toBeNull();
+  });
+
+  it("copies a PCR method: protocol re-created in the destination id-space, source_path rewritten", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const method = makeSourcePcrMethod();
+    const target: TransferTarget = {
+      kind: "method",
+      method,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(101);
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/methods/101.json`,
+    ) as Method;
+    // The protocol got a fresh DESTINATION global id (pcr_protocols 200 -> 201)
+    // and the method's source_path points at it, not the source's protocol 3.
+    expect(rec.source_path).toBe("pcr://protocol/201");
+    const proto = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/pcr_protocols/201.json`,
+    ) as { id: number; name: string; is_public: boolean };
+    expect(proto.id).toBe(201);
+    expect(proto.name).toBe("Colony PCR mix");
+    expect(proto.is_public).toBe(false);
+
+    // The source protocol record is unchanged.
+    const srcProto = readRawJson(
+      sourceRoot,
+      `users/${SOURCE_USER}/pcr_protocols/3.json`,
+    ) as { id: number };
+    expect(srcProto.id).toBe(3);
+  });
+});
+
+describe("moveObjectToFolder, METHOD (heavy type)", () => {
+  it("moves a method: destination gets a fresh-id copy, source is trashed via methodsApi.delete", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const method = makeSourceMarkdownMethod();
+    const target: TransferTarget = {
+      kind: "method",
+      method,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(101);
+    expect(readRaw(destRoot, `users/${DEST_USER}/methods/101.json`)).not.toBeNull();
+    // The source delete was invoked AND verified gone (the mock removes it from
+    // the live set, so the post-delete get returns null -> "moved" reported).
+    expect(deletedMethods.has(method.id)).toBe(true);
+  });
+});
+
+// ── Stage 2 (heavy): EXPERIMENT cross-folder copy / move ──────────────────────
+
+describe("copyObjectToFolder, EXPERIMENT (heavy type)", () => {
+  it("copies a task: fresh id, methods localized + links remapped, results subtree carried, source untouched", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const task = makeSourceExperiment();
+    const target: TransferTarget = {
+      kind: "experiment",
+      task,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh task id from the DESTINATION per-user counter (70 -> 71), not 12.
+    expect(outcome.kind).toBe("experiment");
+    expect(outcome.destId).toBe(71);
+
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/tasks/71.json`,
+    ) as Task;
+    expect(rec.id).toBe(71);
+    expect(rec.name).toBe("Lysis timecourse");
+    // Owner-only, project reset to Unfiled, overlays/provenance/collab stripped.
+    expect(rec.owner).toBe(DEST_USER);
+    expect(rec.project_id).toBe(0);
+    expect(rec.shared_with).toEqual([]);
+    expect(rec.is_shared_with_me).toBeUndefined();
+    expect(rec.received_from).toBeUndefined();
+    expect((rec as { collab_doc_id?: string }).collab_doc_id).toBeUndefined();
+
+    // The referenced method (id 7) was localized into the destination (fresh
+    // global id 101) and BOTH reference surfaces point at the new id.
+    expect(rec.method_ids).toEqual([101]);
+    expect(rec.method_attachments).toHaveLength(1);
+    expect(rec.method_attachments[0].method_id).toBe(101);
+    // The attachment owner is reset to null (same namespace as the new task).
+    expect(rec.method_attachments[0].owner).toBeNull();
+    expect(rec.method_attachments[0].variation_notes).toBe("doubled the buffer");
+    // The localized method record exists in the destination.
+    expect(readRaw(destRoot, `users/${DEST_USER}/methods/101.json`)).not.toBeNull();
+
+    // The results subtree was carried (notes.md + the per-tab results image).
+    const notes = readRaw(destRoot, `users/${DEST_USER}/results/task-71/notes.md`);
+    expect(notes).not.toBeNull();
+    expect(new TextDecoder().decode(notes!)).toBe(EXP_NOTES_MD);
+    const img = readRaw(
+      destRoot,
+      `users/${DEST_USER}/results/task-71/results/Images/gel.png`,
+    );
+    expect(img).not.toBeNull();
+    expect(Array.from(img!)).toEqual(Array.from(EXP_RESULT_IMG));
+
+    // SOURCE untouched: the source task + results still present, no id-71 leak.
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/12.json`)).not.toBeNull();
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/71.json`)).toBeNull();
+  });
+});
+
+describe("moveObjectToFolder, EXPERIMENT (heavy type)", () => {
+  it("moves an experiment: destination gets a fresh-id copy, source is trashed via tasksApi.delete", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const task = makeSourceExperiment();
+    const target: TransferTarget = {
+      kind: "experiment",
+      task,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(71);
+    expect(readRaw(destRoot, `users/${DEST_USER}/tasks/71.json`)).not.toBeNull();
+    expect(deletedTasks.has(task.id)).toBe(true);
+  });
+});
+
+// ── Stage 3 (heavy): PROJECT cross-folder copy / move ─────────────────────────
+
+describe("copyObjectToFolder, PROJECT (heavy type)", () => {
+  it("copies a project: fresh id, its tasks + deduped methods + intra-project dep + filed sequence all carried", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const project = makeSourceProject();
+    const target: TransferTarget = {
+      kind: "project",
+      project,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh project id from the DESTINATION per-user counter (50 -> 51).
+    expect(outcome.kind).toBe("project");
+    expect(outcome.destId).toBe(51);
+
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/projects/51.json`,
+    ) as Project;
+    expect(rec.id).toBe(51);
+    expect(rec.name).toBe("Lysis grant aims");
+    // Owner-only; overlays / grant link / provenance stripped.
+    expect(rec.owner).toBe(DEST_USER);
+    expect(rec.shared_with).toEqual([]);
+    expect(rec.is_shared_with_me).toBeUndefined();
+    expect((rec as { funding_account_id?: number }).funding_account_id).toBeUndefined();
+    expect(rec.imported_from).toBeUndefined();
+
+    // Both project tasks landed (12 -> 71, 13 -> 72), bound to the new project.
+    const t1 = readRawJson(destRoot, `users/${DEST_USER}/tasks/71.json`) as Task;
+    const t2 = readRawJson(destRoot, `users/${DEST_USER}/tasks/72.json`) as Task;
+    expect(t1.project_id).toBe(51);
+    expect(t2.project_id).toBe(51);
+    // The method (id 7) referenced only by task 12 was localized once (id 101).
+    expect(t1.method_ids).toEqual([101]);
+
+    // The intra-project dependency (12 -> 13) was rebuilt against the new task
+    // ids (71 -> 72) with a fresh dest dependency id (30 -> 31).
+    const dep = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/dependencies/31.json`,
+    ) as { id: number; parent_id: number; child_id: number; dep_type: string };
+    expect(dep.parent_id).toBe(71);
+    expect(dep.child_id).toBe(72);
+    expect(dep.dep_type).toBe("FS");
+
+    // The project-filed sequence was carried + re-filed into the NEW project,
+    // with a fresh dest sequence id (unset -> 1).
+    const seqMeta = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/sequences/1.meta.json`,
+    ) as { id: number; display_name: string; project_ids: string[] };
+    expect(seqMeta.id).toBe(1);
+    expect(seqMeta.display_name).toBe("Project plasmid");
+    expect(seqMeta.project_ids).toEqual(["51"]);
+    const seqGb = readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`);
+    expect(seqGb).not.toBeNull();
+
+    // SOURCE untouched: the source project + tasks still present.
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/projects/4.json`)).not.toBeNull();
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/12.json`)).not.toBeNull();
+  });
+});
+
+describe("moveObjectToFolder, PROJECT (heavy type)", () => {
+  it("moves a project: destination gets a fresh-id copy, source is trashed via projectsApi.delete", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const project = makeSourceProject();
+    const target: TransferTarget = {
+      kind: "project",
+      project,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(51);
+    expect(readRaw(destRoot, `users/${DEST_USER}/projects/51.json`)).not.toBeNull();
+    expect(deletedProjects.has(project.id)).toBe(true);
   });
 });
 
@@ -621,7 +1153,7 @@ describe("moveObjectToFolder", () => {
 // ── Stage 2: BULK / multi-select ──────────────────────────────────────────────
 
 describe("bulkTransfer", () => {
-  it("copies a mixed batch: a note + a sequence succeed, a no-builder kind is reported failed without aborting", async () => {
+  it("copies a mixed batch: a note + a sequence + a method succeed, an unknown kind is reported failed without aborting", async () => {
     stubDestRegistry("dest-folder", "head");
 
     const items: TransferTarget[] = [
@@ -631,32 +1163,34 @@ describe("bulkTransfer", () => {
         sequence: makeSourceSequence(),
         sourceUsername: SOURCE_USER,
       },
-      // A heavy kind with no two-handle path: must be reported failed, not abort.
+      // A HEAVY method now succeeds in a heterogeneous batch.
       {
-        kind: "project",
-        project: { id: 2, name: "Grant aims" } as unknown as Extract<
-          TransferTarget,
-          { kind: "project" }
-        >["project"],
+        kind: "method",
+        method: makeSourceMarkdownMethod(),
         sourceUsername: SOURCE_USER,
       },
+      // An UNKNOWN kind has no transfer path: it must be reported failed, not
+      // abort the batch (the per-item refusal is reported, not thrown).
+      {
+        kind: "totally-unknown",
+        sourceUsername: SOURCE_USER,
+      } as unknown as TransferTarget,
     ];
 
     const result = await bulkTransfer(items, "dest-folder", "copy");
 
-    expect(result.okCount).toBe(2);
+    expect(result.okCount).toBe(3);
     expect(result.failCount).toBe(1);
     // Item order is preserved.
     expect(result.items[0].ok).toBe(true);
     expect(result.items[1].ok).toBe(true);
-    expect(result.items[2].ok).toBe(false);
-    if (!result.items[2].ok) {
-      expect(result.items[2].reason).toMatch(/not supported yet/i);
-    }
+    expect(result.items[2].ok).toBe(true);
+    expect(result.items[3].ok).toBe(false);
 
-    // Both supported items actually landed in the destination.
+    // The three supported items actually landed in the destination.
     expect(readRaw(destRoot, `users/${DEST_USER}/notes/42.json`)).not.toBeNull();
     expect(readRaw(destRoot, `users/${DEST_USER}/sequences/1.gb`)).not.toBeNull();
+    expect(readRaw(destRoot, `users/${DEST_USER}/methods/101.json`)).not.toBeNull();
   });
 
   it("bulk MOVE trashes the source of each successfully copied item", async () => {
