@@ -58,6 +58,17 @@ export async function ensureCloudLedgerSchema(sql: Sql = getSql()): Promise<void
   await sql`
     ALTER TABLE cloud_balance ADD COLUMN IF NOT EXISTS trial_ends_at timestamptz
   `;
+  // Dispute pause (Grant 2026-06-19). When a customer files a card dispute we
+  // PAUSE the account (stop new accrual) so a disputed user cannot keep running up
+  // uncharged usage while the dispute is open. This stamps when the dispute opened;
+  // a dispute resolved in our favor (won) clears it back to null, a lost dispute
+  // leaves it set (the money is gone, do not silently un-pause). Additive and
+  // nullable, so every existing row reads as "not disputed" (disputed_at IS NULL)
+  // and the engine behaves exactly as before. ADD COLUMN IF NOT EXISTS is
+  // idempotent.
+  await sql`
+    ALTER TABLE cloud_balance ADD COLUMN IF NOT EXISTS disputed_at timestamptz
+  `;
   await sql`
     CREATE TABLE IF NOT EXISTS cloud_usage_ledger (
       id bigserial primary key,

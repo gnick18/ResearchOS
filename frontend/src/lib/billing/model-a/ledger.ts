@@ -108,6 +108,107 @@ export async function recordCharge(
   return Number(rows[0]?.accrued_cents ?? 0);
 }
 
+/**
+ * Credit (reverse) a payer's balance back up by `cents`, recording an audit
+ * ledger row so the reversal is traceable. This is the refund path, a charge.refunded
+ * webhook maps the refunded amount back onto the balance so the running accrued
+ * total reflects the money returned. PARTIAL refunds pass the refund amount, not the
+ * full charge.
+ *
+ * Idempotent on `idemKey` (the Stripe refund or charge id): a redelivered
+ * charge.refunded event credits exactly once. The audit row's `kind` is 'credit'
+ * and `period` carries the human reason so the LLC tracker and the billing UI can
+ * read why the balance moved. Returns the balance after (unchanged on a redelivery).
+ *
+ * Note this ADDS cents back. accrued_cents is the running amount OWED, so a refund
+ * lowers what was already charged by raising the owed balance back toward zero, the
+ * exact inverse of recordCharge which subtracts on a card run.
+ */
+export async function creditBalance(
+  ownerKey: string,
+  cents: number,
+  reason: string,
+  idemKey: string,
+  sql: Sql = getSql(),
+): Promise<number> {
+  await ensureCloudLedgerSchema(sql);
+  const amount = Math.abs(cents);
+
+  const inserted = (await sql`
+    INSERT INTO cloud_usage_ledger
+      (owner_key, kind, cents_delta, period, idem_key)
+    VALUES
+      (${ownerKey}, 'credit', ${amount}, ${reason}, ${idemKey})
+    ON CONFLICT (idem_key) WHERE idem_key IS NOT NULL DO NOTHING
+    RETURNING id
+  `) as Array<{ id: number }>;
+
+  if (inserted.length === 0) {
+    return getCloudBalance(ownerKey, sql);
+  }
+  const rows = (await sql`
+    INSERT INTO cloud_balance (owner_key, accrued_cents)
+    VALUES (${ownerKey}, ${amount})
+    ON CONFLICT (owner_key) DO UPDATE
+      SET accrued_cents = cloud_balance.accrued_cents + ${amount},
+          updated_at = now()
+    RETURNING accrued_cents
+  `) as Array<{ accrued_cents: number }>;
+  return Number(rows[0]?.accrued_cents ?? amount);
+}
+
+/** Map a Stripe customer id to its owner key via the card on file, or null if no
+ *  cloud_balance row carries that customer. The dispute/refund webhooks attribute a
+ *  charge to an owner this way (the charge carries a customer id, cloud_balance
+ *  stores stripe_customer_id from the card setup). */
+export async function getOwnerByCustomerId(
+  customerId: string,
+  sql: Sql = getSql(),
+): Promise<string | null> {
+  await ensureCloudLedgerSchema(sql);
+  const rows = (await sql`
+    SELECT owner_key FROM cloud_balance
+    WHERE stripe_customer_id = ${customerId}
+    LIMIT 1
+  `) as Array<{ owner_key: string }>;
+  return rows[0]?.owner_key ?? null;
+}
+
+/**
+ * Flag or clear the dispute pause on an account. Setting it (disputed=true) stamps
+ * disputed_at to now, which the shared accrual decision reads to PAUSE the account
+ * so a disputed user cannot keep running up uncharged usage. Clearing it
+ * (disputed=false) nulls disputed_at, the un-pause used only when a dispute is won.
+ *
+ * Idempotent in effect, a redelivered charge.dispute.created re-stamps the same
+ * paused state (it never double-pauses, the row is simply paused). Never touches the
+ * balance, the card, or the trial. A missing row is created paused so a dispute on a
+ * brand-new customer still pauses.
+ */
+export async function setDisputed(
+  ownerKey: string,
+  disputed: boolean,
+  sql: Sql = getSql(),
+): Promise<void> {
+  await ensureCloudLedgerSchema(sql);
+  if (disputed) {
+    await sql`
+      INSERT INTO cloud_balance (owner_key, disputed_at)
+      VALUES (${ownerKey}, now())
+      ON CONFLICT (owner_key) DO UPDATE
+        SET disputed_at = COALESCE(cloud_balance.disputed_at, now()),
+            updated_at = now()
+    `;
+    return;
+  }
+  await sql`
+    INSERT INTO cloud_balance (owner_key, disputed_at)
+    VALUES (${ownerKey}, NULL)
+    ON CONFLICT (owner_key) DO UPDATE
+      SET disputed_at = NULL, updated_at = now()
+  `;
+}
+
 /** A payer's current accrued balance in cents (0 if no row yet). */
 export async function getCloudBalance(
   ownerKey: string,
@@ -237,28 +338,39 @@ export interface LabTrialRow {
   trialEndsAt: string | null;
   /** Whether a card is on file (the day-90 fork: resume vs pause). */
   hasCard: boolean;
+  /** Whether the account is currently flagged as disputed (a card dispute is open
+   *  or was lost). A disputed account is paused, so the shared accrual decision
+   *  stops adding new usage. Null disputed_at reads as false. Optional so existing
+   *  callers and test fixtures that predate the dispute pause stay valid (an absent
+   *  value reads as not disputed). */
+  disputed?: boolean;
 }
 
-/** The trial state for an owner (trial-end timestamp + whether a card is on
- *  file). Feeds labTrialPhase / labTrialDecision. A missing row reads as "no
- *  trial, no card", which is the pre-trial engine default. */
+/** The trial state for an owner (trial-end timestamp, whether a card is on file,
+ *  and whether the account is under an open/lost dispute). Feeds labTrialPhase /
+ *  labTrialDecision. A missing row reads as "no trial, no card, not disputed",
+ *  which is the pre-trial engine default. The dispute flag rides along on the same
+ *  read so the cron gates the pause at the single shared decision point without a
+ *  second query. */
 export async function getLabTrialState(
   ownerKey: string,
   sql: Sql = getSql(),
 ): Promise<LabTrialRow> {
   await ensureCloudLedgerSchema(sql);
   const rows = (await sql`
-    SELECT trial_ends_at, stripe_customer_id, stripe_payment_method_id
+    SELECT trial_ends_at, stripe_customer_id, stripe_payment_method_id, disputed_at
     FROM cloud_balance WHERE owner_key = ${ownerKey}
   `) as Array<{
     trial_ends_at: string | null;
     stripe_customer_id: string | null;
     stripe_payment_method_id: string | null;
+    disputed_at: string | null;
   }>;
   const row = rows[0];
   return {
     trialEndsAt: row?.trial_ends_at ?? null,
     hasCard: !!(row?.stripe_customer_id && row?.stripe_payment_method_id),
+    disputed: !!row?.disputed_at,
   };
 }
 
