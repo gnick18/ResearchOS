@@ -16,6 +16,7 @@ import { emitMoleculeDeleted } from "@/lib/chemistry/delete-toast-bus";
 import { computeIdentity, lipinski, type MoleculeIdentity } from "@/lib/chemistry/rdkit";
 import { referenceClipboardText } from "@/lib/copy-reference";
 import { objectReferenceMarkdown } from "@/lib/references";
+import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 import ObjectBacklinks from "@/components/ObjectBacklinks";
 import SendReferencePicker from "@/components/references/SendReferencePicker";
 import { MoleculeThumbnail } from "./MoleculeThumbnail";
@@ -46,6 +47,11 @@ export function MoleculeDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const cancelDeleteRef = useRef<HTMLButtonElement | null>(null);
+
+  // Nudge the literature lookup the first few times a molecule is open without it
+  // expanded, so a user discovers that ResearchOS pulls live papers and patents
+  // for a structure rather than missing the feature. Opening it retires the cue.
+  const nudgeLit = useNudge("chem-literature", { eligible: !showLit });
 
   // Druglikeness descriptors (chemistry v2 Phase 1c). The browse view stores
   // only core identity in the meta, so we compute the heavier descriptors on
@@ -363,8 +369,13 @@ export function MoleculeDetail({
           ) : (
             <button
               type="button"
-              onClick={() => setShowLit(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-foreground bg-surface-raised border border-border rounded-lg hover:border-brand-action transition-colors"
+              onClick={() => {
+                markNudgeUsed("chem-literature");
+                setShowLit(true);
+              }}
+              className={`inline-flex items-center gap-2 px-4 py-2 text-body font-semibold text-foreground bg-surface-raised border border-border rounded-lg hover:border-brand-action transition-colors${
+                nudgeLit ? " ros-nudge-shimmer" : ""
+              }`}
             >
               <Icon name="search" className="w-4 h-4" />
               Find papers and patents for this molecule

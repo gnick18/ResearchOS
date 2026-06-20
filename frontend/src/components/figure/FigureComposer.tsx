@@ -103,6 +103,7 @@ import {
   type StyleTarget,
 } from "@/lib/figure/figure-source";
 import { buildPickerView, type GroupBy } from "@/lib/figure/picker-view";
+import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 import {
   readFigurePage,
   saveFigurePage,
@@ -240,6 +241,14 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
   // Key object: the last element clicked into the selection. Used when
   // alignTarget = "key" (others align to this element, which stays fixed).
   const [keyRef, setKeyRef] = useState<ElementRef | null>(null);
+  // Nudge the contextual arrange bar the first few times a panel is selected, so
+  // a new user discovers the Illustrator-style align and distribute tools instead
+  // of nudging panels into place by eye. The bar only exists while something is
+  // selected, so eligibility tracks that; any click inside the bar retires the cue
+  // (markNudgeUsed in onClickCapture below).
+  const nudgeArrange = useNudge("figure-arrange", {
+    eligible: selection.length >= 1,
+  });
   const [loadState, setLoadState] = useState<"loading" | "ready" | "missing">("loading");
   // Honest page-boot loader state. Non-null while the initial read + first full
   // panel-render pass runs, so opening a figure shows the BeakerBot loader over an
@@ -1336,7 +1345,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
             Groups (separated by thin dividers):
               [align 6] | [distribute 6] | [spacing 2 + gap input] | [align-to 3-way toggle] | [flip 2] | [arrange 4] | [group/ungroup 2] */}
         {selection.length >= 1 && (
-          <div className="flex flex-wrap items-center gap-1 border-b border-border bg-surface px-2.5 py-1.5 text-meta">
+          <div
+            onClickCapture={() => markNudgeUsed("figure-arrange")}
+            className={`flex flex-wrap items-center gap-1 border-b border-border bg-surface px-2.5 py-1.5 text-meta${
+              nudgeArrange ? " ros-nudge-shimmer" : ""
+            }`}
+          >
             <span className="mr-0.5 min-w-[4.5rem] text-right font-semibold text-foreground-muted">
               {selection.length} selected
             </span>

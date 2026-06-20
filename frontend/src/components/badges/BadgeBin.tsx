@@ -19,6 +19,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import BadgeMedallion from "@/components/badges/BadgeMedallion";
 import { BADGE_CATALOG } from "@/lib/badges/catalog";
+import { useNudge, markNudgeUsed } from "@/lib/ui/use-nudge";
 
 /** Max pinned badges. Shared cap with the shelf. */
 const MAX_PINNED = 4;
@@ -64,6 +65,17 @@ export default function BadgeBin({
   const [pinned, setPinned] = useState<string[]>([]);
   const [capHit, setCapHit] = useState(false);
 
+  // Invite pinning. A medallion is tap-to-pin, but that is easy to walk past, so
+  // the first earned-but-unpinned badge shimmers the first few times this bin is
+  // open with room to pin. The cue tracks "has an unpinned earned badge and the
+  // pin cap is not full" and retires for good on the first pin (markNudgeUsed).
+  const firstPinnableId =
+    BADGE_CATALOG.find((b) => earned.has(b.id) && !pinned.includes(b.id))?.id ??
+    null;
+  const nudgePin = useNudge("badges-pin", {
+    eligible: firstPinnableId != null && pinned.length < MAX_PINNED,
+  });
+
   // Hydrate pins from localStorage on mount and whenever the profile changes.
   useEffect(() => {
     const initial = readPins(profileId);
@@ -77,6 +89,9 @@ export default function BadgeBin({
   const togglePin = useCallback(
     (id: string) => {
       if (!earned.has(id)) return;
+      // A deliberate pin interaction means the user has found the affordance, so
+      // retire the discovery shimmer for good.
+      markNudgeUsed("badges-pin");
       setCapHit(false);
       setPinned((prev) => {
         let next: string[];
@@ -129,6 +144,7 @@ export default function BadgeBin({
                     ? "cursor-pointer focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-action"
                     : "cursor-default",
                   isPinned ? "ring-2 ring-brand-action ring-offset-2 ring-offset-surface rounded-full" : "",
+                  nudgePin && badge.id === firstPinnableId ? "ros-nudge-shimmer" : "",
                 ].join(" ")}
               >
                 <BadgeMedallion badge={badge} size="sm" earned={isEarned} />
