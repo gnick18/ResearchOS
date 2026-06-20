@@ -22,6 +22,7 @@
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
 import {
+  Fragment,
   useCallback,
   useEffect,
   useRef,
@@ -104,10 +105,9 @@ interface RailSection {
   desc?: string;
   /** Extra search terms so the rail filter can find a section by its rows. */
   keywords?: string;
-  /** Finances only. The sub-group header this section renders under within the
-   *  Finances tab, one of FINANCE_SUBGROUPS. Twelve finance sections is too many
-   *  for a flat list, so they are bucketed under three headers (admin IA
-   *  redesign, 2026-06-19). Absent on every non-Finances section. */
+  /** Optional sub-group header. Groups with many sections use this to bucket
+   *  sections under labelled sub-headers in the content pane (admin IA
+   *  redesign, 2026-06-19). Absent on sections that need no sub-header. */
   subgroup?: string;
 }
 
@@ -116,78 +116,29 @@ interface RailGroup {
   /** The tab icon, shown on the area-tab bar. */
   icon: IconName;
   sections: RailSection[];
+  /** When present, the content pane renders sections under these sub-headers
+   *  in this order. Each section in the group must carry a matching `subgroup`
+   *  value. Groups without sub-headers leave this unset. */
+  subgroups?: readonly string[];
 }
 
-// The three Finances sub-group headers, in render order. Each finance section
-// carries a `subgroup` naming one of these; the Finances tab prints the sections
-// under these headers in this order (admin IA redesign, 2026-06-19).
-const FINANCE_SUBGROUPS = [
-  "Money in/out",
-  "Accounting",
-  "Vendors & infra",
-] as const;
-
 const GROUPS: RailGroup[] = [
+  // 1. Dashboard: at-a-glance pulse across both data sources.
   {
-    label: "Overview",
+    label: "Dashboard",
     icon: "gauge",
     sections: [
       {
         id: "dashboard",
-        group: "Overview",
+        group: "Dashboard",
         title: "Dashboard",
         icon: "gauge",
-        desc: "At-a-glance pulse across both the user metrics and the LLC finances. Click any rail section for the full detail.",
+        desc: "At-a-glance pulse across both the user metrics and the LLC finances. Click any tab for the full detail.",
         keywords: "overview pulse summary at a glance",
       },
     ],
   },
-  {
-    label: "Metrics",
-    icon: "chart",
-    sections: [
-      {
-        id: "signups",
-        group: "Metrics",
-        title: "Signups by month",
-        icon: "growth",
-        desc: "New registered identities per calendar month. Aggregate only, no per-user data.",
-        keywords: "registrations new users growth identities",
-      },
-      {
-        id: "institutions",
-        group: "Metrics",
-        title: "Profiles by institution",
-        icon: "library",
-        desc: "Published profiles grouped by verified email domain.",
-        keywords: "domains universities affiliation orcid",
-      },
-      {
-        id: "capacity",
-        group: "Metrics",
-        title: "Infrastructure capacity",
-        icon: "database",
-        desc: "Free-tier usage vs ceilings. The R2, Neon collab, and Resend ceilings are survival-critical.",
-        keywords: "neon r2 upstash resend storage limits ceilings",
-      },
-      {
-        id: "storage-inventory",
-        group: "Metrics",
-        title: "Storage inventory",
-        icon: "database",
-        desc: "What is stored on R2 right now, by bucket (icon library vs app data) and by prefix (each lab's site, the relay).",
-        keywords: "r2 storage buckets assets icon library lab sites relay objects size inventory",
-      },
-      {
-        id: "feature-usage",
-        group: "Metrics",
-        title: "Feature usage",
-        icon: "chart",
-        desc: "Anonymous aggregate counts over the last 30 days. Totals only, never per-user.",
-        keywords: "shares profiles events analytics",
-      },
-    ],
-  },
+  // 2. Accounts: the roster and the gift-pool bulk path both concern accounts.
   {
     label: "Accounts",
     icon: "users",
@@ -200,43 +151,99 @@ const GROUPS: RailGroup[] = [
         desc: "Every registered solo user, lab, and department or institution, each with a guarded full-account wipe. Destructive and operator-only. Local files on a user's own computer are never touched.",
         keywords: "users labs departments institutions wipe delete account roster stripe card",
       },
+      {
+        id: "gift-pools",
+        group: "Accounts",
+        title: "Gift pools",
+        icon: "heart",
+        desc: "Funded allocations for grants, donations, and gifted tokens. The per-row gift action in the roster is the fast path; this is the bulk management view.",
+        keywords: "grants donations tokens comp gift",
+      },
     ],
   },
+  // 3. Metrics: user/growth numbers and infra health, under two sub-groups so
+  //    the growth data does not run together with the capacity ceiling data.
+  {
+    label: "Metrics",
+    icon: "chart",
+    subgroups: ["Users and growth", "Infrastructure"] as const,
+    sections: [
+      {
+        id: "signups",
+        group: "Metrics",
+        subgroup: "Users and growth",
+        title: "Signups by month",
+        icon: "growth",
+        desc: "New registered identities per calendar month. Aggregate only, no per-user data.",
+        keywords: "registrations new users growth identities",
+      },
+      {
+        id: "institutions",
+        group: "Metrics",
+        subgroup: "Users and growth",
+        title: "Profiles by institution",
+        icon: "library",
+        desc: "Published profiles grouped by verified email domain.",
+        keywords: "domains universities affiliation orcid",
+      },
+      {
+        id: "feature-usage",
+        group: "Metrics",
+        subgroup: "Users and growth",
+        title: "Feature usage",
+        icon: "chart",
+        desc: "Anonymous aggregate counts over the last 30 days. Totals only, never per-user.",
+        keywords: "shares profiles events analytics",
+      },
+      {
+        id: "capacity",
+        group: "Metrics",
+        subgroup: "Infrastructure",
+        title: "Infrastructure capacity",
+        icon: "database",
+        desc: "Free-tier usage vs ceilings. The R2, Neon collab, and Resend ceilings are survival-critical.",
+        keywords: "neon r2 upstash resend storage limits ceilings",
+      },
+      {
+        id: "storage-inventory",
+        group: "Metrics",
+        subgroup: "Infrastructure",
+        title: "Storage inventory",
+        icon: "database",
+        desc: "What is stored on R2 right now, by bucket (icon library vs app data) and by prefix (each lab's site, the relay).",
+        keywords: "r2 storage buckets assets icon library lab sites relay objects size inventory",
+      },
+      {
+        id: "infra-cost",
+        group: "Metrics",
+        subgroup: "Infrastructure",
+        title: "Infrastructure cost",
+        icon: "cloud",
+        desc: "Estimated monthly infra cost at the current usage, plus the free-ceiling tiers.",
+        keywords: "workers vercel durable objects r2 estimate tiers",
+      },
+    ],
+  },
+  // 4. Finances: the LLC money picture, split by concern so the twelve sections
+  //    read as labelled clusters rather than a flat list.
   {
     label: "Finances",
     icon: "scale",
+    subgroups: ["Overview", "Ledger", "Subscriptions", "Payment methods", "Cost breaker"] as const,
     sections: [
       {
         id: "where-things-stand",
         group: "Finances",
-        subgroup: "Money in/out",
+        subgroup: "Overview",
         title: "Where things stand",
         icon: "scale",
         desc: "Money in, money out, net, tax reserve, and safe-to-draw, the numbers that matter for a solo LLC.",
         keywords: "money net reserve safe to draw cash income expenses",
       },
       {
-        id: "cost-breaker",
-        group: "Finances",
-        subgroup: "Money in/out",
-        title: "Cost breaker",
-        icon: "bolt",
-        desc: "Runaway-bill guard. When spend exceeds the budget, cloud writes pause and local-first keeps working.",
-        keywords: "budget circuit breaker ai spend threshold",
-      },
-      {
-        id: "gift-pools",
-        group: "Finances",
-        subgroup: "Money in/out",
-        title: "Gift pools",
-        icon: "heart",
-        desc: "Funded allocations for grants, donations, and gifted tokens.",
-        keywords: "grants donations tokens comp",
-      },
-      {
         id: "spend-category",
         group: "Finances",
-        subgroup: "Money in/out",
+        subgroup: "Overview",
         title: "Spend by category",
         icon: "table",
         desc: "The monthly money flow, income vs expenses by category.",
@@ -245,34 +252,51 @@ const GROUPS: RailGroup[] = [
       {
         id: "ledger",
         group: "Finances",
-        subgroup: "Accounting",
+        subgroup: "Ledger",
         title: "Ledger",
         icon: "list",
         desc: "Every income and expense, with the tax-summary CSV for Schedule C self-filing.",
         keywords: "entries income expense tax csv reimbursement",
       },
       {
-        id: "entity-facts",
+        id: "subscriptions",
         group: "Finances",
-        subgroup: "Accounting",
-        title: "Entity facts",
-        icon: "shield",
-        desc: "The LLC legal facts, sales-tax status, and the tax reserve percentage.",
-        keywords: "ein duns apple google play sales tax registered agent",
+        subgroup: "Subscriptions",
+        title: "Subscriptions",
+        icon: "refresh",
+        desc: "The recurring charges and the blended monthly burn.",
+        keywords: "recurring claude max tello renewal burn",
       },
       {
         id: "payment-methods",
         group: "Finances",
-        subgroup: "Accounting",
+        subgroup: "Payment methods",
         title: "Payment methods",
         icon: "receipt",
         desc: "The LLC cards and accounts, plus any personal card you fronted a purchase on.",
         keywords: "cards llc personal last four",
       },
       {
-        id: "deadlines",
+        id: "cost-breaker",
         group: "Finances",
-        subgroup: "Accounting",
+        subgroup: "Cost breaker",
+        title: "Cost breaker",
+        icon: "bolt",
+        desc: "Runaway-bill guard. When spend exceeds the budget, cloud writes pause and local-first keeps working.",
+        keywords: "budget circuit breaker ai spend threshold",
+      },
+    ],
+  },
+  // 5. Compliance: the LLC's legal, regulatory, and setup obligations, grouped
+  //    together so they are easy to review in one place without wading through
+  //    the money detail.
+  {
+    label: "Compliance",
+    icon: "shield",
+    sections: [
+      {
+        id: "deadlines",
+        group: "Compliance",
         title: "Deadlines",
         icon: "alarmClock",
         desc: "Compliance and renewal dates, soonest first.",
@@ -280,49 +304,30 @@ const GROUPS: RailGroup[] = [
       },
       {
         id: "setup-checklist",
-        group: "Finances",
-        subgroup: "Accounting",
+        group: "Compliance",
         title: "Setup checklist",
         icon: "check",
         desc: "The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder.",
         keywords: "tasks todo compliance llc setup",
       },
       {
-        id: "correspondence",
-        group: "Finances",
-        subgroup: "Accounting",
-        title: "Correspondence",
-        icon: "mail",
-        desc: "Business emails the site sent, kept as LLC records.",
-        keywords: "emails records archive deadline reminders",
-      },
-      {
-        id: "infra-cost",
-        group: "Finances",
-        subgroup: "Vendors & infra",
-        title: "Infrastructure cost",
-        icon: "cloud",
-        desc: "Estimated monthly infra cost at the current usage, plus the free-ceiling tiers.",
-        keywords: "workers vercel durable objects r2 estimate tiers",
-      },
-      {
-        id: "subscriptions",
-        group: "Finances",
-        subgroup: "Vendors & infra",
-        title: "Subscriptions",
-        icon: "refresh",
-        desc: "The recurring charges and the blended monthly burn.",
-        keywords: "recurring claude max tello renewal burn",
+        id: "entity-facts",
+        group: "Compliance",
+        title: "Entity facts",
+        icon: "shield",
+        desc: "The LLC legal facts, sales-tax status, and the tax reserve percentage.",
+        keywords: "ein duns apple google play sales tax registered agent",
       },
     ],
   },
+  // 6. Pricing (was Modeling): the settled prices and the live margin explorer.
   {
-    label: "Modeling",
+    label: "Pricing",
     icon: "calculator",
     sections: [
       {
         id: "locked-pricing",
-        group: "Modeling",
+        group: "Pricing",
         title: "Locked pricing",
         icon: "shield",
         desc: "The final, settled Model A prices, read live from the pricing engine. Just the numbers, nothing modeled.",
@@ -330,7 +335,7 @@ const GROUPS: RailGroup[] = [
       },
       {
         id: "price-modeling",
-        group: "Modeling",
+        group: "Pricing",
         title: "Price modeling",
         icon: "calculator",
         desc: "Model A margin explorer. Pick a tier and usage, see revenue vs cost vs net margin, live.",
@@ -338,6 +343,7 @@ const GROUPS: RailGroup[] = [
       },
     ],
   },
+  // 7. Comms: outgoing communications, both broadcast and business correspondence.
   {
     label: "Comms",
     icon: "bell",
@@ -349,6 +355,14 @@ const GROUPS: RailGroup[] = [
         icon: "bell",
         desc: "Send a one-off message to all registered users. Grant-only, uses Resend and counts against the monthly email budget.",
         keywords: "email blast announcement resend outreach",
+      },
+      {
+        id: "correspondence",
+        group: "Comms",
+        title: "Correspondence",
+        icon: "mail",
+        desc: "Business emails the site sent, kept as LLC records.",
+        keywords: "emails records archive deadline reminders",
       },
     ],
   },
@@ -556,6 +570,52 @@ function DashboardSection({
   );
 }
 
+// ── Subgroup renderer (shared by Metrics and Finances) ──────────────────────
+// Renders a group's sections under labelled sub-headers in the order declared
+// by the group's `subgroups` array. Sections without a matching subgroup are
+// dropped (they should not exist; the GROUPS data enforces this).
+
+function SubgroupPane({
+  group,
+  children,
+}: {
+  group: RailGroup;
+  children: (section: RailSection) => ReactNode;
+}) {
+  const subgroups = group.subgroups;
+  if (!subgroups) {
+    // No sub-headers; render sections flat.
+    return (
+      <div className="space-y-14">
+        {group.sections.map((s) => (
+          <Fragment key={s.id}>{children(s)}</Fragment>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-14">
+      {subgroups.map((subgroup) => {
+        const inGroup = group.sections.filter((s) => s.subgroup === subgroup);
+        if (inGroup.length === 0) return null;
+        return (
+          <div key={subgroup} className="space-y-14">
+            <p
+              className="border-b border-border pb-2 text-title font-bold tracking-tight text-foreground"
+              data-op-subgroup={subgroup}
+            >
+              {subgroup}
+            </p>
+            {inGroup.map((s) => (
+              <Fragment key={s.id}>{children(s)}</Fragment>
+            ))}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Finance sections (reuse the BusinessTracker exports + actions) ──────────
 
 function FinanceSections({
@@ -584,30 +644,13 @@ function FinanceSections({
   const {
     entity,
     ledger,
-    tasks,
-    emails,
     paymentMethods,
     subscriptions,
     summary,
-    deadlines,
-    infraEstimate,
   } = business.data;
 
-  const allDeadlines = [
-    ...deadlines,
-    vercelOssApplicationDeadline(),
-    researchosAppDropWatch(),
-    researchosAppEmailSendAsWatch(),
-    ...subscriptionDeadlines(subscriptions),
-  ]
-    .filter((d): d is Deadline => d !== null)
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-
-  // Each finance section's body, keyed by id. The render loop below pulls these
-  // under their sub-group headers in GROUPS order, so the twelve sections read as
-  // three labelled clusters (Money in/out, Accounting, Vendors & infra) instead
-  // of one flat list. The Section wrappers (anchor id + title + desc) are
-  // unchanged, only the order + the inserted sub-group headers are new.
+  // Section bodies keyed by id. Only the six sections now in the Finances group
+  // appear here; the others have moved to Compliance, Metrics, and Comms.
   const bodies: Record<string, ReactNode> = {
     "where-things-stand": (
       <>
@@ -617,37 +660,7 @@ function FinanceSections({
         <WhereThingsStandStats summary={summary} reservePct={entity.reservePct} />
       </>
     ),
-    "cost-breaker": <CostBreakerPanel />,
-    "gift-pools": <GiftPoolsPanel />,
     "spend-category": <SpendByCategoryPanel />,
-    deadlines: <DeadlineStrip deadlines={allDeadlines} />,
-    "setup-checklist": (
-      <Checklist
-        tasks={tasks}
-        onAdd={actions.addTask}
-        onToggle={actions.toggleTask}
-        onDelete={actions.deleteTask}
-      />
-    ),
-    "infra-cost": (
-      <>
-        <InfraCostPanel infraEstimate={infraEstimate} onRecord={actions.recordInfra} />
-        <p className="mb-3 mt-8 text-meta text-foreground-muted leading-relaxed">
-          Free ceiling and the next paid step for each service, so scaling is
-          planned not a surprise. Verify current pricing; checked {INFRA_TIERS_CHECKED}.
-        </p>
-        <InfraTiersPanel />
-      </>
-    ),
-    "entity-facts": <EntityCard entity={entity} onSave={actions.saveEntity} />,
-    "payment-methods": (
-      <PaymentMethods
-        methods={paymentMethods}
-        onAdd={actions.addPaymentMethod}
-        onUpdate={actions.updatePaymentMethod}
-        onDelete={actions.deletePaymentMethod}
-      />
-    ),
     ledger: (
       <>
         <Ledger
@@ -683,35 +696,78 @@ function FinanceSections({
         onDelete={actions.deleteSubscription}
       />
     ),
-    correspondence: (
-      <Correspondence emails={emails} entityName={entity.legalName} />
+    "payment-methods": (
+      <PaymentMethods
+        methods={paymentMethods}
+        onAdd={actions.addPaymentMethod}
+        onUpdate={actions.updatePaymentMethod}
+        onDelete={actions.deletePaymentMethod}
+      />
     ),
+    "cost-breaker": <CostBreakerPanel />,
   };
 
-  const financeSections = GROUPS.find((g) => g.label === "Finances")!.sections;
+  const financeGroup = GROUPS.find((g) => g.label === "Finances")!;
 
   return (
-    <div className="space-y-14">
-      {FINANCE_SUBGROUPS.map((subgroup) => {
-        const inGroup = financeSections.filter((s) => s.subgroup === subgroup);
-        if (inGroup.length === 0) return null;
-        return (
-          <div key={subgroup} className="space-y-14">
-            <p
-              className="border-b border-border pb-2 text-title font-bold tracking-tight text-foreground"
-              data-op-subgroup={subgroup}
-            >
-              {subgroup}
-            </p>
-            {inGroup.map((s) => (
-              <Section key={s.id} section={s}>
-                {bodies[s.id]}
-              </Section>
-            ))}
-          </div>
-        );
-      })}
-    </div>
+    <SubgroupPane group={financeGroup}>
+      {(s) => <Section section={s}>{bodies[s.id]}</Section>}
+    </SubgroupPane>
+  );
+}
+
+// ── Compliance tab (deadlines, checklist, entity facts) ─────────────────────
+
+function ComplianceTab({
+  business,
+  actions,
+}: {
+  business: BusinessState;
+  actions: BusinessActions;
+}) {
+  if (business.phase !== "ready") {
+    return (
+      <Section section={byId("deadlines")}>
+        {business.phase === "loading" ? (
+          <p className="text-body text-foreground-muted">Loading compliance data...</p>
+        ) : business.phase === "denied" ? (
+          <OperatorDeniedPanel />
+        ) : (
+          <OperatorErrorPanel />
+        )}
+      </Section>
+    );
+  }
+
+  const { entity, tasks, deadlines, subscriptions } = business.data;
+
+  const allDeadlines = [
+    ...deadlines,
+    vercelOssApplicationDeadline(),
+    researchosAppDropWatch(),
+    researchosAppEmailSendAsWatch(),
+    ...subscriptionDeadlines(subscriptions),
+  ]
+    .filter((d): d is Deadline => d !== null)
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  return (
+    <>
+      <Section section={byId("deadlines")}>
+        <DeadlineStrip deadlines={allDeadlines} />
+      </Section>
+      <Section section={byId("setup-checklist")}>
+        <Checklist
+          tasks={tasks}
+          onAdd={actions.addTask}
+          onToggle={actions.toggleTask}
+          onDelete={actions.deleteTask}
+        />
+      </Section>
+      <Section section={byId("entity-facts")}>
+        <EntityCard entity={entity} onSave={actions.saveEntity} />
+      </Section>
+    </>
   );
 }
 
@@ -722,46 +778,39 @@ function byId(id: string): RailSection {
 }
 
 // ── Per-tab content ─────────────────────────────────────────────────────────
-// Each non-Overview, non-Finances tab's sections, extracted so only the ACTIVE
-// tab renders (the redesign drops the single all-sections mega-scroll). The
-// section renders, props, data hooks, and data-testids are unchanged, only which
-// ones mount at a time is new.
+// Each tab's sections are extracted so only the ACTIVE tab renders. Section
+// panels, props, data hooks, and data-testids are unchanged; only which ones
+// mount at a time is controlled here.
 
-function MetricsTab({ metrics }: { metrics: MetricsState }) {
-  return (
-    <>
-      <Section section={byId("signups")}>
-        {metrics.phase === "ready" ? (
+function MetricsTab({
+  metrics,
+  business,
+  actions,
+}: {
+  metrics: MetricsState;
+  business: BusinessState;
+  actions: BusinessActions;
+}) {
+  const metricsGroup = GROUPS.find((g) => g.label === "Metrics")!;
+
+  // Body for each metrics section, by id. The infra-cost panel needs business
+  // data (moved here from Finances); all user/growth panels need metrics data.
+  const renderBody = (s: RailSection) => {
+    switch (s.id) {
+      case "signups":
+        return metrics.phase === "ready" ? (
           <SignupsSection data={metrics.data} />
         ) : (
           <MetricsPhasePlaceholder phase={metrics.phase} />
-        )}
-      </Section>
-      <Section section={byId("institutions")}>
-        {metrics.phase === "ready" ? (
+        );
+      case "institutions":
+        return metrics.phase === "ready" ? (
           <InstitutionsSection data={metrics.data} />
         ) : (
           <MetricsPhasePlaceholder phase={metrics.phase} />
-        )}
-      </Section>
-      <Section section={byId("capacity")}>
-        {metrics.phase === "ready" ? (
-          metrics.data.capacity ? (
-            <CapacitySection data={metrics.data} />
-          ) : (
-            <p className="text-body text-foreground-muted">
-              Capacity measurement is not configured on this deployment.
-            </p>
-          )
-        ) : (
-          <MetricsPhasePlaceholder phase={metrics.phase} />
-        )}
-      </Section>
-      <Section section={byId("storage-inventory")}>
-        <StorageInventorySection />
-      </Section>
-      <Section section={byId("feature-usage")}>
-        {metrics.phase === "ready" ? (
+        );
+      case "feature-usage":
+        return metrics.phase === "ready" ? (
           metrics.data.events ? (
             <FeatureUsageSection data={metrics.data} />
           ) : (
@@ -771,13 +820,70 @@ function MetricsTab({ metrics }: { metrics: MetricsState }) {
           )
         ) : (
           <MetricsPhasePlaceholder phase={metrics.phase} />
-        )}
+        );
+      case "capacity":
+        return metrics.phase === "ready" ? (
+          metrics.data.capacity ? (
+            <CapacitySection data={metrics.data} />
+          ) : (
+            <p className="text-body text-foreground-muted">
+              Capacity measurement is not configured on this deployment.
+            </p>
+          )
+        ) : (
+          <MetricsPhasePlaceholder phase={metrics.phase} />
+        );
+      case "storage-inventory":
+        return <StorageInventorySection />;
+      case "infra-cost":
+        if (business.phase !== "ready") {
+          return business.phase === "loading" ? (
+            <p className="text-body text-foreground-muted">Loading infra data...</p>
+          ) : business.phase === "denied" ? (
+            <OperatorDeniedPanel />
+          ) : (
+            <OperatorErrorPanel />
+          );
+        }
+        return (
+          <>
+            <InfraCostPanel
+              infraEstimate={business.data.infraEstimate}
+              onRecord={actions.recordInfra}
+            />
+            <p className="mb-3 mt-8 text-meta text-foreground-muted leading-relaxed">
+              Free ceiling and the next paid step for each service, so scaling is
+              planned not a surprise. Verify current pricing; checked {INFRA_TIERS_CHECKED}.
+            </p>
+            <InfraTiersPanel />
+          </>
+        );
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <SubgroupPane group={metricsGroup}>
+      {(s) => <Section section={s}>{renderBody(s)}</Section>}
+    </SubgroupPane>
+  );
+}
+
+function AccountsTab() {
+  return (
+    <>
+      <Section section={byId("accounts-roster")}>
+        <AccountsPanel />
+      </Section>
+      <Section section={byId("gift-pools")}>
+        <GiftPoolsPanel />
       </Section>
     </>
   );
 }
 
-function ModelingTab() {
+function PricingTab() {
   return (
     <>
       {/* The locked final prices first, then the live explorer. */}
@@ -791,6 +897,31 @@ function ModelingTab() {
   );
 }
 
+function CommsTab({ business }: { business: BusinessState }) {
+  const entityName =
+    business.phase === "ready" ? business.data.entity.legalName : "";
+  const emails = business.phase === "ready" ? business.data.emails : [];
+
+  return (
+    <>
+      <Section section={byId("broadcast-email")}>
+        <BroadcastPanel />
+      </Section>
+      <Section section={byId("correspondence")}>
+        {business.phase === "loading" ? (
+          <p className="text-body text-foreground-muted">Loading correspondence...</p>
+        ) : business.phase === "denied" ? (
+          <OperatorDeniedPanel />
+        ) : business.phase === "error" ? (
+          <OperatorErrorPanel />
+        ) : (
+          <Correspondence emails={emails} entityName={entityName} />
+        )}
+      </Section>
+    </>
+  );
+}
+
 // ── The shell ───────────────────────────────────────────────────────────────
 
 /** The seven groups are the top-level area TABS. Only the active tab's sections
@@ -799,7 +930,7 @@ function ModelingTab() {
 const DEFAULT_TAB = GROUPS[0].label;
 
 /** Resolve a `?tab=` value (or a legacy #hash group / section) to a tab label,
- *  defaulting to Overview. A section id resolves to the tab that section sits in. */
+ *  defaulting to Dashboard. A section id resolves to the tab that section sits in. */
 function tabFromToken(token: string | null | undefined): string {
   if (!token) return DEFAULT_TAB;
   const t = token.toLowerCase();
@@ -1016,7 +1147,7 @@ export default function OperatorShell() {
             )}
           </div>
 
-          {activeTab === "Overview" && (
+          {activeTab === "Dashboard" && (
             <DashboardSection
               metrics={metrics}
               business={business}
@@ -1026,25 +1157,23 @@ export default function OperatorShell() {
             />
           )}
 
-          {activeTab === "Metrics" && <MetricsTab metrics={metrics} />}
+          {activeTab === "Accounts" && <AccountsTab />}
 
-          {activeTab === "Accounts" && (
-            <Section section={byId("accounts-roster")}>
-              <AccountsPanel />
-            </Section>
+          {activeTab === "Metrics" && (
+            <MetricsTab metrics={metrics} business={business} actions={actions} />
           )}
 
           {activeTab === "Finances" && (
             <FinanceSections business={business} actions={actions} />
           )}
 
-          {activeTab === "Modeling" && <ModelingTab />}
-
-          {activeTab === "Comms" && (
-            <Section section={byId("broadcast-email")}>
-              <BroadcastPanel />
-            </Section>
+          {activeTab === "Compliance" && (
+            <ComplianceTab business={business} actions={actions} />
           )}
+
+          {activeTab === "Pricing" && <PricingTab />}
+
+          {activeTab === "Comms" && <CommsTab business={business} />}
 
           <p className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
             This console is an organizer, not a legal or tax service. It is not
