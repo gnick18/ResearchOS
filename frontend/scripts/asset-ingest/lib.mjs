@@ -92,6 +92,10 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // CC0: courtesy credit includes the project name and the CC0 dedication.
     return `${title}. Electrical Symbol Library by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
   }
+  if (source === "electronic-symbols") {
+    // MIT: retain the copyright + license notice by crediting Chris Pikul + the repo.
+    return `${title} by ${who}. chris-pikul/electronic-symbols. ${sourceUrl} (${licenseLabel(license)})`;
+  }
   if (source === "acheron-electrical") {
     // BSD 3-Clause: retain copyright + license notice.
     return `${title} by ${who}. AcheronProject/electrical_template. ${sourceUrl} (${licenseLabel(license)})`;
@@ -121,6 +125,12 @@ export function formatCredit({ source, title, creator, license, sourceUrl }) {
     // DBCLS Togo Picture Gallery is CC-BY 4.0; the required attribution form
     // specified by DBCLS is "DBCLS TogoTV / CC-BY-4.0".
     return `${title} by ${who}. DBCLS Togo Picture Gallery. ${sourceUrl} (${licenseLabel(license)})`;
+  }
+  if (source === "wikimedia") {
+    // Wikimedia Commons files are per-file licensed (we only ingest PD/CC0/CC-BY/
+    // CC-BY-SA). CC-BY/SA require crediting the author + the source page; credit
+    // the uploader/author + Wikimedia Commons + the license.
+    return `${title} by ${who}. Wikimedia Commons. ${sourceUrl} (${licenseLabel(license)})`;
   }
   // Generic fallback.
   return `${title} by ${who}. ${sourceUrl} (${licenseLabel(license)})`;
@@ -240,16 +250,19 @@ export function janoshDiagramsCategory(slug) {
 }
 
 /** Electrical symbol category mapper used by ElectricalSymbolLibrary, AcheronProject,
- *  and KiCad. Maps the raw subcategory word or symbol name to a curated taxonomy leaf.
+ *  chris-pikul/electronic-symbols, and KiCad. Maps the raw subcategory word or symbol
+ *  name to a curated taxonomy leaf.
  *
- *  All electrical/circuit symbols map to "Computer hardware" (the electronics leaf in
- *  the Data & informatics section, established by the Tabler "Electrical" mapping).
+ *  All electrical/circuit symbols map to "Electronics" (the dedicated leaf in the
+ *  "Physics, math & electronics" section). This is kept distinct from "Computer
+ *  hardware" (physical computing devices in Data & informatics) because to an EE a
+ *  resistor or op-amp is a circuit symbol, not computer hardware.
  *  Transducers (speakers, piezo) map to "Lab apparatus" as they are physical devices. */
 export function electricalSymbolCategory(raw) {
   const t = (raw || "").toLowerCase();
   if (/transducer|loudspeaker|speaker|piezo|microphone|sensor/.test(t)) return "Lab apparatus";
   // Everything else is an EE symbol -> the electronics leaf.
-  return "Computer hardware";
+  return "Electronics";
 }
 
 // ---------------------------------------------------------------------------

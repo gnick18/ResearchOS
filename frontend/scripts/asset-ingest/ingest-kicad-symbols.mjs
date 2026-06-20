@@ -24,7 +24,8 @@
 //      Our use is DISPLAY-ONLY (we never distribute the symbols as a standalone
 //      competing library), so SA does not encumber the application.
 //
-// Category: "Computer hardware" (electronics/EE leaf in Data & informatics).
+// Category: "Electronics" (the dedicated circuit-symbol leaf in the
+// "Physics, math & electronics" section), assigned via electricalSymbolCategory.
 //
 // Approx total asset count: ~8,000 symbols across ~80 .kicad_sym library files.
 //
@@ -45,7 +46,21 @@ const SVGDIR = join(BUNDLE, "assets", "kicad-symbols");
 mkdirSync(SVGDIR, { recursive: true });
 
 const MAX = Number(process.argv[2] || 500);
-const LIB_FILTER = process.argv[3] || null; // optional filename filter, e.g. "Device"
+// Optional comma-separated allowlist of EXACT library names (the .kicad_symdir base).
+// Defaults to a curated set of GENERIC, recognizable circuit symbols useful in figures,
+// deliberately skipping the ~190 vendor part-number families (MCU_*, CPU_*, DSP_*,
+// FPGA_*, Memory_*, RF_*, specific regulators/interfaces/sensors) that would bloat the
+// grid with parts like "ADAU1452 DSP". Pass "ALL" to ingest every library.
+const CURATED_LIBS = [
+  "Device", "power", "Switch", "Jumper", "LED", "Motor", "Transformer", "Valve",
+  "Connector_Generic", "Connector_Generic_MountingPin", "Connector_Generic_Shielded",
+  "Diode", "Diode_Bridge", "Diode_Laser", "Triac_Thyristor",
+  "Transistor_BJT", "Transistor_FET", "Transistor_FET_Other", "Transistor_IGBT", "Transistor_Array",
+  "Amplifier_Operational", "Amplifier_Buffer", "Amplifier_Difference", "Amplifier_Instrumentation",
+  "Relay", "Relay_SolidState", "Sensor", "Timer",
+];
+const libArg = process.argv[3] || null;
+const ALLOW = libArg === "ALL" ? null : new Set((libArg ? libArg.split(",").map((s) => s.trim()).filter(Boolean) : CURATED_LIBS));
 const UA = { "User-Agent": "ResearchOS-asset-ingest/0.1 (research tooling; polite crawl)" };
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const GITLAB = "https://gitlab.com/kicad/libraries/kicad-symbols";
@@ -68,41 +83,68 @@ if (kicadCliCheck.status !== 0) {
     "",
     "Approx total when run: ~8,000 symbols across ~80 .kicad_sym library files.",
     "License: CC-BY-SA 4.0 - requiresAttribution: true, credit includes (CC-BY-SA).",
-    "Category: Computer hardware.",
+    "Category: Electronics.",
   ].join("\n"));
   process.exit(1);
 }
 
 // ---------------------------------------------------------------------------
-// 1) List .kicad_sym files from the GitLab repo (using the GitLab tree API).
+// 1) List individual symbol files from the GitLab repo (GitLab tree API).
+//    The repo restructured (2024+) from flat `<Lib>.kicad_sym` files to
+//    `<Lib>.kicad_symdir/` DIRECTORIES, each holding one `<Symbol>.kicad_sym`
+//    file per symbol. kicad-cli sym export svg rejects the directory but
+//    exports a single-symbol .kicad_sym file fine, so we walk dir -> files.
 // ---------------------------------------------------------------------------
-async function listKicadSymFiles() {
-  // GitLab tree API: GET /api/v4/projects/:id/repository/tree?per_page=100&ref=master
-  // The project ID for kicad/libraries/kicad-symbols is obtainable from the URL namespace.
-  const projectId = encodeURIComponent("kicad/libraries/kicad-symbols");
+const PROJECT_ID = encodeURIComponent("kicad/libraries/kicad-symbols");
+
+async function gitlabTree(path) {
   let page = 1;
-  const files = [];
+  const items = [];
   while (true) {
-    const url = `https://gitlab.com/api/v4/projects/${projectId}/repository/tree?per_page=100&page=${page}&ref=master`;
-    const r = await fetch(url, { headers: UA });
-    if (!r.ok) break;
-    const items = await r.json();
-    if (!Array.isArray(items) || items.length === 0) break;
-    for (const item of items) {
-      if (item.name && item.name.endsWith(".kicad_sym")) {
-        if (!LIB_FILTER || item.name.includes(LIB_FILTER)) {
-          files.push(item.name);
-        }
+    const url = `https://gitlab.com/api/v4/projects/${PROJECT_ID}/repository/tree`
+      + `?per_page=100&page=${page}&ref=master${path ? `&path=${encodeURIComponent(path)}` : ""}`;
+    let r;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      r = await fetch(url, { headers: UA });
+      if (r.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
+      break;
+    }
+    if (!r || !r.ok) break;
+    const batch = await r.json();
+    if (!Array.isArray(batch) || batch.length === 0) break;
+    items.push(...batch);
+    if (batch.length < 100) break;
+    page++;
+  }
+  return items;
+}
+
+async function listSymbolFiles() {
+  const roots = await gitlabTree("");
+  const libDirs = roots
+    .filter((i) => i.type === "tree" && i.name.endsWith(".kicad_symdir"))
+    .filter((i) => !ALLOW || ALLOW.has(i.name.replace(/\.kicad_symdir$/, "")))
+    .map((i) => i.name);
+  const files = [];
+  for (const dir of libDirs) {
+    if (files.length >= MAX) break; // each file yields >=1 SVG; MAX candidates is enough
+    const entries = await gitlabTree(dir);
+    for (const e of entries) {
+      if (e.type === "blob" && e.name.endsWith(".kicad_sym")) {
+        files.push({
+          libName: dir.replace(/\.kicad_symdir$/, ""),
+          symName: e.name.replace(/\.kicad_sym$/, ""),
+          path: `${dir}/${e.name}`,
+        });
       }
     }
-    if (items.length < 100) break;
-    page++;
+    await sleep(150); // polite between directory listings
   }
   return files;
 }
 
-const kicadSymFiles = await listKicadSymFiles();
-console.log(`KiCad symbols: ${kicadSymFiles.length} .kicad_sym library files`);
+const symbolFiles = await listSymbolFiles();
+console.log(`KiCad symbols: ${symbolFiles.length} symbol files across the matched libraries`);
 
 const manifestPath = join(BUNDLE, "manifest.json");
 const out = existsSync(manifestPath) ? JSON.parse(readFileSync(manifestPath, "utf8")) : [];
@@ -116,49 +158,57 @@ let done = 0, skipped = 0, multiFill = 0;
 const tmpDir = mkdtempSync(join(tmpdir(), "ros-kicad-"));
 
 try {
-  for (const symFile of kicadSymFiles) {
+  for (const { libName, symName, path } of symbolFiles) {
     if (done >= MAX) break;
-    const libName = symFile.replace(".kicad_sym", "");
-    const tmpSym = join(tmpDir, symFile);
-    const tmpSvgDir = join(tmpDir, libName);
+    const safe = `${libName}__${symName}`.replace(/[^A-Za-z0-9_.-]/g, "_");
+    const tmpSym = join(tmpDir, `${safe}.kicad_sym`);
+    const tmpSvgDir = join(tmpDir, safe);
     mkdirSync(tmpSvgDir, { recursive: true });
 
-    // Download the .kicad_sym file from GitLab.
+    // Download the individual symbol .kicad_sym file from GitLab.
     try {
-      const r = await fetch(`${GITLAB_RAW}/${symFile}`, { headers: UA });
-      if (!r.ok) { skipped++; continue; }
+      let r;
+      for (let attempt = 0; attempt < 4; attempt++) {
+        r = await fetch(`${GITLAB_RAW}/${path}`, { headers: UA });
+        if (r.status === 429) { await sleep(2000 * (attempt + 1)); continue; }
+        break;
+      }
+      if (!r || !r.ok) { skipped++; continue; }
       writeFileSync(tmpSym, await r.text());
     } catch { skipped++; continue; }
 
-    // Export all symbols in this library to SVG.
+    // Export the symbol to SVG (a multi-unit symbol yields <Sym>_unitN.svg each).
     const exportResult = spawnSync(
       "kicad-cli",
       ["sym", "export", "svg", "--output", tmpSvgDir, tmpSym],
       { encoding: "utf8" },
     );
     if (exportResult.status !== 0) {
-      console.warn(`  kicad-cli failed for ${symFile}: ${exportResult.stderr?.slice(0, 200)}`);
+      console.warn(`  kicad-cli failed for ${path}: ${exportResult.stderr?.slice(0, 200)}`);
       skipped++;
       continue;
     }
 
-    // Read the exported SVG files (one per symbol).
+    // Read the exported SVG file(s) (one per symbol unit).
     const { readdirSync } = await import("node:fs");
     let exportedSvgs;
     try { exportedSvgs = readdirSync(tmpSvgDir).filter((f) => f.endsWith(".svg")); }
     catch { skipped++; continue; }
+    const multiUnit = exportedSvgs.length > 1;
 
     for (const svgFile of exportedSvgs) {
       if (done >= MAX) break;
-      const symName = svgFile.replace(".svg", "");
-      const sourceId = `${libName}-${symName}`;
+      const svgBase = svgFile.replace(/\.svg$/, ""); // e.g. "Battery_unit1"
+      const sourceId = `${libName}-${svgBase}`;
       try {
         const raw = readFileSync(join(tmpSvgDir, svgFile), "utf8");
         if (!/^\s*<(\?xml|svg|!doctype)/i.test(raw)) { skipped++; continue; }
         const { svg, fills, hasViewBox } = sanitizeSvg(raw);
-        const title = symName.replace(/_/g, " ");
+        const unitMatch = svgBase.match(/_unit(\d+)$/i);
+        const unitNum = unitMatch ? Number(unitMatch[1]) : null;
+        const title = symName.replace(/_/g, " ") + (multiUnit && unitNum ? ` (unit ${unitNum})` : "");
         const category = electricalSymbolCategory(symName);
-        const sourceUrl = `${GITLAB}/-/blob/master/${symFile}`;
+        const sourceUrl = `${GITLAB}/-/blob/master/${path}`;
         const asset = {
           uid: `kicad-symbols:${sourceId}`,
           source: "kicad-symbols",
@@ -186,7 +236,7 @@ try {
       } catch { skipped++; }
     }
 
-    await sleep(200); // polite between library files
+    await sleep(120); // polite between symbol files
   }
 } finally {
   // Clean up temp dir.

@@ -136,6 +136,18 @@ test("formatCredit: physics + electronics sources", () => {
   assert.match(e, /Electrical Symbol Library by Bas Verdoes/);
   assert.match(e, /\(CC0\)/);
 
+  // electronic-symbols: MIT, retains copyright notice + repo name.
+  const es = formatCredit({
+    source: "electronic-symbols",
+    title: "Resistor (IEC)",
+    creator: "Chris Pikul",
+    license: "MIT",
+    sourceUrl: "https://github.com/chris-pikul/electronic-symbols/blob/master/SVG/Resistor-IEC-Standard.svg",
+  });
+  assert.match(es, /Resistor \(IEC\) by Chris Pikul/);
+  assert.match(es, /chris-pikul\/electronic-symbols/);
+  assert.match(es, /\(MIT\)/);
+
   // AcheronProject: BSD, retains copyright notice.
   const a = formatCredit({
     source: "acheron-electrical",
@@ -193,26 +205,26 @@ test("janoshDiagramsCategory: maps slugs to correct leaves", () => {
 });
 
 test("electricalSymbolCategory: maps electrical subcat/name to correct leaf", () => {
-  // Core EE symbols -> Computer hardware.
-  assert.equal(electricalSymbolCategory("core"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("semiconductors"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("resistor"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("capacitor"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("inductor"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("transistors"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("passives"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("amplifiers"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("sources"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("misc"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("diode"), "Computer hardware");
+  // Core EE symbols -> Electronics (the dedicated circuit-symbol leaf).
+  assert.equal(electricalSymbolCategory("core"), "Electronics");
+  assert.equal(electricalSymbolCategory("semiconductors"), "Electronics");
+  assert.equal(electricalSymbolCategory("resistor"), "Electronics");
+  assert.equal(electricalSymbolCategory("capacitor"), "Electronics");
+  assert.equal(electricalSymbolCategory("inductor"), "Electronics");
+  assert.equal(electricalSymbolCategory("transistors"), "Electronics");
+  assert.equal(electricalSymbolCategory("passives"), "Electronics");
+  assert.equal(electricalSymbolCategory("amplifiers"), "Electronics");
+  assert.equal(electricalSymbolCategory("sources"), "Electronics");
+  assert.equal(electricalSymbolCategory("misc"), "Electronics");
+  assert.equal(electricalSymbolCategory("diode"), "Electronics");
   // Transducers -> Lab apparatus (physical devices).
   assert.equal(electricalSymbolCategory("transducers"), "Lab apparatus");
   assert.equal(electricalSymbolCategory("loudspeaker"), "Lab apparatus");
   assert.equal(electricalSymbolCategory("piezo"), "Lab apparatus");
   assert.equal(electricalSymbolCategory("sensor"), "Lab apparatus");
   // KiCad library name patterns.
-  assert.equal(electricalSymbolCategory("Device"), "Computer hardware");
-  assert.equal(electricalSymbolCategory("Power"), "Computer hardware");
+  assert.equal(electricalSymbolCategory("Device"), "Electronics");
+  assert.equal(electricalSymbolCategory("Power"), "Electronics");
 });
 
 test("sanitizeSvg: strips scripts/handlers, keeps fills + viewBox", () => {
