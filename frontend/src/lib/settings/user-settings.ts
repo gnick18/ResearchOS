@@ -174,6 +174,27 @@ export type LabOverviewLayout = LabOverviewLayoutV2;
 // user's role *within* a lab and is meaningful only for lab accounts.
 export type AccountType = "member" | "lab_head";
 
+// Class Mode (CM-P1, 2026-06-19): per-class teaching configuration. A class IS a
+// lab structurally (own labId + team key, instructor = head, student = member);
+// this config carries the teaching-specific cosmetics and defaults that a research
+// lab has no use for. It rides on the class folder's instructor settings under
+// `classConfig`, present only when `lab_kind === "class"`. Every sub-field except
+// `isClass` is optional so a class can be minted minimally and filled in later.
+//   - courseName  cosmetic course title shown in class chrome.
+//   - term        cosmetic term label (e.g. "Fall 2026").
+//   - enabledTools the teaching tool subset the instructor opts in to.
+//   - visibilityDefault the default visibility for student-authored work in this
+//                  class ("collaborative" = class-visible, "private" = student-only).
+//   - lmsLink      an optional deep link back to the institution LMS.
+export interface ClassConfig {
+  isClass: boolean;
+  courseName?: string;
+  term?: string;
+  enabledTools?: string[];
+  visibilityDefault?: "collaborative" | "private";
+  lmsLink?: string;
+}
+
 // Purchase department routing (PURCHASE_DOCS_AND_ROUTING.md). A PI-configured,
 // opt-in module: a lab head adds the department / HR contacts a purchase
 // document gets emailed to, plus the draft templates. Invisible everywhere until
@@ -341,6 +362,22 @@ export interface UserSettings {
 
   /** Lab-tier: the lab this user belongs to (head or member). Absent for solo users. */
   lab_id?: string;
+
+  /** Class Mode (CM-P1): whether the lab this folder represents is a research lab
+   *  or a teaching CLASS. A class IS a lab structurally (own labId + team key,
+   *  instructor = head, student = member), so this kind discriminator rides
+   *  ALONGSIDE lab_id rather than replacing it. Additive + optional + nullable:
+   *  ABSENT means a research lab (the only kind before class mode), so every
+   *  existing settings.json reads as a research lab unchanged. Only the class
+   *  provisioner ever writes "class". normalize() leaves it absent when absent. */
+  lab_kind?: "lab" | "class";
+
+  /** Class Mode (CM-P1): per-class teaching configuration, present only on a
+   *  class folder (lab_kind === "class"). All sub-fields are optional so a class
+   *  can be minted with just isClass:true and filled in later. Additive +
+   *  optional: ABSENT on every research-lab and solo folder, so normalize() never
+   *  injects it and a flag-off settings.json is byte-identical. */
+  classConfig?: ClassConfig;
 
   /** Lab-tier: genesis artifacts for a lab created locally whose relay publish
    *  has not yet succeeded. Present => LabGenesisPublishRetry keeps retrying the

@@ -927,8 +927,27 @@ function activeFolderKey(scope: string | null): string {
  *  label it without opening each folder. Mirrors the per-folder user-settings
  *  identity: a SOLO folder has no lab, a LAB-HEAD folder is the head's own lab
  *  home, a LAB-MEMBER folder is the app-managed OPFS cache for a lab the account
- *  joined. Absent on legacy rows (treated as "solo" by the UI). */
-export type RememberedFolderLabRole = "solo" | "head" | "member";
+ *  joined. Absent on legacy rows (treated as "solo" by the UI).
+ *
+ *  Class Mode (CM-P1) adds two roles: a CLASS folder is the instructor's own
+ *  app-managed teaching folder (the head analog), and a STUDENT folder is the
+ *  app-managed OPFS cache for a class the account joined (the member analog).
+ *
+ *  READER TOLERANCE INVARIANT (design addendum H7): the WRITERS of the two new
+ *  roles gate on CLASS_MODE_ENABLED (only the class provisioner ever writes
+ *  "class" / "student"). The READERS of this enum must NOT gate on any flag and
+ *  must default any unknown or new role to its solo-equivalent rendering, so a
+ *  class row authored on another machine (or under a later flag flip) still
+ *  deserializes and renders cleanly with class mode OFF. The store read path
+ *  here is already value-agnostic (it spreads the cached labRole through
+ *  verbatim, never matching on it), and folderLabLabel handles the labels, so
+ *  this widening is shape-additive and flag-off byte-identical. */
+export type RememberedFolderLabRole =
+  | "solo"
+  | "head"
+  | "member"
+  | "class"
+  | "student";
 
 /** A folder the app remembers, as surfaced to the UI. The `handle` is hydrated
  *  from the `handles` object store on read; the rest is metadata persisted in
