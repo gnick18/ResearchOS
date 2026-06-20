@@ -53,3 +53,19 @@ export function folderLabLabel(folder: FolderLabIdentity): string {
   const name = folder.labName?.trim() || "Lab";
   return `${name} - ${role}`;
 }
+
+/**
+ * The one-word sublabel for a DISCOVERED lab row in the folder switcher (a lab
+ * the relay knows about that has no local folder yet). A class folder reads
+ * "Student" (the role a joiner takes in a class); every other case, including an
+ * absent role or a research-lab membership, reads "Member". Pure, flag-free
+ * reader so a class row renders its true kind even when authored elsewhere.
+ *
+ * Class Mode (CM-P2A): a class is never directory-published, so today this only
+ * diverges from "Member" when a re-discovered folder carried a cached class
+ * role. Kept role-driven so it stays correct as discovery widens.
+ */
+export function discoveredLabSublabel(role?: string): string {
+  if (role === "class" || role === "student") return "Student";
+  return "Member";
+}
