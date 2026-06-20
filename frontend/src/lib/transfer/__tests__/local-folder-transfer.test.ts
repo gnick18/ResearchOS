@@ -183,6 +183,7 @@ const deletedNotes = new Set<number>();
 const deletedSeqs = new Set<number>();
 const deletedCalcs = new Set<number>();
 const deletedMethods = new Set<number>();
+const deletedTasks = new Set<number>();
 vi.mock("@/lib/local-api", () => ({
   notesApi: {
     delete: vi.fn(async (id: number) => {
@@ -212,6 +213,15 @@ vi.mock("@/lib/local-api", () => ({
     }),
     get: vi.fn(async (id: number) => (deletedMethods.has(id) ? null : { id })),
   },
+  // tasksApi is consumed by the MOVE source-trash for the HEAVY experiment kind.
+  // delete takes only the id; get is owner-routed. Same focus as methodsApi:
+  // exercise the cross-folder ordering, not the real task-trash cascade.
+  tasksApi: {
+    delete: vi.fn(async (id: number) => {
+      deletedTasks.add(id);
+    }),
+    get: vi.fn(async (id: number) => (deletedTasks.has(id) ? null : { id })),
+  },
 }));
 
 // Import AFTER vi.mock so the mock is in place.
@@ -226,7 +236,7 @@ import {
   type TransferTarget,
 } from "../local-folder-transfer";
 import * as idb from "@/lib/file-system/indexeddb-store";
-import type { SequenceDetail, CustomCalculator, Method } from "@/lib/types";
+import type { SequenceDetail, CustomCalculator, Method, Task } from "@/lib/types";
 
 // ── Fixtures ────────────────────────────────────────────────────────────────
 
@@ -320,6 +330,53 @@ function makeSourcePcrMethod(): Method {
   } as unknown as Method;
 }
 
+// A source experiment (task) referencing the markdown method (id 7) both via
+// method_ids and via a method_attachment, plus a results subtree.
+const EXP_NOTES_MD = "## Lab notes\n\nRan the lysis at 4C.\n";
+const EXP_RESULT_IMG = new Uint8Array([9, 8, 7, 6, 5]);
+function makeSourceExperiment(): Task {
+  return {
+    id: 12,
+    project_id: 4,
+    name: "Lysis timecourse",
+    start_date: "2026-06-01",
+    duration_days: 3,
+    end_date: "2026-06-03",
+    is_high_level: false,
+    is_complete: false,
+    task_type: "experiment",
+    weekend_override: null,
+    method_ids: [7],
+    deviation_log: null,
+    tags: ["timecourse"],
+    sort_order: 0,
+    experiment_color: null,
+    sub_tasks: null,
+    method_attachments: [
+      {
+        method_id: 7,
+        owner: SOURCE_USER,
+        pcr_gradient: null,
+        pcr_ingredients: null,
+        lc_gradient: null,
+        body_override: null,
+        plate_annotation: null,
+        cell_culture_schedule: null,
+        variation_notes: "doubled the buffer",
+        compound_snapshots: null,
+        qpcr_analysis: null,
+      },
+    ],
+    owner: SOURCE_USER,
+    shared_with: [],
+    // Overlays + provenance + collab ids that MUST be stripped on copy.
+    is_shared_with_me: true,
+    shared_permission: "edit",
+    received_from: "lab@example.com",
+    collab_doc_id: "doc-abc",
+  } as unknown as Task;
+}
+
 function makeSourceCalculator(): CustomCalculator {
   return {
     id: 3,
@@ -366,6 +423,7 @@ beforeEach(async () => {
   deletedSeqs.clear();
   deletedCalcs.clear();
   deletedMethods.clear();
+  deletedTasks.clear();
   sourceRoot = new MockDirectory("source");
   destRoot = new MockDirectory("dest");
   destHandle = destRoot;
@@ -410,11 +468,29 @@ beforeEach(async () => {
     created_by: null,
   });
 
+  // Seed the source EXPERIMENT (task 12) + its results subtree (notes.md + a
+  // per-tab Results-tab image attachment) so the experiment twin copies them.
+  await seedJson(
+    sourceRoot,
+    `users/${SOURCE_USER}/tasks/12.json`,
+    makeSourceExperiment(),
+  );
+  await writeRaw(
+    sourceRoot,
+    `users/${SOURCE_USER}/results/task-12/notes.md`,
+    new TextEncoder().encode(EXP_NOTES_MD),
+  );
+  await seedBytes(
+    sourceRoot,
+    `users/${SOURCE_USER}/results/task-12/results/Images/gel.png`,
+    EXP_RESULT_IMG,
+  );
+
   // Seed the DESTINATION folder: a Main user pin + a pre-existing notes counter
   // at 41, so a fresh id must be 42 (proving it comes from the DEST counter). The
   // sequence + calculator counters start unset so a first copy lands id 1.
   await seedJson(destRoot, "users/_user_metadata.json", { main_user: DEST_USER });
-  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, { notes: 41 });
+  await seedJson(destRoot, `users/${DEST_USER}/_counters.json`, { notes: 41, tasks: 70 });
   // Methods + structured protocols draw from the GLOBAL counter even when
   // private. Seed it at 100 (methods) / 200 (pcr) so a fresh copy proves its id
   // came from the DESTINATION global counter, not the source method id.
@@ -725,6 +801,84 @@ describe("moveObjectToFolder, METHOD (heavy type)", () => {
     // The source delete was invoked AND verified gone (the mock removes it from
     // the live set, so the post-delete get returns null -> "moved" reported).
     expect(deletedMethods.has(method.id)).toBe(true);
+  });
+});
+
+// ── Stage 2 (heavy): EXPERIMENT cross-folder copy / move ──────────────────────
+
+describe("copyObjectToFolder, EXPERIMENT (heavy type)", () => {
+  it("copies a task: fresh id, methods localized + links remapped, results subtree carried, source untouched", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const task = makeSourceExperiment();
+    const target: TransferTarget = {
+      kind: "experiment",
+      task,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await copyObjectToFolder(target, "dest-folder");
+
+    // Fresh task id from the DESTINATION per-user counter (70 -> 71), not 12.
+    expect(outcome.kind).toBe("experiment");
+    expect(outcome.destId).toBe(71);
+
+    const rec = readRawJson(
+      destRoot,
+      `users/${DEST_USER}/tasks/71.json`,
+    ) as Task;
+    expect(rec.id).toBe(71);
+    expect(rec.name).toBe("Lysis timecourse");
+    // Owner-only, project reset to Unfiled, overlays/provenance/collab stripped.
+    expect(rec.owner).toBe(DEST_USER);
+    expect(rec.project_id).toBe(0);
+    expect(rec.shared_with).toEqual([]);
+    expect(rec.is_shared_with_me).toBeUndefined();
+    expect(rec.received_from).toBeUndefined();
+    expect((rec as { collab_doc_id?: string }).collab_doc_id).toBeUndefined();
+
+    // The referenced method (id 7) was localized into the destination (fresh
+    // global id 101) and BOTH reference surfaces point at the new id.
+    expect(rec.method_ids).toEqual([101]);
+    expect(rec.method_attachments).toHaveLength(1);
+    expect(rec.method_attachments[0].method_id).toBe(101);
+    // The attachment owner is reset to null (same namespace as the new task).
+    expect(rec.method_attachments[0].owner).toBeNull();
+    expect(rec.method_attachments[0].variation_notes).toBe("doubled the buffer");
+    // The localized method record exists in the destination.
+    expect(readRaw(destRoot, `users/${DEST_USER}/methods/101.json`)).not.toBeNull();
+
+    // The results subtree was carried (notes.md + the per-tab results image).
+    const notes = readRaw(destRoot, `users/${DEST_USER}/results/task-71/notes.md`);
+    expect(notes).not.toBeNull();
+    expect(new TextDecoder().decode(notes!)).toBe(EXP_NOTES_MD);
+    const img = readRaw(
+      destRoot,
+      `users/${DEST_USER}/results/task-71/results/Images/gel.png`,
+    );
+    expect(img).not.toBeNull();
+    expect(Array.from(img!)).toEqual(Array.from(EXP_RESULT_IMG));
+
+    // SOURCE untouched: the source task + results still present, no id-71 leak.
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/12.json`)).not.toBeNull();
+    expect(readRaw(sourceRoot, `users/${SOURCE_USER}/tasks/71.json`)).toBeNull();
+  });
+});
+
+describe("moveObjectToFolder, EXPERIMENT (heavy type)", () => {
+  it("moves an experiment: destination gets a fresh-id copy, source is trashed via tasksApi.delete", async () => {
+    stubDestRegistry("dest-folder", "head");
+    const task = makeSourceExperiment();
+    const target: TransferTarget = {
+      kind: "experiment",
+      task,
+      sourceUsername: SOURCE_USER,
+    };
+
+    const outcome = await moveObjectToFolder(target, "dest-folder");
+
+    expect(outcome.destId).toBe(71);
+    expect(readRaw(destRoot, `users/${DEST_USER}/tasks/71.json`)).not.toBeNull();
+    expect(deletedTasks.has(task.id)).toBe(true);
   });
 });
 

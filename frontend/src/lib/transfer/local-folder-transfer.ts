@@ -74,8 +74,17 @@ import {
   buildCalculatorSendPayload,
   materializeCalculatorToDestination,
 } from "@/lib/sharing/calculator-transfer";
-import { materializeMethodToDestination } from "@/lib/transfer/heavy-transfer";
-import { sequencesApi, calculatorsApi, notesApi, methodsApi } from "@/lib/local-api";
+import {
+  materializeMethodToDestination,
+  materializeExperimentToDestination,
+} from "@/lib/transfer/heavy-transfer";
+import {
+  sequencesApi,
+  calculatorsApi,
+  notesApi,
+  methodsApi,
+  tasksApi,
+} from "@/lib/local-api";
 import type { TargetContext } from "@/lib/storage/json-store";
 import type { ReadBundleResult } from "@/lib/sharing/bundle";
 import type {
@@ -135,6 +144,7 @@ const TWO_HANDLE_KINDS = new Set<TransferKind>([
   "sequence",
   "calculator",
   "method",
+  "experiment",
 ]);
 
 /** Stable id of a transfer target within its kind, for per-item bulk results and
@@ -178,7 +188,7 @@ export function describeTarget(target: TransferTarget): string {
  *  to refuse with a precise reason rather than a generic failure. */
 function unsupportedReason(kind: TransferKind): string | null {
   if (TWO_HANDLE_KINDS.has(kind)) return null;
-  if (kind === "experiment" || kind === "project") {
+  if (kind === "project") {
     return `Copying a ${kind} between folders is not supported yet. Use "Send to a person" to share it, or copy it as a note.`;
   }
   // Defensive: an unknown kind has no path at all.
@@ -420,6 +430,13 @@ async function materializeInto(
       const { methodId } = await materializeMethodToDestination(target.method, ctx);
       return { kind: "method", destId: methodId, destUsername: dest.username };
     }
+    case "experiment": {
+      // HEAVY type. The twin reads the source task (record + its referenced
+      // methods + results subtree) off the source disk and writes a fresh
+      // owner-only copy into the destination via ctx. Source untouched (COPY).
+      const { taskId } = await materializeExperimentToDestination(target.task, ctx);
+      return { kind: "experiment", destId: taskId, destUsername: dest.username };
+    }
     default:
       // Unreachable: unsupportedReason already rejected the heavy kinds above.
       throw new CrossFolderCopyError(
@@ -471,9 +488,17 @@ async function trashSourceVerified(target: TransferTarget): Promise<boolean> {
       const still = await methodsApi.get(target.method.id, target.method.owner);
       return still == null;
     }
+    case "experiment": {
+      // tasksApi.delete resolves the task's owner from disk itself and takes
+      // only the id; it also cleans the task's results subtree + dependency
+      // links. Verify-gone reads the record back through the owner-routed get.
+      await tasksApi.delete(target.task.id);
+      const still = await tasksApi.get(target.task.id, target.task.owner);
+      return still == null;
+    }
     default:
-      // The remaining heavy kinds (experiment / project) are refused before any
-      // copy, so a move never reaches here for them. Not-removed defensively.
+      // The remaining heavy kind (project) is refused before any copy, so a
+      // move never reaches here for it. Not-removed defensively.
       return false;
   }
 }

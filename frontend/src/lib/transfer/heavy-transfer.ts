@@ -311,6 +311,205 @@ export async function materializeMethodToDestination(
   return { methodId: newId };
 }
 
+// ── Recursive directory copy (SOURCE singleton -> DESTINATION ctx) ─────────────
+
+/**
+ * Copy a whole directory subtree from the SOURCE folder (read via the module
+ * singleton fileService) into the DESTINATION folder (written via the injected
+ * FileService), recursively. Mirrors copyDirectoryRecursive in results-paths.ts
+ * but writes through a second FileService so the bytes land in the destination,
+ * not the source. Best-effort per file (a single failed copy never aborts the
+ * subtree). Dotfiles are skipped (e.g. .DS_Store, the legacy-migration sentinel).
+ *
+ * Used to carry an experiment's results subtree (notes.md / results.md + the
+ * per-tab Files/ + Images/ attachment dirs) into the destination under the new
+ * task id, so every note, result, and dropped attachment travels byte-for-byte.
+ */
+async function copySubtreeToDestination(
+  srcDir: string,
+  destDir: string,
+  destFs: FileService,
+): Promise<void> {
+  let files: string[] = [];
+  try {
+    files = await fileService.listFiles(srcDir);
+  } catch {
+    return; // source dir absent -> nothing to copy.
+  }
+  for (const name of files) {
+    if (name.startsWith(".")) continue;
+    const blob = await fileService.readFileAsBlob(`${srcDir}/${name}`);
+    if (!blob) continue;
+    try {
+      await destFs.writeFileFromBlob(`${destDir}/${name}`, blob);
+    } catch {
+      // Best-effort: one failed file should not abort the whole subtree.
+    }
+  }
+  let subdirs: string[] = [];
+  try {
+    subdirs = await fileService.listDirectories(srcDir);
+  } catch {
+    return;
+  }
+  for (const sub of subdirs) {
+    await copySubtreeToDestination(`${srcDir}/${sub}`, `${destDir}/${sub}`, destFs);
+  }
+}
+
+/** Read a task record off the SOURCE disk. A task lives at
+ *  `users/<owner>/tasks/{id}.json`. Returns null when absent. */
+async function readSourceTask(
+  id: number,
+  owner: string | null | undefined,
+): Promise<Task | null> {
+  if (owner) {
+    const rec = await fileService.readJson<Task>(`users/${owner}/tasks/${id}.json`);
+    if (rec) return rec;
+  }
+  return null;
+}
+
+// ── EXPERIMENT materialize (Stage 2) ───────────────────────────────────────────
+
+/**
+ * MATERIALIZE AN EXPERIMENT (task) INTO A DESTINATION FOLDER. The cross-folder
+ * twin of the import-apply single-experiment path, writing into a SECOND folder
+ * via `dest`.
+ *
+ * Reads the source task off disk, localizes every method it references (method_ids
+ * + method_attachments) by COPYING each referenced method into the destination
+ * through materializeMethodToDestination, building a source-method-id ->
+ * destination-method-id map. A method that cannot be localized is dropped from
+ * both reference surfaces (never left pointing at a method id the destination
+ * cannot open), mirroring apply.ts remapMethodIds / remapMethodAttachments.
+ *
+ * Then allocates a fresh task id from the DESTINATION's per-user counter, writes
+ * the task record (owner reset to the destination user, project_id reset to 0 =
+ * Unfiled since the source project does not exist in the destination, sharing +
+ * provenance + cross-owner host links + collab doc ids all stripped), and copies
+ * the entire results subtree (notes.md / results.md + the per-tab attachment
+ * dirs) into `users/<destUser>/results/task-<newId>/`.
+ *
+ * DEPENDENCIES are DROPPED. A single experiment's deps reference OTHER tasks not
+ * part of this transfer, so the link cannot be honestly rebuilt in the
+ * destination (exactly as apply.ts drops a single-task share's deps). The project
+ * twin (Stage 3), which carries a whole task set, rebuilds intra-set deps.
+ *
+ * @param task the source task record (as the caller holds it). Its `id`, `owner`,
+ *             `method_ids`, and `method_attachments` drive the reads. We re-read
+ *             the canonical record off disk to be robust to a stale copy.
+ * @param dest the destination FileService + username.
+ * @returns the fresh task id allocated in the destination.
+ */
+export async function materializeExperimentToDestination(
+  task: Task,
+  dest: TargetContext,
+): Promise<{ taskId: number }> {
+  const source = (await readSourceTask(task.id, task.owner)) ?? task;
+
+  // Localize every referenced method into the destination, building a
+  // source-method-id -> dest-method-id map. A method copied once is reused for
+  // both reference surfaces (method_ids + method_attachments).
+  const methodIdMap = new Map<number, number>();
+  const localizeMethod = async (
+    sourceMethodId: number,
+    owner: string | null | undefined,
+  ): Promise<number | null> => {
+    if (methodIdMap.has(sourceMethodId)) return methodIdMap.get(sourceMethodId)!;
+    const srcMethod = await readSourceMethod(sourceMethodId, owner);
+    if (!srcMethod) return null; // referenced method missing on disk -> drop.
+    // Compound methods are not cross-folder-localizable (their children would
+    // each need to ride along + id-remap, not built). Drop rather than copy a
+    // method whose component refs dangle in the destination.
+    if (srcMethod.method_type === "compound") return null;
+    const { methodId } = await materializeMethodToDestination(srcMethod, dest);
+    methodIdMap.set(sourceMethodId, methodId);
+    return methodId;
+  };
+
+  // method_ids: keep only those that localized.
+  const newMethodIds: number[] = [];
+  for (const mid of source.method_ids ?? []) {
+    const newId = await localizeMethod(mid, source.owner);
+    if (newId != null) newMethodIds.push(newId);
+  }
+
+  // method_attachments: remap method_id, reset owner to null (the localized
+  // method is now owned by the destination user, so it is same-namespace as the
+  // task). Carry the per-attachment override fields verbatim. Drop entries whose
+  // method did not localize.
+  const newAttachments: TaskMethodAttachment[] = [];
+  for (const att of source.method_attachments ?? []) {
+    const newId = await localizeMethod(att.method_id, att.owner ?? source.owner);
+    if (newId == null) continue;
+    newAttachments.push({ ...att, method_id: newId, owner: null });
+  }
+
+  // Allocate the fresh task id from the DESTINATION per-user counter.
+  const newTaskId = await nextUserId(dest.fileService, dest.username, "tasks");
+  const taskDir = `users/${dest.username}/tasks`;
+  await dest.fileService.ensureDir(taskDir);
+
+  const newTask: Task = {
+    ...source,
+    id: newTaskId,
+    // The source project does not exist in the destination -> Unfiled (0).
+    project_id: 0,
+    method_ids: newMethodIds,
+    method_attachments: newAttachments,
+    // Owner-only on arrival.
+    owner: dest.username,
+    shared_with: [],
+    // Strip read-time overlays, cross-owner host links, comments / assignee /
+    // flag, provenance, collab doc ids, and the restore-undo window so the copy
+    // is a clean native experiment in the destination.
+    is_shared_with_me: undefined,
+    shared_permission: undefined,
+    inherited_from_project: undefined,
+    external_project: undefined,
+    comments: undefined,
+    assignee: undefined,
+    flagged: undefined,
+    last_edited_by: undefined,
+    last_edited_at: undefined,
+    revert_undo_window: undefined,
+    received_from: undefined,
+    received_from_fingerprint: undefined,
+    received_at: undefined,
+    collab_doc_id: undefined,
+  };
+  for (const k of [
+    "is_shared_with_me",
+    "shared_permission",
+    "inherited_from_project",
+    "external_project",
+    "comments",
+    "assignee",
+    "flagged",
+    "last_edited_by",
+    "last_edited_at",
+    "revert_undo_window",
+    "received_from",
+    "received_from_fingerprint",
+    "received_at",
+    "collab_doc_id",
+  ] as const) {
+    delete (newTask as unknown as Record<string, unknown>)[k];
+  }
+
+  await dest.fileService.writeJson(`${taskDir}/${newTaskId}.json`, newTask);
+
+  // Carry the results subtree (notes.md / results.md + per-tab attachment dirs)
+  // into the destination under the new task id. The whole subtree is copied
+  // recursively so every note, result, and attachment travels.
+  const srcResultsBase = taskResultsBase({ id: source.id, owner: source.owner });
+  const destResultsBase = taskResultsBase({ id: newTaskId, owner: dest.username });
+  await copySubtreeToDestination(srcResultsBase, destResultsBase, dest.fileService);
+
+  return { taskId: newTaskId };
+}
+
 // ── Helpers reused by experiment + project twins (Stage 2 / 3) ─────────────────
 // Exported so the experiment / project twins (built in later stages) can localize
 // methods + write task subtrees through the same destination-scoped seam. Stage 1

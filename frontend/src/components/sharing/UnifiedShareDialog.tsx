@@ -387,8 +387,15 @@ function toTransferTarget(target: ShareTarget): TransferTarget | null {
         method: target.method,
         sourceUsername: target.owner,
       };
-    // experiment / project have a relay builder but no two-handle materialize
-    // yet, so they are intentionally not offered here.
+    case "experiment":
+      // HEAVY type, now wired via a destination-scoped twin (heavy-transfer.ts).
+      return {
+        kind: "experiment",
+        task: target.task,
+        sourceUsername: target.owner,
+      };
+    // project has a relay builder but no two-handle materialize yet, so it is
+    // intentionally not offered here.
     default:
       return null;
   }
