@@ -66,6 +66,8 @@ const EXCLUDED_PREFIXES = [
   "/maintenance", // flag-gated "under construction" holding page (src/proxy.ts); shown only during maintenance windows, not a documented app feature (like /welcome)
   "/profile", // pending wiki page (Profile "your stuff": appearance + researcher profile, split out of Settings)
   "/supplies", // pending wiki page (Supplies v2 unified page; replaces split Inventory + Purchases routes)
+  "/class-materials", // pending wiki page (Class Mode lane; classroom materials surface)
+  "/badges", // pending wiki page (achievement badges, flag-gated NEXT_PUBLIC_BADGES_ENABLED)
   "/ai", // public BeakerBot marketing page (sells the AI assistant; no AppShell, like /pricing and /welcome, not a documented in-app feature)
   "/labs", // public lab-tier product/sell page (number-free, links /pricing; no AppShell, marketing/informational, like /ai and /pricing)
   "/departments", // public department-tier product/sell page (number-free, links /pricing; no AppShell, marketing/informational, like /labs)

@@ -139,15 +139,6 @@ export interface AccountScopedSettings {
    * defaultLandingTab, so a per-folder visible-tab choice still wins locally.
    */
   visibleTabs?: string[];
-  /**
-   * The badges the user has PINNED to feature on their profile (badges phase 2).
-   * Account-scoped so the pin set follows the user across devices, the cloud home
-   * Grant chose over a folder sidecar. Up to four ids (the bin enforces the cap),
-   * each a stable Badge id from lib/badges/catalog. Absent = no pins yet, in which
-   * case the bin falls back to the per-device localStorage cache. Read + written
-   * through lib/badges/pins.ts (the read-modify-write mirrors preferred-name).
-   */
-  pinnedBadgeIds?: string[];
 }
 
 /**
