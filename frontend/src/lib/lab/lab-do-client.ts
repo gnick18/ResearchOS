@@ -202,6 +202,25 @@ export async function appendLabEntryRemote(
 }
 
 /**
+ * Appends a head-signed "role" entry (Lab Manager Phase 1, setMemberAdmin in
+ * lab-key.ts) that flips a member's admin flag. A role change has NO key effect,
+ * so it carries neither an envelope nor a sealed copy: the relay treats it like a
+ * "remove" (generation stays put, signature re-verified under the stored head
+ * pubkey). The caller has already run setMemberAdmin to produce the entry.
+ *
+ * @param labId the lab id.
+ * @param entry the head-signed "role" entry (the tail of the setMemberAdmin record).
+ */
+export async function appendRoleRemote(
+  labId: string,
+  entry: LabLogEntry,
+): Promise<Response> {
+  ensureEnabled();
+  const body: AppendLabBody = { entry };
+  return postJson(`/lab/append?lab=${encodeURIComponent(labId)}`, body);
+}
+
+/**
  * Phase C2 (PI re-admit after an identity reset) orchestrator. Re-admits an
  * EXISTING member who reset their identity key and now holds a fresh keypair, so
  * their roster entry's keys are stale. This is the remote, two-append counterpart

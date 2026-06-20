@@ -22,6 +22,7 @@ function row(overrides: Partial<Row> = {}): Row {
     username: "alex",
     displayName: "Alex",
     account_type: "member",
+    lab_manager: false,
     archived: false,
     archived_at: null,
     archived_by: null,

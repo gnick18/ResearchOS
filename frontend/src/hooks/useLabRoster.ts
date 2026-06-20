@@ -24,6 +24,10 @@ export interface RosterRow {
   username: string;
   displayName: string | null;
   account_type: AccountType;
+  /** Lab Manager (Phase 1): the member holds the delegated manager capability
+   *  (materialized from the head-signed roster's admin flag). Always false for the
+   *  head (the head holds every power). */
+  lab_manager: boolean;
   archived: boolean;
   archived_at: string | null;
   archived_by: string | null;
@@ -50,10 +54,12 @@ function sortRows(rows: RosterRow[]): RosterRow[] {
 async function loadRosterRow(username: string): Promise<RosterRow> {
   let displayName: string | null = null;
   let account_type: AccountType = "member";
+  let lab_manager = false;
   try {
     const settings = await readUserSettings(username);
     displayName = settings.displayName;
     account_type = settings.account_type;
+    lab_manager = settings.lab_manager === true && account_type !== "lab_head";
   } catch {
     // Stay on safe defaults.
   }
@@ -88,6 +94,7 @@ async function loadRosterRow(username: string): Promise<RosterRow> {
     username,
     displayName,
     account_type,
+    lab_manager,
     archived,
     archived_at,
     archived_by,
