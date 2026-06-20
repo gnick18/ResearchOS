@@ -22,12 +22,11 @@ import {
   isClicking,
   isRevealed,
   narration,
-  currentStep,
 } from "@/lib/onboarding/showcase-player";
 import { choreographyFor } from "@/lib/onboarding/showcase-choreography";
 import type { Surface } from "@/lib/onboarding/reel-director";
 import PresenterCursor from "./PresenterCursor";
-import CoachBubble from "./CoachBubble";
+import BeakerBot from "@/components/BeakerBot";
 import TutorScreen from "./TutorScreen";
 
 export interface ShowcaseStageProps {
@@ -115,20 +114,27 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
   const target = cursorTarget(state);
   const cursorVisible = target !== null;
   const revealed = isRevealed(state);
-  const step = currentStep(state);
 
   return (
     <TutorScreen contentClassName="flex-col">
-      <div className="mb-2 flex w-full max-w-xl items-center justify-between text-[10.5px] uppercase tracking-wide text-[var(--faint,#9aa097)]">
-        <span>on {choreography.route}</span>
-        <span className="rounded border border-[var(--amber,#b9770f)] bg-[var(--amber-soft,#fbf0dc)] px-1.5 py-0.5 font-bold text-[var(--amber-ink,#8a5908)]">
-          SAMPLE DATA · nothing saved
-        </span>
+      {/* Beaker himself, full size + a live speech bubble, OUTSIDE the page card,
+          exactly like the intro beats (welcome / interest picker). His narration
+          updates per step. The page card below is what he is showing. */}
+      <div className="mb-3 flex w-[560px] max-w-full items-start gap-3">
+        <div className="h-40 w-40 flex-none">
+          <BeakerBot pose="idle" animated alive ariaLabel="Beaker" className="h-full w-full" />
+        </div>
+        <div
+          className="mt-7 rounded-xl rounded-tl-sm border border-[var(--line,#e3e5e0)] bg-[var(--sunken,#f1f2ef)] px-3.5 py-2.5 text-base text-[var(--fg,#1f2421)]"
+          style={{ fontFamily: "var(--font-ai)" }}
+        >
+          {narration(state) ?? "Watch, I will show you around this page."}
+        </div>
       </div>
 
       {/* The preloaded-page stage: a realistic ResearchOS page that pops up in
-          place (no warp into the live app). relative so the cursor + bubble + the
-          target marker position within it. */}
+          place (no warp into the live app). relative so the cursor + the target
+          marker position within it. */}
       <div className="relative h-[330px] w-[560px] max-w-full overflow-hidden rounded-2xl border border-[var(--line,#e3e5e0)] bg-[var(--surface,#fff)] shadow-sm">
         {/* page header: the surface title + the primary control the cursor heads to */}
         <div className="flex items-center justify-between border-b border-[var(--line,#e3e5e0)] px-4 py-3">
@@ -195,12 +201,13 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
           y={cursorVisible ? TARGET_POS.y : null}
           clicking={isClicking(state)}
         />
-        <CoachBubble line={narration(state)} />
       </div>
 
       {/* per-demo controls (the tour-level Back/Next/Skip live in the container) */}
-      <div className="mt-3 flex w-full max-w-xl items-center justify-between">
-        <span className="text-[10px] text-[var(--faint,#9aa097)]">{step?.kind}</span>
+      <div className="mt-3 flex w-[560px] max-w-full items-center justify-between">
+        <span className="text-[10.5px] uppercase tracking-wide text-[var(--faint,#9aa097)]">
+          on {choreography.route} · sample data, nothing saved
+        </span>
         <div className="flex gap-2">
           <button
             onClick={() =>
