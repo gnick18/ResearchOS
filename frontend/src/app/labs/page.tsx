@@ -43,6 +43,7 @@ import MarketingNav from "@/components/MarketingNav";
 import Reveal from "@/components/marketing/Reveal";
 import Kicker from "@/components/marketing/Kicker";
 import SponsorStrip from "@/components/SponsorStrip";
+import Badge from "@/components/marketing/Badge";
 import PlanPriceCallout from "@/components/marketing/PlanPriceCallout";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 
@@ -395,6 +396,9 @@ export default function LabsPage() {
               keep their data on their own disks.
             </p>
             <div className="mt-7 w-full max-w-md">
+              <div className="mb-2">
+                <Badge>Founding rate</Badge>
+              </div>
               <PlanPriceCallout planId="lab" />
             </div>
             <div className="mt-7 flex flex-col items-center justify-center gap-3 sm:flex-row">
