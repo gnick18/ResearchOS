@@ -1791,6 +1791,24 @@ export default function LabSiteDashboard({
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {/* View public site: opens the live .com page in a new tab so
+                    the editor can flip between editing and seeing what visitors
+                    see without leaving the builder. Plain href, no session
+                    crossing needed (.app -> .com is always safe). */}
+                <Tooltip label="Open your live public site to see what visitors see">
+                  <a
+                    href={
+                      LAB_SITES_COM_ORIGIN_ENABLED
+                        ? `https://${site.slug}.research-os.com`
+                        : `https://research-os.app/${site.slug}`
+                    }
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                  >
+                    <Icon name="globe" className="h-4 w-4" /> View public site
+                  </a>
+                </Tooltip>
                 {/* Homepage section builder: open the home page ("" path) in the
                     structured editor. If the home page already exists, open it;
                     otherwise initialize a new one with the filled template. The

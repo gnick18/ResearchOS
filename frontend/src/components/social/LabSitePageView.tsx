@@ -30,6 +30,7 @@
 import { useMemo } from "react";
 import Link from "next/link";
 
+import { Icon } from "@/components/icons";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
@@ -51,6 +52,15 @@ import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
 import { isDemoLabSlug, type DemoLabCard } from "@/lib/social/demo-lab";
 import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
+
+// The app origin for building the "Manage this site" deep link. Read at build
+// time (no window access) so SSR and client hydration agree. Falls back to
+// the canonical app URL so the link is correct even when the env var is absent.
+const APP_ORIGIN =
+  (process.env.NEXT_PUBLIC_APP_BASE_URL ?? "https://research-os.app").replace(
+    /\/+$/,
+    "",
+  );
 
 export default function LabSitePageView({
   slug,
@@ -263,6 +273,31 @@ export default function LabSitePageView({
               is off this renders nothing and the page is byte-identical. */}
           {badgeSnapshot && (
             <BadgePublicView snapshot={badgeSnapshot} />
+          )}
+
+          {/* "Manage this site" quiet affordance (Option B seamless nav).
+              A non-authed link to the builder on research-os.app. Visible to
+              everyone, but styled as a minimal, unobtrusive footer-level hint
+              so it does not distract public readers. The PI or any granted
+              editor who clicks it lands on the sign-in-gated /account/lab-site
+              page; if they are already signed in on .app they land directly.
+              No session is read here: this is a static deep link, not an
+              authed-aware probe. No cookie is set or sent on this page.
+              Only shown when the .com origin cutover is on (otherwise the site
+              is at research-os.app/<slug> and the builder is reachable directly)
+              and only for real labs (the demo ribbon handles the demo case). */}
+          {LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && (
+            <div className="mt-10 flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Icon name="globe" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+              <span>Is this your lab?</span>
+              <a
+                href={`${APP_ORIGIN}/account/lab-site`}
+                className="text-brand-action underline-offset-2 hover:underline"
+              >
+                Manage this site
+              </a>
+              <span>on research-os.app.</span>
+            </div>
           )}
         </div>
       </section>
