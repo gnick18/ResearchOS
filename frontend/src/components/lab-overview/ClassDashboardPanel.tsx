@@ -20,6 +20,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useLabSession } from "@/hooks/useLabSession";
 import {
   WORKBENCH_TAB_ORDER,
+  CLASS_STUDENT_NAV_CHOICES,
+  CLASS_STUDENT_NAV_DEFAULT,
   type WorkbenchTabId,
   type ClassDashboard,
 } from "@/lib/lab/class-dashboard";
@@ -89,6 +91,16 @@ export default function ClassDashboardPanel() {
     () => new Set(WORKBENCH_TAB_ORDER),
   );
   const [landingTab, setLandingTab] = useState<WorkbenchTabId>("projects");
+  // CT-6: the student top-nav allowlist (which screens beyond the always-on
+  // Workbench a student sees). Defaults to the coursework-default choices.
+  const [enabledNav, setEnabledNav] = useState<Set<string>>(
+    () =>
+      new Set(
+        CLASS_STUDENT_NAV_CHOICES.map((c) => c.href).filter((h) =>
+          CLASS_STUDENT_NAV_DEFAULT.includes(h),
+        ),
+      ),
+  );
   const [introTitle, setIntroTitle] = useState("");
   const [introBody, setIntroBody] = useState("");
   const [visibilityDefault, setVisibilityDefault] = useState<
@@ -135,6 +147,18 @@ export default function ClassDashboardPanel() {
           ) {
             setLandingTab(existing.landingTab as WorkbenchTabId);
           }
+          // CT-6: load the student nav allowlist. Absent => the coursework
+          // default; present => the instructor's saved choice (choices only).
+          const navChoiceHrefs = CLASS_STUDENT_NAV_CHOICES.map((c) => c.href);
+          setEnabledNav(
+            new Set(
+              existing.nav == null
+                ? navChoiceHrefs.filter((h) =>
+                    CLASS_STUDENT_NAV_DEFAULT.includes(h),
+                  )
+                : existing.nav.filter((h) => navChoiceHrefs.includes(h)),
+            ),
+          );
           setIntroTitle(existing.intro?.title ?? "");
           setIntroBody(existing.intro?.body ?? "");
           if (existing.visibilityDefault) {
@@ -161,6 +185,15 @@ export default function ClassDashboardPanel() {
     });
   };
 
+  const toggleNav = (href: string) => {
+    setEnabledNav((prev) => {
+      const next = new Set(prev);
+      if (next.has(href)) next.delete(href);
+      else next.add(href);
+      return next;
+    });
+  };
+
   // The ordered, enabled subset to persist. Stored in default order for a stable
   // on-record shape (the resolver re-applies the authored order verbatim).
   const orderedTabs = useMemo(
@@ -176,9 +209,20 @@ export default function ClassDashboardPanel() {
     setErrorMsg(null);
     // ABSENT tabs encodes "all on" (the resolver's absent-is-all-on contract); a
     // strict subset persists the explicit list.
+    // CT-6: persist the student nav allowlist in CHOICES order. When it equals
+    // the coursework default, encode ABSENT (the resolver's absent-is-default
+    // contract) so the record stays minimal; otherwise persist the explicit list.
+    const orderedNav = CLASS_STUDENT_NAV_CHOICES.map((c) => c.href).filter((h) =>
+      enabledNav.has(h),
+    );
+    const navIsDefault =
+      orderedNav.length ===
+        CLASS_STUDENT_NAV_DEFAULT.filter((h) => h !== "/workbench").length &&
+      orderedNav.every((h) => CLASS_STUDENT_NAV_DEFAULT.includes(h));
     const template: ClassDashboard = {
       tabs: allOn ? undefined : orderedTabs,
       landingTab,
+      nav: navIsDefault ? undefined : orderedNav,
       intro:
         introTitle.trim() || introBody.trim()
           ? { title: introTitle.trim(), body: introBody.trim() }
@@ -238,6 +282,36 @@ export default function ClassDashboardPanel() {
                 }`}
               >
                 {TAB_LABELS[id]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <p className="text-meta font-semibold text-foreground mb-2">
+          Screens students see
+        </p>
+        <p className="text-meta text-foreground-muted mb-3">
+          Students get a focused menu by default. Turn on any extra screens your
+          class needs. The Workbench is always on, and anything off here stays
+          reachable by link if a student has one.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {CLASS_STUDENT_NAV_CHOICES.map(({ href, label }) => {
+            const on = enabledNav.has(href);
+            return (
+              <button
+                key={href}
+                type="button"
+                onClick={() => toggleNav(href)}
+                className={`rounded-lg border px-3 py-1.5 text-body font-medium transition-colors ${
+                  on
+                    ? "border-brand-action bg-brand-action/10 text-brand-action"
+                    : "border-border text-foreground-muted hover:bg-surface-sunken"
+                }`}
+              >
+                {label}
               </button>
             );
           })}

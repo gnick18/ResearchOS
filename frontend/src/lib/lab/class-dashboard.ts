@@ -137,6 +137,27 @@ export const CLASS_STUDENT_NAV_DEFAULT: readonly string[] = [
 ];
 
 /**
+ * The screens an instructor can toggle for students in the class dashboard.
+ * /workbench is NOT listed because it is always on (the student's home). Labels
+ * mirror NAV_ITEMS. The default-checked set is whichever of these is in
+ * CLASS_STUDENT_NAV_DEFAULT.
+ */
+export const CLASS_STUDENT_NAV_CHOICES: readonly { href: string; label: string }[] = [
+  { href: "/methods", label: "Methods" },
+  { href: "/sequences", label: "Sequences" },
+  { href: "/chemistry", label: "Chemistry" },
+  { href: "/datahub", label: "Data Hub" },
+  { href: "/phylo", label: "Phylogenetics" },
+  { href: "/figures", label: "Figures" },
+  { href: "/library", label: "Icon Library" },
+  { href: "/calendar", label: "Calendar" },
+  { href: "/gantt", label: "GANTT" },
+  { href: "/inventory", label: "Inventory" },
+  { href: "/purchases", label: "Purchases" },
+  { href: "/links", label: "Links" },
+];
+
+/**
  * Resolve the set of top-nav hrefs a class STUDENT may see, from the template.
  *
  *  - ABSENT `nav` => the coursework default (CLASS_STUDENT_NAV_DEFAULT).
