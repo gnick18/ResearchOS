@@ -1,4 +1,3 @@
-import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 
 export interface NavItem {
   href: string;
@@ -35,15 +34,11 @@ export const NAV_ITEMS: NavItem[] = [
   // shell with the marketing chrome and leaves no way back. Open it in a new
   // tab so the user's app context is preserved.
   { href: "/library", label: "Icon Library", newTab: true },
-  // /network (the public researcher-network discovery hub). Like /library it is
-  // a public, shared discovery surface, not a per-user workspace, so it lands in
-  // the More overflow. Unlike /library the route 404s when the social layer is
-  // off, so the tab is added ONLY when SOCIAL_LAYER_ENABLED (a conditional
-  // entry, not just a visibility filter) and it must stay in the wiki-coverage
-  // EXCLUDED_PREFIXES.
-  ...(SOCIAL_LAYER_ENABLED
-    ? [{ href: "/network", label: "Researcher Network" }]
-    : []),
+  // /network is NO LONGER a customizable tab (Grant 2026-06-20). The researcher
+  // network is a distinct destination, not a per-user workspace tool, so it now
+  // lives as a permanent, non-draggable nav control (NetworkNavButton) that opens
+  // the public .com network. The /network route itself still exists (gated by
+  // SOCIAL_LAYER_ENABLED) and stays in the wiki-coverage EXCLUDED_PREFIXES.
   { href: "/inventory", label: "Inventory" },
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },
