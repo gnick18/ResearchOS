@@ -133,9 +133,8 @@ export const BADGE_CATALOG: Badge[] = [
     description: "Published a public companion site for the lab.",
     category: "activity",
     ring: BADGE_COLORS.blue,
-    // Wanted a globe/world glyph (none in the registry yet, flagged for Grant).
-    // `cloud` is the existing hosted-site stand-in.
-    glyph: "cloud",
+    // `globe` (meridian globe), Grant sign-off 2026-06-19.
+    glyph: "globe",
     criteria: { kind: "event", event: "companion_site" },
   },
   {
@@ -154,10 +153,10 @@ export const BADGE_CATALOG: Badge[] = [
     description: "Awarded by the instructor for finishing the course.",
     category: "class",
     ring: BADGE_COLORS.class,
-    // Instructor-granted (class mode). A dedicated graduation or medal glyph
-    // would read better than `check` and is flagged for Grant's sign-off
-    // alongside the globe glyph.
-    glyph: "check",
+    // Instructor-granted (class mode). `medal` (hanging medal), Grant sign-off
+    // 2026-06-19. `rosette` is also approved in the registry for a future
+    // first-place / best-poster badge.
+    glyph: "medal",
     criteria: { kind: "awarded" },
   },
 ];

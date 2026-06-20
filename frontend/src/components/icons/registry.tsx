@@ -705,6 +705,24 @@ const ICONS_RAW = {
       </>
     ),
   },
+  user: {
+    concept: "A single person / individual (solo folder)",
+    body: (
+      <>
+        <circle cx="12" cy="8" r="4" />
+        <path d="M5 20v-1a5 5 0 0 1 5-5h4a5 5 0 0 1 5 5v1" />
+      </>
+    ),
+  },
+  crown: {
+    concept: "Lab head / principal investigator (leads a lab)",
+    body: (
+      <>
+        <path d="M3.5 8 8 12l4-7 4 7 4.5-4-1.7 10.5H5.2z" />
+        <path d="M5 21h14" />
+      </>
+    ),
+  },
   userPlus: {
     concept: "Add a member",
     body: (
@@ -1462,6 +1480,45 @@ const ICONS_RAW = {
         <rect x="3" y="7" width="7" height="7" rx="1" />
         <rect x="14" y="10" width="7" height="7" rx="1" />
         <path d="M2 6V4h2M6 4h2M20 4h2v2M22 8v2M22 18v2h-2M18 20h-2M4 20h-2v-2M2 14v-2" strokeDasharray="0" />
+      </>
+    ),
+  },
+  // Badge-system glyphs (Grant sign-off 2026-06-19). globe = companion-site
+  // badge, medal = course-complete (awarded) badge, rosette = approved for a
+  // future first-place / best-poster badge.
+  globe: {
+    concept: "Globe / public web",
+    body: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <ellipse cx="12" cy="12" rx="4" ry="9" />
+        <line x1="3" y1="12" x2="21" y2="12" />
+      </>
+    ),
+  },
+  medal: {
+    concept: "Medal / awarded achievement",
+    body: (
+      <>
+        <path d="M9 3 L11.4 10" />
+        <path d="M15 3 L12.6 10" />
+        <circle cx="12" cy="15" r="5.2" />
+        <path
+          d="M12 12.5 L12.9 14.3 L14.9 14.6 L13.45 16 L13.79 18 L12 17.06 L10.21 18 L10.55 16 L9.1 14.6 L11.1 14.3 Z"
+          fill="currentColor"
+          stroke="none"
+        />
+      </>
+    ),
+  },
+  rosette: {
+    concept: "Rosette / first place",
+    body: (
+      <>
+        <circle cx="12" cy="9" r="5.4" />
+        <circle cx="12" cy="9" r="1.9" fill="currentColor" stroke="none" />
+        <path d="M9 13.6 L8 21 L11.6 18.4" />
+        <path d="M15 13.6 L16 21 L12.4 18.4" />
       </>
     ),
   },
