@@ -279,16 +279,21 @@ export default function SharingSetupWizard({
   // fires on "a session exists", this proceeds only on "a verifiable email"). The
   // ?sharingClaim resume effect above is mutually exclusive with this one
   // (autoClaim openings carry no ?sharingClaim flag), so they never both fire.
-  const autoClaimRan = useRef(false);
+  // No ref guard. In React Strict Mode the first mount is cancelled by its
+  // cleanup, so a ref that persisted across the remount would block the real
+  // (second) attempt, leaving the wizard stranded on the chooser, the same
+  // reasoning the ?sharingClaim resume effect above documents. The `cancelled`
+  // flag already dedupes the in-flight read, and the work here (setEmail /
+  // setStep / the unavailable callback) is idempotent, so running it once per
+  // mount is safe. A stable onAutoClaimUnavailable (the caller memoizes it) keeps
+  // this from re-running on every render.
   useEffect(() => {
     if (!autoClaim) return;
     if (typeof window === "undefined") return;
-    if (autoClaimRan.current) return;
     // Do not auto-route when resuming a provider redirect; that effect owns the
     // resume and would race this one.
     const url = new URL(window.location.href);
     if (url.searchParams.get(CLAIM_QUERY_PARAM) === "1") return;
-    autoClaimRan.current = true;
 
     let cancelled = false;
     void (async () => {

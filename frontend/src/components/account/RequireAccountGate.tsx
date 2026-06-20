@@ -18,7 +18,7 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import BeakerBot from "@/components/BeakerBot";
 import Wordmark from "@/components/Wordmark";
 import SharingSetupWizard from "@/components/sharing/SharingSetupWizard";
@@ -65,6 +65,21 @@ export default function RequireAccountGate({
   // promise. The "Use a different folder" escape stays on every state.
   const [autoClaimUnavailable, setAutoClaimUnavailable] = useState(false);
   const effectiveAutoClaim = autoClaim && !autoClaimUnavailable;
+
+  // Stable identity so the wizard's autoClaim effect (which lists this in its
+  // deps) does not re-run on every render. An inline arrow here re-ran the effect
+  // each render, and combined with that effect's once-guard it cancelled the
+  // in-flight session read before it could advance to keygen, so the auto-skip
+  // never fired and the wizard fell to the chooser. Mirrors the no-churn pattern
+  // the sibling resume effect relies on.
+  const handleAutoClaimUnavailable = useCallback(() => {
+    // The live session could not be reused (no verifiable email). Drop the
+    // autoClaim presentation and close the auto-opened wizard so the gate shows
+    // the manual sign-in card, whose "Continue with sign-in" reopens the wizard
+    // on the chooser. No loop, copy matches reality.
+    setAutoClaimUnavailable(true);
+    setWizardOpen(false);
+  }, []);
 
   return (
     <div className="h-screen flex flex-col items-center justify-center bg-surface-sunken px-6">
@@ -114,14 +129,7 @@ export default function RequireAccountGate({
         <SharingSetupWizard
           username={username}
           autoClaim={effectiveAutoClaim}
-          onAutoClaimUnavailable={() => {
-            // The live session could not be reused (no verifiable email). Drop
-            // the autoClaim presentation and close the auto-opened wizard so the
-            // gate shows the manual sign-in card, whose "Continue with sign-in"
-            // reopens the wizard on the chooser. No loop, copy matches reality.
-            setAutoClaimUnavailable(true);
-            setWizardOpen(false);
-          }}
+          onAutoClaimUnavailable={handleAutoClaimUnavailable}
           onComplete={() => {
             // Re-read identity; once it reads as published the shell releases.
             onClaimed();
