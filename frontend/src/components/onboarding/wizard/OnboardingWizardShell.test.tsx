@@ -18,6 +18,12 @@ vi.mock("@/components/Tooltip", () => ({
   default: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
+// The shell reads disconnect off useFileSystem to forget a mid-wizard folder on
+// Sign out. Stub the context so the tests do not need a FileSystemProvider.
+vi.mock("@/lib/file-system/file-system-context", () => ({
+  useFileSystem: () => ({ disconnect: vi.fn() }),
+}));
+
 import OnboardingWizardShell from "./OnboardingWizardShell";
 import type { WizardTrack } from "./wizard-model";
 
