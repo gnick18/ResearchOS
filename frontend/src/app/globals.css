@@ -1811,12 +1811,13 @@ body {
    hook (lib/ui/use-nudge.ts) or, for an always-on hint, applied directly. A soft
    sky sheen sweeps across a faint gradient while a subtle sky ring stays lit
    between sweeps, so the target reads as inviting without auto-opening. NO overflow
-   clipping here, a badge or chip inside must stay visible. The three older
-   shimmers (seq-rail, beakerbot-ai, datahub-transform) now alias this one so the
-   look and the anti-annoyance behavior are identical everywhere. */
+   clipping here, a badge or chip inside must stay visible. The two older NUDGE
+   shimmers (seq-rail, datahub-transform) now alias this one so the look and the
+   anti-annoyance behavior are identical everywhere. The BeakerBot AI chip keeps
+   its own distinct rainbow shimmer (beakerbot-ai-shimmer, below), since it is a
+   persistent AI affordance, not a discovery nudge. */
 .ros-nudge-shimmer,
 .seq-rail-shimmer,
-.beakerbot-ai-shimmer,
 .datahub-transform-shimmer {
   background-image: linear-gradient(
     115deg,
@@ -1834,11 +1835,51 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .ros-nudge-shimmer,
   .seq-rail-shimmer,
-  .beakerbot-ai-shimmer,
   .datahub-transform-shimmer {
     animation: none;
     background-image: none;
     box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
+  }
+}
+
+/* The BeakerBot AI chip (Cmd-J). A distinct, persistent AI affordance, NOT a
+   discovery nudge, so it keeps its own pastel rainbow glint (the brand AI = rainbow
+   identity) rather than the sky nudge sheen. Subtle by design: the text sits at the
+   same muted color as the plain Cmd-K chip and only a soft pastel rainbow band
+   sweeps through. */
+@keyframes beakerbot-ai-shimmer {
+  from {
+    background-position: 160% center;
+  }
+  to {
+    background-position: -160% center;
+  }
+}
+.beakerbot-ai-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    var(--foreground-muted) 0%,
+    var(--foreground-muted) 42%,
+    #ffd2b0 47%,
+    #b7ebb1 50%,
+    #a6d2f4 53%,
+    #d6b5f0 56%,
+    var(--foreground-muted) 60%,
+    var(--foreground-muted) 100%
+  );
+  background-size: 260% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation: beakerbot-ai-shimmer 4.2s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .beakerbot-ai-shimmer {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--foreground-muted);
+    color: var(--foreground-muted);
   }
 }
 
