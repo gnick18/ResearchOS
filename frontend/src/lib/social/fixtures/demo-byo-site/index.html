@@ -3,43 +3,282 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>FakeYeast 2026, paper companion</title>
+    <title>Engineering FakeYeast for tunable fakeGFP output, Castellanos Lab</title>
+    <meta
+      name="description"
+      content="Paper companion site for the Castellanos Lab. A tunable promoter ladder driving graded fakeGFP output in FakeYeast. Interactive figures, data, and methods."
+    />
     <link rel="stylesheet" href="assets/style.css" />
   </head>
   <body>
-    <header class="hero">
-      <p class="kicker">Paper companion, bring your own site</p>
-      <h1>Engineering FakeYeast for tunable fakeGFP output</h1>
-      <p class="byline">The Castellanos Lab, FakeYeast 2026 (fabricated for the demo)</p>
+    <a class="skip" href="#abstract">Skip to content</a>
+
+    <!-- Sticky lab nav. A real BYO site owns its own chrome end to end. -->
+    <header class="nav" id="top">
+      <a class="brand" href="#top" aria-label="Castellanos Lab home">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 32 32" width="28" height="28">
+            <circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2" opacity="0.35" />
+            <path d="M16 5 C9 9 9 16 16 16 C23 16 23 23 16 27" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" />
+            <circle cx="16" cy="16" r="2.6" fill="currentColor" />
+          </svg>
+        </span>
+        <span class="brand-text">
+          <strong>Castellanos Lab</strong>
+          <em>Synthetic biology, FakeYeast</em>
+        </span>
+      </a>
+      <nav class="nav-links" aria-label="Sections">
+        <a href="#abstract">Abstract</a>
+        <a href="#results">Results</a>
+        <a href="#methods">Methods</a>
+        <a href="#data">Data</a>
+        <a href="#team">Team</a>
+      </nav>
+      <a class="nav-cta" href="#cite">Cite this work</a>
     </header>
 
+    <!-- Hero. Dark fluorescence band, the lab's signature green. -->
+    <section class="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-inner">
+        <p class="kicker">Preprint, posted 2026 &middot; FakeYeast Consortium</p>
+        <h1>Engineering FakeYeast for tunable fakeGFP output</h1>
+        <p class="lede">
+          A synthetic promoter ladder that turns a single fluorescent reporter
+          into a graded, predictable dial across more than a decade of dynamic
+          range, with no antibiotics and no plasmid loss over 200 generations.
+        </p>
+        <p class="authors">
+          Mara Castellanos, Dev Okafor, Lin Wei, Priya Nair, and J. Castellanos
+          <span class="aff">Department of Fabricated Genetics, FakeYeast Institute</span>
+        </p>
+        <div class="hero-actions">
+          <a class="btn btn-primary" href="#results">Explore the figures</a>
+          <a class="btn" href="#data">Data and code</a>
+          <a class="btn btn-ghost" href="#cite">Cite</a>
+        </div>
+        <p class="hero-meta">
+          <span class="pill">Open data</span>
+          <span class="pill">Preprint &middot; not peer reviewed</span>
+          <span class="dim">doi 10.0000/fakeyeast.2026.001</span>
+        </p>
+      </div>
+    </section>
+
     <main>
-      <section class="card">
-        <h2>Abstract</h2>
+      <!-- Key numbers, counted up on scroll. -->
+      <section class="stats" aria-label="Key results">
+        <div class="stat" data-count="12.4" data-suffix="x">
+          <span class="stat-value">0</span>
+          <span class="stat-label">dynamic range, off to full</span>
+        </div>
+        <div class="stat" data-count="0.98" data-decimals="2">
+          <span class="stat-value">0</span>
+          <span class="stat-label">R squared, Hill fit</span>
+        </div>
+        <div class="stat" data-count="8">
+          <span class="stat-value">0</span>
+          <span class="stat-label">promoters in the ladder</span>
+        </div>
+        <div class="stat" data-count="200" data-suffix="+">
+          <span class="stat-value">0</span>
+          <span class="stat-label">generations, no plasmid loss</span>
+        </div>
+      </section>
+
+      <section class="card" id="abstract">
+        <span class="eyebrow">Abstract</span>
+        <p class="big">
+          Fluorescent reporters are usually all or nothing. We rebuilt the
+          fakeGFP expression cassette around a ladder of eight synthetic
+          promoters, each defined by a calibrated ribosome landing pad, so output
+          tracks promoter strength along a smooth Hill curve rather than jumping
+          between states.
+        </p>
         <p>
-          This is a fully custom static site the lab built itself and hosts on
-          its own slug. It is the same paper as the native companion page, shown
-          here as a bring your own bundle so a prospective lab head can see that
-          one lab can publish both a ResearchOS authored site and its own static
-          site from a single handle.
+          The result is a reporter the lab can set to a target brightness the way
+          you set a dimmer. Output is reproducible across colonies, stable for
+          more than 200 generations without selection, and predictable enough
+          that a strength value chosen on this page lands within a few percent of
+          the measured cells. Every strain, construct, and number on this page is
+          fabricated to demonstrate a self hosted paper companion.
         </p>
       </section>
 
-      <section class="card">
-        <h2>Interactive figure</h2>
-        <p>
-          A real paper companion would mount its own charts and widgets here. The
-          point of the demo is the hosting path, served from a separate sandboxed
-          domain so the lab JavaScript stays isolated from the authed app.
+      <!-- Figure 1, the centerpiece. A live 3D interactome rendered in vanilla
+           canvas, the kind of custom visual a self hosted bundle can run that a
+           templated page cannot. -->
+      <section class="card card-dark" id="results">
+        <span class="eyebrow eyebrow-light">Figure 1 &middot; Live 3D</span>
+        <h2 class="h-light">The FakeYeast regulatory interactome</h2>
+        <p class="p-light">
+          Every gene the promoter ladder touches and how they regulate one
+          another, more than seven hundred genes across five functional modules.
+          Drag to orbit, hover a gene to trace its connections. The fakeGFP
+          cassette sits at the bright core.
         </p>
-        <div id="figure" class="figure" aria-label="fakeGFP output by strain"></div>
-        <p class="cap">Figure 1. fakeGFP output rises with promoter strength.</p>
+        <figure class="figure net-figure">
+          <div class="net-wrap">
+            <canvas id="net-canvas" class="net-canvas"
+                    aria-label="Rotating 3D network of FakeYeast genes and their regulatory interactions"></canvas>
+            <div class="net-stats">
+              <span id="net-nodes">0</span> genes
+              <span class="net-dot" aria-hidden="true"></span>
+              <span id="net-edges">0</span> interactions
+            </div>
+            <ul class="net-legend" id="net-legend"></ul>
+            <div class="net-hint">Drag to orbit &middot; hover to trace</div>
+            <div class="net-tip" id="net-tip" hidden></div>
+          </div>
+          <figcaption class="cap-light">
+            Figure 1. The reconstructed FakeYeast regulatory network, nodes colored
+            by functional module, node size scaled by out degree. Rendered live in
+            the browser from the published edge list.
+          </figcaption>
+        </figure>
       </section>
 
-      <footer class="foot">
-        <p>All strains, results, and figures are fabricated for the demo.</p>
-      </footer>
+      <!-- Figure 2, the supporting dose response with a live predictor. -->
+      <section class="card">
+        <span class="eyebrow">Figure 2 &middot; Interactive</span>
+        <h2>fakeGFP output follows a tunable Hill curve</h2>
+        <p>
+          Each point is a measured strain. Drag the slider to pick a promoter
+          strength and read the predicted output off the fitted curve, the same
+          model the lab uses to design a new strain before building it.
+        </p>
+        <figure class="figure" id="dose-figure">
+          <div class="dose-chart" id="dose-chart" role="img"
+               aria-label="fakeGFP output rising with promoter strength along a fitted Hill curve"></div>
+          <div class="dose-controls">
+            <label for="strength">Promoter strength</label>
+            <input id="strength" type="range" min="0" max="100" value="50" step="1" />
+            <output id="strength-readout" class="readout">
+              <span class="ro-x">50</span> strength
+              <span class="ro-arrow" aria-hidden="true">to</span>
+              <span class="ro-y">62</span> AU predicted
+            </output>
+          </div>
+          <figcaption>
+            Figure 2. Measured fakeGFP output (points) against promoter strength,
+            with a Hill fit (n = 2.2, K = 45). Shaded band is the 95 percent
+            prediction interval.
+          </figcaption>
+        </figure>
+      </section>
+
+      <section class="card" id="methods">
+        <span class="eyebrow">Methods</span>
+        <h2>How it was built</h2>
+        <div class="methods-grid">
+          <div class="method">
+            <h3>Promoter ladder</h3>
+            <p>
+              Eight cores from a 12,000 member synthetic library were chosen to
+              tile the strength axis evenly on a log scale, each paired with a
+              calibrated ribosome landing pad.
+            </p>
+          </div>
+          <div class="method">
+            <h3>Measurement</h3>
+            <p>
+              Output was read by flow cytometry on three biological replicates per
+              strain, normalized to a constitutive marker, with at least 20,000
+              cells gated per replicate.
+            </p>
+          </div>
+          <div class="method">
+            <h3>Model</h3>
+            <p>
+              A two parameter Hill function was fit by least squares. Prediction
+              intervals come from a residual bootstrap with 2,000 resamples.
+            </p>
+          </div>
+          <div class="method">
+            <h3>Stability</h3>
+            <p>
+              Strains were passaged for 200 generations without selection. Loss of
+              the cassette stayed below the detection limit at every checkpoint.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="data">
+        <span class="eyebrow">Data and code</span>
+        <h2>Everything to reproduce the figures</h2>
+        <p>
+          The strain table, raw cytometry, and the fitting notebook are bundled
+          with this companion. Links are illustrative in the demo.
+        </p>
+        <div class="table-wrap">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th scope="col">Strain</th>
+                <th scope="col">Promoter</th>
+                <th scope="col">Strength</th>
+                <th scope="col">fakeGFP, AU</th>
+              </tr>
+            </thead>
+            <tbody id="data-rows"></tbody>
+          </table>
+        </div>
+        <div class="downloads">
+          <a class="chip" href="#data">strains.csv</a>
+          <a class="chip" href="#data">cytometry_raw.zip</a>
+          <a class="chip" href="#data">hill_fit.ipynb</a>
+          <a class="chip" href="#data">protocol.pdf</a>
+        </div>
+      </section>
+
+      <section class="card" id="team">
+        <span class="eyebrow">Team</span>
+        <h2>Who did the work</h2>
+        <ul class="team">
+          <li class="member"><span class="avatar" data-initials="MC"></span><strong>Mara Castellanos</strong><em>Principal investigator</em></li>
+          <li class="member"><span class="avatar" data-initials="DO"></span><strong>Dev Okafor</strong><em>Strain engineering</em></li>
+          <li class="member"><span class="avatar" data-initials="LW"></span><strong>Lin Wei</strong><em>Cytometry and analysis</em></li>
+          <li class="member"><span class="avatar" data-initials="PN"></span><strong>Priya Nair</strong><em>Modeling</em></li>
+        </ul>
+      </section>
+
+      <section class="card cite" id="cite">
+        <span class="eyebrow">Cite this work</span>
+        <h2>Reference</h2>
+        <blockquote class="citation" id="citation-text">
+          Castellanos, M., Okafor, D., Wei, L., Nair, P., and Castellanos, J.
+          (2026). Engineering FakeYeast for tunable fakeGFP output. FakeYeast
+          Consortium preprint. doi 10.0000/fakeyeast.2026.001.
+        </blockquote>
+        <div class="cite-actions">
+          <button type="button" class="btn btn-primary" id="copy-cite">Copy citation</button>
+          <button type="button" class="btn" id="toggle-bibtex">Show BibTeX</button>
+        </div>
+        <pre class="bibtex" id="bibtex" hidden>@article{castellanos2026fakeyeast,
+  title   = {Engineering FakeYeast for tunable fakeGFP output},
+  author  = {Castellanos, Mara and Okafor, Dev and Wei, Lin and Nair, Priya and Castellanos, J.},
+  year    = {2026},
+  journal = {FakeYeast Consortium preprint},
+  doi     = {10.0000/fakeyeast.2026.001}
+}</pre>
+      </section>
     </main>
+
+    <footer class="site-foot">
+      <div class="foot-inner">
+        <p class="foot-lead">
+          Built and hosted by the lab on its own slug, a fully custom static
+          bundle served from a sandboxed domain so the lab code stays isolated
+          from the authenticated app.
+        </p>
+        <p class="foot-dim">
+          Companion to the lab's native ResearchOS site. All strains, results, and
+          figures are fabricated for this demo.
+        </p>
+      </div>
+    </footer>
 
     <script src="assets/app.js"></script>
   </body>
