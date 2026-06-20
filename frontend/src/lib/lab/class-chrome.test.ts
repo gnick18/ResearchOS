@@ -4,8 +4,10 @@ import {
   overviewLabel,
   buildLabLensItems,
   filterResearcherItems,
+  wholeAudienceCopy,
   CLASS_HIDDEN_PI_HREFS,
   CLASS_HIDDEN_NAV_HREFS,
+  CLASS_MATERIALS_HREF,
 } from "./class-chrome";
 import type { NavItem } from "../nav";
 
@@ -41,6 +43,35 @@ describe("overviewLabel", () => {
   });
 });
 
+describe("wholeAudienceCopy (CT-1 class-context share relabel)", () => {
+  it("reads class framing in class mode", () => {
+    const copy = wholeAudienceCopy(true);
+    expect(copy.rowLabel).toBe("Whole class");
+    expect(copy.addLabel).toBe("+ Share with the whole class");
+    expect(copy.removeLabel).toBe("Remove whole-class share");
+    expect(copy.ariaAudience).toBe("the whole class");
+    expect(copy.rosterLead(3)).toBe("All 3 students");
+    expect(copy.rosterEmpty).toBe("No students in this class yet.");
+  });
+
+  it("reads the legacy research-lab framing when off (flag-off parity)", () => {
+    const copy = wholeAudienceCopy(false);
+    expect(copy.rowLabel).toBe("Whole lab");
+    expect(copy.addLabel).toBe("+ Share with the whole lab");
+    expect(copy.removeLabel).toBe("Remove Whole-lab share");
+    expect(copy.ariaAudience).toBe("the whole lab");
+    expect(copy.rosterLead(3)).toBe("Currently includes (3)");
+    expect(copy.rosterEmpty).toBe("No other active members in this lab yet.");
+  });
+
+  it("never says class in lab mode and never says lab in class mode", () => {
+    const lab = wholeAudienceCopy(false);
+    const cls = wholeAudienceCopy(true);
+    expect(lab.addLabel.toLowerCase()).not.toContain("class");
+    expect(cls.addLabel.toLowerCase()).not.toContain("lab");
+  });
+});
+
 describe("buildLabLensItems (research lab, classMode false)", () => {
   const out = buildLabLensItems(BASE, false);
 
@@ -73,6 +104,10 @@ describe("buildLabLensItems (research lab, classMode false)", () => {
     expect(hrefs(out)).toContain("/funding");
     expect(hrefs(out)).toContain("/approvals");
     expect(hrefs(out)).toContain("/purchases");
+  });
+
+  it("does NOT add the Class Materials entry in a research lab (flag-off parity)", () => {
+    expect(hrefs(out)).not.toContain(CLASS_MATERIALS_HREF);
   });
 });
 
@@ -111,6 +146,11 @@ describe("buildLabLensItems (class, classMode true)", () => {
     expect(hrefs(out)).toContain("/people");
     expect(hrefs(out)).toContain("/lab-work");
     expect(hrefs(out)).toContain("/activity");
+  });
+
+  it("adds the Class Materials nav entry in class mode", () => {
+    expect(hrefs(out)).toContain(CLASS_MATERIALS_HREF);
+    expect(labelFor(out, CLASS_MATERIALS_HREF)).toBe("Class Materials");
   });
 
   it("still drops the personal Workbench", () => {

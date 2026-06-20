@@ -43,6 +43,7 @@ import {
   removeSharedEntry,
   isWholeLabShared,
 } from "@/lib/sharing/unified";
+import { wholeAudienceCopy } from "@/lib/lab/class-chrome";
 
 export type ShareDialogRecordType =
   | "task"
@@ -75,6 +76,12 @@ export interface ShareDialogProps {
    *  modal chrome and renders this as the "In your lab" tab. Defaults to false
    *  (standalone full-screen dialog). */
   embedded?: boolean;
+  /** CT-1 class-context copy switch: when true (the active folder is a class the
+   *  viewer instructs) the whole-lab grant is RELABELED to class framing
+   *  ("Share with the whole class", "All N students"). The underlying grant (the
+   *  "*" sentinel) is UNCHANGED. Defaults to false so every existing caller is
+   *  byte-identical, and so flag-off (useIsClassMode falsy) is byte-identical. */
+  classContext?: boolean;
 }
 
 export default function ShareDialog({
@@ -89,7 +96,12 @@ export default function ShareDialog({
   viewerUsername,
   viewerIsLabHead = false,
   embedded = false,
+  classContext = false,
 }: ShareDialogProps) {
+  // CT-1: class-context copy for the whole-lab grant. A pure copy switch; the
+  // grant logic (the "*" sentinel) is unchanged. classContext false returns the
+  // legacy research-lab copy, so the dialog is byte-identical when off.
+  const audienceCopy = wholeAudienceCopy(classContext);
   const [users, setUsers] = useState<string[]>([]);
   const archivedSet = useArchivedUsers();
   // Lab head UX polish manager Bug 1 (2026-05-24): when "Whole lab" is
@@ -273,7 +285,7 @@ export default function ShareDialog({
                         <div className="min-w-0">
                           <p className="truncate text-body font-medium text-foreground">
                             {s.username === WHOLE_LAB_SENTINEL
-                              ? "Whole lab"
+                              ? audienceCopy.rowLabel
                               : formatUsernameHandle(s.username)}
                             {archivedSet.has(s.username) && (
                               <span className="ml-1 text-meta text-foreground-muted">
@@ -289,7 +301,7 @@ export default function ShareDialog({
                             role="group"
                             aria-label={`Access level for ${
                               s.username === WHOLE_LAB_SENTINEL
-                                ? "the whole lab"
+                                ? audienceCopy.ariaAudience
                                 : formatUsernameHandle(s.username)
                             }`}
                             className="mt-1 inline-flex rounded-md border border-border bg-surface-raised p-0.5"
@@ -342,12 +354,12 @@ export default function ShareDialog({
                       >
                         {wholeLabRoster.length === 0 ? (
                           <span className="italic text-foreground-muted">
-                            No other active members in this lab yet.
+                            {audienceCopy.rosterEmpty}
                           </span>
                         ) : (
                           <>
                             <span className="text-foreground-muted">
-                              Currently includes ({wholeLabRoster.length}):{" "}
+                              {audienceCopy.rosterLead(wholeLabRoster.length)}:{" "}
                             </span>
                             <span className="text-foreground">
                               {wholeLabRoster
@@ -376,11 +388,10 @@ export default function ShareDialog({
               }`}
               data-tour-target="share-dialog-whole-lab"
             >
-              {wholeLab ? "Remove Whole-lab share" : "+ Share with the whole lab"}
+              {wholeLab ? audienceCopy.removeLabel : audienceCopy.addLabel}
             </button>
             <p className="text-meta text-foreground-muted mt-1">
-              Whole-lab shares default to read-only. Toggle the level above
-              after adding.
+              {audienceCopy.helper}
             </p>
           </div>
 
