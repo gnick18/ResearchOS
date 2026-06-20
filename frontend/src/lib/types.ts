@@ -699,6 +699,58 @@ export interface Task {
   // this field via the Task interface. Minted at create time; lazy-backfilled on
   // read; never removed or renamed. ADDITIVE + back-compat.
   source_uuid?: string;
+  // Class Mode CT-2 (class-subkeys-assignment lane, 2026-06-19). FLAG: two new
+  // additive nullable Task fields. See scope critic C2 + Grant decision. These
+  // link a STUDENT-OWNED per-student notebook back to the INSTRUCTOR-OWNED shared
+  // assignment record it answers, so the instructor can group "all instances of
+  // Assignment 3" for review and the student device can dedupe its own notebook.
+  //
+  // INVARIANT (C2): the assignment is an instructor-owned shared record under the
+  // instructor's OWN owner-prefix, never a write into users/<student>/. The
+  // per-student notebook is a SEPARATE student-owned task the student creates on
+  // first open, carrying assignment_id. No actor ever authors a record under
+  // another user's owner-prefix.
+  //
+  // assignment_id is the shared assignment record's id (a string so it can be a
+  // source_uuid-style portable id). template_method_id is the method the
+  // instructor authored the protocol as, copied by reference so the student's
+  // notebook shows the same checklist. Both absent on every non-class task and
+  // every pre-existing record; gated behind NEXT_PUBLIC_CLASS_MODE; never
+  // migrated. Mirrors how assignee / flagged were added.
+  assignment_id?: string;
+  template_method_id?: number;
+  // Class Mode CT-4 (class-subkeys-assignment lane, 2026-06-19). FLAG: additive
+  // nullable submit/review status on the student's own notebook task. NOT a
+  // gradebook, grading stays in the LMS, no score is ever stored. submitted_rev
+  // pins the notebook version-history rev so "what they submitted" is fixed even
+  // if the student keeps editing. The student drives not_submitted -> submitted;
+  // the instructor reviews (readable via the Stage 1 subkey co-ownership), writes
+  // instructor_note, and flips to returned. Absent on every non-class task and
+  // every pre-existing record; gated behind NEXT_PUBLIC_CLASS_MODE.
+  submission?: ClassSubmission;
+}
+
+/**
+ * Class Mode CT-4 (class-subkeys-assignment lane, 2026-06-19) submit/review
+ * status. A deliberately minimal state machine, NOT a gradebook. Grading,
+ * scoring, weighting, and grade export all stay in the LMS; ResearchOS stores
+ * only the submission lifecycle and a freeform instructor note.
+ *
+ *   not_submitted -> submitted   (student action, stamps submitted_at + rev)
+ *   submitted      -> returned    (instructor action, writes instructor_note)
+ *
+ * submitted_rev pins the notebook's version-history rev at submit time so the
+ * "what they submitted" snapshot is fixed even if the student keeps editing
+ * afterward. No score is ever stored here.
+ */
+export interface ClassSubmission {
+  status: "not_submitted" | "submitted" | "returned";
+  /** ISO 8601 timestamp of the student's submit. Absent until first submit. */
+  submitted_at?: string;
+  /** The notebook version-history rev pinned at submit time. */
+  submitted_rev?: string;
+  /** Freeform instructor feedback written on review. No numeric score. */
+  instructor_note?: string;
 }
 
 /**
