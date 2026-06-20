@@ -168,6 +168,47 @@ describe("SequenceOperationsRail", () => {
     expect(screen.queryByTestId("inspector-context-bar")).toBeNull();
   });
 
+  it("shimmers the nudged op when nudgeId matches and it is not active", () => {
+    const { container } = render(
+      <SequenceOperationsRail
+        operations={makeOps(() => {})}
+        activeId={null}
+        onPick={() => {}}
+        nudgeId="primers"
+      />,
+    );
+    const primersBtn = container.querySelector('[data-op="primers"]') as HTMLElement;
+    expect(primersBtn.classList.contains("seq-rail-shimmer")).toBe(true);
+    // Only the nudged op shimmers; siblings stay calm.
+    const alignBtn = container.querySelector('[data-op="align"]') as HTMLElement;
+    expect(alignBtn.classList.contains("seq-rail-shimmer")).toBe(false);
+  });
+
+  it("does NOT shimmer the nudged op when it is the active (already open) op", () => {
+    const { container } = render(
+      <SequenceOperationsRail
+        operations={makeOps(() => {})}
+        activeId="primers"
+        onPick={() => {}}
+        nudgeId="primers"
+      />,
+    );
+    const primersBtn = container.querySelector('[data-op="primers"]') as HTMLElement;
+    expect(primersBtn.classList.contains("seq-rail-shimmer")).toBe(false);
+  });
+
+  it("shimmers no op when nudgeId is null", () => {
+    const { container } = render(
+      <SequenceOperationsRail
+        operations={makeOps(() => {})}
+        activeId={null}
+        onPick={() => {}}
+        nudgeId={null}
+      />,
+    );
+    expect(container.querySelector(".seq-rail-shimmer")).toBeNull();
+  });
+
   it("draws the amber dot badge when an op carries one (e.g. Tree with an organism)", () => {
     const { container } = render(
       <SequenceOperationsRail operations={makeOps(() => {})} activeId={null} onPick={() => {}} />,

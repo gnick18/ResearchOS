@@ -2,8 +2,10 @@
 
 // sequence editor master. The AUTO-OPEN rule for the contextual inspector
 // (sequences redesign phase 3). When the user makes a NEW selection we pop the
-// most relevant rail op open (region -> Primers, CDS -> Protein, primer ->
-// Primers), even if the inspector was collapsed. The rule is RESPECTFUL:
+// most relevant rail op open (primer -> Primers), even if the inspector was
+// collapsed. A gene of interest (CDS) deliberately does NOT auto-open the
+// protein analysis any more (autoOpenOpForKind returns null for it); the rail's
+// protein op shimmers to invite the click instead. The rule is RESPECTFUL:
 //
 //   - It keys on a derived selection IDENTITY (kind + the feature index + the
 //     region span), so it only fires when the identity genuinely CHANGES. A

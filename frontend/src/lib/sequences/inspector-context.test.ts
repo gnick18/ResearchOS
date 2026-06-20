@@ -50,8 +50,10 @@ describe("autoOpenOpForKind", () => {
   it("region does NOT auto-open (a bare highlight must not yank Primers open)", () => {
     expect(autoOpenOpForKind("region")).toBeNull();
   });
-  it("feature-cds opens Protein", () => {
-    expect(autoOpenOpForKind("feature-cds")).toBe("protein");
+  it("feature-cds does NOT auto-open Protein (the rail op shimmers instead)", () => {
+    // Picking a gene of interest must not auto-pop the protein analysis. The
+    // rail's protein op shimmers to invite the click; opening it stays explicit.
+    expect(autoOpenOpForKind("feature-cds")).toBeNull();
   });
   it("feature-primer opens Primers", () => {
     expect(autoOpenOpForKind("feature-primer")).toBe("primers");
