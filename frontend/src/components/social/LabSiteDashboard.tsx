@@ -16,7 +16,7 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import FileDropzone from "@/components/ui/FileDropzone";
@@ -40,6 +40,13 @@ import {
   buildBadgeSnapshot,
   serializeBadgeSnapshot,
 } from "@/lib/badges/snapshot";
+import {
+  DeployHistory,
+  PublishDeployPanel,
+  StatusPill,
+  usePublishFlow,
+  type DeployHistoryEntry,
+} from "@/components/social/PublishDeployProgress";
 
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
@@ -904,6 +911,114 @@ export default function LabSiteDashboard({
     [],
   );
 
+  // The public URL for the current lab's site (used in the deploy panel + pill).
+  const siteUrl = useMemo(() => {
+    if (!site) return "";
+    return LAB_SITES_COM_ORIGIN_ENABLED
+      ? `${site.slug}.research-os.com`
+      : `research-os.app/${site.slug}`;
+  }, [site]);
+
+  // ---------------------------------------------------------------------------
+  // Publish flow (P4: status pill + staged deploy panel)
+  //
+  // The flow hook owns the deploy-progress state for the currently-open page.
+  // When a new page is opened the panel is reset to hidden. The three real async
+  // steps (save, freeze, publish) are wired to the flow so the panel shows
+  // honest progress rather than a fake timer.
+  // ---------------------------------------------------------------------------
+
+  // Individual stable callbacks for the publish flow steps.
+  // They capture the latest editor state in their deps rather than via refs.
+
+  const flowOnSave = useCallback(async (): Promise<string> => {
+    // Step 1: save the draft. Must throw on failure (flow will stop).
+    const path =
+      editorPath === "__new__" ? "" : (editorPath ?? "");
+    const res = await fetch("/api/social/lab-site/page", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        path,
+        title: editorTitle,
+        bodyMd: editorBody,
+      }),
+    });
+    if (!res.ok) throw new Error("Could not save the draft.");
+    const data = (await res.json()) as { page: PageSummary };
+    setEditorPath(data.page.path);
+    return data.page.path;
+  }, [editorPath, editorTitle, editorBody]);
+
+  const flowOnFreeze = useCallback(async () => {
+    // Step 2: freeze (bake) embeds. Returns count + snapshots.
+    // Bake-on-publish (Phase 3b): block embeds read the author's LOCAL data,
+    // and svgToPngDataUrl needs a real canvas, so baking MUST run here in
+    // the browser (never on the server). The frozen snapshots are sent with
+    // the publish request so the public page renders frozen versions.
+    const baked = await bakeAllEmbeds([editorBody]);
+    if (baked.size === 0) return { count: 0 };
+    const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
+    if (!serialized) return { count: baked.size };
+    const snapshots = JSON.parse(serialized) as Record<string, unknown>;
+    return { count: baked.size, snapshots };
+  }, [editorBody]);
+
+  const flowOnPublish = useCallback(
+    async (savedPath: string, snapshots: Record<string, unknown> | undefined) => {
+      // Step 3: flip status to published on the server.
+      const pub = await fetch("/api/social/lab-site/page", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(
+          snapshots ? { path: savedPath, snapshots } : { path: savedPath },
+        ),
+      });
+      if (!pub.ok) throw new Error("Could not publish.");
+    },
+    [],
+  );
+
+  const flowOnCheck = useCallback(async () => {
+    // Step 4: best-effort reachability check.
+    if (!siteUrl) return true;
+    try {
+      const res = await fetch(`https://${siteUrl}`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(4000),
+      });
+      return res.ok;
+    } catch {
+      return true; // Non-fatal: the site is still live even if unreachable now.
+    }
+  }, [siteUrl]);
+
+  const flowOnDone = useCallback(() => {
+    // Refresh the page list and clear editor busy flag after all steps complete.
+    void refresh();
+    setEditorBusy(false);
+  }, [refresh]);
+
+  const flow = usePublishFlow({
+    pagePath: editorPath ?? "",
+    siteUrl,
+    onSave: flowOnSave,
+    onFreeze: flowOnFreeze,
+    onPublish: flowOnPublish,
+    onCheck: flowOnCheck,
+    onDone: flowOnDone,
+  });
+
+  // Reset the deploy panel when the editor opens a different page.
+  useEffect(() => {
+    flow.resetPanel();
+    // We only want to reset when editorPath changes, not when flow changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorPath]);
+
+  // ---------------------------------------------------------------------------
+  // saveDraft: save-only path (no publish). The publish path goes through flow.
+  // ---------------------------------------------------------------------------
   const saveDraft = useCallback(
     async (then?: "publish") => {
       if (editorPath === null) return;
@@ -911,6 +1026,22 @@ export default function LabSiteDashboard({
         setEditorMsg(DEMO_EDIT_NOTE);
         return;
       }
+
+      // Publish path: delegate entirely to the deploy flow (status pill + panel).
+      if (then === "publish") {
+        setEditorBusy(true);
+        setEditorMsg(null);
+        const ok = await flow.publish();
+        if (!ok) {
+          setEditorMsg("Saved the draft, but could not publish.");
+        } else {
+          setEditorMsg(null);
+        }
+        // editorBusy is reset in onDone (called by flow after all steps).
+        return;
+      }
+
+      // Save-only path: unchanged from the original implementation.
       setEditorBusy(true);
       setEditorMsg(null);
       const path = editorPath === "__new__" ? "" : editorPath;
@@ -931,43 +1062,7 @@ export default function LabSiteDashboard({
         const data = (await res.json()) as { page: PageSummary };
         const savedPath = data.page.path;
         setEditorPath(savedPath);
-
-        if (then === "publish") {
-          // Bake-on-publish (Phase 3b): block embeds read the author's LOCAL data,
-          // and svgToPngDataUrl needs a real canvas, so baking MUST run here in the
-          // browser (never on the server). The frozen snapshots are sent with the
-          // publish request and stored with the page version; the public page
-          // renders these frozen, since a public reader has no local workspace.
-          let snapshots: Record<string, unknown> | undefined;
-          try {
-            const baked = await bakeAllEmbeds([editorBody]);
-            if (baked.size > 0) {
-              const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
-              // serialized is null only when over the byte cap; then publish with
-              // no snapshots and the public page shows the unavailable card.
-              if (serialized) snapshots = JSON.parse(serialized);
-            }
-          } catch {
-            // Baking is best-effort: a bake failure must not block publishing the
-            // text. The page still publishes; unbaked embeds show the calm card.
-            snapshots = undefined;
-          }
-          const pub = await fetch("/api/social/lab-site/page", {
-            method: "PUT",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify(
-              snapshots ? { path: savedPath, snapshots } : { path: savedPath },
-            ),
-          });
-          if (!pub.ok) {
-            setEditorMsg("Saved the draft, but could not publish.");
-            await refresh();
-            return;
-          }
-          setEditorMsg("Published.");
-        } else {
-          setEditorMsg("Draft saved.");
-        }
+        setEditorMsg("Draft saved.");
         await refresh();
       } catch {
         setEditorMsg("Could not save the draft.");
@@ -975,8 +1070,36 @@ export default function LabSiteDashboard({
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh, demoReadOnly],
+    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow],
   );
+
+  // ---------------------------------------------------------------------------
+  // Deploy history entries for the currently-open page.
+  //
+  // lab_site_pages has no versioned history table yet. We render the current
+  // published page as the top entry and populate the list from PageSummary
+  // data. A full version history requires a new additive table or a JSONB
+  // history column.
+  //
+  // TODO(deploy-history): when the history table exists, fetch versioned
+  // entries from GET /api/social/lab-site/page/history?path=<editorPath> and
+  // render each version with its publishedAt timestamp, label (body preview or
+  // commit message), and a Restore button wired to POST ...?action=restore.
+  // ---------------------------------------------------------------------------
+  const deployHistoryEntries = useMemo((): DeployHistoryEntry[] => {
+    // editorPath null means no editor open; "__new__" means a page not yet saved.
+    // editorPath "" is valid (the home page).
+    if (editorPath === null || editorPath === "__new__") return [];
+    const page = pages.find((p) => p.path === editorPath);
+    if (!page || page.status !== "published") return [];
+    return [
+      {
+        publishedAt: page.updatedAt,
+        label: page.title || pathLabel(page.path) || "Home page",
+        isCurrent: true,
+      },
+    ];
+  }, [editorPath, pages]);
 
   const body = (
     <>
@@ -1202,91 +1325,119 @@ export default function LabSiteDashboard({
             )}
 
             {editorPath !== null && (
-              <section className="rounded-xl border border-border bg-surface-raised p-5">
-                <h2 className="mb-3 text-lg font-medium text-foreground">
-                  {editorPath === "__new__" || editorPath === ""
-                    ? "Edit home page"
-                    : `Edit ${pathLabel(editorPath)}`}
-                </h2>
-                <label className="mb-1 block text-xs text-muted-foreground">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={editorTitle}
-                  onChange={(e) => setEditorTitle(e.target.value)}
-                  readOnly={demoReadOnly}
-                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
-                  placeholder="Welcome to the Smith Lab"
-                />
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="block text-xs text-muted-foreground">
-                    Body (markdown)
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setPickerOpen(true)}
-                    disabled={demoReadOnly}
-                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
-                  >
-                    <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
-                  </button>
-                </div>
-                <textarea
-                  ref={bodyRef}
-                  value={editorBody}
-                  onChange={(e) => setEditorBody(e.target.value)}
-                  readOnly={demoReadOnly}
-                  rows={12}
-                  className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
-                  placeholder="# Our research\n\nWrite your page in markdown."
-                />
-                <p className="mb-4 text-[11px] text-muted-foreground">
-                  Inserted figures and tables are frozen (baked) when you publish,
-                  so visitors see exactly what you published.
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={editorBusy || demoReadOnly}
-                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    onClick={() => void saveDraft()}
-                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-                  >
-                    Save draft
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editorBusy || demoReadOnly}
-                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    onClick={() => void saveDraft("publish")}
-                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-                  >
-                    <Icon name="check" className="h-4 w-4" /> Save and publish
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editorBusy}
-                    onClick={() => setEditorPath(null)}
-                    className="ros-btn-neutral rounded-lg px-3 py-1.5 text-sm"
-                  >
-                    Close
-                  </button>
-                  {editorMsg && (
-                    <span className="text-xs text-muted-foreground">
-                      {editorMsg}
-                    </span>
-                  )}
-                </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_280px] xl:items-start">
+                {/* Editor card */}
+                <section className="rounded-xl border border-border bg-surface-raised p-5">
+                  {/* Header bar: title + status pill */}
+                  <div className="mb-3 flex items-center gap-3">
+                    <h2 className="flex-1 text-lg font-medium text-foreground">
+                      {editorPath === "__new__" || editorPath === ""
+                        ? "Edit home page"
+                        : `Edit ${pathLabel(editorPath)}`}
+                    </h2>
+                    {!demoReadOnly && (
+                      <StatusPill state={flow.publishState} />
+                    )}
+                  </div>
 
-                {pickerOpen && (
-                  <ReferencePicker
-                    onPick={(markdown) => insertReference(markdown)}
-                    onClose={() => setPickerOpen(false)}
+                  <label className="mb-1 block text-xs text-muted-foreground">
+                    Title
+                  </label>
+                  <input
+                    type="text"
+                    value={editorTitle}
+                    onChange={(e) => setEditorTitle(e.target.value)}
+                    readOnly={demoReadOnly}
+                    className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
+                    placeholder="Welcome to the Smith Lab"
+                  />
+                  <div className="mb-1 flex items-center justify-between">
+                    <label className="block text-xs text-muted-foreground">
+                      Body (markdown)
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setPickerOpen(true)}
+                      disabled={demoReadOnly}
+                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                      className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
+                    >
+                      <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
+                    </button>
+                  </div>
+                  <textarea
+                    ref={bodyRef}
+                    value={editorBody}
+                    onChange={(e) => setEditorBody(e.target.value)}
+                    readOnly={demoReadOnly}
+                    rows={12}
+                    className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
+                    placeholder="# Our research\n\nWrite your page in markdown."
+                  />
+                  <p className="mb-4 text-[11px] text-muted-foreground">
+                    Inserted figures and tables are frozen (baked) when you publish,
+                    so visitors see exactly what you published.
+                  </p>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={editorBusy || demoReadOnly}
+                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                      onClick={() => void saveDraft()}
+                      className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+                    >
+                      Save draft
+                    </button>
+                    <button
+                      type="button"
+                      disabled={editorBusy || demoReadOnly}
+                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                      onClick={() => void saveDraft("publish")}
+                      className="btn-brand inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+                    >
+                      <Icon name="check" className="h-4 w-4" /> Push live
+                    </button>
+                    <button
+                      type="button"
+                      disabled={editorBusy}
+                      onClick={() => setEditorPath(null)}
+                      className="ros-btn-neutral rounded-lg px-3 py-1.5 text-sm"
+                    >
+                      Close
+                    </button>
+                    {editorMsg && (
+                      <span className="text-xs text-muted-foreground">
+                        {editorMsg}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Deploy progress panel (hidden until publish is triggered). */}
+                  {!demoReadOnly && (
+                    <PublishDeployPanel flow={flow} siteUrl={siteUrl} />
+                  )}
+
+                  {pickerOpen && (
+                    <ReferencePicker
+                      onPick={(markdown) => insertReference(markdown)}
+                      onClose={() => setPickerOpen(false)}
+                    />
+                  )}
+                </section>
+
+                {/* Deploy history sidebar */}
+                {!demoReadOnly && (
+                  <DeployHistory
+                    entries={deployHistoryEntries}
+                    // TODO(deploy-history): wire onRestore once lab_site_pages has a
+                    // versioned history table. The handler should POST to
+                    // /api/social/lab-site/page/restore with { path, publishedAt } and
+                    // load the returned body_md + snapshots_json into the editor as a
+                    // new draft so the user can review before re-publishing.
+                    onRestore={undefined}
                   />
                 )}
-              </section>
+              </div>
             )}
           </section>
         )}
