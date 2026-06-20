@@ -169,6 +169,17 @@ can, and every non-notebook record round-trips byte-identical.
    its own explicit test, since a double-push would silently leak under the team key.
 4. The identity-reset re-seal is a fast follow, not part of this lane.
 
+## DECISIONS LOCKED (Grant, 2026-06-20)
+
+1. Key retention, READ x25519 priv from `getSessionIdentity().keys` at the two call
+   sites, add NO new long-lived reference on the session state (the conservative
+   choice). Fall back to session-state threading only if the runner boundary makes
+   the identity read genuinely awkward, and say so if you do.
+2. v1 scope, seal only NEW notebooks. No migration, no rewrite of pre-existing
+   team-key notebooks. `resolvePulledClassRecord` keeps them readable as today.
+3. Identity-reset re-seal is a FAST FOLLOW, a separate small lane after this one,
+   NOT folded in here.
+
 ## Open questions for Grant
 
 1. Session key retention, the security tradeoff. Read x25519 priv from the identity
