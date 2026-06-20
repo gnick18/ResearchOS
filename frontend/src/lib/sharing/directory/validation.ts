@@ -282,6 +282,15 @@ export interface ProfileBody {
    * verifies.
    */
   notifyOnCollabInvite: boolean;
+  /**
+   * Badge snapshot ids (badges phase 2). Optional arrays that default to []
+   * when absent, so an older client that does not send these fields still
+   * produces a body that parses and stores an empty snapshot. Badge ids are
+   * arbitrary non-numeric strings (e.g. "first-experiment"), so the numeric
+   * put-code validation used for works does not apply.
+   */
+  earnedBadgeIds: string[];
+  pinnedBadgeIds: string[];
   signature: string;
   issuedAt: string;
 }
@@ -359,6 +368,26 @@ export function parseProfileBody(body: unknown): ProfileBody | null {
     notifyOnCollabInvite = b.notifyOnCollabInvite;
   }
 
+  // Badge id arrays (badges phase 2). Optional; absent or non-array defaults to
+  // []. Badge ids are non-empty strings (no numeric constraint like put-codes).
+  // Cap at 200 entries each so a malicious oversized array cannot bloat storage.
+  const BADGE_ID_RE = /^[a-z0-9-]+$/;
+  let earnedBadgeIds: string[] = [];
+  if (Array.isArray(b.earnedBadgeIds)) {
+    const arr = b.earnedBadgeIds as unknown[];
+    if (arr.length <= 200 && arr.every((v) => typeof v === "string" && BADGE_ID_RE.test(v as string))) {
+      earnedBadgeIds = arr as string[];
+    }
+  }
+
+  let pinnedBadgeIds: string[] = [];
+  if (Array.isArray(b.pinnedBadgeIds)) {
+    const arr = b.pinnedBadgeIds as unknown[];
+    if (arr.length <= 200 && arr.every((v) => typeof v === "string" && BADGE_ID_RE.test(v as string))) {
+      pinnedBadgeIds = arr as string[];
+    }
+  }
+
   return {
     displayName,
     affiliation,
@@ -366,6 +395,8 @@ export function parseProfileBody(body: unknown): ProfileBody | null {
     pinnedWorks,
     hiddenWorks,
     notifyOnCollabInvite,
+    earnedBadgeIds,
+    pinnedBadgeIds,
     signature: b.signature as string,
     issuedAt: b.issuedAt as string,
   };

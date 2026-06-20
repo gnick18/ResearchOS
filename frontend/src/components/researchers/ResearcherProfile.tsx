@@ -20,7 +20,9 @@ import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import ProfileCard from "./ProfileCard";
+import BadgePublicView from "@/components/badges/BadgePublicView";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
+import { BADGES_ENABLED } from "@/lib/badges/config";
 import {
   type PublishedProfile,
   fetchProfileByFingerprint,
@@ -130,6 +132,14 @@ export default function ResearcherProfile({
   return (
     <PageShell>
       <ProfileCard profile={profile} />
+      {BADGES_ENABLED && (
+        <BadgePublicView
+          snapshot={{
+            earnedBadgeIds: profile.earnedBadgeIds ?? [],
+            pinnedBadgeIds: profile.pinnedBadgeIds ?? [],
+          }}
+        />
+      )}
     </PageShell>
   );
 }

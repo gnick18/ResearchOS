@@ -193,6 +193,38 @@ describe("parseProfileBody", () => {
     expect(parseProfileBody("string")).toBeNull();
     expect(parseProfileBody(42)).toBeNull();
   });
+
+  it("accepts earnedBadgeIds and pinnedBadgeIds as string arrays", () => {
+    const parsed = parseProfileBody(
+      validProfileBody({
+        earnedBadgeIds: ["founding-lab", "first-experiment"],
+        pinnedBadgeIds: ["founding-lab"],
+      }),
+    );
+    expect(parsed).not.toBeNull();
+    expect(parsed?.earnedBadgeIds).toEqual(["founding-lab", "first-experiment"]);
+    expect(parsed?.pinnedBadgeIds).toEqual(["founding-lab"]);
+  });
+
+  it("defaults earnedBadgeIds and pinnedBadgeIds to [] when absent", () => {
+    const parsed = parseProfileBody(validProfileBody());
+    expect(parsed).not.toBeNull();
+    expect(parsed?.earnedBadgeIds).toEqual([]);
+    expect(parsed?.pinnedBadgeIds).toEqual([]);
+  });
+
+  it("silently drops invalid badge ids (non-slug strings) and defaults to []", () => {
+    // An array with invalid entries (spaces, uppercase, special chars) is treated
+    // as malformed and the whole field defaults to []. The intent is that the
+    // server always stores only validated badge ids.
+    const parsed = parseProfileBody(
+      validProfileBody({ earnedBadgeIds: ["INVALID!", "has space"] }),
+    );
+    expect(parsed).not.toBeNull();
+    // Invalid entries cause the whole array to be treated as unrecognised (falls
+    // back to the "not every element is valid" path in parseProfileBody).
+    expect(parsed?.earnedBadgeIds).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -310,6 +342,8 @@ describe("upsertProfile / deleteProfile shape", () => {
           pinnedWorks: [],
           hiddenWorks: [],
           notifyOnCollabInvite: true,
+          earnedBadgeIds: ["founding-lab"],
+          pinnedBadgeIds: ["founding-lab"],
         }),
       ).resolves.toBeUndefined();
     } finally {

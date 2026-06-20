@@ -31,9 +31,112 @@ import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-si
 import { LAB_BYO_SITES_ENABLED } from "@/lib/social/config";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
 import { DEMO_LAB_SLUG, DEMO_NATIVE_PAGES } from "@/lib/social/demo-lab";
+import { BADGES_ENABLED } from "@/lib/badges/config";
+import BadgeEditor from "@/components/badges/BadgeEditor";
+import { loadBadgeMetrics } from "@/lib/badges/metrics";
+import {
+  buildBadgeSnapshot,
+  serializeBadgeSnapshot,
+} from "@/lib/badges/snapshot";
 
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
+
+/**
+ * Lab badges card (badges phase 2). Lets the lab head choose which earned
+ * badges to pin and publish them to the lab's public page. Gated on
+ * BADGES_ENABLED so it is dark by default.
+ *
+ * Loads real metrics from the connected folder on mount (loadBadgeMetrics),
+ * derives earned ids, and holds draft pins in local state. The "Publish badges"
+ * button builds the snapshot, serializes it, and PUTs it to the badges endpoint.
+ * All persistence is server-side; this component is purely a controlled form.
+ */
+function LabBadgesSection({ demoReadOnly }: { demoReadOnly?: boolean }) {
+  const [earnedIds, setEarnedIds] = useState<string[]>([]);
+  const [draftPinned, setDraftPinned] = useState<string[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  // Load real metrics from the folder on mount. Degrades to an empty earned
+  // set (no badges available to pin) if the folder is not connected.
+  useEffect(() => {
+    void (async () => {
+      try {
+        const metrics = await loadBadgeMetrics();
+        const snapshot = buildBadgeSnapshot(metrics, []);
+        setEarnedIds(snapshot.earnedBadgeIds);
+      } catch {
+        // Folder not connected or read failed: leave at empty set.
+      }
+    })();
+  }, []);
+
+  const publishBadges = useCallback(async () => {
+    if (demoReadOnly) {
+      setMsg(DEMO_EDIT_NOTE);
+      return;
+    }
+    setBusy(true);
+    setMsg(null);
+    try {
+      const metrics = await loadBadgeMetrics();
+      const snapshot = buildBadgeSnapshot(metrics, draftPinned);
+      const badgeSnapshot = JSON.parse(serializeBadgeSnapshot(snapshot)) as unknown;
+      const res = await fetch("/api/social/lab-site/badges", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ badgeSnapshot }),
+      });
+      if (!res.ok) {
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        setMsg(`Could not publish badges: ${data.error ?? "unknown error"}.`);
+        return;
+      }
+      setMsg("Badges published. Visitors will see the updated snapshot on your public page.");
+    } catch {
+      setMsg("Could not publish badges right now.");
+    } finally {
+      setBusy(false);
+    }
+  }, [demoReadOnly, draftPinned]);
+
+  return (
+    <section className="mb-8 rounded-xl border border-border bg-surface-raised p-5">
+      <h2 className="text-lg font-medium text-foreground">Lab badges</h2>
+      <p className="mt-1 text-sm text-muted-foreground">
+        Pin up to four earned badges to feature on your public lab page. Badges
+        are earned from real activity in ResearchOS.
+      </p>
+      <div className="mt-4">
+        {earnedIds.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            No badges earned yet. Connect your folder and record some experiments
+            to start earning.
+          </p>
+        ) : (
+          <BadgeEditor
+            earnedBadgeIds={earnedIds}
+            pinnedBadgeIds={draftPinned}
+            onChange={setDraftPinned}
+          />
+        )}
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <button
+          type="button"
+          disabled={busy || demoReadOnly}
+          title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+          onClick={() => void publishBadges()}
+          className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+        >
+          <Icon name="check" className="h-4 w-4" /> Publish badges
+        </button>
+        {msg && <span className="text-xs text-muted-foreground">{msg}</span>}
+      </div>
+    </section>
+  );
+}
 
 interface SiteSummary {
   slug: string;
@@ -845,6 +948,13 @@ export default function LabSiteDashboard({
               <ByoUploadSection slug={site.slug} />
             )}
             {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection slug={site.slug} />}
+
+            {/* Lab badges (badges phase 2, flag-gated). Lets the lab head pin
+                earned badges and publish them to the public lab page. Inert
+                when BADGES_ENABLED is false so the flag controls visibility. */}
+            {BADGES_ENABLED && (
+              <LabBadgesSection demoReadOnly={demoReadOnly} />
+            )}
 
             {editorPath !== null && (
               <section className="rounded-xl border border-border bg-surface-raised p-5">

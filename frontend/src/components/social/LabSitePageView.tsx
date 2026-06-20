@@ -43,8 +43,8 @@ import LabCitation from "@/components/social/LabCitation";
 import LabCollaborationActions from "@/components/social/LabCollaborationActions";
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import { labLinkBase, labSamePath } from "@/lib/social/lab-collab";
-import { BADGES_ENABLED } from "@/lib/badges/config";
-import BadgeSection, { demoBadgeMetrics } from "@/components/badges/BadgeSection";
+import BadgePublicView from "@/components/badges/BadgePublicView";
+import type { BadgeSnapshot } from "@/lib/badges/snapshot";
 import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
@@ -60,6 +60,7 @@ export default function LabSitePageView({
   currentPath,
   hasByo,
   demoCard,
+  badgeSnapshot,
 }: {
   slug: string;
   title: string;
@@ -104,6 +105,13 @@ export default function LabSitePageView({
    * adds a lab_sites profile column (open question Q4).
    */
   demoCard?: DemoLabCard | null;
+  /**
+   * The lab's published badge snapshot (badges phase 2). Passed only on the
+   * home page (normPath === "") and only when BADGES_ENABLED is true; undefined
+   * on every subpage and when the flag is off. BadgePublicView no-ops on an
+   * empty snapshot, so a lab that has never published badges renders nothing.
+   */
+  badgeSnapshot?: BadgeSnapshot;
 }) {
   const heading = title?.trim() || slug;
   // Rebuild the Map from the serialized record once per snapshots object.
@@ -207,14 +215,14 @@ export default function LabSitePageView({
             />
           )}
 
-          {/* Achievement badges (badges v1, flag-gated, dark by default). Only
-              on the home page so it is not repeated on every subpage. Real
-              activity metrics are not plumbed to this server route yet, so v1
-              feeds the section representative demo metrics (the hook-in point
-              for real metrics is BadgeSection's `metrics` prop). When the flag
+          {/* Achievement badges (badges phase 2, flag-gated, dark by default).
+              Only on the home page so the section does not repeat on subpages.
+              The snapshot is parsed by the server route (parseBadgeSnapshotJson)
+              and passed here; BadgePublicView no-ops on an empty snapshot so a
+              lab that has never published badges renders nothing. When the flag
               is off this renders nothing and the page is byte-identical. */}
-          {BADGES_ENABLED && normPath === "" && (
-            <BadgeSection profileId={slug} metrics={demoBadgeMetrics()} />
+          {badgeSnapshot && (
+            <BadgePublicView snapshot={badgeSnapshot} />
           )}
         </div>
       </section>

@@ -26,6 +26,8 @@ import {
 // lab_tool_github table (created lazily by ensureLabToolSchema). Inert when no
 // tool connection exists for the lab.
 import { getToolByOwner } from "@/lib/social/lab-tool-db";
+import { parseBadgeSnapshotJson, type BadgeSnapshot } from "@/lib/badges/snapshot";
+import { BADGES_ENABLED } from "@/lib/badges/config";
 
 /**
  * Public lab companion-site route (lab-domains Phase 2, social lane).
@@ -83,11 +85,16 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
     [];
   let hasByo = false;
   let toolRow: import("@/lib/social/lab-tool-db").LabToolGithubRow | null = null;
+  let badgeSnapshotJson: string | null = null;
   try {
     slugRow = await getSlug(slug);
     const site = slugRow ? await getSiteBySlug(slug) : null;
     hasSite = site !== null;
     if (site) {
+      // Carry the badge snapshot from the site row (null when never published).
+      // parseBadgeSnapshotJson runs below in the render, so this just captures
+      // the raw string here for serialization across the server/client boundary.
+      badgeSnapshotJson = site.badgeSnapshotJson;
       // Fetch the current page, published list, BYO state, and tool connection
       // in parallel to keep latency minimal. The BYO and tool checks are each
       // conditional so they are no-op queries when the respective table is absent.
@@ -115,6 +122,7 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
       publishedPages: [],
       hasByo: false,
       toolRow: null,
+      badgeSnapshotJson: null,
     };
   }
   const decision = resolvePublicPage({
@@ -123,7 +131,7 @@ async function resolve(rawSlug: string, rawPath: string[] | undefined) {
     hasSite,
     page,
   });
-  return { decision, slug, path, page, publishedPages, hasByo, toolRow };
+  return { decision, slug, path, page, publishedPages, hasByo, toolRow, badgeSnapshotJson };
 }
 
 export async function generateMetadata({
@@ -157,6 +165,7 @@ export default async function LabSitePublicPage({
     publishedPages,
     hasByo,
     toolRow,
+    badgeSnapshotJson,
   } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
 
@@ -211,6 +220,15 @@ export default async function LabSitePublicPage({
   // DEMO_LAB_CARD so LabIdentityHeader renders the rich lab header. Real labs
   // get no header until Phase 4 adds a lab_sites profile column (Q4).
   const demoCard = isDemoLabSlug(slug) ? DEMO_LAB_CARD : null;
+  // Badges publish path: parse the stored snapshot (null -> empty, so a lab
+  // with no published badges renders nothing). Only passed on the home path so
+  // the badge section does not repeat on every subpage. The public page is
+  // server-rendered and has no access to the local folder, so badges always
+  // come from this published snapshot, never from live metrics.
+  const badgeSnapshot: BadgeSnapshot | undefined =
+    BADGES_ENABLED && normPath === ""
+      ? parseBadgeSnapshotJson(badgeSnapshotJson)
+      : undefined;
   return (
     <LabSitePageView
       slug={slug}
@@ -222,6 +240,7 @@ export default async function LabSitePublicPage({
       currentPath={normPath}
       hasByo={hasByo}
       demoCard={demoCard}
+      badgeSnapshot={badgeSnapshot}
     />
   );
 }
