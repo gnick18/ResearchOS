@@ -25,6 +25,8 @@ import {
   getLabRemote,
   readmitMemberRemote,
 } from "@/lib/lab/lab-do-client";
+import { reSealPrivateNotebooksForStudent } from "@/lib/lab/class-private-notebook";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import {
   verifyMembershipLog,
   type LabRecord,
@@ -657,6 +659,36 @@ function ReadmitDialog({
         headEd25519PrivateKey: live.signingKeyPair.ed25519Priv,
       });
       if (out.ok) {
+        // Class Mode fast-follow: re-seal the student's private notebooks to their
+        // NEW identity key so they regain access to their own prior private work.
+        // The head co-holds every subkey, so this always succeeds. Best-effort and
+        // class-mode gated (a clean refusal, no I/O, when the flag is off), so it
+        // never blocks the re-admit that has already committed. Read the head's
+        // x25519 private key from the unlocked session identity at call time (the
+        // locked subkey-sync decision, no new long-lived key reference).
+        const headX25519Priv = getSessionIdentity()?.keys.encryption.privateKey;
+        if (headX25519Priv) {
+          try {
+            await reSealPrivateNotebooksForStudent({
+              labId,
+              student: {
+                username,
+                newX25519PublicKey: selected.x25519PublicKey,
+              },
+              head: {
+                username: record.head.username,
+                x25519PrivateKey: headX25519Priv,
+              },
+              oldTeamKey: live.labKey,
+              newTeamKey: out.newLabKey,
+              signerEd25519Priv: live.signingKeyPair.ed25519Priv,
+              signerEd25519Pub: live.signingKeyPair.ed25519Pub,
+            });
+          } catch {
+            // The re-admit succeeded; a re-seal hiccup is non-fatal and the pass
+            // is idempotent, so it can be retried by re-running the re-admit.
+          }
+        }
         onDone();
         setPhase({ kind: "done" });
         return;

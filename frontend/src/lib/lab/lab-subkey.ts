@@ -193,6 +193,60 @@ export function openSubkeyCopy(
   return openSealed(hexToBytes(copy.sealed), x25519PrivateKey);
 }
 
+/**
+ * IDENTITY-RESET RE-SEAL (the head-side recovery primitive). When a student resets
+ * their identity they hold a fresh x25519 keypair, so their OLD sealed copy in
+ * every subkey envelope no longer opens and they lose read access to their own
+ * prior private notebooks. The head co-holds every subkey (the head is always a
+ * recipient by construction, see sealSubkeyTo), so the head can recover the subkey
+ * and re-seal a fresh copy to the student's NEW public key.
+ *
+ * Re-seals ONLY the student's copy. The head's existing copy is left byte-identical
+ * (the head did not reset, so it still opens), so the head never loses access and
+ * no third recipient is ever introduced, the two-recipient invariant holds. The
+ * subkey itself is unchanged, so the at-rest ciphertext (sealed UNDER the subkey)
+ * does NOT need re-encrypting, only the envelope's student copy is replaced. A
+ * classmate who held no copy before still holds none, so the privacy boundary is
+ * preserved across the reset.
+ *
+ * @param envelope the student's existing subkey envelope (envelope.owner is the
+ *   student). The head must be a recipient (always true by construction).
+ * @param head the head reader, username + x25519 private key, used to open the
+ *   subkey through the head's own sealed copy.
+ * @param studentNewKey the student's username + their NEW x25519 public key (hex).
+ * @returns a new envelope identical to the input except the student's copy is
+ *   re-sealed under their new public key.
+ * @throws if the head has no sealed copy in this envelope, or opening it fails.
+ */
+export function reSealEnvelopeForStudent(
+  envelope: SubkeyEnvelope,
+  head: { username: string; x25519PrivateKey: Uint8Array },
+  studentNewKey: { username: string; x25519PublicKey: string },
+): SubkeyEnvelope {
+  // Recover the subkey through the head's own copy, always present and still valid
+  // because the head did not reset. Throws if the head is somehow not a recipient.
+  const subkey = openSubkeyCopy(envelope, head.username, head.x25519PrivateKey);
+  // Seal a fresh copy to the student's NEW public key.
+  const studentPub = hexToBytes(studentNewKey.x25519PublicKey);
+  const resealed = bytesToHex(sealToRecipient(subkey, studentPub));
+  // Replace the student's copy in place; leave every other copy (the head's)
+  // untouched so the head keeps its access and no recipient is added or dropped.
+  let replaced = false;
+  const copies = envelope.copies.map((c) => {
+    if (c.username === studentNewKey.username) {
+      replaced = true;
+      return { username: c.username, sealed: resealed };
+    }
+    return c;
+  });
+  if (!replaced) {
+    // Defensive: the student had no prior copy (should not happen for their own
+    // envelope). Add one so the re-admit still restores their access.
+    copies.push({ username: studentNewKey.username, sealed: resealed });
+  }
+  return { owner: envelope.owner, copies };
+}
+
 // ---------------------------------------------------------------------------
 // 3. The record-level transport shape and the read/write resolution.
 //

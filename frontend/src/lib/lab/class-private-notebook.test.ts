@@ -25,12 +25,19 @@ import {
   encryptLabData,
   decryptLabData,
 } from "./lab-key";
-import { encryptTeamRecord } from "./lab-subkey";
+import {
+  encryptTeamRecord,
+  generateSubkey,
+  sealSubkeyForStudent,
+  openSubkeyCopy,
+  reSealEnvelopeForStudent,
+} from "./lab-subkey";
 import type { LabMember } from "./lab-membership";
 import {
   writePrivateNotebookRecord,
   resolvePulledClassRecord,
   recoverExistingSubkey,
+  reSealPrivateNotebooksForStudent,
   isSubkeyedPrivateRecord,
   isPrivateClassNotebookRecord,
 } from "./class-private-notebook";
@@ -387,6 +394,184 @@ describe("Stage C: flag OFF refuses the write", () => {
       putImpl,
     });
     expect("refused" in res).toBe(true);
+    expect(putImpl).not.toHaveBeenCalled();
+
+    vi.doUnmock("./class-mode-config");
+    vi.resetModules();
+  });
+});
+
+describe("Identity-reset re-seal: reSealEnvelopeForStudent (the crypto core)", () => {
+  it("re-seals only the student copy to the new key; head keeps access, old key dies", () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const subkey = generateSubkey();
+    const envelope = sealSubkeyForStudent(subkey, student.member, head.member);
+
+    // The student resets identity: a fresh x25519 keypair under the SAME username.
+    const studentNew = makeActor("alice", "member");
+
+    const resealed = reSealEnvelopeForStudent(
+      envelope,
+      { username: "prof", x25519PrivateKey: head.x25519Priv },
+      { username: "alice", x25519PublicKey: studentNew.member.x25519PublicKey },
+    );
+
+    // The student's NEW key opens the same subkey.
+    expect(bytesToHex(openSubkeyCopy(resealed, "alice", studentNew.x25519Priv))).toBe(
+      bytesToHex(subkey),
+    );
+    // The head's copy still opens (it was never touched).
+    expect(bytesToHex(openSubkeyCopy(resealed, "prof", head.x25519Priv))).toBe(
+      bytesToHex(subkey),
+    );
+    // The OLD student key can no longer open it (the copy was re-sealed).
+    expect(() => openSubkeyCopy(resealed, "alice", student.x25519Priv)).toThrow();
+
+    // Still exactly two recipients, and the head's sealed bytes are byte-identical.
+    expect(resealed.copies.length).toBe(2);
+    const headBefore = envelope.copies.find((c) => c.username === "prof")!.sealed;
+    const headAfter = resealed.copies.find((c) => c.username === "prof")!.sealed;
+    expect(headAfter).toBe(headBefore);
+    expect(resealed.owner).toBe("alice");
+  });
+
+  it("throws when the reader (head) is not a recipient of the envelope", () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const stranger = makeActor("nobody", "member");
+    const subkey = generateSubkey();
+    const envelope = sealSubkeyForStudent(subkey, student.member, head.member);
+
+    expect(() =>
+      reSealEnvelopeForStudent(
+        envelope,
+        { username: "nobody", x25519PrivateKey: stranger.x25519Priv },
+        { username: "alice", x25519PublicKey: student.member.x25519PublicKey },
+      ),
+    ).toThrow(/no sealed copy/);
+  });
+});
+
+describe("Identity-reset re-seal: reSealPrivateNotebooksForStudent (head-side orchestration)", () => {
+  it("re-admitted student reads their prior private notebook with the NEW key; old key + classmate stay blocked", async () => {
+    const student = makeActor("alice", "member");
+    const head = makeActor("prof", "head");
+    const classmate = makeActor("mallory", "member");
+    const oldTeamKey = generateLabKey();
+    const { putImpl, getImpl, listImpl } = makeStore();
+
+    // The student writes a private notebook under the OLD team key.
+    await writePrivateNotebookRecord({
+      labId: "class-1",
+      student: student.member,
+      head: head.member,
+      recordType: "task",
+      recordId: "7",
+      plaintext: NOTEBOOK,
+      teamKey: oldTeamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      x25519PrivateKey: student.x25519Priv,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+
+    // The student resets identity (fresh x25519). The re-admit rotates the team key.
+    const studentNew = makeActor("alice", "member");
+    const newTeamKey = generateLabKey();
+
+    const out = await reSealPrivateNotebooksForStudent({
+      labId: "class-1",
+      student: { username: "alice", newX25519PublicKey: studentNew.member.x25519PublicKey },
+      head: { username: "prof", x25519PrivateKey: head.x25519Priv },
+      oldTeamKey,
+      newTeamKey,
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+    expect(out).toEqual({ resealed: 1 });
+
+    // The record is now wrapped under the NEW team key. Reading under the OLD key
+    // fails (the outer layer was re-sealed under the new generation).
+    await expect(
+      getImpl({ labId: "class-1", owner: "alice", recordType: "task", recordId: "7", labKey: oldTeamKey }),
+    ).rejects.toThrow();
+
+    const teamPlaintext = await getImpl({
+      labId: "class-1",
+      owner: "alice",
+      recordType: "task",
+      recordId: "7",
+      labKey: newTeamKey,
+    });
+
+    // The re-admitted student reads their own prior notebook with their NEW key.
+    expect(
+      resolvePulledClassRecord(
+        teamPlaintext,
+        { username: "alice", x25519PrivateKey: studentNew.x25519Priv },
+        newTeamKey,
+      ),
+    ).toEqual(NOTEBOOK);
+
+    // The head still reads it.
+    expect(
+      resolvePulledClassRecord(
+        teamPlaintext,
+        { username: "prof", x25519PrivateKey: head.x25519Priv },
+        newTeamKey,
+      ),
+    ).toEqual(NOTEBOOK);
+
+    // The student's OLD key can no longer read it (the inner copy was re-sealed).
+    expect(() =>
+      resolvePulledClassRecord(
+        teamPlaintext,
+        { username: "alice", x25519PrivateKey: student.x25519Priv },
+        newTeamKey,
+      ),
+    ).toThrow();
+
+    // The FERPA boundary holds: a classmate with the new team key is still walled off.
+    expect(() =>
+      resolvePulledClassRecord(
+        teamPlaintext,
+        { username: "mallory", x25519PrivateKey: classmate.x25519Priv },
+        newTeamKey,
+      ),
+    ).toThrow(/not a recipient/);
+  });
+
+  it("flag OFF refuses with no list/get/put I/O", async () => {
+    vi.resetModules();
+    vi.doMock("./class-mode-config", () => ({ CLASS_MODE_ENABLED: false }));
+    const { reSealPrivateNotebooksForStudent: reSealOff } = await import(
+      "./class-private-notebook"
+    );
+    const head = makeActor("prof", "head");
+    const studentNew = makeActor("alice", "member");
+    const { putImpl, getImpl, listImpl } = makeStore();
+
+    const res = await reSealOff({
+      labId: "class-1",
+      student: { username: "alice", newX25519PublicKey: studentNew.member.x25519PublicKey },
+      head: { username: "prof", x25519PrivateKey: head.x25519Priv },
+      oldTeamKey: generateLabKey(),
+      newTeamKey: generateLabKey(),
+      signerEd25519Priv: signer.priv,
+      signerEd25519Pub: signer.pub,
+      putImpl,
+      getImpl,
+      listImpl,
+    });
+    expect("refused" in res).toBe(true);
+    expect(listImpl).not.toHaveBeenCalled();
+    expect(getImpl).not.toHaveBeenCalled();
     expect(putImpl).not.toHaveBeenCalled();
 
     vi.doUnmock("./class-mode-config");

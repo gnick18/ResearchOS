@@ -40,6 +40,7 @@ import {
   encryptPrivateRecord,
   decryptClassRecord,
   openSubkeyCopy,
+  reSealEnvelopeForStudent,
   type SubkeyedRecord,
   type SubkeyEnvelope,
 } from "./lab-subkey";
@@ -342,4 +343,135 @@ export async function writePrivateNotebookRecord(params: {
   });
 
   return { subkey };
+}
+
+/**
+ * IDENTITY-RESET RE-SEAL (head-side orchestration, the fast-follow). When a student
+ * resets their identity, readmitMember rotates the team key and re-admits them under
+ * a NEW x25519 key, but their existing private-notebook subkey envelopes still seal
+ * the subkey to their OLD x25519 key, so they lose access to their own prior private
+ * work until each envelope is re-sealed. The head co-holds every subkey, so the head
+ * can recover and re-seal each one to the student's new key. Invoke this after a
+ * successful re-admit (readmitMemberRemote ok), from the head's session.
+ *
+ * For each of the student's subkeyed private records:
+ *   1. read it under oldTeamKey (the generation it was written under, pre-rotation),
+ *   2. re-seal ONLY the student's subkey copy to their NEW x25519 public key (the
+ *      head's copy and the inner subkey-sealed blob are byte-identical, see
+ *      reSealEnvelopeForStudent), then
+ *   3. re-PUT it sealed under newTeamKey (the post-rotation generation the
+ *      re-admitted student holds directly), HEAD-signed (the relay accepts a head
+ *      write to a member's owner-prefix, rosterAllows is head-or-member, it does not
+ *      tie the signer to the owner), owner unchanged (the student).
+ *
+ * Sealing the OUTER layer under newTeamKey means the re-admitted student, who holds
+ * newTeamKey + their new x25519, peels both layers with the keys they actually have,
+ * with no dependence on seed-chain derivation of an old generation. The FERPA
+ * boundary is preserved throughout, a classmate never gains a subkey copy.
+ *
+ * Best-effort and idempotent. A record that fails to read (wrong generation, gone)
+ * is skipped, not fatal, so a partial run can be safely re-invoked. The re-admit
+ * itself has already committed, so a failure here never unwinds it. Flag off
+ * (NEXT_PUBLIC_CLASS_MODE), refuses cleanly with no I/O, byte-identical to today.
+ *
+ * @returns the count of records re-sealed, or a refusal when the flag is off.
+ */
+export async function reSealPrivateNotebooksForStudent(params: {
+  labId: string;
+  /** The student who reset identity (the owner-prefix + the subkey owner). */
+  student: { username: string; newX25519PublicKey: string };
+  /** The head reader, username + x25519 private key, to open every subkey copy. */
+  head: { username: string; x25519PrivateKey: Uint8Array };
+  /** The team key the student's existing records are sealed under (pre-rotation). */
+  oldTeamKey: Uint8Array;
+  /** The team key to re-seal the outer layer under (the current generation). */
+  newTeamKey: Uint8Array;
+  /** The head's lab signing keypair; the re-PUT is head-signed. */
+  signerEd25519Priv: Uint8Array;
+  signerEd25519Pub: Uint8Array;
+  listImpl?: typeof listLabRecords;
+  getImpl?: typeof getLabRecord;
+  putImpl?: typeof putLabRecord;
+  fetchImpl?: typeof fetch;
+}): Promise<{ resealed: number } | { refused: true; reason: string }> {
+  if (!CLASS_MODE_ENABLED) {
+    return { refused: true, reason: "class mode is disabled (NEXT_PUBLIC_CLASS_MODE off)" };
+  }
+  const doList = params.listImpl ?? listLabRecords;
+  const doGet = params.getImpl ?? getLabRecord;
+  const put = params.putImpl ?? putLabRecord;
+
+  const keys = await doList({
+    labId: params.labId,
+    prefix: params.student.username + "/",
+    signerEd25519Priv: params.signerEd25519Priv,
+    signerEd25519Pub: params.signerEd25519Pub,
+    fetchImpl: params.fetchImpl,
+  });
+
+  let resealed = 0;
+  for (const key of [...keys].sort()) {
+    const parts = key.split("/");
+    if (parts.length !== 4) continue;
+    const [, owner, recordType, recordId] = parts;
+    // Only the student's OWN private records carry a subkey we can re-seal.
+    if (owner !== params.student.username) continue;
+
+    let teamPlaintext: Uint8Array;
+    try {
+      teamPlaintext = await doGet({
+        labId: params.labId,
+        owner,
+        recordType,
+        recordId,
+        labKey: params.oldTeamKey,
+        fetchImpl: params.fetchImpl,
+      });
+    } catch {
+      continue; // unreadable under this generation: skip, keep going
+    }
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(new TextDecoder().decode(teamPlaintext));
+    } catch {
+      continue;
+    }
+    if (!isSubkeyedPrivateRecord(parsed)) continue;
+    const envelope = parsed.subkey!;
+    if (envelope.owner !== params.student.username) continue; // defensive
+
+    let nextEnvelope: SubkeyEnvelope;
+    try {
+      nextEnvelope = reSealEnvelopeForStudent(
+        envelope,
+        { username: params.head.username, x25519PrivateKey: params.head.x25519PrivateKey },
+        {
+          username: params.student.username,
+          x25519PublicKey: params.student.newX25519PublicKey,
+        },
+      );
+    } catch {
+      // The head could not open this envelope (should not happen): skip it rather
+      // than abort the whole pass, so the other notebooks still recover.
+      continue;
+    }
+
+    // Re-PUT: the inner blob is unchanged (still sealed under the same subkey), only
+    // the envelope's student copy was re-sealed. Wrap under the NEW team key.
+    const nextRecord: SubkeyedRecord = { blob: parsed.blob, subkey: nextEnvelope };
+    await put({
+      labId: params.labId,
+      owner,
+      recordType,
+      recordId,
+      plaintext: new TextEncoder().encode(JSON.stringify(nextRecord)),
+      labKey: params.newTeamKey,
+      signerEd25519Priv: params.signerEd25519Priv,
+      signerEd25519Pub: params.signerEd25519Pub,
+      fetchImpl: params.fetchImpl,
+    });
+    resealed += 1;
+  }
+
+  return { resealed };
 }
