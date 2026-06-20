@@ -78,7 +78,7 @@ export default function LabStep({ defaultPiDisplay = "", onSubmit }: LabStepProp
         Give your lab an identity. Members see this when they join. You can invite
         people and change any of this later from the lab settings.
       </p>
-      <p className="mb-6 w-full rounded-xl border border-green-200 bg-green-50 px-3.5 py-2.5 text-left text-xs font-medium text-green-800">
+      <p className="mb-6 w-full rounded-xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/15 px-3.5 py-2.5 text-left text-xs font-medium text-green-800 dark:text-green-300">
         Your lab starts with a 90-day free trial, no card or payment required
         upfront, so you can bring your whole team on and feel the value before any
         money is involved.

@@ -780,7 +780,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           {showLocal && (
           <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
             <BeakerBotScene name="solo" className="w-20 h-20 mb-2 flex-none" />
-            <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
+            <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 self-start">
               Free
             </span>
             <h3 className="font-extrabold text-lg text-foreground mb-1">Just me, local</h3>
@@ -809,7 +809,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           {showFree && (
             <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="computer" className="w-20 h-20 mb-2 flex-none" />
-              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-700 self-start">
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 dark:bg-green-500/15 text-green-700 dark:text-green-300 self-start">
                 Free
               </span>
               <h3 className="font-extrabold text-lg text-foreground mb-1">Free account</h3>
@@ -844,7 +844,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
           {showCreateLab && (
             <div className="flex flex-col text-left border border-border rounded-2xl p-5 bg-surface-raised cursor-pointer transition-transform hover:-translate-y-0.5 hover:border-[#1283c9] hover:shadow-lg min-h-[230px]">
               <BeakerBotScene name="lab" className="w-20 h-20 mb-2 flex-none" />
-              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 text-green-800 self-start">
+              <span className="inline-block text-[11px] font-bold px-2.5 py-0.5 rounded-full mb-1.5 bg-green-100 dark:bg-green-500/15 text-green-800 dark:text-green-300 self-start">
                 90-day free trial
               </span>
               <h3 className="font-extrabold text-lg text-foreground mb-1">Start a lab</h3>
@@ -880,7 +880,7 @@ export function AccountTierChooser({ onLocal, onChoose, onOrgAdmin }: AccountTie
             invited visitor always has a join door even if the tier flag is off. */}
         {showJoinEntry && (
           <div className="w-full max-w-3xl mt-5">
-            <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-center sm:flex-row sm:text-left">
+            <div className="flex flex-col items-center justify-between gap-3 rounded-2xl border border-green-200 dark:border-green-500/30 bg-green-50 dark:bg-green-500/15 px-5 py-4 text-center sm:flex-row sm:text-left">
               <div>
                 <div className="text-sm font-bold text-foreground">
                   Joining a lab your PI runs?
