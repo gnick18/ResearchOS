@@ -1,6 +1,6 @@
 // RTL coverage for OrgNameStep: required-name validation, create success, error
-// surfacing, and the dept-only affiliation field. Uses the createOrg seam so no
-// network is touched.
+// surfacing, and that the removed affiliation field is absent. Uses the createOrg
+// seam so no network is touched.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -68,7 +68,10 @@ describe("OrgNameStep", () => {
     expect(onCreated).not.toHaveBeenCalled();
   });
 
-  it("shows the affiliation field only for departments", () => {
+  it("does not ask for the affiliation here (the parent-link step owns it)", () => {
+    // The free-text affiliation field was removed as redundant with the
+    // OrgParentLinkStep and was never persisted. The name step asks for the org
+    // name only, for either kind.
     const { rerender } = render(
       <OrgNameStep
         kind="department"
@@ -77,8 +80,8 @@ describe("OrgNameStep", () => {
       />,
     );
     expect(
-      screen.getByLabelText("Institution affiliation (optional)"),
-    ).toBeInTheDocument();
+      screen.queryByLabelText("Institution affiliation (optional)"),
+    ).not.toBeInTheDocument();
     rerender(
       <OrgNameStep
         kind="institution"

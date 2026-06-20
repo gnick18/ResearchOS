@@ -1,15 +1,15 @@
 "use client";
 
-// Wizard step: name and describe the org (department or institution). Required
-// (the name is needed to create the org). On Continue it creates the org via the
-// existing folderless create helper (server derives the admin owner key from the
-// session) and hands the new id back to the host so later steps (invites,
-// billing) can act on it.
+// Wizard step: name the org (department or institution). Required (the name is
+// needed to create the org). On Continue it creates the org via the existing
+// folderless create helper (server derives the admin owner key from the session)
+// and hands the new id back to the host so later steps (invites, billing) can act
+// on it.
 //
-// The spec's step 2 mentions a description / institution-affiliation field. The
-// create API persists name only today, so an optional affiliation line is
-// captured for display continuity but is NOT yet sent to the server (no API
-// field). See the handoff note. It is clearly optional so nothing dead-ends.
+// Asks for the org name only. The parent institution is captured by the next
+// step (OrgParentLinkStep, department track), so this step does not also ask for
+// it. A free-text affiliation field used to live here, but it was redundant with
+// that step and not persisted, so it was removed (no redundant or dead asks).
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -51,7 +51,6 @@ async function defaultCreate(
 
 export default function OrgNameStep({ kind, onCreated, createOrg }: OrgNameStepProps) {
   const [name, setName] = useState("");
-  const [affiliation, setAffiliation] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -120,27 +119,6 @@ export default function OrgNameStep({ kind, onCreated, createOrg }: OrgNameStepP
             className="w-full rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9]"
           />
         </div>
-        {kind === "department" && (
-          <div>
-            <label
-              htmlFor="wizard-org-affiliation"
-              className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground-muted"
-            >
-              Institution affiliation (optional)
-            </label>
-            <input
-              id="wizard-org-affiliation"
-              type="text"
-              value={affiliation}
-              onChange={(e) => setAffiliation(e.target.value)}
-              placeholder="Your parent institution"
-              className="w-full rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9]"
-            />
-            <p className="mt-1.5 text-xs text-foreground-muted">
-              You can formally link a parent institution on the next step.
-            </p>
-          </div>
-        )}
       </div>
 
       {error && (
