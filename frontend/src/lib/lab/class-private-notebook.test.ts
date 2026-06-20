@@ -32,6 +32,7 @@ import {
   resolvePulledClassRecord,
   recoverExistingSubkey,
   isSubkeyedPrivateRecord,
+  isPrivateClassNotebookRecord,
 } from "./class-private-notebook";
 
 interface Actor {
@@ -284,6 +285,79 @@ describe("Stage C: backward compat + flag off", () => {
     // The team wrapper has a blob but NO subkey envelope, so the guard is false and
     // the resolver passes the wrapper-JSON bytes through unchanged.
     expect(isSubkeyedPrivateRecord(wrapper)).toBe(false);
+  });
+});
+
+describe("Stage 2 partition predicate: isPrivateClassNotebookRecord", () => {
+  const bytes = (o: unknown) => utf8ToBytes(JSON.stringify(o));
+
+  it("a task with a non-empty assignment_id and NO whole-lab share is private", () => {
+    expect(
+      isPrivateClassNotebookRecord("task", bytes({ id: 7, assignment_id: "asg-1" })),
+    ).toBe(true);
+    // shared_with present but empty (private seed []) is still private.
+    expect(
+      isPrivateClassNotebookRecord(
+        "task",
+        bytes({ id: 7, assignment_id: "asg-1", shared_with: [] }),
+      ),
+    ).toBe(true);
+  });
+
+  it("a COLLABORATIVE class task (shared_with carries the '*' sentinel) is NOT private", () => {
+    // The collaborative seed is ["*"], in every supported entry shape.
+    expect(
+      isPrivateClassNotebookRecord(
+        "task",
+        bytes({ id: 7, assignment_id: "asg-1", shared_with: ["*"] }),
+      ),
+    ).toBe(false);
+    expect(
+      isPrivateClassNotebookRecord(
+        "task",
+        bytes({ id: 7, assignment_id: "asg-1", shared_with: [{ username: "*" }] }),
+      ),
+    ).toBe(false);
+    expect(
+      isPrivateClassNotebookRecord(
+        "task",
+        bytes({ id: 7, assignment_id: "asg-1", shared_with: [{ user: "*" }] }),
+      ),
+    ).toBe(false);
+  });
+
+  it("a non-task type, or a task without an assignment_id, is NOT private", () => {
+    // A note (or any non-task) is never a notebook, even with an assignment_id.
+    expect(
+      isPrivateClassNotebookRecord("note", bytes({ id: 1, assignment_id: "asg-1" })),
+    ).toBe(false);
+    // A plain task with no assignment back-link rides the team key as today.
+    expect(isPrivateClassNotebookRecord("task", bytes({ id: 2, name: "PCR" }))).toBe(
+      false,
+    );
+    // An empty-string assignment_id does not count.
+    expect(
+      isPrivateClassNotebookRecord("task", bytes({ id: 3, assignment_id: "" })),
+    ).toBe(false);
+  });
+
+  it("non-JSON or non-object bytes never throw and are NOT private", () => {
+    expect(isPrivateClassNotebookRecord("task", utf8ToBytes("not json"))).toBe(false);
+    expect(isPrivateClassNotebookRecord("task", utf8ToBytes("123"))).toBe(false);
+    expect(isPrivateClassNotebookRecord("task", utf8ToBytes("null"))).toBe(false);
+  });
+
+  it("flag OFF: the predicate ALWAYS returns false (team-key path, byte-identical)", async () => {
+    vi.resetModules();
+    vi.doMock("./class-mode-config", () => ({ CLASS_MODE_ENABLED: false }));
+    const { isPrivateClassNotebookRecord: predOff } = await import(
+      "./class-private-notebook"
+    );
+    expect(
+      predOff("task", utf8ToBytes(JSON.stringify({ id: 7, assignment_id: "asg-1" }))),
+    ).toBe(false);
+    vi.doUnmock("./class-mode-config");
+    vi.resetModules();
   });
 });
 

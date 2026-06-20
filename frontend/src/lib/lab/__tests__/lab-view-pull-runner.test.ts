@@ -162,6 +162,67 @@ describe("runLabViewPullForSession — happy path + crypto", () => {
   });
 });
 
+describe("runLabViewPullForSession — Stage 1 viewer x25519 threading", () => {
+  const X25519_PRIV = new Uint8Array(32).fill(9);
+
+  it("reads the viewer x25519 priv from the session identity and threads it into the pull", async () => {
+    const getRemoteImpl = vi.fn(async () => remoteWith(["morgan", "alex"]));
+    const pullImpl = vi.fn(async () => [] as LabViewRecord[]);
+    const materializeImpl = vi.fn(async () => ({
+      written: [],
+      skippedOwn: 0,
+      skippedUnknownType: [],
+    }));
+    // The injected identity stands in for getSessionIdentity(); per decision 1 the
+    // runner reads keys.encryption.privateKey at call time (no new long-lived ref).
+    const getIdentityImpl = vi.fn(
+      () =>
+        ({
+          keys: {
+            encryption: { privateKey: X25519_PRIV, publicKey: new Uint8Array(32) },
+            signing: { privateKey: new Uint8Array(32), publicKey: new Uint8Array(32) },
+          },
+          deviceSalt: new Uint8Array(0),
+        }) as never,
+    );
+
+    await runLabViewPullForSession(makeLiveSession(), {
+      getRemoteImpl: getRemoteImpl as never,
+      pullImpl: pullImpl as never,
+      materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: noopRoster,
+      getIdentityImpl: getIdentityImpl as never,
+    });
+
+    const arg = (pullImpl as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.viewerX25519Priv).toBe(X25519_PRIV);
+  });
+
+  it("threads undefined when the identity is locked (no key), so a subkeyed record skips cleanly", async () => {
+    const getRemoteImpl = vi.fn(async () => remoteWith(["morgan", "alex"]));
+    const pullImpl = vi.fn(async () => [] as LabViewRecord[]);
+    const materializeImpl = vi.fn(async () => ({
+      written: [],
+      skippedOwn: 0,
+      skippedUnknownType: [],
+    }));
+    const getIdentityImpl = vi.fn(() => null) as never;
+
+    await runLabViewPullForSession(makeLiveSession(), {
+      getRemoteImpl: getRemoteImpl as never,
+      pullImpl: pullImpl as never,
+      materializeImpl,
+      verifyImpl: okVerify,
+      materializeRosterImpl: noopRoster,
+      getIdentityImpl,
+    });
+
+    const arg = (pullImpl as ReturnType<typeof vi.fn>).mock.calls[0][0];
+    expect(arg.viewerX25519Priv).toBeUndefined();
+  });
+});
+
 describe("runLabViewPullForSession — residency union", () => {
   it("materializes the shared-with-me half while own records stay local", async () => {
     const getRemoteImpl = vi.fn(async () => remoteWith(["morgan", "alex"]));
