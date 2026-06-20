@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Recovery Kit polish, before and after</title>
+<style>
+  :root {
+    --surface: #f8fafc; --surface-raised: #ffffff; --surface-overlay: #ffffff;
+    --surface-sunken: #f1f5f9; --foreground: #171717; --foreground-muted: #6b7080;
+    --border-subtle: #e5e7eb; --brand-action: #1283c9; --brand-purple: #5b47d6;
+    --brand-sky: #1aa0e6; --danger: #b42318;
+  }
+  html[data-theme="dark"] {
+    --surface: #0a0e1a; --surface-raised: #1c2638; --surface-overlay: #28344c;
+    --surface-sunken: #0d1424; --foreground: #f1f5f9; --foreground-muted: #b4bfd0;
+    --border-subtle: rgba(255,255,255,0.16); --danger: #f5a3a0;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--surface); color: var(--foreground);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 28px 20px 80px;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; }
+  header.top { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 6px; flex-wrap: wrap; }
+  h1 { font-size: 20px; font-weight: 800; margin: 0; }
+  .sub { color: var(--foreground-muted); margin: 4px 0 22px; font-size: 14px; }
+  .controls { display: flex; gap: 8px; align-items: center; }
+  button.ghost {
+    background: var(--surface-raised); color: var(--foreground);
+    border: 1px solid var(--border-subtle); border-radius: 8px; padding: 7px 12px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  @media (max-width: 880px) { .cols { grid-template-columns: 1fr; } }
+  .colhead { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--foreground-muted); margin: 0 0 10px 2px; }
+  .colhead.bad { color: var(--danger); }
+  .colhead.good { color: var(--brand-action); }
+
+  /* the modal card, faithful to LivingPopup tokens */
+  .modal {
+    background: var(--surface-overlay); border: 1px solid var(--border-subtle);
+    border-radius: 16px; padding: 22px; box-shadow: 0 14px 40px rgba(0,0,0,.16);
+  }
+  .modal h2 { font-size: 17px; font-weight: 700; margin: 0; }
+  .modal .for { color: var(--foreground-muted); font-size: 13px; margin: 2px 0 16px; }
+  .lbl { font-size: 12px; font-weight: 600; color: var(--foreground-muted); margin-bottom: 4px; display: block; }
+  .field { width: 100%; padding: 9px 11px; border-radius: 9px; background: var(--surface-sunken); border: 1px solid var(--border-subtle); color: var(--foreground); font-size: 14px; }
+  .hint { font-size: 12px; color: var(--foreground-muted); margin-top: 5px; line-height: 1.45; }
+  .row-key { display: flex; align-items: center; gap: 7px; color: var(--brand-action); margin: 18px 0 8px; }
+  .row-key svg { width: 18px; height: 18px; }
+  .row-key span { color: var(--foreground); font-weight: 600; font-size: 15px; }
+  .codebox { padding: 11px; background: var(--surface-sunken); border: 1px solid var(--border-subtle); border-radius: 9px; text-align: center; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .04em; word-break: break-all; font-size: 14px; }
+  .alarm { color: var(--danger); }
+  .links { display: flex; gap: 18px; flex-wrap: wrap; margin: 12px 0; }
+  .link { display: inline-flex; align-items: center; gap: 6px; color: var(--brand-action); font-size: 13px; font-weight: 600; background: none; border: 0; cursor: pointer; }
+  .link svg { width: 14px; height: 14px; }
+  .checkrow { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0; font-size: 14px; color: var(--foreground-muted); }
+  .primary {
+    width: 100%; padding: 11px; border-radius: 10px; border: 0; cursor: pointer;
+    font-weight: 600; font-size: 15px; color: #fff;
+    background: linear-gradient(90deg, var(--brand-action), var(--brand-purple));
+  }
+  .primary:disabled { opacity: .5; cursor: not-allowed; }
+  .primary.block { background: var(--brand-action); }
+
+  /* AFTER specifics */
+  .hero {
+    display: flex; gap: 12px; align-items: flex-start; padding: 14px;
+    border: 1px solid var(--border-subtle); border-radius: 12px; background: var(--surface-sunken); margin-bottom: 14px;
+  }
+  .hero .ic { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: color-mix(in srgb, var(--brand-action) 16%, transparent); color: var(--brand-action); }
+  .hero .ic svg { width: 19px; height: 19px; }
+  .hero h3 { margin: 0 0 3px; font-size: 15px; font-weight: 700; }
+  .hero p { margin: 0; font-size: 13px; color: var(--foreground-muted); line-height: 1.5; }
+  .dlbtn { width: 100%; padding: 11px; border-radius: 10px; border: 0; cursor: pointer; font-weight: 700; font-size: 15px; color: #fff; background: linear-gradient(90deg, var(--brand-action), var(--brand-purple)); display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .dlbtn svg { width: 17px; height: 17px; }
+  .saved { display: none; align-items: center; gap: 7px; color: var(--brand-action); font-size: 13px; font-weight: 600; margin-top: 10px; }
+  .saved.show { display: flex; }
+  .reassure { font-size: 12.5px; color: var(--foreground-muted); margin: 12px 0; line-height: 1.5; }
+  details.adv { margin: 6px 0 4px; border-top: 1px solid var(--border-subtle); padding-top: 12px; }
+  details.adv summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--foreground-muted); list-style: none; display: flex; align-items: center; gap: 6px; }
+  details.adv summary::-webkit-details-marker { display: none; }
+  details.adv summary .chev { transition: transform .15s; }
+  details.adv[open] summary .chev { transform: rotate(90deg); }
+  details.adv .body { margin-top: 11px; }
+  .calmnote { font-size: 12px; color: var(--foreground-muted); margin-top: 9px; line-height: 1.5; }
+
+  /* decisions panel */
+  .decisions { margin-top: 30px; background: var(--surface-raised); border: 1px solid var(--border-subtle); border-radius: 14px; padding: 18px 20px; }
+  .decisions h2 { font-size: 15px; margin: 0 0 4px; }
+  .decisions .d-sub { color: var(--foreground-muted); font-size: 13px; margin: 0 0 16px; }
+  .ditem { padding: 13px 0; border-top: 1px solid var(--border-subtle); }
+  .ditem:first-of-type { border-top: 0; }
+  .ditem .t { font-weight: 600; font-size: 14px; margin: 0 0 3px; }
+  .ditem .d { color: var(--foreground-muted); font-size: 13px; margin: 0 0 9px; line-height: 1.5; }
+  .verdicts { display: flex; gap: 7px; flex-wrap: wrap; align-items: center; }
+  .vbtn { border: 1px solid var(--border-subtle); background: var(--surface-sunken); color: var(--foreground); border-radius: 7px; padding: 5px 11px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+  .vbtn.ok.on { background: #15803d; color: #fff; border-color: #15803d; }
+  .vbtn.no.on { background: #b42318; color: #fff; border-color: #b42318; }
+  .vbtn.tweak.on { background: #b45309; color: #fff; border-color: #b45309; }
+  .note { width: 100%; margin-top: 9px; border: 1px solid var(--border-subtle); border-radius: 8px; background: var(--surface-sunken); color: var(--foreground); padding: 8px 10px; font-size: 13px; font-family: inherit; resize: vertical; min-height: 38px; }
+  .exportbar { display: flex; gap: 10px; margin-top: 16px; }
+  .exportbar button { background: linear-gradient(90deg, var(--brand-action), var(--brand-purple)); color: #fff; border: 0; border-radius: 9px; padding: 9px 16px; font-weight: 700; font-size: 13px; cursor: pointer; }
+  .flag { display: inline-block; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: #b45309; border: 1px solid #b4530955; background: #b4530912; border-radius: 5px; padding: 1px 6px; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Recovery Kit, before and after</h1>
+      <p class="sub">The "Set up sharing" key step. Goal, kill the alarm, make saving feel automatic, keep the honest backup. Mark each change below and Export.</p>
+    </div>
+    <div class="controls">
+      <button class="ghost" id="themeBtn">Dark mode</button>
+    </div>
+  </header>
+
+  <div class="cols">
+    <!-- BEFORE -->
+    <div>
+      <p class="colhead bad">Before, current</p>
+      <div class="modal">
+        <h2>Set up sharing</h2>
+        <p class="for">for Dr Asp test</p>
+        <label class="lbl">Name on your researcher profile</label>
+        <input class="field" value="Aspergillus fumigatus" readonly />
+        <p class="hint">Other ResearchOS users can find you by this name. You can change it anytime in Settings.</p>
+
+        <div class="row-key">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="8" cy="15" r="4"/><path d="M10.85 12.15 19 4M18 5l2 2M15 8l2 2"/></svg>
+          <span>Your recovery code</span>
+        </div>
+        <p class="hint alarm">Save this code somewhere safe. It is your backstop if you lose your passkey and this device, and the only way to restore your identity. If you lose it, it cannot be recovered.</p>
+        <div class="codebox">ZZHF-BRQN-B92V-6Q2S-ZXD3-Y1EG-NR</div>
+        <div class="links">
+          <button class="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy code</button>
+          <button class="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>Download Recovery Kit</button>
+        </div>
+        <p class="hint">The Recovery Kit is your encrypted key backup in a single file, safe to keep because it is useless without your recovery code.</p>
+        <label class="checkrow"><input type="checkbox" /> I have saved my recovery code somewhere safe.</label>
+        <button class="primary block" disabled>Publish my keys</button>
+      </div>
+    </div>
+
+    <!-- AFTER -->
+    <div>
+      <p class="colhead good">After, polished</p>
+      <div class="modal">
+        <h2>Set up sharing</h2>
+        <p class="for">for Dr Asp test</p>
+        <label class="lbl">Name on your researcher profile</label>
+        <input class="field" value="Aspergillus fumigatus" readonly />
+        <p class="hint">Other ResearchOS users can find you by this name. You can change it anytime in Settings.</p>
+
+        <div class="hero" style="margin-top:18px">
+          <div class="ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3 4 6v5c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6l-8-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+          </div>
+          <div>
+            <h3>Your account is ready</h3>
+            <p>We prepared an encrypted backup of your keys so you can sign in on another computer later. Save it somewhere you will find it again, like your password manager or a cloud drive.</p>
+          </div>
+        </div>
+
+        <button class="dlbtn" id="dlBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0 4-4m-4 4-4-4M5 21h14"/></svg>
+          Download Recovery Kit
+        </button>
+        <div class="saved" id="savedMsg">
+          <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m5 13 4 4L19 7"/></svg>
+          Saved. Keep this file somewhere safe.
+        </div>
+
+        <p class="reassure">You will not need this day to day. ResearchOS unlocks automatically on this computer. The kit is only for setting up a new device, or getting back in if you ever lose this one.</p>
+
+        <details class="adv">
+          <summary><span class="chev">›</span> Advanced, show the recovery code</summary>
+          <div class="body">
+            <div class="codebox">ZZHF-BRQN-B92V-6Q2S-ZXD3-Y1EG-NR</div>
+            <div class="links">
+              <button class="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>Copy code</button>
+            </div>
+            <p class="calmnote">This code unlocks your Recovery Kit. If you keep the kit in your password manager you are already covered. It is the only way back in if you lose every device, so do not throw it away.</p>
+          </div>
+        </details>
+
+        <button class="primary" id="pubBtn" style="margin-top:12px" disabled>Publish my keys</button>
+        <p class="calmnote" id="gateHint" style="text-align:center">Download the kit to continue</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- DECISIONS -->
+  <div class="decisions">
+    <h2>Mark each change</h2>
+    <p class="d-sub">Approve, Needs work, or Tweak each item, add a note, then Export. Light by default, toggle dark to check both.</p>
+    <div id="ditems"></div>
+    <div class="exportbar">
+      <button id="exportBtn">Copy decisions to clipboard</button>
+      <span id="exportMsg" style="font-size:13px;color:var(--foreground-muted);align-self:center"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+  const items = [
+    { id: "copy", t: "Calm, reassuring copy instead of the alarm",
+      d: "Lead with “Your account is ready” and what the kit is for, drop the red “it cannot be recovered” line. The honest “only way back if you lose every device” note moves into the Advanced section, in calm words." },
+    { id: "hero", t: "Recovery Kit becomes the hero, one obvious action",
+      d: "A single prominent “Download Recovery Kit” button replaces two equal-weight text links. Saving feels like one tap, not a chore." },
+    { id: "gate", t: "Downloading the kit replaces the “I saved my code” checkbox",
+      d: "Publish enables once the kit is downloaded (a real save action), instead of a self-attested checkbox. No hard soft-lock, the download button is right there." },
+    { id: "adv", t: "Raw recovery code tucked under “Advanced”",
+      d: "The scary 25-character string is no longer front and center. Power users can still reveal and copy it." },
+    { id: "onefile", t: "DECISION, put the code INSIDE the kit so one file covers everything",
+      flag: true,
+      d: "Today the kit deliberately excludes the code, so the user still needs to save the code separately (that is why Advanced still matters). The 1Password Emergency Kit model puts the code in the file, so one download is truly all they need. Tradeoff, the kit file becomes sensitive (keep it private, like a password manager) instead of “safe anywhere”. Approve this and the Advanced section can disappear entirely." },
+    { id: "both", t: "Apply the same polish to the create-account step",
+      d: "CreateLocalIdentityStep.tsx shows the same recovery code with the same alarm. The change should land in both surfaces so the experience is consistent." },
+  ];
+
+  const KEY = "recovery-kit-polish-decisions-v1";
+  const store = JSON.parse(localStorage.getItem(KEY) || "{}");
+  const save = () => localStorage.setItem(KEY, JSON.stringify(store));
+
+  const host = document.getElementById("ditems");
+  items.forEach((it) => {
+    const wrap = document.createElement("div");
+    wrap.className = "ditem";
+    wrap.innerHTML = `
+      <p class="t">${it.t}${it.flag ? '<span class="flag">your call</span>' : ''}</p>
+      <p class="d">${it.d}</p>
+      <div class="verdicts">
+        <button class="vbtn ok" data-v="ok">Approve</button>
+        <button class="vbtn tweak" data-v="tweak">Tweak</button>
+        <button class="vbtn no" data-v="no">Needs work</button>
+      </div>
+      <textarea class="note" placeholder="Note (optional)"></textarea>`;
+    const st = store[it.id] || {};
+    const note = wrap.querySelector(".note");
+    note.value = st.note || "";
+    wrap.querySelectorAll(".vbtn").forEach((b) => {
+      if (st.v === b.dataset.v) b.classList.add("on");
+      b.onclick = () => {
+        wrap.querySelectorAll(".vbtn").forEach((x) => x.classList.remove("on"));
+        b.classList.add("on");
+        store[it.id] = { ...(store[it.id] || {}), v: b.dataset.v, note: note.value, t: it.t };
+        save();
+      };
+    });
+    note.oninput = () => { store[it.id] = { ...(store[it.id] || {}), note: note.value, t: it.t }; save(); };
+    host.appendChild(wrap);
+  });
+
+  // theme
+  const tb = document.getElementById("themeBtn");
+  tb.onclick = () => {
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    document.documentElement.setAttribute("data-theme", dark ? "light" : "dark");
+    tb.textContent = dark ? "Dark mode" : "Light mode";
+  };
+
+  // AFTER interactivity
+  const dl = document.getElementById("dlBtn");
+  const savedMsg = document.getElementById("savedMsg");
+  const pub = document.getElementById("pubBtn");
+  const gateHint = document.getElementById("gateHint");
+  dl.onclick = () => {
+    savedMsg.classList.add("show");
+    pub.disabled = false;
+    gateHint.style.display = "none";
+  };
+
+  // export
+  document.getElementById("exportBtn").onclick = async () => {
+    let out = "Recovery Kit polish, decisions\n\n";
+    items.forEach((it) => {
+      const st = store[it.id] || {};
+      const v = st.v === "ok" ? "APPROVE" : st.v === "no" ? "NEEDS WORK" : st.v === "tweak" ? "TWEAK" : "(no verdict)";
+      out += `- [${v}] ${it.t}\n`;
+      if (st.note) out += `    note: ${st.note}\n`;
+    });
+    try { await navigator.clipboard.writeText(out); document.getElementById("exportMsg").textContent = "Copied. Paste it back into chat."; }
+    catch { document.getElementById("exportMsg").textContent = "Copy failed, select the page and copy manually."; }
+  };
+</script>
+</body>
+</html>
