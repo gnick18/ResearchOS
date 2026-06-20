@@ -14,6 +14,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import AppShell from "@/components/AppShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import Tooltip from "@/components/Tooltip";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -321,7 +322,7 @@ export default function TrashPage() {
     <AppShell>
       <RestoreParentPromptHost />
       <div className="flex-1 overflow-y-auto">
-        <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
+        <PageContainer width="wide" className="py-8 space-y-6">
         <header className="space-y-2">
           <h1 className="text-heading font-semibold text-foreground">Trash</h1>
           <p className="text-body text-foreground-muted">
@@ -447,7 +448,7 @@ export default function TrashPage() {
             })}
           </div>
         )}
-        </div>
+        </PageContainer>
       </div>
       {confirmBulkDelete && (
         <BulkDeleteConfirm
