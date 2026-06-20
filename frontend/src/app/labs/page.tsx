@@ -167,10 +167,16 @@ export default function LabsPage() {
               in once to set it up, then your lab stays in sync as you work.
             </p>
 
-            <p className="mt-3 max-w-[60ch] text-body font-semibold leading-relaxed text-brand-ink sm:text-title">
-              Start with a 90-day free trial, no card or payment required upfront.
-              We give the full term, not a token week, because a lab adopts over a
-              semester, so you can bring your whole team on and feel the value
+            <span className="mt-4 inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-50 px-3.5 py-1.5 text-meta font-semibold text-green-800">
+              <span aria-hidden className="text-green-700">
+                <Icon name="check" className="h-3.5 w-3.5" />
+              </span>
+              90-day free trial, no card required
+            </span>
+
+            <p className="mt-3 max-w-[60ch] text-body leading-relaxed text-[#475569] sm:text-title">
+              We give the full term, not a token week, because a lab adopts over
+              a semester, so you can bring your whole team on and feel the value
               before any money is involved.
             </p>
 
