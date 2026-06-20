@@ -25,6 +25,7 @@ interface LedgerRow {
   task_id: string | null;
   prompt_tokens: number | null;
   completion_tokens: number | null;
+  cached_tokens?: number | null;
   usd_micros: number | null;
   stripe_event_id: string | null;
   created_at: number;
@@ -48,8 +49,8 @@ function makeMockSql() {
   const sql = ((strings: TemplateStringsArray, ...values: unknown[]) => {
     const text = strings.join(" ");
 
-    // Schema DDL (CREATE TABLE / CREATE INDEX), no-op.
-    if (/CREATE TABLE|CREATE UNIQUE INDEX/i.test(text)) {
+    // Schema DDL (CREATE TABLE / CREATE INDEX / additive ALTER), no-op.
+    if (/CREATE TABLE|CREATE UNIQUE INDEX|ALTER TABLE/i.test(text)) {
       return Promise.resolve([]);
     }
 
@@ -81,13 +82,15 @@ function makeMockSql() {
     // recordUsage: the deduct CTE (UPDATE ai_balances ... INSERT ... 'usage').
     if (/UPDATE ai_balances/i.test(text) && /INSERT INTO ai_ledger/i.test(text)) {
       // Template value order: total (UPDATE), owner_key (WHERE), owner_key
-      // (INSERT SELECT), -total (tokens_delta), taskId, prompt, completion, usd.
+      // (INSERT SELECT), -total (tokens_delta), taskId, prompt, completion,
+      // cached, usd.
       const total = values[0] as number;
       const ownerKey = values[1] as string;
       const taskId = values[4] as string;
       const prompt = values[5] as number;
       const completion = values[6] as number;
-      const usd = values[7] as number;
+      const cached = values[7] as number;
+      const usd = values[8] as number;
       const row = balances.get(ownerKey);
       if (!row) return Promise.resolve([]);
       row.tokens_remaining -= total;
@@ -99,6 +102,7 @@ function makeMockSql() {
         task_id: taskId,
         prompt_tokens: prompt,
         completion_tokens: completion,
+        cached_tokens: cached,
         usd_micros: usd,
         stripe_event_id: null,
         created_at: clock++,
@@ -297,6 +301,36 @@ describe("ai-ledger recordUsage", () => {
       completionTokens: 5_000,
     }, sql);
     expect(remaining).toBeLessThan(0);
+  });
+
+  it("records cached_tokens for cost accounting without changing the deduction", async () => {
+    const { sql, ledger } = makeMockSql();
+    await getOrGrantBalance("owner-a", sql);
+    const remaining = await recordUsage("owner-a", {
+      taskId: "cached-turn",
+      promptTokens: 1_000,
+      completionTokens: 200,
+      cachedTokens: 800,
+    }, sql);
+    // The deduction is still total tokens (prompt + completion), cache changes our
+    // cost not the charge.
+    expect(remaining).toBe(STARTER_GRANT_TOKENS - 1_200);
+    const usage = ledger.filter((r) => r.kind === "usage");
+    expect(usage[0].cached_tokens).toBe(800);
+    expect(usage[0].prompt_tokens).toBe(1_000);
+  });
+
+  it("clamps cached_tokens to prompt_tokens (cached is a subset of input)", async () => {
+    const { sql, ledger } = makeMockSql();
+    await getOrGrantBalance("owner-a", sql);
+    await recordUsage("owner-a", {
+      taskId: "over",
+      promptTokens: 500,
+      completionTokens: 0,
+      cachedTokens: 9_999,
+    }, sql);
+    const usage = ledger.filter((r) => r.kind === "usage");
+    expect(usage[0].cached_tokens).toBe(500);
   });
 });
 

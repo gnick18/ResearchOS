@@ -11,8 +11,12 @@
 import { readFileSync } from "node:fs";
 import { neon } from "@neondatabase/serverless";
 
-const IN_RATE = 0.15 / 1_000_000; // $/token input
+const IN_RATE = 0.15 / 1_000_000; // $/token input (uncached)
 const OUT_RATE = 0.6 / 1_000_000; // $/token output
+// Fireworks prompt caching is on by default and serves a repeated prefix at a
+// large discount (~80% off input). cached_tokens is a SUBSET of prompt_tokens, so
+// real input cost = (prompt - cached) * IN_RATE + cached * CACHED_IN_RATE.
+const CACHED_IN_RATE = IN_RATE * 0.2; // ~80% discount on cache-served input
 const INDIVIDUAL_MARKUP = 1.4;
 const ORG_MARKUP = 2.0;
 
@@ -32,10 +36,11 @@ const sql = neon(loadDatabaseUrl());
 
 const rows = await sql`
   SELECT task_id,
-         SUM(prompt_tokens)     AS in_tok,
-         SUM(completion_tokens) AS out_tok,
-         COUNT(*)               AS turns,
-         MAX(created_at)        AS last_at
+         SUM(prompt_tokens)             AS in_tok,
+         SUM(completion_tokens)         AS out_tok,
+         SUM(COALESCE(cached_tokens,0)) AS cached_tok,
+         COUNT(*)                       AS turns,
+         MAX(created_at)                AS last_at
   FROM ai_ledger
   WHERE kind = 'usage'
     AND created_at > now() - (${hours} || ' hours')::interval
@@ -50,28 +55,38 @@ if (!rows.length) {
 
 let totalIn = 0;
 let totalOut = 0;
+let totalCached = 0;
 let totalTurns = 0;
 
+// Real cost of one turn, accounting for the prompt-cache discount on cached input.
+const turnCost = (inT, cachedT, outT) =>
+  (inT - cachedT) * IN_RATE + cachedT * CACHED_IN_RATE + outT * OUT_RATE;
+
 console.log(`\n=== Per-task usage (last ${hours}h, newest first) ===`);
-console.log(`  time      task              turns   in        out      total     cost`);
+console.log(`  time      task              turns   in        cached    out      total     cost`);
 for (const r of rows) {
   const inT = Number(r.in_tok || 0);
   const outT = Number(r.out_tok || 0);
+  const cachedT = Math.min(inT, Number(r.cached_tok || 0));
   const tot = inT + outT;
-  const cost = inT * IN_RATE + outT * OUT_RATE;
+  const cost = turnCost(inT, cachedT, outT);
   totalIn += inT;
   totalOut += outT;
+  totalCached += cachedT;
   totalTurns += Number(r.turns || 0);
   const time = r.last_at ? new Date(r.last_at).toTimeString().slice(0, 8) : "--:--:--";
   console.log(
-    `  ${time}  ${String(r.task_id).slice(0, 16).padEnd(16)}  ${String(r.turns).padStart(3)}    ${fmt(inT).padStart(8)}  ${fmt(outT).padStart(7)}  ${fmt(tot).padStart(8)}  $${cost.toFixed(4)}`,
+    `  ${time}  ${String(r.task_id).slice(0, 16).padEnd(16)}  ${String(r.turns).padStart(3)}    ${fmt(inT).padStart(8)}  ${fmt(cachedT).padStart(8)}  ${fmt(outT).padStart(7)}  ${fmt(tot).padStart(8)}  $${cost.toFixed(4)}`,
   );
 }
 
 const totalTokens = totalIn + totalOut;
-const realCost = totalIn * IN_RATE + totalOut * OUT_RATE;
+const realCost = turnCost(totalIn, totalCached, totalOut);
 const blendedRate = realCost / totalTokens; // $/token, the measured bare cost
 const inPct = (100 * totalIn) / totalTokens;
+const cacheHitPct = totalIn > 0 ? (100 * totalCached) / totalIn : 0;
+// What the input would have cost with NO caching, so the savings are explicit.
+const uncachedInputCost = totalIn * IN_RATE + totalOut * OUT_RATE;
 const taskCount = rows.length;
 
 console.log(`\n=== Totals ===`);
@@ -80,6 +95,15 @@ console.log(`  input tokens:  ${fmt(totalIn)}  (${inPct.toFixed(1)}%)`);
 console.log(`  output tokens: ${fmt(totalOut)}  (${(100 - inPct).toFixed(1)}%)`);
 console.log(`  total tokens:  ${fmt(totalTokens)}`);
 console.log(`  our real cost: $${realCost.toFixed(4)}`);
+
+console.log(`\n=== Prompt cache ===`);
+console.log(`  cached input tokens: ${fmt(totalCached)} of ${fmt(totalIn)} input  (${cacheHitPct.toFixed(1)}% hit)`);
+if (totalCached === 0) {
+  console.log(`  NO cache hits seen. Either the prefix is not stable (a per-turn change early in`);
+  console.log(`  the message order is busting it) or these rows predate cached_tokens accounting.`);
+} else {
+  console.log(`  cache saved us ~$${(uncachedInputCost - realCost).toFixed(4)} this window (${(100 * (1 - realCost / uncachedInputCost)).toFixed(1)}% off the no-cache cost)`);
+}
 
 console.log(`\n=== Measured rates ===`);
 console.log(`  MEASURED blended bare cost: ${per1m(blendedRate)}`);

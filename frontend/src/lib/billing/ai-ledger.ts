@@ -64,6 +64,13 @@ export interface UsageInput {
   taskId: string;
   promptTokens: number;
   completionTokens: number;
+  /**
+   * How many of promptTokens were served from the provider's prompt cache. Cost
+   * accounting only (Fireworks re-reads a stable prefix ~10x cheaper); it does NOT
+   * change tokens_delta or what the user is charged, which stay on total tokens.
+   * Absent or 0 when the provider reports no cached tokens.
+   */
+  cachedTokens?: number;
 }
 
 /**
@@ -81,6 +88,11 @@ export async function recordUsage(
   await ensureAiBillingSchema(sql);
   const prompt = Math.max(0, Math.floor(input.promptTokens || 0));
   const completion = Math.max(0, Math.floor(input.completionTokens || 0));
+  // Cached tokens are a SUBSET of promptTokens (they are input tokens served from
+  // the provider's prompt cache), so clamp to prompt and never let them inflate
+  // anything. They are recorded for OUR cost accounting only and never touch
+  // tokens_delta or the charge, which stay on total tokens.
+  const cached = Math.min(prompt, Math.max(0, Math.floor(input.cachedTokens || 0)));
   const total = prompt + completion;
 
   const rows = (await sql`
@@ -92,9 +104,9 @@ export async function recordUsage(
     ),
     logged AS (
       INSERT INTO ai_ledger
-        (owner_key, kind, tokens_delta, task_id, prompt_tokens, completion_tokens, usd_micros)
+        (owner_key, kind, tokens_delta, task_id, prompt_tokens, completion_tokens, cached_tokens, usd_micros)
       SELECT ${ownerKey}, 'usage', ${-total}, ${input.taskId}, ${prompt},
-             ${completion}, ${usdMicrosForTokens(total)}
+             ${completion}, ${cached}, ${usdMicrosForTokens(total)}
       FROM upd
       RETURNING id
     )
