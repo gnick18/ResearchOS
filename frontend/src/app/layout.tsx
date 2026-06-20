@@ -7,6 +7,7 @@ import SelfExportResultBanner from "@/components/lab/SelfExportResultBanner";
 import BeakerBotBridges from "@/components/ai/BeakerBotBridges";
 import ObjectPopupHost from "@/components/ObjectPopupHost";
 import UpgradeNudge from "@/components/billing/UpgradeNudge";
+import TrialCountdownBanner from "@/components/billing/TrialCountdownBanner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -133,6 +134,10 @@ export default function RootLayout({
             produce-feature paywall fires triggerUpgradeNudge for a free user, and
             stays dormant entirely until billing is live (NEXT_PUBLIC_BILLING_LIVE). */}
         <UpgradeNudge />
+        {/* Lab-head 90-day trial countdown. Self-gates on the live trial status,
+            so only a lab head who is actually trialing sees it; reassures (no
+            card needed) early and escalates as the trial ends. */}
+        <TrialCountdownBanner />
         <OfflineGatedAnalytics />
       </body>
     </html>
