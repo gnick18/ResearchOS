@@ -56,10 +56,11 @@ import {
 import { parseObjectEmbed, buildObjectEmbedHref } from "@/lib/references";
 import { collectEmbeddedObjects } from "@/lib/sharing/embedded-object-collect";
 import type { CollectEmbeddedObjectsOpts } from "@/lib/sharing/embedded-object-collect";
-import { fileService } from "@/lib/file-system/file-service";
+import { fileService, type FileService } from "@/lib/file-system/file-service";
 import { listImagesInFolder } from "@/lib/attachments/image-folder";
 import { readSharingIdentity } from "@/lib/sharing/identity/sidecar";
 import { notesApi } from "@/lib/local-api";
+import { getUserStore, type TargetContext } from "@/lib/storage/json-store";
 import type { Note, NoteEntry } from "@/lib/types";
 
 /**
@@ -399,6 +400,107 @@ export async function importNoteBundle(
     const copy = new Uint8Array(attachment.bytes.byteLength);
     copy.set(attachment.bytes);
     await fileService.writeFileFromBlob(imagePath, new Blob([copy]));
+  }
+
+  return { noteId };
+}
+
+// ── Destination-scoped materialize (cross-folder, Strategy A) ──────────────────
+
+/**
+ * MATERIALIZE INTO A DESTINATION FOLDER. Twin of importNoteBundle, but every
+ * write lands in a SECOND folder via an injected FileService + an EXPLICIT
+ * destination username, instead of the module singleton + the current user.
+ *
+ * This is the write half of a same-account cross-folder COPY. The collect half
+ * (buildNoteBundleInput) runs UNCHANGED against the source folder on the
+ * singleton; the resulting verified ReadBundleResult is handed here together
+ * with a TargetContext { fileService, username } pointing at the destination.
+ *
+ * The note id is allocated from the DESTINATION folder's own _counters.json
+ * (via createForUser(..., ctx)), so it never collides with a source-folder id.
+ * Attachments are re-written under the new note's Images/ folder using the
+ * SAME filename, exactly as importNoteBundle does, so the markdown Images/<name>
+ * links keep resolving with zero rewriting.
+ *
+ * v1 scope (NOTES ONLY): embedded objects are NOT re-imported into the
+ * destination. The entry bodies are carried VERBATIM, so any object embeds keep
+ * the source folder's local hrefs. Cross-folder embed materialization is a later
+ * phase; carrying the text verbatim is safe (a non-resolving embed renders as a
+ * placeholder, never broken data) and keeps this lane note-only.
+ *
+ * ACK-AFTER-WRITE parity: like importNoteBundle, the returned promise resolves
+ * only once the record and every attachment are on disk in the destination.
+ */
+export async function materializeNoteToDestination(
+  result: ReadBundleResult,
+  dest: TargetContext,
+  opts?: { notebookId?: string },
+): Promise<{ noteId: number }> {
+  if (!result.valid) {
+    throw new InvalidBundleError(
+      "Refusing to materialize a bundle that failed integrity verification",
+    );
+  }
+  if (result.entityType !== "note") {
+    throw new InvalidBundleError(
+      `Expected a note bundle, got entityType "${result.entityType}"`,
+    );
+  }
+
+  // Never trust foreign fields; re-project to the kept-set the collect produces.
+  const incoming = sanitizeNoteEntity(result.entity as Record<string, unknown>);
+  const notebookId = opts?.notebookId ?? incoming.notebook_id;
+
+  const now = new Date().toISOString();
+  // Build the same NoteEntry shape notesApi.create stamps (fresh ids + times),
+  // but route the create into the DESTINATION folder via the TargetContext.
+  const entries: NoteEntry[] = incoming.entries.map((e) => ({
+    id: crypto.randomUUID(),
+    title: e.title,
+    date: e.date,
+    content: e.content,
+    created_at: now,
+    updated_at: now,
+  }));
+
+  const notesStore = getUserStore<Note>("notes");
+  const record: Omit<Note, "id"> = {
+    title: incoming.title,
+    description: incoming.description,
+    is_running_log: incoming.is_running_log,
+    is_shared: false,
+    entries,
+    comments: [],
+    created_at: now,
+    updated_at: now,
+    // The destination folder's own user owns the copy. This is a same-account
+    // copy, so author == the destination user, not the source user.
+    username: dest.username,
+    source_uuid:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : Math.random().toString(36).slice(2),
+  };
+  if (notebookId) {
+    record.notebook_id = notebookId;
+  }
+  // Carry collab_doc_id only when the source note had one (a live collab note);
+  // it is shared state, mirroring the import path.
+  if (incoming.collab_doc_id) {
+    record.collab_doc_id = incoming.collab_doc_id;
+  }
+
+  const created = await notesStore.createForUser(record, dest.username, dest);
+  const noteId = created.id;
+
+  // Write attachments under the NEW note's Images/ folder in the DESTINATION
+  // folder, same filename, AFTER the record exists. Mirrors importNoteBundle.
+  for (const attachment of result.attachments) {
+    const imagePath = `users/${dest.username}/notes/${noteId}/Images/${attachment.name}`;
+    const copy = new Uint8Array(attachment.bytes.byteLength);
+    copy.set(attachment.bytes);
+    await dest.fileService.writeFileFromBlob(imagePath, new Blob([copy]));
   }
 
   return { noteId };

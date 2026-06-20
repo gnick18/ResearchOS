@@ -1,5 +1,24 @@
-import { fileService } from "../file-system/file-service";
+import { fileService, type FileService } from "../file-system/file-service";
 import { getCurrentUser } from "../file-system/indexeddb-store";
+
+// ── Destination targeting (cross-folder, Strategy A) ────────────────────────
+// A TargetContext lets a write resolve against a SECOND FileService instance
+// (bound to a DIFFERENT folder's directory handle) and an EXPLICIT username,
+// instead of the module singleton + the current-user cache. Every function and
+// method that accepts a `ctx` treats it as OPT-IN: when `ctx` is undefined the
+// behavior is byte-identical to before (singleton + getCurrentUserCached), so
+// no existing caller changes. The destination path NEVER reads
+// getCurrentUserCached; the destination username is always passed explicitly.
+export interface TargetContext {
+  fileService: FileService;
+  username: string;
+}
+
+// Resolve which FileService a counter/store operation should use. The singleton
+// when no destination context is supplied; the injected instance otherwise.
+function svc(ctx?: TargetContext): FileService {
+  return ctx ? ctx.fileService : fileService;
+}
 
 const PUBLIC_ENTITIES = new Set([
   "methods",
@@ -79,12 +98,20 @@ async function nextId(entity: string, publicStore: boolean = false): Promise<num
 // instead of the current user's. Used by Lab Head Phase 5 R1 owner-routed
 // creates so a PI editing another member's notes/purchases bumps that
 // member's counter (not the PI's). Bypasses the current-user cache entirely.
-async function nextIdForUser(entity: string, username: string): Promise<number> {
+// `ctx` (cross-folder, Strategy A) routes the counter read/write through an
+// injected FileService bound to a DESTINATION folder. When absent this is the
+// pre-existing singleton behavior, byte-for-byte unchanged.
+async function nextIdForUser(
+  entity: string,
+  username: string,
+  ctx?: TargetContext,
+): Promise<number> {
+  const fs = svc(ctx);
   const path = `users/${username}/_counters.json`;
-  const counters = (await fileService.readJson<Counters>(path)) ?? {};
+  const counters = (await fs.readJson<Counters>(path)) ?? {};
   const current = (counters[entity] || 0) + 1;
   counters[entity] = current;
-  await fileService.writeJson(path, counters);
+  await fs.writeJson(path, counters);
   return current;
 }
 
@@ -216,12 +243,20 @@ export class JsonStore<T extends { id: number }> {
     return await fileService.readJson<T>(this.getFilePath(id, basePath));
   }
 
-  async saveForUser(id: number, data: T, username: string): Promise<T> {
+  // `ctx` (cross-folder, Strategy A): when supplied, the save lands in the
+  // DESTINATION folder via the injected FileService. Absent = unchanged.
+  async saveForUser(
+    id: number,
+    data: T,
+    username: string,
+    ctx?: TargetContext,
+  ): Promise<T> {
+    const fs = svc(ctx);
     const basePath = `users/${username}`;
-    await fileService.ensureDir(`${basePath}/${this.entityName}`);
+    await fs.ensureDir(`${basePath}/${this.entityName}`);
     const record = { ...data, id };
     const filePath = this.getFilePath(id, basePath);
-    await fileService.writeJson(filePath, record);
+    await fs.writeJson(filePath, record);
     return record;
   }
 
@@ -252,7 +287,17 @@ export class JsonStore<T extends { id: number }> {
   // new file to land in `users/<member>/<entity>/<id>.json` with a member-
   // scoped id. `public` and `lab` store types reject this call — those use
   // global/lab counters, and a "create for user" semantic doesn't apply.
-  async createForUser(data: Omit<T, "id">, username: string): Promise<T> {
+  // `ctx` (cross-folder, Strategy A) routes the create into a DESTINATION
+  // folder via an injected FileService + the destination-space counters. When
+  // absent this is the pre-existing owner-routed create on the singleton,
+  // unchanged. The id is always allocated from the TARGET folder's counters
+  // (the destination's own _counters.json), so it never collides with a
+  // source-folder id.
+  async createForUser(
+    data: Omit<T, "id">,
+    username: string,
+    ctx?: TargetContext,
+  ): Promise<T> {
     if (this.storeType !== "user") {
       throw new Error(
         `createForUser is only valid on user-scoped stores (got ${this.storeType} for ${this.entityName})`,
@@ -263,12 +308,13 @@ export class JsonStore<T extends { id: number }> {
         `createForUser is not valid for entity '${this.entityName}' — it uses global counters`,
       );
     }
+    const fs = svc(ctx);
     const basePath = `users/${username}`;
-    await fileService.ensureDir(`${basePath}/${this.entityName}`);
-    const newId = await nextIdForUser(this.entityName, username);
+    await fs.ensureDir(`${basePath}/${this.entityName}`);
+    const newId = await nextIdForUser(this.entityName, username, ctx);
     const record = { ...data, id: newId } as T;
     const filePath = this.getFilePath(newId, basePath);
-    await fileService.writeJson(filePath, record);
+    await fs.writeJson(filePath, record);
     return record;
   }
 
