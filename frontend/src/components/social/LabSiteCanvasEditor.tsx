@@ -102,6 +102,20 @@ function makeDefaultBlock(kind: LabSiteBlock["kind"]): LabSiteBlock {
       return { id: generateId(), kind: "chart", props: { sourceId: "", caption: "", width: "column" } };
     case "two-column":
       return { id: generateId(), kind: "two-column", props: { left: [], right: [] } };
+    // Section block kinds (P3 homepage builder). These are never added via
+    // the canvas palette; this arm exists solely to satisfy the exhaustiveness
+    // check now that SectionBlock is part of LabSiteBlock. The canvas palette
+    // only lists the kinds in BLOCK_KINDS above.
+    case "section-hero":
+      return { id: generateId(), kind: "section-hero", props: { labName: "", tagline: "", coverImageUrl: "", ctaLabel: "", ctaUrl: "" } };
+    case "section-about":
+      return { id: generateId(), kind: "section-about", props: { heading: "", body: "", imageUrl: "", imageAlt: "" } };
+    case "section-team":
+      return { id: generateId(), kind: "section-team", props: { heading: "", members: [] } };
+    case "section-publications":
+      return { id: generateId(), kind: "section-publications", props: { heading: "", publications: [] } };
+    case "section-contact":
+      return { id: generateId(), kind: "section-contact", props: { heading: "", address: "", email: "", linkLabel: "", linkUrl: "" } };
     default: {
       const _: never = kind;
       void _;

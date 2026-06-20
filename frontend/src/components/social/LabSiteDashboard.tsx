@@ -49,6 +49,7 @@ import {
   type DeployHistoryEntry,
 } from "@/components/social/PublishDeployProgress";
 import LabSiteCanvasEditor from "@/components/social/LabSiteCanvasEditor";
+import LabSiteHomepageEditor from "@/components/social/LabSiteHomepageEditor";
 import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
 import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
@@ -392,6 +393,15 @@ interface PageSummary {
   updatedAt: string;
   /** True when the page uses the blocks canvas model (blocks_json is non-null). */
   hasBlocks?: boolean;
+  /**
+   * True when the page is the home page ("" path) and its blocks_json contains
+   * section blocks (section-hero, section-about, etc.). The homepage structured
+   * editor is used for this page instead of the canvas editor.
+   *
+   * The server does not need to set this field; the client derives it from
+   * hasBlocks + path being "".  It is included here for clarity.
+   */
+  hasSections?: boolean;
 }
 
 type LoadState = "loading" | "ready" | "denied" | "error";
@@ -1112,6 +1122,13 @@ export default function LabSiteDashboard({
   // Initial blocks_json fetched when a blocks page is opened (null = empty new page).
   const [editorInitialBlocksJson, setEditorInitialBlocksJson] = useState<string | null>(null);
 
+  // Homepage structured-section editor state (P3). When editorIsSection is true
+  // the home page ("" path) uses the LabSiteHomepageEditor instead of the canvas
+  // or the markdown textarea. It shares editorBlocksJson + editorInitialBlocksJson
+  // (the same blocks_json column) and the same publish flow as the canvas editor.
+  // editorIsSection implies editorIsBlocks (the section editor writes blocks_json).
+  const [editorIsSection, setEditorIsSection] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
       // When the dashboard is scoped to a granted site, add the siteOwnerKey query
@@ -1216,12 +1233,19 @@ export default function LabSiteDashboard({
       setEditorIsBlocks(isBlocks);
       setEditorInitialBlocksJson(null);
       setEditorBlocksJson(null);
+      // Section editor: the home page ("" path) always opens in the structured
+      // section editor when it has blocks (or is being opened fresh). Non-home
+      // pages always use the canvas editor even if their path happens to start
+      // with "".
+      const isSection = page.path === "" && isBlocks;
+      setEditorIsSection(isSection);
 
       if (isBlocks && !demoReadOnly) {
-        // Fetch the existing blocks_json for this page so the canvas is pre-populated.
-        // When a granted editor is editing a PI's site, include siteOwnerKey so the
-        // server authorizes via isSiteEditor and returns that PI's blocks (not the
-        // caller's own). The server re-checks the grant on every fetch.
+        // Fetch the existing blocks_json for this page so the canvas/section
+        // editor is pre-populated.
+        // When a granted editor is editing a PI's site, include siteOwnerKey so
+        // the server authorizes via isSiteEditor and returns that PI's blocks.
+        // The server re-checks the grant on every fetch.
         try {
           const blocksParams = new URLSearchParams({ path: page.path });
           if (siteOwnerKeyProp) blocksParams.set("siteOwnerKey", siteOwnerKeyProp);
@@ -1251,6 +1275,7 @@ export default function LabSiteDashboard({
       setEditorTitle("");
       setEditorBody("");
       setEditorIsBlocks(asBlocks);
+      setEditorIsSection(false);
       setEditorInitialBlocksJson(null);
       setEditorBlocksJson(null);
     }
@@ -1264,6 +1289,9 @@ export default function LabSiteDashboard({
     setEditorTitle("");
     setEditorBody("");
     setEditorIsBlocks(asBlocks);
+    // New pages via this button are always non-home pages so the section editor
+    // is never used here. The section editor is only wired for the "" home path.
+    setEditorIsSection(false);
     setEditorInitialBlocksJson(null);
     setEditorBlocksJson(null);
     setEditorMsg(null);
@@ -1763,6 +1791,40 @@ export default function LabSiteDashboard({
                 </p>
               </div>
               <div className="flex items-center gap-2">
+                {/* Homepage section builder: open the home page ("" path) in the
+                    structured editor. If the home page already exists, open it;
+                    otherwise initialize a new one with the filled template. The
+                    home page always gets the section editor, not the canvas. */}
+                <Tooltip label="Build your lab homepage from structured sections (hero, about, team, publications, contact)">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const homePage = pages.find((p) => p.path === "");
+                      if (homePage) {
+                        // Existing home page: open it. Force isBlocks = true so
+                        // the section editor path is taken even if hasBlocks is
+                        // absent from the summary (server will populate from DB).
+                        void openEditor({ ...homePage, hasBlocks: true });
+                      } else {
+                        // No home page yet: create a new one with section editor.
+                        setEditorPath("__new__");
+                        setEditorTitle("");
+                        setEditorBody("");
+                        setEditorIsBlocks(true);
+                        setEditorIsSection(true);
+                        setEditorInitialBlocksJson(null);
+                        setEditorBlocksJson(null);
+                        setEditorMsg(null);
+                      }
+                    }}
+                    disabled={demoReadOnly}
+                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                    className="inline-flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50 dark:border-green-700 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
+                  >
+                    <Icon name="globe" className="h-4 w-4" />{" "}
+                    {pages.find((p) => p.path === "") ? "Edit home page" : "Build home page"}
+                  </button>
+                </Tooltip>
                 <button
                   type="button"
                   onClick={() => newPage(false)}
@@ -1822,9 +1884,14 @@ export default function LabSiteDashboard({
                           <p className="truncate text-sm font-medium text-foreground">
                             {p.title || pathLabel(p.path)}
                           </p>
-                          {p.hasBlocks && (
+                          {p.hasBlocks && p.path !== "" && (
                             <span className="shrink-0 rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
                               Canvas
+                            </span>
+                          )}
+                          {p.path === "" && p.hasBlocks && (
+                            <span className="shrink-0 rounded-full border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
+                              Sections
                             </span>
                           )}
                         </div>
@@ -1873,7 +1940,12 @@ export default function LabSiteDashboard({
                         ? "Edit home page"
                         : `Edit ${pathLabel(editorPath)}`}
                     </h2>
-                    {editorIsBlocks && (
+                    {editorIsSection && (
+                      <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
+                        Sections
+                      </span>
+                    )}
+                    {editorIsBlocks && !editorIsSection && (
                       <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
                         Canvas
                       </span>
@@ -1895,8 +1967,23 @@ export default function LabSiteDashboard({
                     placeholder="Welcome to the Smith Lab"
                   />
 
-                  {/* Canvas editor path (blocks page) */}
-                  {editorIsBlocks ? (
+                  {/* Homepage structured-section editor path (P3).
+                      Used when editorIsSection is true (home page, "" path).
+                      Renders a vertical list of typed section blocks (hero,
+                      about, team, publications, contact) via simple forms.
+                      Shares the same editorBlocksJson + publish flow as the
+                      canvas editor (both write to blocks_json). */}
+                  {editorIsSection ? (
+                    <div className="mb-4">
+                      <LabSiteHomepageEditor
+                        initialBlocksJson={editorInitialBlocksJson}
+                        labSlug={site?.slug}
+                        onChange={setEditorBlocksJson}
+                        disabled={demoReadOnly}
+                      />
+                    </div>
+                  ) : editorIsBlocks ? (
+                    /* Canvas editor path (blocks page, non-home) */
                     <>
                       <p className="mb-3 text-xs text-foreground-muted">
                         Drag blocks from the palette onto the canvas. Click a block

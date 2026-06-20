@@ -153,7 +153,165 @@ export interface TwoColumnBlock {
   };
 }
 
-/** Leaf blocks: all block kinds except two-column (which contains leaves). */
+// ---------------------------------------------------------------------------
+// Section blocks (P3 homepage structured builder)
+//
+// Section blocks are coarser-grained than the canvas blocks above. They are
+// designed for the lab homepage (hero, about, team, publications, contact).
+// Each section has a fixed shape (the user fills named fields, not freeform
+// markdown), so the editor can render a simple form rather than a canvas.
+// Section blocks live in the SAME LabSiteBlock union and the SAME blocks_json
+// column, so the existing parse/serialize/bake pipeline applies unchanged.
+// The homepage editor emits section blocks; the canvas editor emits canvas
+// blocks; a page is one or the other, never both.
+// ---------------------------------------------------------------------------
+
+/**
+ * A team member for the TeamSection block.
+ *
+ * All fields are optional (the user may not have a photo URL yet, etc.).
+ * Unknown fields are dropped during parse so future additions are safe.
+ */
+export interface TeamMember {
+  /** Stable identifier within the team section. */
+  id: string;
+  name: string;
+  role: string;
+  /** URL of the member's photo (optional). */
+  photoUrl: string;
+  /** Short bio (plain text, not markdown). */
+  bio: string;
+}
+
+/**
+ * A single publication entry for the PublicationsSection block.
+ *
+ * Stored as plain strings (not DOI resolution). The user types in what they
+ * want displayed; no live fetch occurs at edit time.
+ */
+export interface PublicationEntry {
+  /** Stable identifier within the publications section. */
+  id: string;
+  /** Full citation text (plain text, e.g. "Smith et al. 2024, Nature"). */
+  citation: string;
+  /** DOI or URL to the paper (optional). */
+  url: string;
+  /** Optional short label shown as a chip, e.g. "New", "Preprint". */
+  badge: string;
+}
+
+/**
+ * Hero section. The first visible section on the homepage: the lab's name,
+ * a one-line tagline, an optional cover image, and an optional call-to-action
+ * link.
+ */
+export interface HeroSectionBlock {
+  id: string;
+  kind: "section-hero";
+  props: {
+    /** Lab display name (defaults to the slug on first load). */
+    labName: string;
+    /** One-line tagline, e.g. "Decoding the genomic language of fungi." */
+    tagline: string;
+    /** Optional cover image URL (full-width banner). */
+    coverImageUrl: string;
+    /** Optional CTA label, e.g. "Join the lab". */
+    ctaLabel: string;
+    /** Optional CTA URL. */
+    ctaUrl: string;
+  };
+}
+
+/**
+ * About section. A free-text "who we are" paragraph with an optional portrait
+ * image beside it (two-column on desktop, stacked on mobile).
+ */
+export interface AboutSectionBlock {
+  id: string;
+  kind: "section-about";
+  props: {
+    /** Section heading, e.g. "About the lab". */
+    heading: string;
+    /** Body text in plain paragraphs (no markdown). */
+    body: string;
+    /** Optional portrait/logo image URL. */
+    imageUrl: string;
+    /** Alt text for the image. */
+    imageAlt: string;
+  };
+}
+
+/**
+ * Team section. A roster of lab members, each with name, role, photo, and bio.
+ */
+export interface TeamSectionBlock {
+  id: string;
+  kind: "section-team";
+  props: {
+    /** Section heading, e.g. "Our team". */
+    heading: string;
+    members: TeamMember[];
+  };
+}
+
+/**
+ * Publications section. A curated list of papers, preprints, or datasets.
+ */
+export interface PublicationsSectionBlock {
+  id: string;
+  kind: "section-publications";
+  props: {
+    /** Section heading, e.g. "Selected publications". */
+    heading: string;
+    publications: PublicationEntry[];
+  };
+}
+
+/**
+ * Contact section. Lab address, email, and optionally a link to a join/contact
+ * form.
+ */
+export interface ContactSectionBlock {
+  id: string;
+  kind: "section-contact";
+  props: {
+    /** Section heading, e.g. "Contact". */
+    heading: string;
+    /** Lab address (plain text, line breaks allowed via \n). */
+    address: string;
+    /** Lab email address. */
+    email: string;
+    /** Optional link label, e.g. "Join our lab". */
+    linkLabel: string;
+    /** Optional link URL. */
+    linkUrl: string;
+  };
+}
+
+/** All section block kinds (P3 homepage builder). */
+export type SectionBlock =
+  | HeroSectionBlock
+  | AboutSectionBlock
+  | TeamSectionBlock
+  | PublicationsSectionBlock
+  | ContactSectionBlock;
+
+/** True when a block kind is a homepage section block. */
+export function isSectionBlockKind(kind: string): kind is SectionBlock["kind"] {
+  return (
+    kind === "section-hero" ||
+    kind === "section-about" ||
+    kind === "section-team" ||
+    kind === "section-publications" ||
+    kind === "section-contact"
+  );
+}
+
+/**
+ * Leaf blocks: all canvas block kinds except two-column (which contains leaves)
+ * and section blocks (which are top-level only). Section blocks are coarser
+ * than canvas blocks and are never nested inside a two-column layout.
+ */
 export type LabSiteLeafBlock =
   | HeadingBlock
   | TextBlock
@@ -163,8 +321,12 @@ export type LabSiteLeafBlock =
   | DatasetExplorerBlock
   | ChartBlock;
 
-/** The full block union, including layout blocks. */
-export type LabSiteBlock = LabSiteLeafBlock | TwoColumnBlock;
+/**
+ * The full block union. Includes canvas leaf blocks, the two-column layout
+ * block, and the section blocks used by the homepage structured editor.
+ * Section blocks are always top-level; they cannot nest inside two-column.
+ */
+export type LabSiteBlock = LabSiteLeafBlock | TwoColumnBlock | SectionBlock;
 
 /** The data-block kinds that bind a ResearchOS source id. */
 export type DataBlockKind =
@@ -263,9 +425,126 @@ function parseDataBlock<K extends DataBlockKind>(
   } as Extract<LabSiteLeafBlock, { kind: K }>;
 }
 
+// ---------------------------------------------------------------------------
+// Section block parse helpers (P3 homepage builder)
+// ---------------------------------------------------------------------------
+
+/** Parse a raw value into a TeamMember. Unknown fields are dropped. */
+function parseTeamMember(raw: unknown, idSuffix: string): TeamMember {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { id: idSuffix, name: "", role: "", photoUrl: "", bio: "" };
+  }
+  const r = raw as Record<string, unknown>;
+  return {
+    id: safeId(r.id, idSuffix),
+    name: safeStr(r.name),
+    role: safeStr(r.role),
+    photoUrl: safeStr(r.photoUrl),
+    bio: safeStr(r.bio),
+  };
+}
+
+/** Parse a raw value into a PublicationEntry. Unknown fields are dropped. */
+function parsePublicationEntry(raw: unknown, idSuffix: string): PublicationEntry {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
+    return { id: idSuffix, citation: "", url: "", badge: "" };
+  }
+  const r = raw as Record<string, unknown>;
+  return {
+    id: safeId(r.id, idSuffix),
+    citation: safeStr(r.citation),
+    url: safeStr(r.url),
+    badge: safeStr(r.badge),
+  };
+}
+
+function parseHeroSectionBlock(raw: Record<string, unknown>, id: string): HeroSectionBlock {
+  const props = raw.props && typeof raw.props === "object"
+    ? (raw.props as Record<string, unknown>)
+    : {};
+  return {
+    id,
+    kind: "section-hero",
+    props: {
+      labName: safeStr(props.labName),
+      tagline: safeStr(props.tagline),
+      coverImageUrl: safeStr(props.coverImageUrl),
+      ctaLabel: safeStr(props.ctaLabel),
+      ctaUrl: safeStr(props.ctaUrl),
+    },
+  };
+}
+
+function parseAboutSectionBlock(raw: Record<string, unknown>, id: string): AboutSectionBlock {
+  const props = raw.props && typeof raw.props === "object"
+    ? (raw.props as Record<string, unknown>)
+    : {};
+  return {
+    id,
+    kind: "section-about",
+    props: {
+      heading: safeStr(props.heading),
+      body: safeStr(props.body),
+      imageUrl: safeStr(props.imageUrl),
+      imageAlt: safeStr(props.imageAlt),
+    },
+  };
+}
+
+function parseTeamSectionBlock(raw: Record<string, unknown>, id: string): TeamSectionBlock {
+  const props = raw.props && typeof raw.props === "object"
+    ? (raw.props as Record<string, unknown>)
+    : {};
+  const membersRaw = Array.isArray(props.members) ? props.members : [];
+  return {
+    id,
+    kind: "section-team",
+    props: {
+      heading: safeStr(props.heading),
+      members: membersRaw.map((m, i) => parseTeamMember(m, `${id}-m${i}`)),
+    },
+  };
+}
+
+function parsePublicationsSectionBlock(
+  raw: Record<string, unknown>,
+  id: string,
+): PublicationsSectionBlock {
+  const props = raw.props && typeof raw.props === "object"
+    ? (raw.props as Record<string, unknown>)
+    : {};
+  const pubsRaw = Array.isArray(props.publications) ? props.publications : [];
+  return {
+    id,
+    kind: "section-publications",
+    props: {
+      heading: safeStr(props.heading),
+      publications: pubsRaw.map((p, i) => parsePublicationEntry(p, `${id}-p${i}`)),
+    },
+  };
+}
+
+function parseContactSectionBlock(raw: Record<string, unknown>, id: string): ContactSectionBlock {
+  const props = raw.props && typeof raw.props === "object"
+    ? (raw.props as Record<string, unknown>)
+    : {};
+  return {
+    id,
+    kind: "section-contact",
+    props: {
+      heading: safeStr(props.heading),
+      address: safeStr(props.address),
+      email: safeStr(props.email),
+      linkLabel: safeStr(props.linkLabel),
+      linkUrl: safeStr(props.linkUrl),
+    },
+  };
+}
+
 /**
- * Parse one raw value into a LabSiteLeafBlock. Returns null for unknown kinds
- * or non-object values so the caller can drop them cleanly.
+ * Parse one raw value into a LabSiteLeafBlock (canvas block kinds only).
+ * Returns null for unknown kinds, non-object values, and section block kinds
+ * (section blocks are top-level only; they cannot nest inside two-column).
  */
 function parseLeafBlock(
   raw: unknown,
@@ -291,24 +570,41 @@ function parseLeafBlock(
     case "chart":
       return parseDataBlock("chart", r, id);
     default:
-      // Unknown kind: silently drop so future additions do not crash old readers.
+      // Unknown kind (including section block kinds, which are top-level only):
+      // silently drop so future additions do not crash old readers.
       return null;
   }
 }
 
 /**
- * Parse one raw value into a LabSiteBlock (leaf or two-column). Returns null
- * for unknown kinds. The two-column inner arrays are parsed via parseLeafBlock
- * so a two-column cannot nest another two-column.
+ * Parse one raw value into a LabSiteBlock (leaf, two-column, or section).
+ * Returns null for unknown kinds. Two-column inner arrays are parsed via
+ * parseLeafBlock so section blocks and two-column blocks cannot be nested.
+ * Section blocks (P3 homepage builder) are handled here at the top level.
  */
 function parseOneBlock(raw: unknown, idSuffix: string): LabSiteBlock | null {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
   const r = raw as Record<string, unknown>;
+  const id = safeId(r.id, idSuffix);
   const kind = safeStr(r.kind);
+
+  // Section blocks: top-level only (not nestable inside two-column).
+  switch (kind) {
+    case "section-hero":
+      return parseHeroSectionBlock(r, id);
+    case "section-about":
+      return parseAboutSectionBlock(r, id);
+    case "section-team":
+      return parseTeamSectionBlock(r, id);
+    case "section-publications":
+      return parsePublicationsSectionBlock(r, id);
+    case "section-contact":
+      return parseContactSectionBlock(r, id);
+  }
+
   if (kind !== "two-column") {
     return parseLeafBlock(raw, idSuffix);
   }
-  const id = safeId(r.id, idSuffix);
   const props = r.props && typeof r.props === "object"
     ? (r.props as Record<string, unknown>)
     : {};
@@ -369,4 +665,99 @@ export function serializeLabSiteBlocks(blocks: LabSiteBlock[]): string | null {
   const json = JSON.stringify(blocks);
   if (json.length > MAX_BLOCKS_JSON_BYTES) return null;
   return json;
+}
+
+// ---------------------------------------------------------------------------
+// Homepage section template (P3 structured builder)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a small stable id for template blocks. These are always overwritten
+ * when the user saves, but they must be stable across re-renders of the empty
+ * template so React keys do not thrash.
+ */
+function templateId(suffix: string): string {
+  return `tmpl-${suffix}`;
+}
+
+/**
+ * The default homepage block array. Returned when the home page has no
+ * blocks_json yet (first open) so the editor starts populated rather than empty.
+ *
+ * Accepts an optional lab name so the hero can be pre-filled with the real slug.
+ * The body copy is deliberately generic placeholder text that reads naturally as
+ * a starting point the PI replaces (not Lorem Ipsum).
+ *
+ * All section kinds in the output are fully typed; parse/serialize round-trips
+ * cleanly so this can be stored as-is via serializeLabSiteBlocks.
+ */
+export function makeHomepageSectionTemplate(labName = "Our Lab"): SectionBlock[] {
+  return [
+    {
+      id: templateId("hero"),
+      kind: "section-hero",
+      props: {
+        labName,
+        tagline: "Advancing discovery through rigorous science.",
+        coverImageUrl: "",
+        ctaLabel: "Join the lab",
+        ctaUrl: "",
+      },
+    } satisfies HeroSectionBlock,
+    {
+      id: templateId("about"),
+      kind: "section-about",
+      props: {
+        heading: "About the lab",
+        body:
+          "We are a research group studying [your research area]. " +
+          "Our work focuses on [key questions] and is funded by [funding sources]. " +
+          "We are based at [institution].",
+        imageUrl: "",
+        imageAlt: "",
+      },
+    } satisfies AboutSectionBlock,
+    {
+      id: templateId("team"),
+      kind: "section-team",
+      props: {
+        heading: "Our team",
+        members: [
+          {
+            id: templateId("pi"),
+            name: "Principal Investigator",
+            role: "Principal Investigator",
+            photoUrl: "",
+            bio: "Add a short bio here.",
+          },
+        ],
+      },
+    } satisfies TeamSectionBlock,
+    {
+      id: templateId("pubs"),
+      kind: "section-publications",
+      props: {
+        heading: "Selected publications",
+        publications: [
+          {
+            id: templateId("pub1"),
+            citation: "Author et al. (Year). Title. Journal, Volume(Issue), Pages.",
+            url: "",
+            badge: "",
+          },
+        ],
+      },
+    } satisfies PublicationsSectionBlock,
+    {
+      id: templateId("contact"),
+      kind: "section-contact",
+      props: {
+        heading: "Contact",
+        address: "",
+        email: "",
+        linkLabel: "",
+        linkUrl: "",
+      },
+    } satisfies ContactSectionBlock,
+  ];
 }
