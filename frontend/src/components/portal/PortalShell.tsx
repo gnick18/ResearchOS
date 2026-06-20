@@ -22,7 +22,8 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect, useState, type ReactNode } from "react";
-import { getSession, signIn, signOut } from "next-auth/react";
+import { getSession, signIn } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 import Wordmark from "@/components/Wordmark";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import SharingProviderButtons, {
@@ -89,7 +90,7 @@ export default function PortalShell({
               <span className="hidden sm:inline">{email}</span>
               <button
                 type="button"
-                onClick={() => void signOut({ callbackUrl: "/" })}
+                onClick={() => void fullSignOut()}
                 className="rounded-lg border border-border bg-surface px-2.5 py-1 text-meta font-semibold text-foreground hover:border-brand-action"
               >
                 Sign out

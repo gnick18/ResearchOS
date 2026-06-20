@@ -22,7 +22,8 @@ import AccountFirstRedirect, {
 } from "@/components/account/AccountFirstRedirect";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
 import WelcomePage from "@/components/welcome/WelcomePage";
-import { signIn, signOut } from "next-auth/react";
+import { signIn } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 import ImportELNDialog from "@/components/import-eln/ImportELNDialog";
 import { ELN_IMPORT_PENDING_KEY } from "@/components/import-eln/PickUserBeforeImportModal";
 import UserLoginScreen from "@/components/UserLoginScreen";
@@ -978,10 +979,10 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
           onUseDifferentMethod={() => {
             // Back out to use a provider that returns an email instead of
-            // finishing ORCID capture. signOut clears the ORCID session and lands
-            // back on the front door, so the sign-in picker is reachable again
-            // (a visible escape, never a soft-lock).
-            void signOut({ callbackUrl: "/" });
+            // finishing ORCID capture. fullSignOut clears the ORCID session and
+            // hard-reloads to the front door, so the sign-in picker is reachable
+            // again (a visible escape, never a soft-lock).
+            void fullSignOut();
           }}
         />
       </QueryClientProvider>

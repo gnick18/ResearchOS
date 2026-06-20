@@ -23,7 +23,8 @@
 // (no inline svg).
 
 import { useCallback, useState } from "react";
-import { getSession, signOut } from "next-auth/react";
+import { getSession } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
 
 import LightOnly from "@/components/LightOnly";
 import { canonicalizeEmail } from "@/lib/sharing/directory/email";
@@ -150,7 +151,7 @@ export default function OrcidEmailCapture({
       onSignOut();
       return;
     }
-    void signOut({ callbackUrl: "/" });
+    void fullSignOut();
   }, [onSignOut]);
 
   return (

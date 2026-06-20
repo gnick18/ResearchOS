@@ -17,7 +17,8 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import { useCallback, useMemo, useReducer, useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { fullSignOut } from "@/lib/auth/full-sign-out";
+import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import LandingBackdrop from "@/components/onboarding/oauth-first/LandingBackdrop";
@@ -59,6 +60,9 @@ export default function OnboardingWizardShell({
   onFinish,
   onClose,
 }: OnboardingWizardShellProps) {
+  // Forget any folder connected mid-wizard on Sign out so the full logout lands
+  // on the welcome screen rather than auto-reconnecting into the app.
+  const { disconnect } = useFileSystem();
   const total = track.steps.length;
   const initialIndex = (() => {
     if (!initialStepId) return 0;
@@ -158,7 +162,7 @@ export default function OnboardingWizardShell({
         <div className="flex items-center gap-3">
           <button
             type="button"
-            onClick={() => void signOut({ callbackUrl: "/" })}
+            onClick={() => void fullSignOut({ disconnect })}
             data-testid="wizard-sign-out"
             className="text-meta text-foreground-muted underline underline-offset-2 hover:text-foreground transition-colors"
           >
