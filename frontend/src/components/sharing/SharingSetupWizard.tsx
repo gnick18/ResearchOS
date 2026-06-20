@@ -667,6 +667,22 @@ export default function SharingSetupWizard({
     onComplete,
   ]);
 
+  // DEV-ONLY: skip the recovery-code step for dev-mock auto-claim sign-ins. Those
+  // identities are throwaway and re-minted on every test, so forcing "save your
+  // recovery code" is pure friction. Strictly gated to isDevMockAuth() AND
+  // autoClaim, so a real user (real OAuth never reaches this) and a manual dev
+  // wizard run both still see and confirm the code. Fires once, the moment the
+  // freshly minted keys are ready, auto-publishing straight through to the app.
+  const devAutoPublished = useRef(false);
+  useEffect(() => {
+    if (!autoClaim || !isDevMockAuth()) return;
+    if (step !== "generate") return;
+    if (!material) return; // autoClaim is the create path; wait for keygen
+    if (devAutoPublished.current) return;
+    devAutoPublished.current = true;
+    void publish();
+  }, [autoClaim, step, material, publish]);
+
   return (
     <div
       className={`fixed inset-0 z-[200] flex items-center justify-center ${
