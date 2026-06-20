@@ -33,6 +33,7 @@ import { isPurchasePending } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useLabData } from "@/hooks/useLabData";
+import { useActiveLabName } from "@/hooks/useActiveLabName";
 import { Icon, type IconName } from "@/components/icons";
 import { PageContainer } from "@/components/layout/PageContainer";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
@@ -343,6 +344,12 @@ export default function LabOverviewPage() {
   const { currentUser } = useCurrentUser();
   const router = useRouter();
 
+  // The lab's cosmetic name, so the PI immediately sees WHICH lab they are
+  // looking at (a user can head or belong to more than one). Best-effort and
+  // display-only: null while loading or unavailable, so the header falls back to
+  // the generic title.
+  const labName = useActiveLabName();
+
   const [auditOpen, setAuditOpen] = useState(false);
 
   // The announcement composer is the BeakerSearch "post announcement" target.
@@ -371,7 +378,20 @@ export default function LabOverviewPage() {
     <PageContainer width="full" className="space-y-6 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-heading font-bold text-foreground">Lab Overview</h1>
+          {labName ? (
+            <>
+              <p className="text-meta font-semibold uppercase tracking-wide text-foreground-muted">
+                Lab Overview
+              </p>
+              <h1 className="text-heading font-bold text-foreground">
+                {labName}
+              </h1>
+            </>
+          ) : (
+            <h1 className="text-heading font-bold text-foreground">
+              Lab Overview
+            </h1>
+          )}
           <p className="mt-1 text-body text-foreground-muted">
             Everything that needs you, plus what your lab has been up to.
           </p>
