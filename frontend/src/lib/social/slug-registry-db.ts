@@ -56,6 +56,15 @@ export interface SlugRow {
   ownerKey: string | null;
   ref: string | null;
   createdAt: string;
+  /**
+   * When non-null, this slug is retired and requests for it should redirect to
+   * the slug named here. The old slug is never deleted (citation safety: existing
+   * links, papers, and external bookmarks must keep working), and it is never
+   * freed for reuse (the redirect_to acts as a permanent alias). Absent on
+   * rows returned by callers that have not been updated to include it (e.g.
+   * pure-test mocks); treat undefined as null at runtime.
+   */
+  redirectTo?: string | null;
 }
 
 /**
@@ -65,6 +74,10 @@ export interface SlugRow {
  * INSERT of an already-claimed slug conflicts regardless of who or what kind
  * holds it. A secondary index on owner_key supports "what slugs does this owner
  * hold" lookups (release, lab dashboard).
+ *
+ * The redirect_to column (added Phase PI-slug-rename) holds the new slug when
+ * an old slug is retired via rebindLabSlug. A non-null value means "permanent
+ * alias, send traffic here." The old row is kept forever for citation safety.
  */
 export async function ensureSlugRegistrySchema(): Promise<void> {
   const sql = getSql();
@@ -85,6 +98,13 @@ export async function ensureSlugRegistrySchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_slug_registry_kind
       ON slug_registry(kind)
   `;
+  // Phase PI-slug-rename: the redirect_to column records permanent slug renames.
+  // Added via IF NOT EXISTS so this schema-ensure remains idempotent on databases
+  // that already have the table (no migration step, no data move, existing rows
+  // keep redirect_to = NULL = "active slug, no redirect").
+  await sql`
+    ALTER TABLE slug_registry ADD COLUMN IF NOT EXISTS redirect_to text
+  `;
 }
 
 function rowToSlug(r: {
@@ -93,6 +113,7 @@ function rowToSlug(r: {
   owner_key: string | null;
   ref: string | null;
   created_at: string;
+  redirect_to?: string | null;
 }): SlugRow {
   return {
     slug: r.slug,
@@ -100,6 +121,7 @@ function rowToSlug(r: {
     ownerKey: r.owner_key,
     ref: r.ref,
     createdAt: r.created_at,
+    redirectTo: r.redirect_to ?? null,
   };
 }
 
@@ -109,7 +131,7 @@ export async function getSlug(slug: string): Promise<SlugRow | null> {
   if (!s) return null;
   const sql = getSql();
   const rows = (await sql`
-    SELECT slug, kind, owner_key, ref, created_at
+    SELECT slug, kind, owner_key, ref, created_at, redirect_to
     FROM slug_registry
     WHERE slug = ${s}
     LIMIT 1
@@ -119,6 +141,7 @@ export async function getSlug(slug: string): Promise<SlugRow | null> {
     owner_key: string | null;
     ref: string | null;
     created_at: string;
+    redirect_to: string | null;
   }>;
   return rows[0] ? rowToSlug(rows[0]) : null;
 }
@@ -323,4 +346,24 @@ export async function readInstitutionDomains(): Promise<string[]> {
   } catch {
     return [];
   }
+}
+
+// ---------------------------------------------------------------------------
+// Slug redirect resolution (Phase PI-slug-rename)
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the redirect_to target for a slug if the row is a retired alias, or
+ * null when the slug is either active (no redirect) or does not exist. Callers
+ * use this to serve a 308 permanent redirect for any slug that a lab head has
+ * renamed, ensuring existing links and citations continue to resolve.
+ *
+ * The old slug row is NEVER deleted (citation safety), so this is the only
+ * branch needed: null = active, string = retired.
+ */
+export async function resolveSlugRedirect(slug: string): Promise<string | null> {
+  const row = await getSlug(slug);
+  // redirectTo may be undefined on rows from callers that pre-date this column;
+  // treat undefined and null both as "no redirect."
+  return row?.redirectTo ?? null;
 }
