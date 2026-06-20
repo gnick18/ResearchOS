@@ -6,10 +6,11 @@
 // and hands the new id back to the host so later steps (invites, billing) can act
 // on it.
 //
-// Asks for the org name only. The parent institution is captured by the next
-// step (OrgParentLinkStep, department track), so this step does not also ask for
-// it. A free-text affiliation field used to live here, but it was redundant with
-// that step and not persisted, so it was removed (no redundant or dead asks).
+// For departments this step also folds in the former standalone parent-link page,
+// an optional "link a parent institution" field. There is no parent-link
+// persistence API yet, so the pasted link is handed back to the host via
+// onParentRef (not persisted here) the same way the old step did. Institutions
+// are the top tier and have no parent, so the field is department-only.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -22,6 +23,12 @@ export interface OrgNameStepProps {
   kind: OrgKind;
   /** Advance once the org is created, with its new id. */
   onCreated: (orgId: string) => void;
+  /**
+   * Capture the optional parent-institution reference the dept admin pasted (or
+   * null when left blank). Department only; the institution kind has no parent.
+   * Called on submit alongside onCreated.
+   */
+  onParentRef?: (ref: string | null) => void;
   /**
    * Test/host seam: override the create call. Defaults to the real folderless
    * create helper for the kind.
@@ -49,8 +56,17 @@ async function defaultCreate(
   }
 }
 
-export default function OrgNameStep({ kind, onCreated, createOrg }: OrgNameStepProps) {
+export default function OrgNameStep({
+  kind,
+  onCreated,
+  onParentRef,
+  createOrg,
+}: OrgNameStepProps) {
   const [name, setName] = useState("");
+  // Department only: the optional parent-institution link, folded in from the
+  // former standalone parent-link step. Not persisted here (no parent-link API);
+  // handed back via onParentRef on submit.
+  const [parentRef, setParentRef] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
@@ -69,6 +85,9 @@ export default function OrgNameStep({ kind, onCreated, createOrg }: OrgNameStepP
     setSaving(false);
     if (result.ok && result.orgId) {
       onCreated(result.orgId);
+      // Forward the optional parent link (department only) on the same submit, so
+      // the host can act on it without a separate page.
+      if (kind === "department") onParentRef?.(parentRef.trim() || null);
     } else {
       setError(result.error ?? `Could not create the ${noun}.`);
     }
@@ -119,6 +138,29 @@ export default function OrgNameStep({ kind, onCreated, createOrg }: OrgNameStepP
             className="w-full rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9]"
           />
         </div>
+        {kind === "department" && (
+          <div>
+            <label
+              htmlFor="wizard-org-parent-ref"
+              className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-foreground-muted"
+            >
+              Link a parent institution (optional)
+            </label>
+            <input
+              id="wizard-org-parent-ref"
+              type="text"
+              value={parentRef}
+              onChange={(e) => setParentRef(e.target.value)}
+              placeholder="Paste the institution link"
+              className="w-full rounded-xl border border-border bg-surface-raised px-3 py-2.5 text-sm text-foreground placeholder:text-foreground-muted focus:outline-none focus:ring-2 focus:ring-[#1283c9]"
+            />
+            <p className="mt-1.5 text-xs text-foreground-muted">
+              If your institution runs ResearchOS at the institution tier, paste
+              the link they shared to associate this department. No institution? Leave
+              it blank, you can link one anytime from your department settings.
+            </p>
+          </div>
+        )}
       </div>
 
       {error && (
