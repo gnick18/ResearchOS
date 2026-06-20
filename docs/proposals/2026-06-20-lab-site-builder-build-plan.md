@@ -97,5 +97,32 @@ Both mockups carry a per-change Approve/Tweak/Needs-work + Export panel; if Gran
 exports specific per-item notes, fold those in before P2/P4. The standing tweak
 already captured: companion block settings dock on the RIGHT.
 
+## Added 2026-06-20 (Grant), two more requirements
+
+### A. Per-companion-site editor grants (NEW phase, distinct from Lab Manager)
+A PI grants a specific MEMBER permanent edit access to a specific COMPANION SITE,
+so e.g. a grad student fully runs one paper's site without lab-wide powers. This is
+GRANULAR + per-site, NOT the lab-wide Lab Manager role (`[[project_lab_manager_delegation]]`).
+LOCKED (Grant): a granted member has FULL access, create + edit + PUBLISH/deploy
+the site themselves (owner-operator), the PI keeps revoke.
+- Data: a new editor-grants table, (lab_owner_key, site, member_key, granted_by,
+  granted_at). Permanent until revoked.
+- Authz: SERVER-SIDE on the builder + publish routes, allow when caller is the lab
+  owner OR holds an active grant for that site. A published companion page is a
+  PUBLIC artifact (no private-key sharing), so this is write/publish authz only,
+  far simpler than private-data delegation. (`[[project_lab_manager_delegation]]`
+  already noted companion-site delegation needs server authz.)
+- UI: a "Who can edit this site" panel per site in the dashboard, PI adds/removes
+  members. Build AFTER the foundation + canvas (it gates who can use the builder).
+
+### B. Seamless network <-> app navigation (separate nav-UX thread, mockup-first)
+Make the research-os.com (public network/lab sites) <-> research-os.app (gated
+builder/app) hop one click with context preserved, from a public lab site an
+"Edit this site" affordance deep-linking the PI/granted editor straight into the
+builder (sign in once if needed, land on the right page), and from the app a clean
+"View public site" jump, with session continuity so crossing origins does not feel
+like leaving. Gets an interactive before/after mockup before any build, per
+`[[feedback_ui_review_interactive_mockup]]`. Ties `[[feedback_dotcom_public_dotapp_gated]]`.
+
 Related: `[[project_lab_domains_companion_sites]]`, `[[feedback_ui_review_interactive_mockup]]`,
-`[[feedback_laptop_native_redesign]]`.
+`[[feedback_laptop_native_redesign]]`, `[[project_lab_manager_delegation]]`.
