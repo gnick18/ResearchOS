@@ -44,6 +44,7 @@ import { ExpandedView as LabActivityBody } from "./widgets/LabActivityWidget";
 import { ExpandedView as MemberWorkloadBody } from "./widgets/MemberWorkloadWidget";
 import { Composer as AnnouncementComposer } from "./widgets/AnnouncementsWidget";
 import ClassDashboardPanel from "./ClassDashboardPanel";
+import ClassSubmissionsPanel from "./ClassSubmissionsPanel";
 import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { CLASS_MODE_ENABLED } from "@/lib/lab/class-mode-config";
 
@@ -405,6 +406,18 @@ export default function LabOverviewPage() {
           description="Set the workbench every student in this class sees, and the default visibility for their work."
         >
           <ClassDashboardPanel />
+        </SectionCard>
+      )}
+
+      {/* Class submissions (CT-4): the instructor reviews student notebook
+          submissions for an assignment and returns them with feedback. Same
+          instructor-only class gate as the dashboard. */}
+      {showClassDashboard && (
+        <SectionCard
+          title="Class submissions"
+          description="Review what students submitted for an assignment and return their work with feedback."
+        >
+          <ClassSubmissionsPanel />
         </SectionCard>
       )}
 

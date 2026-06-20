@@ -58,6 +58,7 @@ import {
   type AssignmentVisibility,
 } from "./class-assignment";
 import { publishAssignmentRecord } from "./class-assignment-store";
+import { returnNotebook } from "./class-submission";
 import type { LabMember } from "./lab-membership";
 
 // Purchase items on Loro (docs/proposals/PURCHASE_LORO.md) chunk 3 = WRITE
@@ -92,6 +93,7 @@ import type {
   LabFlagForReviewNotification,
   LabClassAssignmentNotification,
   LabClassReturnedNotification,
+  ClassSubmission,
   PiFlag,
 } from "../types";
 
@@ -683,6 +685,129 @@ export async function assignMethodToClass(
         ]),
       ),
     );
+  } catch (err) {
+    return { ok: false, reason: "audit", error: err, value };
+  }
+
+  return { ok: true, value };
+}
+
+// ── Class Mode: return a submitted notebook (CT-4 live wiring) ───────────
+//
+// The INSTRUCTOR returns a student's submitted notebook with freeform feedback.
+// Mirrors assignTask: role-gate the head, owner-routed tasksApi.update into the
+// STUDENT's record (readable + writable by the head because the head co-owns the
+// per-student subkey, Stage 1), plus an audit entry + a notification. The legal
+// transition (submitted -> returned, throws otherwise) lives in the pure
+// returnNotebook; this is the live cross-owner writer. NO score is ever stored.
+//
+// Gated behind NEXT_PUBLIC_CLASS_MODE. Flag off, refuses cleanly (no write, no
+// audit, no notification), byte-identical to today.
+
+export interface ReturnNotebookArgs {
+  /** The instructor (head) username, the audit actor. */
+  actor: string;
+  /** The student who owns the notebook (the cross-owner write target). */
+  targetOwner: string;
+  /** The numeric notebook task id in the student's namespace. */
+  taskId: number;
+  /** The freeform instructor feedback (no numeric score). */
+  instructorNote: string;
+  /** Denormalized notebook name for the bell row. */
+  taskName?: string;
+}
+
+export interface ReturnNotebookValue {
+  taskId: number;
+  submission: ClassSubmission;
+}
+
+export async function returnNotebookForStudent(
+  args: ReturnNotebookArgs,
+): Promise<PiActionResult<ReturnNotebookValue>> {
+  // 0a. Flag gate. Class Mode does not half-ship.
+  if (!CLASS_MODE_ENABLED) {
+    return dataWriteFailure(
+      new Error("returnNotebookForStudent: class mode is disabled (NEXT_PUBLIC_CLASS_MODE off)"),
+    );
+  }
+
+  // 0b. Role gate. Only a lab head (the instructor) may return a notebook.
+  const gate = await assertLabHeadActor("returnNotebookForStudent");
+  if (gate) return gate;
+
+  // 1. Pre-read the student's notebook so the transition runs against the live
+  //    submission and the audit can carry the old value.
+  let before;
+  try {
+    before = await rawTasksApi.get(args.taskId, args.targetOwner);
+    if (!before) {
+      throw new Error(
+        `returnNotebookForStudent: task ${args.taskId} not found in ${args.targetOwner}'s folder`,
+      );
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // 2. The legal transition (submitted -> returned). Throws on an illegal source
+  //    state (never submitted, or already returned without a fresh submit), which
+  //    classifies as a data-write failure (nothing written).
+  let next: ClassSubmission;
+  try {
+    next = returnNotebook(before.submission, args.instructorNote);
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  // 3. Owner-routed write into the STUDENT's record.
+  let updated;
+  try {
+    updated = await rawTasksApi.update(
+      args.taskId,
+      { submission: next },
+      args.targetOwner,
+    );
+    if (!updated) {
+      throw new Error("returnNotebookForStudent: tasksApi.update returned null");
+    }
+  } catch (err) {
+    return dataWriteFailure(err);
+  }
+
+  const value: ReturnNotebookValue = { taskId: args.taskId, submission: next };
+
+  // 4. Notify the student their work was returned with feedback. Before the audit
+  //    emit so a failing audit append does not block the bell.
+  if (args.targetOwner !== args.actor) {
+    const notif: LabClassReturnedNotification = {
+      id: newId(),
+      type: "lab_class_returned",
+      from_user: args.actor,
+      owner_username: args.targetOwner,
+      task_id: args.taskId,
+      task_name: args.taskName ?? updated.name,
+      created_at: new Date().toISOString(),
+      read: false,
+    };
+    await appendNotification(args.targetOwner, notif);
+    void buzzRecipientPhone(args.targetOwner, "lab_class_returned");
+  }
+
+  // 5. Audit. A failing append surfaces as the "audit" reason without rolling back.
+  try {
+    await appendAuditEntries(args.targetOwner, [
+      {
+        session_id: LAB_HEAD_ACTION_SESSION,
+        actor: args.actor,
+        target_user: args.targetOwner,
+        record_type: "task",
+        record_id: args.taskId,
+        field_path: "submission.status",
+        old_value: before.submission?.status ?? "not_submitted",
+        new_value: next.status,
+      },
+    ]);
   } catch (err) {
     return { ok: false, reason: "audit", error: err, value };
   }
