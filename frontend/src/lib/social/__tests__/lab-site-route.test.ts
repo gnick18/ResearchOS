@@ -73,7 +73,10 @@ describe("GET /api/social/lab-site gating matrix", () => {
   it("200s an entitled owner (site null until claimed)", async () => {
     const res = await GET(ownerRequest());
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ site: null, pages: [] });
+    // toMatchObject (not toEqual), the response additionally carries the
+    // owner-aware-nav fields (editToken/ownerKey) added by the edit-token handoff,
+    // which are not the concern of this gating-matrix assertion.
+    expect(await res.json()).toMatchObject({ site: null, pages: [] });
   });
 
   it("503s when the store throws (fail closed, not a crash)", async () => {
