@@ -22,6 +22,7 @@ import {
   DEMO_LAB_CARD,
   isDemoLabSlug,
 } from "@/lib/social/demo-lab";
+import { getLabPublicCard } from "@/lib/social/lab-public-card";
 // Phase A: tool-type repo render. Reads the tool connection metadata from the
 // lab_tool_github table (created lazily by ensureLabToolSchema). Inert when no
 // tool connection exists for the lab.
@@ -278,10 +279,14 @@ export default async function LabSitePublicPage({
   // viewers (each embed falls back to its baked snapshot). When entries exist, the
   // matching embed renders the LIVE DuckDB-WASM viewer reading the Parquet on R2.
   const manifest = parseHostedManifest(page.hostedJson);
-  // Phase 1: demo-only lab profile. When the slug is the demo lab, pass the
-  // DEMO_LAB_CARD so LabIdentityHeader renders the rich lab header. Real labs
-  // get no header until Phase 4 adds a lab_sites profile column (Q4).
-  const demoCard = isDemoLabSlug(slug) ? DEMO_LAB_CARD : null;
+  // The lab profile that drives the rich header, collaboration CTAs, and
+  // citation. The demo lab uses the fabricated DEMO_LAB_CARD; a real lab gets a
+  // card assembled from existing data (directory_labs + the PI account profile +
+  // key fingerprint) by getLabPublicCard, with NO schema change. Null for an
+  // unlisted or unknown lab, which falls back to the bare page (Phase 4).
+  const card = isDemoLabSlug(slug)
+    ? DEMO_LAB_CARD
+    : await getLabPublicCard(slug);
   // Badges publish path: parse the stored snapshot (null -> empty, so a lab
   // with no published badges renders nothing). Only passed on the home path so
   // the badge section does not repeat on every subpage. The public page is
@@ -301,7 +306,7 @@ export default async function LabSitePublicPage({
       publishedPages={publishedPages}
       currentPath={normPath}
       hasByo={hasByo}
-      demoCard={demoCard}
+      card={card}
       badgeSnapshot={badgeSnapshot}
     />
   );

@@ -79,6 +79,13 @@ export interface DemoLabCard {
   members: DemoLabMember[];
   verifiedDomain: string;
   keyFingerprint: string;
+  /**
+   * The lab's member count when the full member roster is not loaded (real labs,
+   * Phase 4: we show the PI plus a count rather than every member's @handle). The
+   * header prefers this over members.length when set. The demo card omits it and
+   * falls back to members.length.
+   */
+  memberCount?: number;
 }
 
 /** The PI archetype, mirroring the in-tab demo (orange PI color, @mira). */

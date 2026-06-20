@@ -89,28 +89,38 @@ export default function LabIdentityHeader({ card }: { card: DemoLabCard }) {
             {card.name}
           </h1>
 
-          {/* Trust badges: verified domain + key fingerprint */}
-          <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Tooltip label="Confirmed via a verified email domain">
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-foreground">
-                <Icon name="shield" className="h-3.5 w-3.5 text-brand-action" />
-                Verified, {card.verifiedDomain}
-              </span>
-            </Tooltip>
-            <Tooltip label="Key fingerprint. Confirm this before you send.">
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-0.5 font-mono text-[11px] text-foreground-muted">
-                <Icon name="lock" className="h-3.5 w-3.5" />
-                {card.keyFingerprint}
-              </span>
-            </Tooltip>
-          </div>
+          {/* Trust badges: verified domain + key fingerprint. Each renders only
+              when present, so a real lab missing one (or both) shows no empty
+              chip and the row collapses entirely when neither is known. */}
+          {(card.verifiedDomain || card.keyFingerprint) && (
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {card.verifiedDomain && (
+                <Tooltip label="Confirmed via a verified email domain">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-0.5 text-[11px] font-medium text-foreground">
+                    <Icon name="shield" className="h-3.5 w-3.5 text-brand-action" />
+                    Verified, {card.verifiedDomain}
+                  </span>
+                </Tooltip>
+              )}
+              {card.keyFingerprint && (
+                <Tooltip label="Key fingerprint. Confirm this before you send.">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-0.5 font-mono text-[11px] text-foreground-muted">
+                    <Icon name="lock" className="h-3.5 w-3.5" />
+                    {card.keyFingerprint}
+                  </span>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Tagline */}
+      {/* Tagline. The institution (or demo tagline) leads when present, then a
+          generic, lab-agnostic collaboration line that is true for any listed
+          lab (listing is opt-in). */}
       <p className="mt-4 text-sm leading-relaxed text-foreground-muted">
-        {card.tagline}. Open to sharing methods and strain data with
-        collaborators. Listing is opt-in.
+        {card.tagline ? `${card.tagline}. ` : ""}Open to sharing data and methods
+        with collaborators. Listing is opt-in.
       </p>
 
       {/* People row: PI + member stack */}
@@ -139,7 +149,7 @@ export default function LabIdentityHeader({ card }: { card: DemoLabCard }) {
         </div>
 
         <span className="text-[11px] text-foreground-muted">
-          {card.members.length} members
+          {card.memberCount ?? card.members.length} members
         </span>
       </div>
     </div>

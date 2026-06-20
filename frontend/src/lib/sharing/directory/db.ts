@@ -1057,6 +1057,51 @@ export async function getLabListing(
 }
 
 /**
+ * The LISTED (opt-in public) lab a PI owns, resolved by their owner-key hash
+ * (pi_email_hash equals ownerKeyForEmail of the PI). Returns null when the PI
+ * owns no lab row OR the lab is not listed, so an unlisted lab stays private.
+ * Used to build the public lab-page profile (header, CTAs, citation) for REAL
+ * labs without any lab_sites schema change. Picks the most recently updated row
+ * if a PI somehow has more than one.
+ */
+export async function getListedLabByPiKey(
+  piEmailHash: string,
+): Promise<LabListing | null> {
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT lab_id, name, institution, pi_email_hash, pi_display_name,
+           member_count, listed, created_at, updated_at
+    FROM directory_labs
+    WHERE pi_email_hash = ${piEmailHash} AND listed = true
+    ORDER BY updated_at DESC
+    LIMIT 1
+  `) as Array<{
+    lab_id: string;
+    name: string;
+    institution: string | null;
+    pi_email_hash: string;
+    pi_display_name: string;
+    member_count: number;
+    listed: boolean;
+    created_at: string;
+    updated_at: string;
+  }>;
+  if (rows.length === 0) return null;
+  const r = rows[0];
+  return {
+    labId: r.lab_id,
+    name: r.name,
+    institution: r.institution,
+    piEmailHash: r.pi_email_hash,
+    piDisplayName: r.pi_display_name,
+    memberCount: r.member_count,
+    listed: r.listed,
+    createdAt: r.created_at,
+    updatedAt: r.updated_at,
+  };
+}
+
+/**
  * Searches listed labs by name or institution. Query is a LIKE search over
  * both columns (case-insensitive). Returns at most limit results.
  * Only rows with listed=true are returned; unlisted labs are invisible.

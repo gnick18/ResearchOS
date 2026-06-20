@@ -12,7 +12,7 @@
 //
 // Phase 1 enrichment. When the server route passes publishedPages + currentPath +
 // hasByo, the page gains a full header (LabIdentityHeader, demo-only for Phase 1
-// via demoCard), a cross-page subnav (LabSiteNav), a site switcher
+// via card), a cross-page subnav (LabSiteNav), a site switcher
 // (LabSiteSwitcher, only when hasByo), a companion listing (LabCompanionList),
 // and a copyable citation block (LabCitation). All are inert when their props are
 // absent or empty, so old callers that omit the new props are byte-identical.
@@ -59,7 +59,7 @@ export default function LabSitePageView({
   publishedPages,
   currentPath,
   hasByo,
-  demoCard,
+  card,
   badgeSnapshot,
 }: {
   slug: string;
@@ -100,11 +100,12 @@ export default function LabSitePageView({
    */
   hasByo?: boolean;
   /**
-   * The demo lab profile for LabIdentityHeader. Non-null only when the slug is
-   * the demo lab (demo-scoped, Phase 1). Real labs get no header until Phase 4
-   * adds a lab_sites profile column (open question Q4).
+   * The lab profile that drives the header, collaboration CTAs, and citation.
+   * The demo lab uses DEMO_LAB_CARD; a real LISTED lab uses a card assembled from
+   * existing data (getLabPublicCard, no schema change). Null for an unlisted or
+   * unknown lab, which falls back to the bare breadcrumb page.
    */
-  demoCard?: DemoLabCard | null;
+  card?: DemoLabCard | null;
   /**
    * The lab's published badge snapshot (badges phase 2). Passed only on the
    * home page (normPath === "") and only when BADGES_ENABLED is true; undefined
@@ -147,12 +148,13 @@ export default function LabSitePageView({
             the long-form body prose constrained to a readable line length below. */}
         <div className="relative z-10 mx-auto max-w-[90rem] px-6 pb-16 pt-14 sm:px-8 sm:pt-20">
 
-          {/* Lab identity header (demo-only Phase 1, real labs Phase 4). */}
-          {demoCard ? (
-            <LabIdentityHeader card={demoCard} />
+          {/* Lab identity header. The demo lab and any LISTED real lab get the
+              full header (card from getLabPublicCard). */}
+          {card ? (
+            <LabIdentityHeader card={card} />
           ) : (
-            /* Fallback breadcrumb for non-demo labs until Phase 4 adds the
-               lab_sites profile column. Byte-identical to the Phase 2 render. */
+            /* Fallback breadcrumb for a lab with no public card (unlisted or
+               unknown). Byte-identical to the pre-Phase-4 render. */
             <p className="text-meta font-medium text-foreground-muted">
               <Link
                 href={labSamePath(linkBase, "")}
@@ -179,7 +181,7 @@ export default function LabSitePageView({
 
           {/* Page title. Shown only when the identity header is not providing it
               (i.e. not the home page with a demo card showing the lab name). */}
-          {!(demoCard && normPath === "") && (
+          {!(card && normPath === "") && (
             <h1 className="mt-2 text-display font-bold tracking-tight text-foreground">
               {heading}
             </h1>
@@ -204,12 +206,12 @@ export default function LabSitePageView({
               Find people stays on the lab origin (read-only People page). Cite
               is handled by LabCitation below and is NOT duplicated here.
               Absent for non-demo labs until Phase 4 adds a lab_sites profile. */}
-          {demoCard && <LabCollaborationActions card={demoCard} />}
+          {card && <LabCollaborationActions card={card} />}
 
           {/* Copyable citation block. Only when we have a lab profile. */}
-          {demoCard && (
+          {card && (
             <LabCitation
-              card={demoCard}
+              card={card}
               pageTitle={title}
               pagePath={normPath}
             />
