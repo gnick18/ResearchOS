@@ -13,7 +13,7 @@ import AssetLibraryLanding from "@/components/library/AssetLibraryLanding";
 export const metadata: Metadata = {
   title: "Open scientific icon library",
   description:
-    "Thousands of openly licensed scientific icons and silhouettes, free to use and remix. Search, recolor, and drop them into a figure with citations handled for you. CC0, CC-BY, and CC-BY-SA only.",
+    "Around 30,000 openly licensed scientific icons and silhouettes, free to use and remix. Search, recolor, and drop them into a figure with citations handled for you. CC0, CC-BY, and CC-BY-SA only.",
 };
 
 export default function LibraryPage() {

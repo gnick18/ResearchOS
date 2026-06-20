@@ -6,7 +6,7 @@ export default function LibraryFeaturePage() {
   return (
     <WikiPage
       title="Open icon library"
-      intro="The open icon library is a public, login-free collection of openly licensed scientific icons and silhouettes, a free alternative to BioRender. It carries roughly 14,559 assets, every one of them under a permissive open license, and every one of them ships with its source and a ready-to-paste citation so attribution is handled for you. Browse it, search it, and drop the icons straight into your figures."
+      intro="The open icon library is a public, login-free collection of openly licensed scientific icons and silhouettes, a free alternative to BioRender. It carries roughly 30,000 assets, every one of them under a permissive open license, and every one of them ships with its source and a ready-to-paste citation so attribution is handled for you. Browse it, search it, and drop the icons straight into your figures."
     >
       <h2>What it is for</h2>
       <p>
@@ -26,7 +26,7 @@ export default function LibraryFeaturePage() {
 
       <h2>What is in it</h2>
       <p>
-        The library holds roughly 14,559 assets drawn from openly licensed sources,
+        The library holds roughly 30,000 assets drawn from openly licensed sources,
         chiefly PhyloPic for organism silhouettes and BioIcons for scientific
         diagram icons. Everything is vector art that scales cleanly into a figure at
         any size.

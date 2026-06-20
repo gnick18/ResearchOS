@@ -1,5 +1,5 @@
 // Near-miss tolerant icon search over the open-asset library. The plain
-// substring filter (searchAssets) misses the cases that make a 14k-icon picker
+// substring filter (searchAssets) misses the cases that make a 30k-icon picker
 // feel broken: a typo ("moose" for mouse), a synonym ("rodent"), or a domain
 // term that is not literally in the title/tags ("cell death" -> apoptosis). This
 // is a pure, unit-tested ranker that blends three signals into one score:
@@ -205,7 +205,7 @@ const TRIGRAM_FLOOR = 0.5; // below this, a fuzzy match is noise
  *  typed a fragment) is a strong signal; an asset word merely sitting inside the
  *  query term ("rod" inside "rodent") is usually coincidental and discounted. */
 // A query term prepared ONCE per search: its words + each word's trigram set,
-// so we never recompute the query side inside the 14k-asset loop.
+// so we never recompute the query side inside the 30k-asset loop.
 interface PreparedTerm {
   words: { text: string; tri: Set<string> }[];
   isSynonym: boolean;
@@ -246,7 +246,7 @@ function termVsTokens(term: PreparedTerm, tokens: string[], weight: number, fuzz
 }
 
 // ---------------------------------------------------------------------------
-// Precomputed index. Tokenizing 14k assets on every keystroke is the dominant
+// Precomputed index. Tokenizing 30k assets on every keystroke is the dominant
 // cost, so do it ONCE (buildSearchIndex) and rank against the cached tokens.
 // ---------------------------------------------------------------------------
 

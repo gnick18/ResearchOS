@@ -285,7 +285,7 @@ export const WIKI_NAV: WikiNode[] = [
       {
         href: "/wiki/features/library",
         label: "Open icon library",
-        blurb: "A public, login-free alternative to BioRender. Around 14,559 openly licensed scientific icons and silhouettes, every one with its source and a ready-to-paste citation, dropped straight into your figures.",
+        blurb: "A public, login-free alternative to BioRender. Around 30,000 openly licensed scientific icons and silhouettes, every one with its source and a ready-to-paste citation, dropped straight into your figures.",
       },
       {
         href: "/wiki/features/researchers",
