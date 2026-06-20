@@ -240,21 +240,21 @@ function useResearchWizardReturn(): WizardSelection | null {
 
 // The step a resumed research wizard should land on. Resolves the first step the
 // user has not completed (via computeResumeStepId) so a re-entry continues rather
-// than restarting at "handle" and re-asking the handle / name / lab name. ready
+// than restarting at "identity" and re-asking the handle / name / lab name. ready
 // is false until the async handle check resolves, so the host can wait before
 // mounting the wizard at the wrong step (the shell reads initialStepId only on
-// mount). On any fetch failure it falls back to the safe default ("handle"), the
-// pre-existing behavior, so a hiccup never skips a needed step.
+// mount). On any fetch failure it falls back to the safe default ("identity"),
+// the first step, so a hiccup never skips a needed step.
 function useResearchWizardResumeStep(
   selection: WizardSelection | null,
 ): { ready: boolean; stepId: string } {
   const [state, setState] = useState<{ ready: boolean; stepId: string }>({
     ready: false,
-    stepId: "handle",
+    stepId: "identity",
   });
   useEffect(() => {
     if (!selection) {
-      setState({ ready: true, stepId: "handle" });
+      setState({ ready: true, stepId: "identity" });
       return;
     }
     let live = true;
@@ -271,8 +271,8 @@ function useResearchWizardResumeStep(
           handleClaimed = Boolean(data?.profile?.handle);
         }
       } catch {
-        // Network hiccup: keep handleClaimed false so we resume at "handle", the
-        // safe pre-existing default. Never skip a step on a failed check.
+        // Network hiccup: keep handleClaimed false so we resume at "identity",
+        // the safe first-step default. Never skip a step on a failed check.
       }
       const stepId = computeResumeStepId(selection, {
         handleClaimed,
