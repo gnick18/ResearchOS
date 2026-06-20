@@ -244,6 +244,26 @@ Hard dependency (residency lane, not a Class-Mode build item but Class Mode is i
 
 ---
 
+## Stage 3 reference: H1 route-gate audit (from the Phase 2B chrome lane)
+
+These pages gate on `account_type === "lab_head"` / `isLabHead` and currently render research-lab-flavored chrome for a class instructor (acceptable while the flag is off). Each needs `useIsClassMode` routing in Stage 3. Phase 2B already hid funding/approvals/purchases from class nav, suppressed the research BeakerBot PI suite in class context, and routes a class head landing to `/workbench` instead of `/lab-overview`.
+
+| Page | Lines | Stage 3 intended class behavior |
+|---|---|---|
+| `app/lab-overview/page.tsx` | 34,47,48 | Render a class overview (roster/assignments/submissions), or keep routing class heads to the class landing until that surface exists |
+| `app/people/page.tsx` | 19,23 | Keep (roster maps onto People); relabel to class-roster framing |
+| `app/approvals/page.tsx` | 18,22 | Redirect class heads away (no purchasing approvals in a classroom); already hidden from nav |
+| `app/funding/page.tsx` | 18,22 | Redirect class heads away (no grants); already hidden from nav |
+| `app/lab-work/page.tsx` | 18,22 | Keep; relabel to a per-student work view |
+| `app/activity/page.tsx` | 20,24 | Keep; class activity stream |
+| `app/lab-notes/page.tsx` | 22,28 | Keep; class-shared notes framing |
+| `app/lab-experiments/page.tsx` | 27,34 | Keep; class experiments framing |
+| `app/purchases/page.tsx` | 152-154,222 | Suppress the PI approval lens for class heads; already hidden from nav |
+| `app/supplies/page.tsx` | 153,172,226,232 | De-emphasize (lab-lens supply discovery has no class meaning) |
+| `app/search/page.tsx` | 88,500 | Re-scope or hide the PI-only search affordance |
+| `app/methods/page.tsx` | 335,337 | Keep (CURE assignments are authored as methods); relabel lab-lens scope to class scope |
+| `app/gantt/page.tsx` | 84,86,95,332 | Keep; relabel "lab" scope to "class" scope |
+
 ## Second design pass (addendum, reconciled)
 
 Three adversarial critics (residency/crypto/safety, completeness/missed-surfaces, build-feasibility/sequencing) ran over the first-pass scope above. They returned `complete=false` with several CRITICAL findings that change the build. The throughline: the first-pass "a class is a lab, almost everything already exists" claim is true at the DATA-GENESIS layer and FALSE at the member READ/WRITE layer. The same `pullLabView` + relay-roster wiring the multi-lab spec lists as UNBUILT is the exact substrate every student-facing class tool needs. The sections above stand as the design intent; the corrections below OVERRIDE them where they conflict, and the revised plan at the very end supersedes the first-pass phased plan.
