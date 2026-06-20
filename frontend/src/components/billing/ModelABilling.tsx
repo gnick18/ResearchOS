@@ -203,6 +203,35 @@ function PaidPanel({
 
       <CardRow hasCard={status.hasCard} busy={busyCard} onAdd={addCard} />
       <CapRow status={status} onChange={onChange} />
+      <DeflectionRow />
+    </div>
+  );
+}
+
+// Dispute deflection (Grant 2026-06-19). A calm line pointing a confused customer to
+// us BEFORE they file a bank dispute. The WHY is stated plainly, reaching us directly
+// is faster, because we can refund or explain a charge on the spot, where a card
+// dispute takes weeks and freezes the account. Charges land as RESEARCHOS on the
+// statement (set on the PaymentIntent) so they are recognizable; we ask the customer
+// to quote the charge id from their statement or Stripe receipt so we can find it
+// instantly.
+function DeflectionRow() {
+  return (
+    <div className="border-t border-border pt-4">
+      <div className="text-sm font-semibold text-foreground">Questions about a charge?</div>
+      <p className="mt-1 text-xs text-foreground-muted">
+        Email us at{" "}
+        <a
+          href="mailto:support@research-os.app"
+          className="font-semibold text-[#1283c9] hover:underline"
+        >
+          support@research-os.app
+        </a>{" "}
+        and include the charge id from your card statement or Stripe receipt (charges
+        show as RESEARCHOS). Reaching us directly is faster than a bank dispute, we can
+        refund or look into it the same day, while a dispute takes weeks and pauses
+        your account.
+      </p>
     </div>
   );
 }
