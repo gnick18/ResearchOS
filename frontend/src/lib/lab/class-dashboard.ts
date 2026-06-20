@@ -133,6 +133,7 @@ export const CLASS_STUDENT_NAV_DEFAULT: readonly string[] = [
   "/sequences",
   "/chemistry",
   "/datahub",
+  "/figures",
   "/calendar",
 ];
 

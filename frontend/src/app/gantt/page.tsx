@@ -6,6 +6,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared, labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
+import { useIsClassMode } from "@/hooks/useIsClassMode";
+import { useIsClassStudent } from "@/hooks/useIsClassStudent";
 import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
@@ -82,6 +84,13 @@ export default function Home() {
   // view is READ-ONLY: GanttChart's lab mode disables every drag/resize handler,
   // and a click opens the task read-only (edit-as-lab-head lives in the popup).
   const isLabHead = useIsLabHead(currentUser || null) === true;
+  // CT-6: any class folder (instructor OR student). High-level lab goals have no
+  // classroom meaning, so the goals sidebar + create button + goal markers are
+  // hidden in a class. Loading resolves to false (goals show briefly then hide),
+  // which is fine since /gantt is hidden from the student nav anyway.
+  const isClassInstructor = useIsClassMode(currentUser || null) === true;
+  const isClassStudent = useIsClassStudent(currentUser || null) === true;
+  const inClass = isClassInstructor || isClassStudent;
   const { mode: piViewMode } = usePiViewMode();
   const labLensDefault = isLabHead && piViewMode === "lab";
   const [ganttScope, setGanttScope] = useState<"mine" | "lab">("mine");
@@ -392,6 +401,7 @@ export default function Home() {
             onCreateTask={handleCreateTask}
             onCreateGoal={handleCreateGoal}
             projectColors={projectColors}
+            showGoalButton={!inClass}
           />
 
           <div className="flex flex-1 overflow-hidden">
@@ -400,17 +410,20 @@ export default function Home() {
               dependencies={activeDependencies}
               projectColors={projectColors}
               projects={activeProjects}
-              goals={goals}
+              goals={inClass ? [] : goals}
               onTaskClick={handleTaskClick}
               onGoalClick={(goal) => setEditingGoal(goal)}
               highlightTaskKeys={highlightTaskKeys}
               onHighlightDone={() => setHighlightTaskKeys([])}
             />
-            <HighLevelGoalSidebar
-              goals={goals}
-              onEditGoal={(goal) => setEditingGoal(goal)}
-              onDeleteGoal={handleDeleteGoal}
-            />
+            {/* High-level goals are a research-lab concept; hidden in a class. */}
+            {!inClass && (
+              <HighLevelGoalSidebar
+                goals={goals}
+                onEditGoal={(goal) => setEditingGoal(goal)}
+                onDeleteGoal={handleDeleteGoal}
+              />
+            )}
           </div>
 
           <BulkMoveModal />
@@ -427,8 +440,8 @@ export default function Home() {
             />
           )}
 
-          {/* High-Level Goal Modal */}
-          {(isCreatingGoal || editingGoal) && (
+          {/* High-Level Goal Modal (never in a class, goals are hidden there) */}
+          {!inClass && (isCreatingGoal || editingGoal) && (
             <HighLevelGoalModal
               projects={activeProjects}
               onClose={() => {
