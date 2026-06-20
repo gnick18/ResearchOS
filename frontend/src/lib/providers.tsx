@@ -1421,8 +1421,17 @@ function AppContent({ children }: { children: ReactNode }) {
             of the real workbench (mounted underneath), so its rainbow exit flood
             recedes to reveal the actual workspace, not a second BeakerBot. It
             also covers the initial app data load. Replaced the old per-login
-            SuccessTransition. Skipped in fixture modes (returned above anyway). */}
-        {!splashSeen && !isDemoOrWikiCapture() && (
+            SuccessTransition. Skipped in fixture modes (returned above anyway).
+
+            Onboarding force (Grant 2026-06-20): a user who JUST finished the
+            wizard (the ?onbWizard marker is still set but they are now connected)
+            always gets the splash as the welcome-into-app moment, even if today's
+            stamp was already set by an earlier marketing / demo load. We clear
+            the marker on complete so it plays exactly once, then reverts to the
+            normal once-per-day gate. Inert when the onboarding flag is off
+            (researchWizardReturn is null), so prod is unchanged. */}
+        {(!splashSeen || (!!researchWizardReturn && isConnected)) &&
+          !isDemoOrWikiCapture() && (
           <Splash
             userName={currentUser ?? undefined}
             preferredName={preferredName}
@@ -1434,6 +1443,9 @@ function AppContent({ children }: { children: ReactNode }) {
                 // on the next load, harmless.
               }
               setSplashSeen(true);
+              // Clear the onboarding marker so the forced splash fires once, not
+              // on every post-onboarding reload while the URL marker lingers.
+              if (researchWizardReturn) clearOnboardingWizardReturn();
             }}
           />
         )}
