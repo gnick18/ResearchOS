@@ -16,6 +16,7 @@ import {
   isProduceEntitled,
   getEffectiveModelAPlanId,
 } from "@/lib/billing/model-a/resolve";
+import { getActiveCompedTier } from "@/lib/billing/grants";
 import { getSponsoringLab } from "@/lib/billing/lab";
 import { getLabNameByPiKey } from "@/lib/sharing/directory/db";
 import {
@@ -61,7 +62,7 @@ export async function GET(): Promise<Response> {
 
   const ownerKey = ownerKeyForEmail(email);
   try {
-    const [planId, accruedCents, capCents, card, produceEntitled, trial, sponsoringLab] =
+    const [planId, accruedCents, capCents, card, produceEntitled, trial, sponsoringLab, compedTier] =
       await Promise.all([
         resolveModelAPlanId(ownerKey),
         getCloudBalance(ownerKey),
@@ -74,6 +75,10 @@ export async function GET(): Promise<Response> {
         // The lab that covers this member, so settings can say "covered by X lab"
         // instead of looking like the membership did nothing.
         resolveSponsoringLab(ownerKey),
+        // Whether an operator gift comp is active (pure read, no rate change). Used
+        // by the account hub to show the "Comped by ResearchOS" state pill instead
+        // of "Active", since both resolve to the same planId.
+        getActiveCompedTier(ownerKey).catch(() => null),
       ]);
     // Trial fields drive the settings countdown line and the day-90 pause prompt.
     // trialPhase is the single shared decision; trialEndsAt feeds the countdown.
@@ -88,6 +93,10 @@ export async function GET(): Promise<Response> {
       trialPhase,
       trialPaused: trialPhase === "ended_no_card",
       sponsoringLab,
+      /** True when the effective plan is driven by an operator gift comp (not a real
+       *  Stripe subscription). Lets the hub show "Comped by ResearchOS" instead of
+       *  "Active" without re-fetching grants client-side. */
+      isComped: compedTier !== null,
     });
   } catch {
     return json(500, { error: "status failed" });
