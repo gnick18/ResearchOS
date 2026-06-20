@@ -18,6 +18,7 @@ import {
   listRememberedFolders,
   forgetRememberedFolder,
   renameRememberedFolder,
+  setRememberedFolderNickname,
   getActiveFolderId,
   getRememberedFolderHandle,
   setActiveFolderId,
@@ -160,6 +161,13 @@ interface FileSystemContextValue extends FileSystemState {
    * pointer. A blank name is a no-op. No-op when the flag is off.
    */
   renameFolder: (id: string, name: string) => Promise<void>;
+  /**
+   * Multi-folder (REFINEMENT 3). Set or clear one remembered folder's nickname
+   * within the current account scope. Never touches the real folder name (the
+   * switcher displays the nickname when set, else the name). A blank nickname
+   * clears it. No-op when the flag is off.
+   */
+  setFolderNickname: (id: string, nickname: string) => Promise<void>;
 }
 
 /** DEV ONLY. Name of the throwaway OPFS folder backing an ephemeral session. */
@@ -1698,6 +1706,16 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     [],
   );
 
+  const setFolderNickname = useCallback(
+    async (id: string, nickname: string): Promise<void> => {
+      if (!MULTI_FOLDER_ENABLED) return;
+      await setRememberedFolderNickname(id, nickname);
+      const folders = await listRememberedFolders();
+      setState((prev) => ({ ...prev, rememberedFolders: folders }));
+    },
+    [],
+  );
+
   const value: FileSystemContextValue = {
     ...state,
     connect,
@@ -1715,6 +1733,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     switchFolder,
     forgetFolder,
     renameFolder,
+    setFolderNickname,
   };
 
   return (
