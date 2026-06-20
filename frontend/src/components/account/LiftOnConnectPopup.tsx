@@ -6,17 +6,21 @@
 // calendars set up, a popup will ask if you want to add them to your cloud
 // profile, then they follow you everywhere across folders and devices."
 //
-// When the account-settings flag is ON and the user connects / opens a folder
-// that holds account-scopable settings (external calendar feeds and/or the
-// broader account preferences) that the cloud account store does NOT already
-// carry, this offers, in plain language, to lift them into the cloud profile so
-// they follow the user across every folder and device. Primary action lifts them
-// (liftFolderSettingsOnLogin); secondary keeps them folder-local (a no-op).
+// TWO TIERS (Grant 2026-06-20):
+//   - ACCOUNT-STATE (the lab-head / PI role + displayName + preferredName) is core
+//     identity, not an optional preference, so on connect it lifts SILENTLY with no
+//     popup (liftAccountStateSilently). A user does not opt out of their own role,
+//     it follows the account. This is the Owen misfire fix, where claiming a lab
+//     wrote account_type "lab_head" and the popup then offered to sync it.
+//   - OPTIONAL settings (external calendar feeds + display / UI preferences) are
+//     privacy-ish opt-ins, so THOSE still surface this consent popup. Primary
+//     action lifts everything (account-state + optional); secondary keeps only the
+//     OPTIONAL prefs folder-local (the account-state has already lifted silently).
 //
 // NO NAG: it shows at most ONCE per folder (a per-folder "asked" marker in
 // localStorage, keyed by folder + identity + user), and never when the account
-// already has these settings. When the flag is OFF it never renders and never
-// touches the network.
+// already has these optional settings. When the flag is OFF it never renders and
+// never touches the network.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons. Inline SVG via
 // the LivingPopup chrome; this body uses no icons.
@@ -30,7 +34,9 @@ import { isAccountSettingsEnabled } from "@/lib/account/account-settings-config"
 import {
   currentIdentityOwnerKey,
   fetchAccountSettings,
-  folderHasLiftableSettings,
+  hasLiftableAccountState,
+  hasLiftableOptionalPrefs,
+  liftAccountStateSilently,
   liftFolderSettingsOnLogin,
   type FolderAccountScopablePrefs,
 } from "@/lib/account/account-settings";
@@ -166,20 +172,27 @@ export default function LiftOnConnectPopup() {
 
         const { feeds, prefs, accountType } = await readFolderPrefs(currentUser);
         const account = await fetchAccountSettings();
-        // Substantive trigger only: real calendar feeds or a lab-head capability
-        // the account lacks. account_type is passed so PI status can actually be
-        // lifted (the old code passed undefined, so labHead never followed the
-        // account, the second half of the Owen misfire).
-        const liftable = folderHasLiftableSettings(
-          account,
-          feeds,
-          accountType,
-          prefs,
-        );
-        if (!liftable) {
-          // Account already has everything this folder offers (or the folder has
-          // nothing substantive, e.g. a fresh empty workspace): never ask, and
-          // mark so a later reload does not re-evaluate.
+
+        // ACCOUNT-STATE (lab-head role + displayName + preferredName) is core
+        // identity, not an optional preference, so it lifts SILENTLY on connect
+        // with NO popup (Grant 2026-06-20: the role follows the account, the user
+        // does not opt out of it). This is the direct fix for the Owen misfire,
+        // where claiming a lab wrote account_type "lab_head" and the popup then
+        // offered to sync it. Best-effort and idempotent, never blocks the app.
+        if (hasLiftableAccountState(account, accountType, prefs)) {
+          void liftAccountStateSilently(
+            accountType,
+            prefs.displayName,
+            prefs.preferredName,
+          );
+        }
+
+        // The popup ONLY governs OPTIONAL settings (calendar feeds + display / UI
+        // preferences) the account lacks. If nothing optional is liftable, never
+        // ask (the account-state lift above already ran), and mark so a later
+        // reload does not re-evaluate.
+        const optionalLiftable = hasLiftableOptionalPrefs(account, feeds, prefs);
+        if (!optionalLiftable) {
           markAsked(key);
           return;
         }
@@ -222,6 +235,10 @@ export default function LiftOnConnectPopup() {
   };
 
   const onKeepLocal = () => {
+    // Keeps only the OPTIONAL prefs folder-local. The account-STATE (role +
+    // names) has already lifted silently during evaluation, so "keep local" never
+    // strips the role from the account, it only declines syncing the optional
+    // calendar feeds + display preferences.
     const p = pending.current;
     if (p) markAsked(p.askedKey);
     setOpen(false);
