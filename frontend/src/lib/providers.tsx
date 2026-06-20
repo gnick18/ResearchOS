@@ -1064,6 +1064,37 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // Post-OAuth HOLD (login-flash fix, 2026-06-20). The account-first redirect just
+  // below requires hasCloudSession === true, but useHasCloudSession starts at null
+  // and resolves a tick later (it calls getSession() in an effect). On the OAuth
+  // return to "/" that leaves a brief ambiguous window where the session is still
+  // unknown (hasCloudSession === null) yet the visitor is not connected and has no
+  // current user, so the gate fell THROUGH to a login / landing screen (Folder-
+  // ConnectGate, the sign-in screen, or UserLoginScreen) and then unmounted it the
+  // instant the session resolved to true and the redirect branch took over. That
+  // mount/unmount churn is the flashing Grant reported. Hold on the neutral loading
+  // screen until the check resolves, but ONLY when account-first is on and we are
+  // in that exact ambiguous post-auth window. A genuinely logged-out visitor
+  // (hasCloudSession === false) is NOT held, so the landing still appears with no
+  // added delay. Every higher-precedence branch above (demo / wiki-capture, the
+  // reconnect loading screen, unsupported-device, the research onboarding wizard,
+  // and the ORCID email-capture) has already returned, so this never delays them.
+  if (
+    isAccountFirstEnabled() &&
+    hasCloudSession === null &&
+    !isConnected &&
+    !currentUser &&
+    !needsInitialization &&
+    !isDemoOrWikiCapture()
+  ) {
+    return (
+      <StagedLoadingScreen
+        stage={loadingStage}
+        onPickDifferentFolder={() => void disconnect()}
+      />
+    );
+  }
+
   // Account-first (cloud-accounts Phase 1, Chunk C). When NEXT_PUBLIC_ACCOUNT_FIRST
   // is on, a SIGNED-IN visitor with no folder belongs on the folderless /account
   // home, not the folder-connect wall (this is the break in the OAuth->folder
