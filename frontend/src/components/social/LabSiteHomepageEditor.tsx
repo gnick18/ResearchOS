@@ -32,6 +32,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
+import LabSiteBlockView from "@/components/social/LabSiteBlockView";
 import {
   type SectionBlock,
   type HeroSectionBlock,
@@ -917,6 +918,8 @@ export default function LabSiteHomepageEditor({
   // Which section row is currently expanded (by index). null = all collapsed.
   const [expandedIndex, setExpandedIndex] = useState<number | null>(0);
   const [pickerOpen, setPickerOpen] = useState(false);
+  // Preview mode: show the current draft sections via LabSiteBlockView.
+  const [isPreview, setIsPreview] = useState(false);
 
   // Serialize and propagate on every sections change.
   const serialize = useCallback(
@@ -990,47 +993,103 @@ export default function LabSiteHomepageEditor({
     serialize(next);
   }
 
+  // Build the full block array for preview (sections first, then any non-section blocks).
+  const previewBlocks = useMemo<LabSiteBlock[]>(
+    () => [...sections, ...nonSectionBlocks],
+    [sections, nonSectionBlocks],
+  );
+
   return (
     <div className="flex flex-col gap-3">
-      {/* Intro note */}
-      <p className="text-xs text-muted-foreground">
-        Your homepage is built from sections. Add, reorder, and fill each
-        section. Changes are saved when you click Save draft or Push live.
-      </p>
+      {/* Edit / Preview toggle bar */}
+      <div className="flex items-center justify-between">
+        <p className="text-xs text-muted-foreground">
+          {isPreview
+            ? "Previewing how your homepage will look when published."
+            : "Your homepage is built from sections. Add, reorder, and fill each section. Changes are saved when you click Save draft or Push live."}
+        </p>
+        <div className="inline-flex shrink-0 items-center rounded-lg border border-border bg-surface-sunken p-0.5">
+          <Tooltip label="Edit mode">
+            <button
+              type="button"
+              onClick={() => setIsPreview(false)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                !isPreview
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-pressed={!isPreview}
+            >
+              <Icon name="pencil" className="h-3.5 w-3.5" />
+              Edit
+            </button>
+          </Tooltip>
+          <Tooltip label="Preview how the published homepage will look">
+            <button
+              type="button"
+              onClick={() => setIsPreview(true)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                isPreview
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground"
+              }`}
+              aria-pressed={isPreview}
+            >
+              <Icon name="eye" className="h-3.5 w-3.5" />
+              Preview
+            </button>
+          </Tooltip>
+        </div>
+      </div>
 
-      {/* Section list */}
-      {sections.map((block, i) => (
-        <SectionRow
-          key={block.id}
-          block={block}
-          index={i}
-          total={sections.length}
-          isExpanded={expandedIndex === i}
-          onToggle={() => setExpandedIndex((prev) => (prev === i ? null : i))}
-          onChange={(updated) => updateSection(i, updated)}
-          onMoveUp={() => moveUp(i)}
-          onMoveDown={() => moveDown(i)}
-          onRemove={() => removeSection(i)}
-          disabled={disabled}
-        />
-      ))}
-
-      {/* Add section */}
-      {pickerOpen ? (
-        <SectionPicker
-          onAdd={addSection}
-          onClose={() => setPickerOpen(false)}
-          disabled={disabled}
-        />
+      {/* Preview mode: read-only render via LabSiteBlockView */}
+      {isPreview ? (
+        <div className="rounded-xl border border-border bg-background p-6">
+          {previewBlocks.length === 0 ? (
+            <p className="py-12 text-center text-sm text-foreground-muted">
+              No sections yet. Switch to Edit to add content.
+            </p>
+          ) : (
+            <LabSiteBlockView blocks={previewBlocks} />
+          )}
+        </div>
       ) : (
-        <button
-          type="button"
-          onClick={() => setPickerOpen(true)}
-          disabled={disabled}
-          className="ros-btn-neutral inline-flex items-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-sm text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-50"
-        >
-          <Icon name="plus" className="h-4 w-4" /> Add section
-        </button>
+        <>
+          {/* Section list */}
+          {sections.map((block, i) => (
+            <SectionRow
+              key={block.id}
+              block={block}
+              index={i}
+              total={sections.length}
+              isExpanded={expandedIndex === i}
+              onToggle={() => setExpandedIndex((prev) => (prev === i ? null : i))}
+              onChange={(updated) => updateSection(i, updated)}
+              onMoveUp={() => moveUp(i)}
+              onMoveDown={() => moveDown(i)}
+              onRemove={() => removeSection(i)}
+              disabled={disabled}
+            />
+          ))}
+
+          {/* Add section */}
+          {pickerOpen ? (
+            <SectionPicker
+              onAdd={addSection}
+              onClose={() => setPickerOpen(false)}
+              disabled={disabled}
+            />
+          ) : (
+            <button
+              type="button"
+              onClick={() => setPickerOpen(true)}
+              disabled={disabled}
+              className="ros-btn-neutral inline-flex items-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-sm text-muted-foreground hover:border-border hover:text-foreground disabled:opacity-50"
+            >
+              <Icon name="plus" className="h-4 w-4" /> Add section
+            </button>
+          )}
+        </>
       )}
     </div>
   );

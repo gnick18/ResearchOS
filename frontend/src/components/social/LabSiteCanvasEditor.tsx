@@ -670,6 +670,11 @@ export interface LabSiteCanvasEditorProps {
  * publish flow is handled by the parent (LabSiteDashboard); this component
  * exposes the current blocks via onChange so the parent can call
  * scanBlockEmbedHrefs and bake them on publish.
+ *
+ * The Edit / Preview toggle at the top switches between the three-column editing
+ * layout and a read-only render of the current draft blocks via LabSiteBlockView.
+ * Toggling never flushes or loses editor state; it only changes which view is
+ * shown. Preview is purely a view-only display and never writes.
  */
 export default function LabSiteCanvasEditor({
   initialBlocksJson,
@@ -680,6 +685,8 @@ export default function LabSiteCanvasEditor({
     parseLabSiteBlocks(initialBlocksJson),
   );
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Preview mode: show the current blocks via LabSiteBlockView with no edit chrome.
+  const [isPreview, setIsPreview] = useState(false);
   // Index of the block being dragged from the canvas (for reorder highlight).
   // Using state rather than a ref so the dragging highlight renders correctly.
   const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
@@ -782,7 +789,60 @@ export default function LabSiteCanvasEditor({
   const selectedBlock = blocks.find((b) => b.id === selectedId) ?? null;
 
   return (
-    <div className="flex min-h-0 gap-3 xl:grid xl:grid-cols-[200px_1fr_240px] xl:items-start">
+    <div className="flex flex-col gap-3">
+      {/* ------------------------------------------------------------------- */}
+      {/* Edit / Preview toggle bar                                            */}
+      {/* ------------------------------------------------------------------- */}
+      <div className="flex items-center justify-end">
+        <div className="inline-flex items-center rounded-lg border border-border bg-surface-sunken p-0.5">
+          <Tooltip label="Edit mode">
+            <button
+              type="button"
+              onClick={() => setIsPreview(false)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                !isPreview
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+              aria-pressed={!isPreview}
+            >
+              <Icon name="pencil" className="h-3.5 w-3.5" />
+              Edit
+            </button>
+          </Tooltip>
+          <Tooltip label="Preview how the published page will look">
+            <button
+              type="button"
+              onClick={() => setIsPreview(true)}
+              className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                isPreview
+                  ? "bg-surface-raised text-foreground shadow-sm"
+                  : "text-foreground-muted hover:text-foreground"
+              }`}
+              aria-pressed={isPreview}
+            >
+              <Icon name="eye" className="h-3.5 w-3.5" />
+              Preview
+            </button>
+          </Tooltip>
+        </div>
+      </div>
+
+      {/* ------------------------------------------------------------------- */}
+      {/* Preview mode: read-only render via LabSiteBlockView                 */}
+      {/* ------------------------------------------------------------------- */}
+      {isPreview ? (
+        <div className="rounded-xl border border-border bg-background p-6">
+          {blocks.length === 0 ? (
+            <p className="py-12 text-center text-sm text-foreground-muted">
+              No blocks yet. Switch to Edit to add content.
+            </p>
+          ) : (
+            <LabSiteBlockView blocks={blocks} />
+          )}
+        </div>
+      ) : (
+      <div className="flex min-h-0 gap-3 xl:grid xl:grid-cols-[200px_1fr_240px] xl:items-start">
       {/* ------------------------------------------------------------------- */}
       {/* LEFT: palette                                                        */}
       {/* ------------------------------------------------------------------- */}
@@ -901,6 +961,8 @@ export default function LabSiteCanvasEditor({
         }}
         onClose={() => setSelectedId(null)}
       />
+    </div>
+      )}
     </div>
   );
 }
