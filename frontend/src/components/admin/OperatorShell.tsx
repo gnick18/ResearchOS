@@ -994,7 +994,7 @@ export default function OperatorShell() {
           id={`op-tabpanel-${activeTab}`}
           aria-labelledby={`op-tab-${activeTab}`}
           tabIndex={0}
-          className="mx-auto max-w-4xl space-y-14 px-6 py-8 pb-24 sm:px-8"
+          className="mx-auto max-w-screen-2xl space-y-14 px-6 py-8 pb-24 sm:px-8"
         >
           {/* Operator greeting, mirrors the metrics page header. Shown on every
               tab so the console keeps its header + the BeakerBot greeting. */}
