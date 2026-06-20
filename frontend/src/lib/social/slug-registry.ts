@@ -75,6 +75,7 @@ export const APP_ROUTE_SEGMENTS: readonly string[] = [
   "calendar",
   "chemistry",
   "chemistry-embed-check",
+  "class-materials",
   "datahub",
   "demo",
   "department",
