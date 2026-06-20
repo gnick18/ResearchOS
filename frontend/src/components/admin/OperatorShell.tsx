@@ -24,9 +24,9 @@
 import {
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
+  type KeyboardEvent as ReactKeyboardEvent,
   type ReactNode,
 } from "react";
 
@@ -90,6 +90,7 @@ import {
   type Deadline,
 } from "@/lib/business/calc";
 import { INFRA_TIERS_CHECKED } from "@/lib/business/infra-tiers";
+import { useOperatorBeakerSource } from "@/components/admin/useOperatorBeakerSource";
 
 // ── Rail model ──────────────────────────────────────────────────────────────
 
@@ -103,16 +104,33 @@ interface RailSection {
   desc?: string;
   /** Extra search terms so the rail filter can find a section by its rows. */
   keywords?: string;
+  /** Finances only. The sub-group header this section renders under within the
+   *  Finances tab, one of FINANCE_SUBGROUPS. Twelve finance sections is too many
+   *  for a flat list, so they are bucketed under three headers (admin IA
+   *  redesign, 2026-06-19). Absent on every non-Finances section. */
+  subgroup?: string;
 }
 
 interface RailGroup {
   label: string;
+  /** The tab icon, shown on the area-tab bar. */
+  icon: IconName;
   sections: RailSection[];
 }
+
+// The three Finances sub-group headers, in render order. Each finance section
+// carries a `subgroup` naming one of these; the Finances tab prints the sections
+// under these headers in this order (admin IA redesign, 2026-06-19).
+const FINANCE_SUBGROUPS = [
+  "Money in/out",
+  "Accounting",
+  "Vendors & infra",
+] as const;
 
 const GROUPS: RailGroup[] = [
   {
     label: "Overview",
+    icon: "gauge",
     sections: [
       {
         id: "dashboard",
@@ -126,6 +144,7 @@ const GROUPS: RailGroup[] = [
   },
   {
     label: "Metrics",
+    icon: "chart",
     sections: [
       {
         id: "signups",
@@ -171,6 +190,7 @@ const GROUPS: RailGroup[] = [
   },
   {
     label: "Accounts",
+    icon: "users",
     sections: [
       {
         id: "accounts-roster",
@@ -184,10 +204,12 @@ const GROUPS: RailGroup[] = [
   },
   {
     label: "Finances",
+    icon: "scale",
     sections: [
       {
         id: "where-things-stand",
         group: "Finances",
+        subgroup: "Money in/out",
         title: "Where things stand",
         icon: "scale",
         desc: "Money in, money out, net, tax reserve, and safe-to-draw, the numbers that matter for a solo LLC.",
@@ -196,6 +218,7 @@ const GROUPS: RailGroup[] = [
       {
         id: "cost-breaker",
         group: "Finances",
+        subgroup: "Money in/out",
         title: "Cost breaker",
         icon: "bolt",
         desc: "Runaway-bill guard. When spend exceeds the budget, cloud writes pause and local-first keeps working.",
@@ -204,6 +227,7 @@ const GROUPS: RailGroup[] = [
       {
         id: "gift-pools",
         group: "Finances",
+        subgroup: "Money in/out",
         title: "Gift pools",
         icon: "heart",
         desc: "Funded allocations for grants, donations, and gifted tokens.",
@@ -212,38 +236,25 @@ const GROUPS: RailGroup[] = [
       {
         id: "spend-category",
         group: "Finances",
+        subgroup: "Money in/out",
         title: "Spend by category",
         icon: "table",
         desc: "The monthly money flow, income vs expenses by category.",
         keywords: "ledger categories tax schedule c csv",
       },
       {
-        id: "deadlines",
+        id: "ledger",
         group: "Finances",
-        title: "Deadlines",
-        icon: "alarmClock",
-        desc: "Compliance and renewal dates, soonest first.",
-        keywords: "wisconsin annual report apple renewal vercel oss",
-      },
-      {
-        id: "setup-checklist",
-        group: "Finances",
-        title: "Setup checklist",
-        icon: "check",
-        desc: "The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder.",
-        keywords: "tasks todo compliance llc setup",
-      },
-      {
-        id: "infra-cost",
-        group: "Finances",
-        title: "Infrastructure cost",
-        icon: "cloud",
-        desc: "Estimated monthly infra cost at the current usage, plus the free-ceiling tiers.",
-        keywords: "workers vercel durable objects r2 estimate tiers",
+        subgroup: "Accounting",
+        title: "Ledger",
+        icon: "list",
+        desc: "Every income and expense, with the tax-summary CSV for Schedule C self-filing.",
+        keywords: "entries income expense tax csv reimbursement",
       },
       {
         id: "entity-facts",
         group: "Finances",
+        subgroup: "Accounting",
         title: "Entity facts",
         icon: "shield",
         desc: "The LLC legal facts, sales-tax status, and the tax reserve percentage.",
@@ -252,39 +263,62 @@ const GROUPS: RailGroup[] = [
       {
         id: "payment-methods",
         group: "Finances",
+        subgroup: "Accounting",
         title: "Payment methods",
         icon: "receipt",
         desc: "The LLC cards and accounts, plus any personal card you fronted a purchase on.",
         keywords: "cards llc personal last four",
       },
       {
-        id: "ledger",
+        id: "deadlines",
         group: "Finances",
-        title: "Ledger",
-        icon: "list",
-        desc: "Every income and expense, with the tax-summary CSV for Schedule C self-filing.",
-        keywords: "entries income expense tax csv reimbursement",
+        subgroup: "Accounting",
+        title: "Deadlines",
+        icon: "alarmClock",
+        desc: "Compliance and renewal dates, soonest first.",
+        keywords: "wisconsin annual report apple renewal vercel oss",
       },
       {
-        id: "subscriptions",
+        id: "setup-checklist",
         group: "Finances",
-        title: "Subscriptions",
-        icon: "refresh",
-        desc: "The recurring charges and the blended monthly burn.",
-        keywords: "recurring claude max tello renewal burn",
+        subgroup: "Accounting",
+        title: "Setup checklist",
+        icon: "check",
+        desc: "The open setup and compliance steps, mirrored from the ResearchOS_LLC document folder.",
+        keywords: "tasks todo compliance llc setup",
       },
       {
         id: "correspondence",
         group: "Finances",
+        subgroup: "Accounting",
         title: "Correspondence",
         icon: "mail",
         desc: "Business emails the site sent, kept as LLC records.",
         keywords: "emails records archive deadline reminders",
       },
+      {
+        id: "infra-cost",
+        group: "Finances",
+        subgroup: "Vendors & infra",
+        title: "Infrastructure cost",
+        icon: "cloud",
+        desc: "Estimated monthly infra cost at the current usage, plus the free-ceiling tiers.",
+        keywords: "workers vercel durable objects r2 estimate tiers",
+      },
+      {
+        id: "subscriptions",
+        group: "Finances",
+        subgroup: "Vendors & infra",
+        title: "Subscriptions",
+        icon: "refresh",
+        desc: "The recurring charges and the blended monthly burn.",
+        keywords: "recurring claude max tello renewal burn",
+      },
     ],
   },
   {
     label: "Modeling",
+    icon: "calculator",
     sections: [
       {
         id: "locked-pricing",
@@ -306,6 +340,7 @@ const GROUPS: RailGroup[] = [
   },
   {
     label: "Comms",
+    icon: "bell",
     sections: [
       {
         id: "broadcast-email",
@@ -322,11 +357,6 @@ const GROUPS: RailGroup[] = [
 const ALL_SECTIONS = GROUPS.flatMap((g) => g.sections);
 
 // ── Small helpers ─────────────────────────────────────────────────────────
-
-function matches(lower: string, ...fields: (string | undefined)[]): boolean {
-  if (!lower) return true;
-  return fields.some((f) => f && f.toLowerCase().includes(lower));
-}
 
 const STATUS_TEXT: Record<CapacityStatus, string> = {
   ok: "text-emerald-700",
@@ -573,63 +603,53 @@ function FinanceSections({
     .filter((d): d is Deadline => d !== null)
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  return (
-    <>
-      <Section section={byId("where-things-stand")}>
+  // Each finance section's body, keyed by id. The render loop below pulls these
+  // under their sub-group headers in GROUPS order, so the twelve sections read as
+  // three labelled clusters (Money in/out, Accounting, Vendors & infra) instead
+  // of one flat list. The Section wrappers (anchor id + title + desc) are
+  // unchanged, only the order + the inserted sub-group headers are new.
+  const bodies: Record<string, ReactNode> = {
+    "where-things-stand": (
+      <>
         <div className="mb-5">
           <SalesTaxBanner status={entity.salesTaxStatus} note={entity.salesTaxNote} />
         </div>
         <WhereThingsStandStats summary={summary} reservePct={entity.reservePct} />
-      </Section>
-
-      <Section section={byId("cost-breaker")}>
-        <CostBreakerPanel />
-      </Section>
-
-      <Section section={byId("gift-pools")}>
-        <GiftPoolsPanel />
-      </Section>
-
-      <Section section={byId("spend-category")}>
-        <SpendByCategoryPanel />
-      </Section>
-
-      <Section section={byId("deadlines")}>
-        <DeadlineStrip deadlines={allDeadlines} />
-      </Section>
-
-      <Section section={byId("setup-checklist")}>
-        <Checklist
-          tasks={tasks}
-          onAdd={actions.addTask}
-          onToggle={actions.toggleTask}
-          onDelete={actions.deleteTask}
-        />
-      </Section>
-
-      <Section section={byId("infra-cost")}>
+      </>
+    ),
+    "cost-breaker": <CostBreakerPanel />,
+    "gift-pools": <GiftPoolsPanel />,
+    "spend-category": <SpendByCategoryPanel />,
+    deadlines: <DeadlineStrip deadlines={allDeadlines} />,
+    "setup-checklist": (
+      <Checklist
+        tasks={tasks}
+        onAdd={actions.addTask}
+        onToggle={actions.toggleTask}
+        onDelete={actions.deleteTask}
+      />
+    ),
+    "infra-cost": (
+      <>
         <InfraCostPanel infraEstimate={infraEstimate} onRecord={actions.recordInfra} />
         <p className="mb-3 mt-8 text-meta text-foreground-muted leading-relaxed">
           Free ceiling and the next paid step for each service, so scaling is
           planned not a surprise. Verify current pricing; checked {INFRA_TIERS_CHECKED}.
         </p>
         <InfraTiersPanel />
-      </Section>
-
-      <Section section={byId("entity-facts")}>
-        <EntityCard entity={entity} onSave={actions.saveEntity} />
-      </Section>
-
-      <Section section={byId("payment-methods")}>
-        <PaymentMethods
-          methods={paymentMethods}
-          onAdd={actions.addPaymentMethod}
-          onUpdate={actions.updatePaymentMethod}
-          onDelete={actions.deletePaymentMethod}
-        />
-      </Section>
-
-      <Section section={byId("ledger")}>
+      </>
+    ),
+    "entity-facts": <EntityCard entity={entity} onSave={actions.saveEntity} />,
+    "payment-methods": (
+      <PaymentMethods
+        methods={paymentMethods}
+        onAdd={actions.addPaymentMethod}
+        onUpdate={actions.updatePaymentMethod}
+        onDelete={actions.deletePaymentMethod}
+      />
+    ),
+    ledger: (
+      <>
         <Ledger
           ledger={ledger}
           methods={paymentMethods}
@@ -652,22 +672,46 @@ function FinanceSections({
           />
         </div>
         <DevAccountantPanel />
-      </Section>
+      </>
+    ),
+    subscriptions: (
+      <RecurringSubscriptions
+        subscriptions={subscriptions}
+        methods={paymentMethods}
+        onAdd={actions.addSubscription}
+        onUpdate={actions.updateSubscription}
+        onDelete={actions.deleteSubscription}
+      />
+    ),
+    correspondence: (
+      <Correspondence emails={emails} entityName={entity.legalName} />
+    ),
+  };
 
-      <Section section={byId("subscriptions")}>
-        <RecurringSubscriptions
-          subscriptions={subscriptions}
-          methods={paymentMethods}
-          onAdd={actions.addSubscription}
-          onUpdate={actions.updateSubscription}
-          onDelete={actions.deleteSubscription}
-        />
-      </Section>
+  const financeSections = GROUPS.find((g) => g.label === "Finances")!.sections;
 
-      <Section section={byId("correspondence")}>
-        <Correspondence emails={emails} entityName={entity.legalName} />
-      </Section>
-    </>
+  return (
+    <div className="space-y-14">
+      {FINANCE_SUBGROUPS.map((subgroup) => {
+        const inGroup = financeSections.filter((s) => s.subgroup === subgroup);
+        if (inGroup.length === 0) return null;
+        return (
+          <div key={subgroup} className="space-y-14">
+            <p
+              className="border-b border-border pb-2 text-title font-bold tracking-tight text-foreground"
+              data-op-subgroup={subgroup}
+            >
+              {subgroup}
+            </p>
+            {inGroup.map((s) => (
+              <Section key={s.id} section={s}>
+                {bodies[s.id]}
+              </Section>
+            ))}
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -677,20 +721,115 @@ function byId(id: string): RailSection {
   return s;
 }
 
+// ── Per-tab content ─────────────────────────────────────────────────────────
+// Each non-Overview, non-Finances tab's sections, extracted so only the ACTIVE
+// tab renders (the redesign drops the single all-sections mega-scroll). The
+// section renders, props, data hooks, and data-testids are unchanged, only which
+// ones mount at a time is new.
+
+function MetricsTab({ metrics }: { metrics: MetricsState }) {
+  return (
+    <>
+      <Section section={byId("signups")}>
+        {metrics.phase === "ready" ? (
+          <SignupsSection data={metrics.data} />
+        ) : (
+          <MetricsPhasePlaceholder phase={metrics.phase} />
+        )}
+      </Section>
+      <Section section={byId("institutions")}>
+        {metrics.phase === "ready" ? (
+          <InstitutionsSection data={metrics.data} />
+        ) : (
+          <MetricsPhasePlaceholder phase={metrics.phase} />
+        )}
+      </Section>
+      <Section section={byId("capacity")}>
+        {metrics.phase === "ready" ? (
+          metrics.data.capacity ? (
+            <CapacitySection data={metrics.data} />
+          ) : (
+            <p className="text-body text-foreground-muted">
+              Capacity measurement is not configured on this deployment.
+            </p>
+          )
+        ) : (
+          <MetricsPhasePlaceholder phase={metrics.phase} />
+        )}
+      </Section>
+      <Section section={byId("storage-inventory")}>
+        <StorageInventorySection />
+      </Section>
+      <Section section={byId("feature-usage")}>
+        {metrics.phase === "ready" ? (
+          metrics.data.events ? (
+            <FeatureUsageSection data={metrics.data} />
+          ) : (
+            <p className="text-body text-foreground-muted">
+              No feature-usage events recorded yet.
+            </p>
+          )
+        ) : (
+          <MetricsPhasePlaceholder phase={metrics.phase} />
+        )}
+      </Section>
+    </>
+  );
+}
+
+function ModelingTab() {
+  return (
+    <>
+      {/* The locked final prices first, then the live explorer. */}
+      <Section section={byId("locked-pricing")}>
+        <LockedPricingPanel />
+      </Section>
+      <Section section={byId("price-modeling")}>
+        <MarginExplorerTab />
+      </Section>
+    </>
+  );
+}
+
 // ── The shell ───────────────────────────────────────────────────────────────
+
+/** The seven groups are the top-level area TABS. Only the active tab's sections
+ *  render at a time. The active tab is persisted in the URL (?tab=finances) so a
+ *  refresh or a Cmd-K jump can target it. */
+const DEFAULT_TAB = GROUPS[0].label;
+
+/** Resolve a `?tab=` value (or a legacy #hash group / section) to a tab label,
+ *  defaulting to Overview. A section id resolves to the tab that section sits in. */
+function tabFromToken(token: string | null | undefined): string {
+  if (!token) return DEFAULT_TAB;
+  const t = token.toLowerCase();
+  const group = GROUPS.find((g) => g.label.toLowerCase() === t);
+  if (group) return group.label;
+  const section = ALL_SECTIONS.find((s) => s.id.toLowerCase() === t);
+  if (section) return section.group;
+  return DEFAULT_TAB;
+}
 
 export default function OperatorShell() {
   const metrics = useAdminMetrics();
   const { state: business, actions } = useBusinessData();
 
-  const [query, setQuery] = useState("");
-  const [activeId, setActiveId] = useState<string>(ALL_SECTIONS[0].id);
+  // The active area tab (a group label). Initialized from the URL (?tab=) or a
+  // legacy #group / #section hash so a refresh or a deep link lands on the right
+  // tab. Read synchronously from window on first render so there is no flash.
+  const [activeTab, setActiveTab] = useState<string>(() => {
+    if (typeof window === "undefined") return DEFAULT_TAB;
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get("tab");
+    if (tabParam) return tabFromToken(tabParam);
+    const hash = window.location.hash.slice(1);
+    return tabFromToken(hash);
+  });
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
   const paneRef = useRef<HTMLDivElement>(null);
-
-  const lower = query.trim().toLowerCase();
+  const tablistRef = useRef<HTMLDivElement>(null);
 
   // Stamp "last updated" the first render after both data sources settle, using
   // the adjust-state-during-render pattern (no effect, no cascading-render
@@ -716,72 +855,78 @@ export default function OperatorShell() {
     }
   }, [actions, metrics.reload]);
 
-  // Scroll-spy: highlight the section nearest the top of the pane.
-  useEffect(() => {
-    const root = paneRef.current;
-    if (!root) return;
-    const nodes = Array.from(
-      root.querySelectorAll<HTMLElement>("[data-op-section]"),
-    );
-    if (nodes.length === 0) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Pick the entry highest on screen that is intersecting.
-        const visible = entries
-          .filter((e) => e.isIntersecting)
-          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
-        if (visible.length > 0) {
-          const id = visible[0].target.getAttribute("data-op-section");
-          if (id) setActiveId(id);
-        }
-      },
-      { root, rootMargin: "0px 0px -65% 0px", threshold: 0 },
-    );
-    nodes.forEach((n) => observer.observe(n));
-    return () => observer.disconnect();
-    // Re-bind when the rendered section set changes (data phases settling).
-  }, [metrics.phase, business.phase]);
-
-  const scrollTo = useCallback((id: string) => {
-    setActiveId(id);
-    const el = paneRef.current?.querySelector<HTMLElement>(
-      `[data-op-section="${id}"]`,
-    );
-    el?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // Switch tabs and write the choice into the URL (?tab=) without a navigation,
+  // so a refresh stays on the same tab and a Cmd-K jump can target it.
+  const selectTab = useCallback((label: string) => {
+    setActiveTab(label);
+    if (typeof window === "undefined") return;
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", label.toLowerCase());
+    url.hash = "";
+    window.history.replaceState(null, "", url.toString());
   }, []);
 
-  // Honor a `#group` or `#section-id` hash on first load (e.g. the old
-  // /business and /admin/business links redirect to /admin#finances). A group
-  // name jumps to that group's first section; a section id jumps straight to it.
+  // Jump to any section by id, the move BeakerSearch (Cmd-K) and the legacy
+  // #hash deep link both call. It flips to the section's tab, then scrolls that
+  // section into view once it has mounted under the active panel.
+  const goToSection = useCallback(
+    (id: string) => {
+      const section = ALL_SECTIONS.find((s) => s.id === id);
+      if (!section) return;
+      selectTab(section.group);
+      // Defer a frame so the section's tab panel has mounted before scrolling.
+      requestAnimationFrame(() => {
+        const el = paneRef.current?.querySelector<HTMLElement>(
+          `[data-op-section="${id}"]`,
+        );
+        el?.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    },
+    [selectTab],
+  );
+
+  // Wire every admin section into the global BeakerSearch palette so Cmd-K jumps
+  // straight to one. ALL_SECTIONS is module-constant so the array is stable; the
+  // hook only registers while this operator-only shell is mounted.
+  useOperatorBeakerSource(ALL_SECTIONS, goToSection);
+
+  // Honor a legacy `#group` or `#section-id` hash on first load (e.g. the old
+  // /business and /admin/business links redirect to /admin#finances). The tab is
+  // already resolved from it in the initial state; here we also scroll to the
+  // exact section when the hash named one, once the data settles.
   const didHash = useRef(false);
   useEffect(() => {
     if (didHash.current) return;
     if (metrics.phase === "loading" && business.phase === "loading") return;
+    didHash.current = true;
     const hash = typeof window !== "undefined" ? window.location.hash.slice(1) : "";
-    if (!hash) {
-      didHash.current = true;
-      return;
-    }
-    const group = GROUPS.find((g) => g.label.toLowerCase() === hash.toLowerCase());
-    const targetId = group
-      ? group.sections[0]?.id
-      : ALL_SECTIONS.find((s) => s.id === hash)?.id;
-    if (targetId) {
-      didHash.current = true;
-      // Defer a frame so the sections are mounted and laid out.
-      requestAnimationFrame(() => scrollTo(targetId));
-    }
-  }, [metrics.phase, business.phase, scrollTo]);
+    if (!hash) return;
+    const section = ALL_SECTIONS.find((s) => s.id.toLowerCase() === hash.toLowerCase());
+    if (section) requestAnimationFrame(() => goToSection(section.id));
+  }, [metrics.phase, business.phase, goToSection]);
 
-  const visibleGroups = useMemo(
-    () =>
-      GROUPS.map((g) => ({
-        ...g,
-        sections: g.sections.filter((s) =>
-          matches(lower, s.title, s.keywords, s.group),
-        ),
-      })).filter((g) => g.sections.length > 0),
-    [lower],
+  // Roving arrow-key nav across the tabs (accessibility, role="tablist").
+  const onTabKeyDown = useCallback(
+    (e: ReactKeyboardEvent) => {
+      const idx = GROUPS.findIndex((g) => g.label === activeTab);
+      if (idx < 0) return;
+      let next = idx;
+      if (e.key === "ArrowRight" || e.key === "ArrowDown") next = (idx + 1) % GROUPS.length;
+      else if (e.key === "ArrowLeft" || e.key === "ArrowUp")
+        next = (idx - 1 + GROUPS.length) % GROUPS.length;
+      else if (e.key === "Home") next = 0;
+      else if (e.key === "End") next = GROUPS.length - 1;
+      else return;
+      e.preventDefault();
+      const label = GROUPS[next].label;
+      selectTab(label);
+      // Move focus to the newly selected tab so the keyboard stays on the bar.
+      const btn = tablistRef.current?.querySelector<HTMLButtonElement>(
+        `[data-op-tab="${label}"]`,
+      );
+      btn?.focus();
+    },
+    [activeTab, selectTab],
   );
 
   return (
@@ -792,9 +937,7 @@ export default function OperatorShell() {
           ResearchOS
         </span>
         <span className="text-border">/</span>
-        <span className="text-meta text-foreground-muted">
-          {byId(activeId).title}
-        </span>
+        <span className="text-meta text-foreground-muted">{activeTab}</span>
         <Link
           href="/"
           className="ml-auto text-body font-medium text-sky-700 underline-offset-2 hover:underline"
@@ -803,107 +946,77 @@ export default function OperatorShell() {
         </Link>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        {/* ── Rail ── */}
-        <nav
-          aria-label="Operator sections"
-          className="flex w-64 shrink-0 flex-col border-r border-border bg-surface-raised"
+      {/* ── Area tabs (the primary nav) ── */}
+      <div className="shrink-0 border-b border-border bg-surface-raised px-4 sm:px-6">
+        <div
+          ref={tablistRef}
+          role="tablist"
+          aria-label="Operator areas"
+          onKeyDown={onTabKeyDown}
+          className="-mb-px flex flex-wrap gap-1"
         >
-          <div className="flex-1 overflow-y-auto p-2.5">
-            {/* Rail search */}
-            <div className="px-1 pb-2.5 pt-1">
-              <div className="relative">
-                <Icon
-                  name="search"
-                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search sections..."
-                  autoComplete="off"
-                  className="w-full rounded-lg border border-border bg-surface-sunken py-1.5 pl-8 pr-2.5 text-body text-foreground outline-none focus:border-brand-action"
-                />
-              </div>
-            </div>
-
-            {/* Rail identity header */}
-            <div className="flex items-center gap-2.5 px-2 py-1.5">
-              <span
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-sky-200 to-violet-200 text-meta font-bold text-indigo-700"
-                aria-hidden
+          {GROUPS.map((group) => {
+            const isActive = group.label === activeTab;
+            return (
+              <button
+                key={group.label}
+                type="button"
+                role="tab"
+                id={`op-tab-${group.label}`}
+                data-op-tab={group.label}
+                aria-selected={isActive}
+                aria-controls={`op-tabpanel-${group.label}`}
+                tabIndex={isActive ? 0 : -1}
+                onClick={() => selectTab(group.label)}
+                className={`flex items-center gap-2 border-b-2 px-3 py-2.5 text-body font-semibold transition-colors ${
+                  isActive
+                    ? "border-blue-600 text-blue-700"
+                    : "border-transparent text-foreground-muted hover:text-foreground"
+                }`}
               >
-                RO
-              </span>
-              <div className="min-w-0 leading-tight">
-                <p className="truncate text-body font-bold text-foreground">
-                  ResearchOS LLC
-                </p>
-                <p className="truncate text-meta text-foreground-muted">Operator</p>
-              </div>
-            </div>
+                <Icon
+                  name={group.icon}
+                  className={`h-4 w-4 shrink-0 ${
+                    isActive ? "text-blue-600" : "text-foreground-muted"
+                  }`}
+                />
+                {group.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
 
-            {visibleGroups.map((group) => (
-              <div key={group.label} className="mt-3">
-                <p className="px-2 pb-1.5 text-meta font-bold uppercase tracking-wide text-foreground-muted">
-                  {group.label}
-                </p>
-                {group.sections.map((section) => {
-                  const isActive = section.id === activeId;
-                  return (
-                    <button
-                      key={section.id}
-                      type="button"
-                      aria-current={isActive ? "true" : undefined}
-                      onClick={() => scrollTo(section.id)}
-                      className={`flex w-full items-center gap-2.5 rounded-lg px-2 py-1.5 text-left text-body font-medium transition-colors ${
-                        isActive
-                          ? "bg-blue-100 text-blue-700"
-                          : "text-foreground hover:bg-surface-sunken"
-                      }`}
-                    >
-                      <Icon
-                        name={section.icon}
-                        className={`h-3.5 w-3.5 shrink-0 ${
-                          isActive ? "text-blue-600" : "text-foreground-muted"
-                        }`}
-                      />
-                      <span className="flex-1 truncate">{section.title}</span>
-                    </button>
-                  );
-                })}
+      {/* ── Content pane: only the active tab's sections render ── */}
+      <div ref={paneRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          role="tabpanel"
+          id={`op-tabpanel-${activeTab}`}
+          aria-labelledby={`op-tab-${activeTab}`}
+          tabIndex={0}
+          className="mx-auto max-w-4xl space-y-14 px-6 py-8 pb-24 sm:px-8"
+        >
+          {/* Operator greeting, mirrors the metrics page header. Shown on every
+              tab so the console keeps its header + the BeakerBot greeting. */}
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h1 className="text-display font-bold tracking-tight text-foreground">
+                Operator console
+              </h1>
+              <p className="mt-1 max-w-2xl text-body text-foreground-muted leading-relaxed">
+                User metrics and LLC finances in one place. Aggregate and
+                operator-only, never shown to any user. Press Cmd-K to jump to any
+                section.
+              </p>
+            </div>
+            {metrics.phase === "ready" && (
+              <div className="shrink-0 pt-1">
+                <BeakerBotGreeting metrics={metrics.data} />
               </div>
-            ))}
+            )}
           </div>
 
-          <div className="shrink-0 border-t border-border p-3 text-meta leading-relaxed text-foreground-muted">
-            Operator console. Not a legal or tax advisor.
-          </div>
-        </nav>
-
-        {/* ── Content pane: one long scroll, all sections anchored ── */}
-        <div ref={paneRef} className="min-w-0 flex-1 overflow-y-auto">
-          <div className="mx-auto max-w-4xl space-y-14 px-6 py-8 pb-24 sm:px-8">
-            {/* Operator greeting, mirrors the metrics page header. */}
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h1 className="text-display font-bold tracking-tight text-foreground">
-                  Operator console
-                </h1>
-                <p className="mt-1 max-w-2xl text-body text-foreground-muted leading-relaxed">
-                  User metrics and LLC finances in one place. Aggregate and
-                  operator-only, never shown to any user.
-                </p>
-              </div>
-              {metrics.phase === "ready" && (
-                <div className="shrink-0 pt-1">
-                  <BeakerBotGreeting metrics={metrics.data} />
-                </div>
-              )}
-            </div>
-
-            {/* OVERVIEW */}
+          {activeTab === "Overview" && (
             <DashboardSection
               metrics={metrics}
               business={business}
@@ -911,82 +1024,36 @@ export default function OperatorShell() {
               onRefresh={refresh}
               refreshing={refreshing}
             />
+          )}
 
-            {/* METRICS */}
-            <Section section={byId("signups")}>
-              {metrics.phase === "ready" ? (
-                <SignupsSection data={metrics.data} />
-              ) : (
-                <MetricsPhasePlaceholder phase={metrics.phase} />
-              )}
-            </Section>
-            <Section section={byId("institutions")}>
-              {metrics.phase === "ready" ? (
-                <InstitutionsSection data={metrics.data} />
-              ) : (
-                <MetricsPhasePlaceholder phase={metrics.phase} />
-              )}
-            </Section>
-            <Section section={byId("capacity")}>
-              {metrics.phase === "ready" ? (
-                metrics.data.capacity ? (
-                  <CapacitySection data={metrics.data} />
-                ) : (
-                  <p className="text-body text-foreground-muted">
-                    Capacity measurement is not configured on this deployment.
-                  </p>
-                )
-              ) : (
-                <MetricsPhasePlaceholder phase={metrics.phase} />
-              )}
-            </Section>
-            <Section section={byId("storage-inventory")}>
-              <StorageInventorySection />
-            </Section>
-            <Section section={byId("feature-usage")}>
-              {metrics.phase === "ready" ? (
-                metrics.data.events ? (
-                  <FeatureUsageSection data={metrics.data} />
-                ) : (
-                  <p className="text-body text-foreground-muted">
-                    No feature-usage events recorded yet.
-                  </p>
-                )
-              ) : (
-                <MetricsPhasePlaceholder phase={metrics.phase} />
-              )}
-            </Section>
+          {activeTab === "Metrics" && <MetricsTab metrics={metrics} />}
 
-            {/* ACCOUNTS */}
+          {activeTab === "Accounts" && (
             <Section section={byId("accounts-roster")}>
               <AccountsPanel />
             </Section>
+          )}
 
-            {/* FINANCES */}
+          {activeTab === "Finances" && (
             <FinanceSections business={business} actions={actions} />
+          )}
 
-            {/* MODELING: the locked final prices first, then the live explorer. */}
-            <Section section={byId("locked-pricing")}>
-              <LockedPricingPanel />
-            </Section>
-            <Section section={byId("price-modeling")}>
-              <MarginExplorerTab />
-            </Section>
+          {activeTab === "Modeling" && <ModelingTab />}
 
-            {/* COMMS */}
+          {activeTab === "Comms" && (
             <Section section={byId("broadcast-email")}>
               <BroadcastPanel />
             </Section>
+          )}
 
-            <p className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
-              This console is an organizer, not a legal or tax service. It is not
-              the LLC&apos;s registered agent, and it does not prepare or file
-              taxes. Use it to stay on top of dates and cash, and have an
-              accountant set the reserve percentage and handle the filings.
-            </p>
+          <p className="rounded-xl border border-border bg-surface-sunken px-4 py-3 text-meta text-foreground-muted leading-relaxed">
+            This console is an organizer, not a legal or tax service. It is not
+            the LLC&apos;s registered agent, and it does not prepare or file
+            taxes. Use it to stay on top of dates and cash, and have an
+            accountant set the reserve percentage and handle the filings.
+          </p>
 
-            <AppFooter />
-          </div>
+          <AppFooter />
         </div>
       </div>
     </div>
