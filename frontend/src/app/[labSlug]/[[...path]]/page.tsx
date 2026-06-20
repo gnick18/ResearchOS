@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 
 import LabSitePageView from "@/components/social/LabSitePageView";
 import ToolSitePageView from "@/components/social/ToolSitePageView";
+import { verifyEditToken } from "@/lib/social/lab-site-edit-token";
 import {
   isLabByoSitesEnabled,
   isLabSitesEnabled,
@@ -61,6 +62,7 @@ import { BADGES_ENABLED } from "@/lib/badges/config";
 export const runtime = "nodejs";
 
 type RouteParams = { labSlug: string; path?: string[] };
+type SearchParams = { roEdit?: string };
 
 async function resolve(rawSlug: string, rawPath: string[] | undefined) {
   const slug = normalizeSlug(rawSlug);
@@ -198,10 +200,13 @@ export async function generateMetadata({
 
 export default async function LabSitePublicPage({
   params,
+  searchParams,
 }: {
   params: Promise<RouteParams>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { labSlug, path } = await params;
+  const { roEdit } = await searchParams;
 
   // Phase PI-slug-rename: check for a permanent slug redirect before any other
   // work. If this slug was retired by a lab head rename, redirect to the new
@@ -263,6 +268,18 @@ export default async function LabSitePublicPage({
     );
   }
 
+  // Token-handoff lane: validate the ?roEdit= signed token produced by the
+  // LabSiteDashboard "View public site" link. If valid, promote the minimal
+  // "Manage this site" hint to the prominent "Edit this site" bridge bar.
+  //
+  // SECURITY: the token only reveals the edit affordance. The actual builder
+  // (/account/lab-site on .app) re-checks isSiteEditor/owner server-side before
+  // allowing any write; a leaked token only shows an "Edit" button, not actual
+  // access. Validated server-side here so no session, cookie, or credentials
+  // ever touch the .com origin. Cookie-isolation invariant is preserved.
+  const editOwnerKey: string | null = verifyEditToken(roEdit ?? null, slug);
+  const canEdit = editOwnerKey !== null && !isDemoLabSlug(slug);
+
   // Origin cutover note: the research-os.com move 308s an old research-os.app/<slug>
   // link to the per-lab subdomain for citation continuity. That redirect lives in
   // middleware (proxy.ts, resolveAppOriginLabRedirect), NOT here: a Server Component
@@ -308,6 +325,8 @@ export default async function LabSitePublicPage({
       hasByo={hasByo}
       card={card}
       badgeSnapshot={badgeSnapshot}
+      canEdit={canEdit}
+      editOwnerKey={editOwnerKey ?? undefined}
     />
   );
 }

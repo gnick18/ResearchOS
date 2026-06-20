@@ -31,6 +31,7 @@ import { useMemo } from "react";
 import Link from "next/link";
 
 import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
@@ -74,6 +75,8 @@ export default function LabSitePageView({
   hasByo,
   card,
   badgeSnapshot,
+  canEdit,
+  editOwnerKey,
 }: {
   slug: string;
   title: string;
@@ -137,6 +140,25 @@ export default function LabSitePageView({
    * empty snapshot, so a lab that has never published badges renders nothing.
    */
   badgeSnapshot?: BadgeSnapshot;
+  /**
+   * Token-handoff lane. True when the server validated a ?roEdit= signed token
+   * that proves the current visitor is the site owner or a granted editor.
+   * When true, the prominent "Edit this site" bridge bar is shown instead of
+   * the generic "Manage this site" hint. False / absent = generic hint (default).
+   *
+   * Cookie isolation is preserved: no session, no app cookie is read or set
+   * here. The token is validated server-side in the [labSlug] route before this
+   * component is rendered; this prop is only the result of that validation.
+   */
+  canEdit?: boolean;
+  /**
+   * The billing owner key embedded in the validated ?roEdit= token. Used to
+   * build the precise deep link back to the builder
+   * (/account/lab-site?siteOwnerKey=<key>) so a granted editor lands directly
+   * on the correct PI's site instead of their own dashboard. Undefined when
+   * canEdit is false (no token or invalid token).
+   */
+  editOwnerKey?: string;
 }) {
   const heading = title?.trim() || slug;
   // Rebuild the Map from the serialized record once per snapshots object.
@@ -275,29 +297,54 @@ export default function LabSitePageView({
             <BadgePublicView snapshot={badgeSnapshot} />
           )}
 
-          {/* "Manage this site" quiet affordance (Option B seamless nav).
-              A non-authed link to the builder on research-os.app. Visible to
-              everyone, but styled as a minimal, unobtrusive footer-level hint
-              so it does not distract public readers. The PI or any granted
-              editor who clicks it lands on the sign-in-gated /account/lab-site
-              page; if they are already signed in on .app they land directly.
-              No session is read here: this is a static deep link, not an
-              authed-aware probe. No cookie is set or sent on this page.
-              Only shown when the .com origin cutover is on (otherwise the site
-              is at research-os.app/<slug> and the builder is reachable directly)
-              and only for real labs (the demo ribbon handles the demo case). */}
-          {LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && (
-            <div className="mt-10 flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Icon name="globe" className="h-3.5 w-3.5 shrink-0 opacity-60" />
-              <span>Is this your lab?</span>
-              <a
-                href={`${APP_ORIGIN}/account/lab-site`}
-                className="text-brand-action underline-offset-2 hover:underline"
-              >
-                Manage this site
-              </a>
-              <span>on research-os.app.</span>
+          {/* Owner/editor bridge (token-handoff lane) vs generic hint.
+              When canEdit is true, the ?roEdit= token was validated server-side
+              and this visitor is the proven owner or a granted editor. Show the
+              prominent "Edit this site" bridge bar so they can jump straight to
+              the builder. No session is read here, no cookie is set on .com;
+              the bar is purely a styled deep-link affordance.
+              When canEdit is false (no token or invalid/expired token), fall
+              back to the byte-identical static "Manage this site" hint as before.
+              Both branches are gated on LAB_SITES_COM_ORIGIN_ENABLED && !isDemo
+              (same as the existing hint). */}
+          {LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && canEdit && editOwnerKey ? (
+            /* Prominent "Edit this site" bridge bar for the proven owner/editor.
+               Deep-links directly to the builder with the ownerKey pre-scoped
+               so a granted editor lands on the correct PI site, not their own
+               dashboard. The builder re-checks isSiteEditor/owner server-side
+               before granting any write access. */
+            <div className="mt-10 flex items-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-3">
+              <Icon name="pencil" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="flex-1 text-sm text-foreground">
+                You are viewing your public lab site.
+              </p>
+              <Tooltip label="Open the site builder on research-os.app to edit this page">
+                <a
+                  href={`${APP_ORIGIN}/account/lab-site?siteOwnerKey=${encodeURIComponent(editOwnerKey)}`}
+                  className="ros-btn-neutral inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+                >
+                  <Icon name="pencil" className="h-3.5 w-3.5" />
+                  Edit this site
+                </a>
+              </Tooltip>
             </div>
+          ) : (
+            LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && (
+              /* Generic "Is this your lab? Manage this site" hint (unchanged).
+                 Shown to all visitors when no valid edit token is present.
+                 Byte-identical to the pre-token-handoff render. */
+              <div className="mt-10 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon name="globe" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                <span>Is this your lab?</span>
+                <a
+                  href={`${APP_ORIGIN}/account/lab-site`}
+                  className="text-brand-action underline-offset-2 hover:underline"
+                >
+                  Manage this site
+                </a>
+                <span>on research-os.app.</span>
+              </div>
+            )
           )}
         </div>
       </section>

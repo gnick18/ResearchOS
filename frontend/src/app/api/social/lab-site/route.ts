@@ -54,6 +54,7 @@ import {
   reserveSlug,
 } from "@/lib/social/slug-registry-db";
 import { isSiteEditor } from "@/lib/social/lab-site-editors-db";
+import { mintEditToken } from "@/lib/social/lab-site-edit-token";
 
 export const runtime = "nodejs";
 
@@ -106,8 +107,24 @@ export async function GET(request: Request): Promise<Response> {
   } catch {
     return json(503, { error: "store unavailable" });
   }
+  // Mint a short-lived signed token for the "View public site" link. The token
+  // lets the .com public page detect the signed-in owner/editor and show the
+  // prominent "Edit this site" bridge bar instead of the static "Manage this
+  // site" hint. Minted here (server-side) so node:crypto is available; the
+  // client-side dashboard receives it opaquely and appends it to the .com URL.
+  // Null when AUTH_SECRET is absent (token feature disabled, bridge degrades to
+  // the static link). TTL is 10 minutes (see lab-site-edit-token.ts).
+  const editToken = site ? mintEditToken(site.labSlug, ownerKey) : null;
+
   return json(200, {
     site: site ? { slug: site.labSlug, createdAt: site.createdAt } : null,
+    // ownerKey: the billing owner key for THIS site. The caller is either the
+    // owner or a server-verified granted editor, so returning it is safe.
+    ownerKey,
+    // editToken: a pre-minted ?roEdit= token for the "View public site" link.
+    // The dashboard appends it to the .com URL so the public page can show the
+    // "Edit this site" bridge bar for the verified caller.
+    editToken,
     pages: pages.map((p) => ({
       path: p.path,
       title: p.title,

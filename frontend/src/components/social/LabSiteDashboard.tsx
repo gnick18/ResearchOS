@@ -1129,6 +1129,15 @@ export default function LabSiteDashboard({
   // editorIsSection implies editorIsBlocks (the section editor writes blocks_json).
   const [editorIsSection, setEditorIsSection] = useState(false);
 
+  // Pre-minted ?roEdit= token for the "View public site" link (token-handoff lane).
+  // The server mints it in the GET response (server-side node:crypto). When present
+  // the "View public site" link appends it so the .com public page can show the
+  // prominent "Edit this site" bridge bar to the verified owner/editor.
+  // Null when AUTH_SECRET is absent (token feature disabled, bridge degrades to
+  // the static "Manage this site" hint). Token TTL = 10 min. After 10 min of
+  // inactivity the owner would get the static hint, which is acceptable.
+  const [editToken, setEditToken] = useState<string | null>(null);
+
   const refresh = useCallback(async () => {
     try {
       // When the dashboard is scoped to a granted site, add the siteOwnerKey query
@@ -1148,9 +1157,12 @@ export default function LabSiteDashboard({
       const data = (await res.json()) as {
         site: SiteSummary | null;
         pages: PageSummary[];
+        ownerKey?: string;
+        editToken?: string | null;
       };
       setSite(data.site);
       setPages(Array.isArray(data.pages) ? data.pages : []);
+      setEditToken(data.editToken ?? null);
       setLoad("ready");
     } catch {
       setLoad("error");
@@ -1791,17 +1803,25 @@ export default function LabSiteDashboard({
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                {/* View public site: opens the live .com page in a new tab so
-                    the editor can flip between editing and seeing what visitors
-                    see without leaving the builder. Plain href, no session
-                    crossing needed (.app -> .com is always safe). */}
+                {/* View public site: opens the live .com page in a new tab.
+                    Token-handoff lane: when LAB_SITES_COM_ORIGIN_ENABLED and an
+                    editToken is available (minted server-side in the GET response),
+                    append ?roEdit=<token> so the .com page can detect the signed-in
+                    owner/editor and show the "Edit this site" bridge bar instead of
+                    the generic "Manage this site" hint. The token is short-lived
+                    (10 min) and validated server-side on .com; no session or cookie
+                    crosses origins. When the token is absent the link still works,
+                    the public page just shows the static hint. */}
                 <Tooltip label="Open your live public site to see what visitors see">
                   <a
-                    href={
-                      LAB_SITES_COM_ORIGIN_ENABLED
+                    href={(() => {
+                      const base = LAB_SITES_COM_ORIGIN_ENABLED
                         ? `https://${site.slug}.research-os.com`
-                        : `https://research-os.app/${site.slug}`
-                    }
+                        : `https://research-os.app/${site.slug}`;
+                      return LAB_SITES_COM_ORIGIN_ENABLED && editToken
+                        ? `${base}?roEdit=${encodeURIComponent(editToken)}`
+                        : base;
+                    })()}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
