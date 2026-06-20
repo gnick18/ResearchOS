@@ -124,8 +124,12 @@ const FAQ: { q: string; a: string }[] = [
     a: "No. Only the lab head pays. Members join free with an invite, and they are never asked for a card. A joining member should accept the invite, not start a new lab.",
   },
   {
-    q: "Why is a department cheaper per lab than a standalone lab?",
-    a: "Because a department brings many labs at once, which is our distribution win, so we reward it with a volume discount instead of taxing it. The governance layer (the Commons, compliance, and one consolidated invoice) is included value, not a premium.",
+    q: "Is the $25 lab price going to change?",
+    a: "It is a founding rate. Labs that lock it in now keep $25 per lab for as long as they stay on the plan, even as the price goes up for labs that join later. The only way to lose it is to cancel or let a payment lapse.",
+  },
+  {
+    q: "How much is a department?",
+    a: "Department pricing is set with you, because it depends on how many labs come aboard and the governance you need. Reach out and we will scope it together. The governance layer (the Commons, compliance, and one consolidated invoice) is included value, not a premium.",
   },
   {
     q: "Why is this so much cheaper than LabArchives or Benchling?",
@@ -252,7 +256,7 @@ export default function PricingPage() {
                   { icon: "folder", text: "Many labs under one admin" },
                   { icon: "lock", text: "The Commons, compliance, and data continuity" },
                   { icon: "reference", text: "One consolidated procurement invoice" },
-                  { icon: "check", text: "Cheaper per lab than a standalone lab" },
+                  { icon: "check", text: "Pricing scoped with you, not off a list" },
                 ]}
               />
             </div>

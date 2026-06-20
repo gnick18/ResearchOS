@@ -20,12 +20,11 @@
  *      is only the sync intermediary)
  *   Final CTA (sign in to set up a department) + sponsors + footer
  *
- * PRICING (Grant 2026-06-16): unify the price across /labs, /departments, the
- * payment page, and the chooser via the shared <PlanPriceCallout>, which derives
- * every figure from lib/billing/catalog (MODEL_A_PLANS). Department shows its
- * volume discount versus a standalone lab. Never hardcode a dollar literal here.
- * An account is REQUIRED to run a department, so it is framed as the way in, not
- * as optional.
+ * PRICING (Grant 2026-06-19): the price comes from the shared <PlanPriceCallout>
+ * (lib/billing/catalog), never a hardcoded literal. Department pricing is now
+ * contact/TBD, so the callout shows a "Pricing TBD" state with a reach-out
+ * button to /departments/contact rather than a price. An account is REQUIRED to
+ * run a department, so it is framed as the way in, not as optional.
  *
  * Voice rules: no em-dashes, no emojis (every glyph is <Icon name=...> from the
  * registry), no mid-sentence colons. Contractions OK, state the WHY. BeakerBot

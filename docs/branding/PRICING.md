@@ -44,16 +44,26 @@ revenue; cheap solo barely dents the total.
   produce features.
 - **Solo**: **$3/mo base + cloud usage at 5x cost.** Unlocks the produce side:
   send, live co-edit, the paired companion app, push.
-- **Lab**: **$40/mo per lab + usage at 7x cost**, billed per active seat's
-  activity. The core paid unit, priced for the bundle it carries (companion app
-  pairing, the lab's web home + paper companion pages, real-time co-edit, the lab
-  dashboard, shared library, pooled budgets). Still a fraction of a per-seat ELN.
-- **Department** (institutional VOLUME tier): **$35/mo per lab + usage at 6x
-  cost**, CHEAPER per lab than a standalone lab on BOTH base ($35 vs $40) and
-  markup (6x vs 7x). The governance layer (Department Commons, compliance and
-  data-continuity, multi-lab admin, one consolidated procurement invoice) is
-  INCLUDED value, not a premium. We price depts down because each one brings many
-  labs at once; that is our distribution lever, so we reward it.
+- **Lab**: **$25/mo per lab FOUNDING lock-in rate + usage at 7x cost** (Grant
+  2026-06-19), billed per active seat's activity. Founding labs (those who sign up
+  in the founding window) keep $25/mo per lab FOR LIFE as long as they never lapse
+  a payment or cancel; the price rises for labs that join later. The public price
+  is the $25 founding rate with NO $40 anchor. The engine steady-state base in
+  `MODEL_A_PLANS.lab` stays $40 (operator modeling only, never shown publicly), and
+  the founding rate (`FOUNDING_LAB_BASE_CENTS`) sits below it. The core paid unit,
+  priced for the bundle it carries (companion app pairing, the lab's web home +
+  paper companion pages, real-time co-edit, the lab dashboard, shared library,
+  pooled budgets). FLAG: the lifetime lock-in needs a per-lab founding-cohort
+  record so the engine charges $25 for grandfathered labs at billing go-live;
+  billing is OFF in beta so nothing to enforce yet.
+- **Department** (institutional tier): **pricing TBD / contact-led** (Grant
+  2026-06-19). A department brings many labs at once and the governance needs vary,
+  so the price is scoped with the customer via the `/departments/contact` reach-out
+  form, not shown as a list price. The governance layer (Department Commons,
+  compliance and data-continuity, multi-lab admin, one consolidated procurement
+  invoice) is INCLUDED value. The old "$35/lab, 6x, cheaper than a standalone lab"
+  framing is RETIRED from public copy; `MODEL_A_PLANS.dept` keeps $35 / 6x as the
+  operator steady-state estimate for the `/admin` modeling tool only.
 - **Storage** (any plan): a-la-carte at ~1.15x our cost (fee recovery, no
   margin), only for objects you choose to push to cloud. Per-object opt-in is
   sacred; nothing is ever force-pushed.
