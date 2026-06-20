@@ -9,6 +9,7 @@
 // result links to the standalone, shareable profile page.
 
 import AppShell from "@/components/AppShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import ResearcherSearch from "@/components/sharing/ResearcherSearch";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 
@@ -41,7 +42,7 @@ function ResearchersBody() {
 
   return (
     <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto w-full max-w-2xl px-6 py-10">
+      <PageContainer width="wide" className="py-10">
         <div className="mb-6">
           <h1 className="text-display font-bold tracking-tight text-foreground">
             Find researchers
@@ -53,7 +54,7 @@ function ResearchersBody() {
           </p>
         </div>
         <ResearcherSearch />
-      </div>
+      </PageContainer>
     </div>
   );
 }

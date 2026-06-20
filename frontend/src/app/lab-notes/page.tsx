@@ -3,6 +3,7 @@
 import { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import NotesPanel from "@/components/NotesPanel";
 import { useLabData } from "@/hooks/useLabData";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
@@ -35,14 +36,14 @@ export default function LabNotesRoute() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <PageContainer width="full" className="py-6">
         <h1 className="text-display font-bold text-foreground mb-1">Lab notes</h1>
         <p className="text-meta text-foreground-muted mb-5">
           Every member&apos;s notes. Open one to review it, or edit it as the lab
           head.
         </p>
         <NotesPanel isLabMode selectedUsernames={selectedUsernames} />
-      </div>
+      </PageContainer>
     </AppShell>
   );
 }

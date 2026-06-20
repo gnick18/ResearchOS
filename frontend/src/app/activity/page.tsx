@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { Icon } from "@/components/icons";
@@ -26,7 +27,7 @@ export default function ActivityRoute() {
 
   return (
     <AppShell>
-      <div className="mx-auto w-full max-w-4xl p-6">
+      <PageContainer width="wide" className="py-6">
         <div className="mb-5 space-y-1">
           <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
             <Icon name="history" className="h-5 w-5" />
@@ -40,7 +41,7 @@ export default function ActivityRoute() {
         <div className="rounded-2xl border border-border bg-surface-raised p-5 shadow-sm">
           <LabActivityBody surface="canvas" />
         </div>
-      </div>
+      </PageContainer>
     </AppShell>
   );
 }

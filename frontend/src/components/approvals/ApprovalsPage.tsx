@@ -28,6 +28,7 @@ import OrdersApprovalsLens, {
   type LabPurchaseItem,
 } from "@/components/supplies/OrdersApprovalsLens";
 import UserAvatar from "@/components/UserAvatar";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { Icon } from "@/components/icons";
 
 type FlagRecordType = "task" | "note" | "purchase_item";
@@ -162,7 +163,7 @@ export default function ApprovalsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <PageContainer width="full" className="py-6">
       <div className="mb-5 space-y-1">
         <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
           <Icon name="receipt" className="h-5 w-5" />
@@ -258,6 +259,6 @@ export default function ApprovalsPage() {
           </ul>
         )}
       </section>
-    </div>
+    </PageContainer>
   );
 }

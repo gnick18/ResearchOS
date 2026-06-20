@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import AppShell from "@/components/AppShell";
+import { PageContainer } from "@/components/layout/PageContainer";
 import LabExperimentsPanel from "@/components/LabExperimentsPanel";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import { useLabData } from "@/hooks/useLabData";
@@ -50,7 +51,7 @@ export default function LabExperimentsRoute() {
 
   return (
     <AppShell>
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <PageContainer width="full" className="py-6">
         <h1 className="text-display font-bold text-foreground mb-1">
           Lab experiments
         </h1>
@@ -62,7 +63,7 @@ export default function LabExperimentsRoute() {
           selectedUsernames={selectedUsernames}
           onExperimentClick={openExperiment}
         />
-      </div>
+      </PageContainer>
       {selectedTask && (
         <TaskDetailPopup
           task={selectedTask}
