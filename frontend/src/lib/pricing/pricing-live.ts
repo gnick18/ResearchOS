@@ -2,9 +2,9 @@
 //
 // NEXT_PUBLIC so the SAME flag is readable by both the server pricing page and
 // client surfaces (the welcome page links), instead of a server-only flag the
-// client cannot see. Set NEXT_PUBLIC_PRICING_LIVE=true to expose pricing
-// everywhere at once; leave it unset to keep the "Pricing is getting an update"
-// maintenance state on prod and hide the pricing links on the welcome page.
+// client cannot see. Public pricing is LIVE by default as of 2026-06-19; set
+// NEXT_PUBLIC_PRICING_LIVE=false to re-hide it behind the "Pricing is getting an
+// update" maintenance state and hide the welcome-page pricing links.
 //
 // This replaces the older server-only PRICING_LIVE gate on the pricing page so
 // the page and the welcome links can never drift (one flag, one helper). Local
@@ -12,9 +12,13 @@
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
-/** True only when the public-pricing flag is explicitly turned on. */
+/**
+ * Whether public pricing is live. Public pricing GO-LIVE 2026-06-19 (Grant), so
+ * it is now live by DEFAULT; set NEXT_PUBLIC_PRICING_LIVE=false to re-hide it
+ * behind the "Pricing is getting an update" maintenance state if ever needed.
+ */
 export function isPricingLive(): boolean {
-  return process.env.NEXT_PUBLIC_PRICING_LIVE === "true";
+  return process.env.NEXT_PUBLIC_PRICING_LIVE !== "false";
 }
 
 /**
