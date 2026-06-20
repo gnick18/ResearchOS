@@ -22,6 +22,7 @@ import { useLabData } from "@/hooks/useLabData";
 import { tasksApi, type LabTask } from "@/lib/local-api";
 import type { Task } from "@/lib/types";
 import { Icon, type IconName } from "@/components/icons";
+import { PageContainer } from "@/components/layout/PageContainer";
 import LabExperimentsPanel from "@/components/LabExperimentsPanel";
 import NotesPanel from "@/components/NotesPanel";
 import WorkbenchOneOnOnePanel from "@/components/workbench/WorkbenchOneOnOnePanel";
@@ -66,7 +67,7 @@ export default function LabWorkPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6">
+    <PageContainer width="full" className="py-6">
       <div className="mb-4 space-y-1">
         <h1 className="text-title font-semibold text-foreground">Lab Work</h1>
         <p className="text-meta text-foreground-muted leading-relaxed">
@@ -124,6 +125,6 @@ export default function LabWorkPage() {
           onNavigateToTask={(t) => setSelectedTask(t)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

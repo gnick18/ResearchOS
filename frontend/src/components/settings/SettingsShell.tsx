@@ -23,6 +23,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 
 import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
+import { PageContainer } from "@/components/layout/PageContainer";
 import UserAvatar from "@/components/UserAvatar";
 import {
   useSettingsSearch,
@@ -315,7 +316,7 @@ export default function SettingsShell({
         {/* ── Content pane: scrolls. No marketing footer here; the support ask
             and links live at the bottom of the rail instead. ── */}
         <div ref={paneRef} className="overflow-y-auto">
-          <div className="mx-auto max-w-4xl px-6 py-8 sm:px-8">
+          <PageContainer width="wide" className="py-8">
             {active && !anyGroupVisible ? (
               // Search is active but nothing matched. Show a clear message
               // instead of a blank pane (audit finding: blank black panel with
@@ -346,7 +347,7 @@ export default function SettingsShell({
                 Pick a section from the left.
               </p>
             )}
-          </div>
+          </PageContainer>
         </div>
       </div>
     </div>

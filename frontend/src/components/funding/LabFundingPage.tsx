@@ -26,6 +26,7 @@ import {
   computeUncategorizedSpend,
 } from "@/lib/funding/spend";
 import FundingAccountsManager from "@/components/FundingAccountsManager";
+import { PageContainer } from "@/components/layout/PageContainer";
 import { Icon } from "@/components/icons";
 
 function usd(n: number): string {
@@ -87,7 +88,7 @@ export default function LabFundingPage() {
   });
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <PageContainer width="full" className="py-6">
       <div className="mb-5 space-y-1">
         <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
           <Icon name="gauge" className="h-5 w-5" />
@@ -198,6 +199,6 @@ export default function LabFundingPage() {
       <div className="mt-8 border-t border-border pt-6">
         <FundingAccountsManager fundingAccounts={accounts} />
       </div>
-    </div>
+    </PageContainer>
   );
 }

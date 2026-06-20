@@ -34,10 +34,10 @@ export interface ShowcaseStageProps {
   onDone: () => void;
 }
 
-// Anchor for the cursor + target marker on the preloaded-page stage: the primary
-// control in the page header (the "add" button the cursor heads to). Coordinates
-// are within the relative stage frame below.
-const TARGET_POS = { x: 486, y: 46 };
+// Where the presenter cursor tip rests: on the absolutely-placed "+ New" control
+// in the page header (right-4 top-[13px] in the 560px-wide stage). Coordinates are
+// within the relative stage frame below.
+const TARGET_POS = { x: 512, y: 30 };
 
 // A short, friendly page title per surface so the stage reads as a real ResearchOS
 // page (the no-warp redesign: a preloaded page popup, not the live app). Falls back
@@ -54,28 +54,6 @@ const SURFACE_LABEL: Record<string, string> = {
 };
 function surfaceLabel(surface: string): string {
   return SURFACE_LABEL[surface] ?? surface.charAt(0).toUpperCase() + surface.slice(1);
-}
-
-/** Humanize a raw [data-tutor-target] id (e.g. "phylo-export-tab",
- *  "datahub-analyze-button") into a short readable control label for the stand-in
- *  marker, so the internal id never shows in the preview. Drops a leading surface
- *  prefix and trailing control-kind word, then title-cases what remains. */
-function humanizeTarget(id: string): string {
-  const words = id
-    .split("-")
-    .filter((w) => w && !["button", "tab", "btn", "link", "menu", "item"].includes(w));
-  const SURFACES = new Set([
-    "datahub",
-    "phylo",
-    "methods",
-    "sequences",
-    "chemistry",
-    "inventory",
-    "people",
-  ]);
-  const trimmed = words.length > 1 && SURFACES.has(words[0]) ? words.slice(1) : words;
-  const label = (trimmed.length ? trimmed : words).join(" ").trim();
-  return label ? label.charAt(0).toUpperCase() + label.slice(1) : "Open";
 }
 
 export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
@@ -136,18 +114,18 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
           place (no warp into the live app). relative so the cursor + the target
           marker position within it. */}
       <div className="relative h-[330px] w-[560px] max-w-full overflow-hidden rounded-2xl border border-[var(--line,#e3e5e0)] bg-[var(--surface,#fff)] shadow-sm">
-        {/* page header: the surface title + the primary control the cursor heads to */}
-        <div className="flex items-center justify-between border-b border-[var(--line,#e3e5e0)] px-4 py-3">
-          <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand,#1d9e75)]" />
-            <span className="text-sm font-semibold text-[var(--fg,#1f2421)]">
-              {surfaceLabel(surface)}
-            </span>
-          </div>
-          <span className="rounded-lg border border-[var(--line2,#d2d5cd)] bg-[var(--sunken,#f1f2ef)] px-2.5 py-1 text-xs font-semibold text-[var(--muted,#6b716a)]">
-            + New
+        {/* page header: the surface title. */}
+        <div className="flex items-center gap-2 border-b border-[var(--line,#e3e5e0)] px-4 py-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-[var(--brand,#1d9e75)]" />
+          <span className="text-sm font-semibold text-[var(--fg,#1f2421)]">
+            {surfaceLabel(surface)}
           </span>
         </div>
+        {/* The primary control the cursor heads to, absolutely placed so the
+            presenter cursor tip lands exactly on it (TARGET_POS matches). */}
+        <span className="absolute right-4 top-[13px] rounded-lg border border-[var(--line2,#d2d5cd)] bg-[var(--sunken,#f1f2ef)] px-2.5 py-1 text-xs font-semibold text-[var(--muted,#6b716a)]">
+          + New
+        </span>
 
         {/* page content: a few sample rows, with the reveal row appearing on click */}
         <div className="flex flex-col gap-2 p-4">
@@ -185,16 +163,6 @@ export default function ShowcaseStage({ surface, onDone }: ShowcaseStageProps) {
             </div>
           </div>
         </div>
-
-        {/* target marker for the control the cursor heads to */}
-        {cursorVisible ? (
-          <div
-            className="absolute rounded-md border-2 border-[var(--info,#2563eb)] px-2 py-1 text-[9px] font-semibold text-[var(--info-ink,#1b4fa8)]"
-            style={{ left: TARGET_POS.x - 8, top: TARGET_POS.y - 26 }}
-          >
-            {humanizeTarget(target)}
-          </div>
-        ) : null}
 
         <PresenterCursor
           x={cursorVisible ? TARGET_POS.x : null}

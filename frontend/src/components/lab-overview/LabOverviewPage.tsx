@@ -34,6 +34,7 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useAccountType } from "@/hooks/useAccountType";
 import { useLabData } from "@/hooks/useLabData";
 import { Icon, type IconName } from "@/components/icons";
+import { PageContainer } from "@/components/layout/PageContainer";
 import AuditTrailViewer from "@/components/lab-head/AuditTrailViewer";
 
 import NewProjectButton from "./NewProjectButton";
@@ -353,7 +354,7 @@ export default function LabOverviewPage() {
   });
 
   return (
-    <div className="mx-auto w-full max-w-6xl space-y-6 p-6">
+    <PageContainer width="full" className="space-y-6 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-heading font-bold text-foreground">Lab Overview</h1>
@@ -435,6 +436,6 @@ export default function LabOverviewPage() {
           onCreated={() => setShowProjectCreate(false)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }

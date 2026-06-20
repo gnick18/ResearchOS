@@ -28,6 +28,7 @@ import {
   type LabBillingStatus,
 } from "@/lib/billing/client";
 import UserAvatar from "@/components/UserAvatar";
+import { PageContainer } from "@/components/layout/PageContainer";
 import LivingPopup from "@/components/ui/LivingPopup";
 import Tooltip from "@/components/Tooltip";
 import { Icon } from "@/components/icons";
@@ -137,7 +138,7 @@ export default function PeoplePage() {
   const activeCount = rows.filter((r) => !r.archived).length;
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <PageContainer width="full" className="py-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="space-y-1">
           <h1 className="flex items-center gap-2 text-title font-semibold text-foreground">
@@ -288,7 +289,7 @@ export default function PeoplePage() {
           onClose={() => setSelected(null)}
         />
       )}
-    </div>
+    </PageContainer>
   );
 }
 
