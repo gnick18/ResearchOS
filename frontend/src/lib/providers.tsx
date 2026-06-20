@@ -524,7 +524,11 @@ function AppContent({ children }: { children: ReactNode }) {
   // fell through to the front-door landing, the invite was never stashed, and the
   // visitor was funneled into creating a spurious second lab (the co-founder test).
   const isFolderlessAccountRoute =
-    pathname === "/account" ||
+    // The account home and every account subpage (e.g. /account/lab-site, the
+    // lab head's companion-site authoring dashboard) are cloud account surfaces
+    // that run off the NextAuth session in any browser with no data folder, so
+    // they all bypass the folder-connect gate, not just the exact "/account".
+    pathname?.startsWith("/account") ||
     pathname?.startsWith("/department") ||
     pathname?.startsWith("/institution") ||
     pathname?.startsWith("/dept/") ||

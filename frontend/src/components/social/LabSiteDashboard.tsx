@@ -23,6 +23,7 @@ import FileDropzone from "@/components/ui/FileDropzone";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
+import PortalShell from "@/components/portal/PortalShell";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import ReferencePicker from "@/components/references/ReferencePicker";
@@ -977,11 +978,8 @@ export default function LabSiteDashboard({
     [editorPath, editorTitle, editorBody, refresh, demoReadOnly],
   );
 
-  return (
-    <div className="relative min-h-screen">
-      <MarketingBackdrop />
-      <MarketingNav />
-      <main className="mx-auto w-full max-w-3xl px-5 py-12">
+  const body = (
+    <>
         <header className="mb-8">
           <h1 className="text-2xl font-semibold text-foreground">Lab site</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -1292,8 +1290,34 @@ export default function LabSiteDashboard({
             )}
           </section>
         )}
-      </main>
-      <MarketingFooter />
-    </div>
+    </>
+  );
+
+  // The demo walkthrough (?demo=fakeyeast-lab) is a public, read-only tour, so it
+  // keeps the marketing chrome and stays viewable without a session. The real
+  // authoring surface is a signed-in account page, so it renders in PortalShell,
+  // the authed account shell shared with /account and the org portals. PortalShell
+  // shows the signed-in account (email + sign-out) so the user always knows which
+  // identity they are acting as, and gates a logged-out visitor with a sign-in
+  // card instead of the public marketing nav and footer.
+  if (demoReadOnly) {
+    return (
+      <div className="relative min-h-screen">
+        <MarketingBackdrop />
+        <MarketingNav />
+        <main className="mx-auto w-full max-w-3xl px-5 py-12">{body}</main>
+        <MarketingFooter />
+      </div>
+    );
+  }
+
+  return (
+    <PortalShell
+      title="Lab site"
+      gateHeading="Sign in to manage your lab site"
+      tagline="Claim your lab's slug, write companion-site pages in markdown, and publish when ready. Your account is the cloud part; your research data stays local on your own computer."
+    >
+      <div className="mx-auto w-full max-w-3xl">{body}</div>
+    </PortalShell>
   );
 }
