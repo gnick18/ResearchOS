@@ -21,7 +21,7 @@
 // No emojis, no em-dashes, no mid-sentence colons.
 
 import type { LabSessionState } from "./lab-session";
-import { enumerateLabWork, type LabWorkSource } from "./lab-work-enumerate";
+import { enumerateLabWork, type LabWorkSource, type LabWorkRecord } from "./lab-work-enumerate";
 import { syncLabWorkToMirror } from "./lab-sync";
 import type { ManifestStore } from "./lab-sync-manifest-store";
 import {
@@ -35,6 +35,13 @@ import {
   activeGrantKeys,
   type ApprovalGrantStore,
 } from "./lab-approval-grants";
+import {
+  isPrivateClassNotebookRecord,
+  writePrivateNotebookRecord,
+} from "./class-private-notebook";
+import { getLabRemote } from "./lab-do-client";
+import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
+import { labDataObjectKey } from "./lab-data-protocol";
 
 // ---------------------------------------------------------------------------
 // Public types.
@@ -91,6 +98,30 @@ export interface LabSyncRunDeps {
    * the deps bag consistent with other lab-tier modules.
    */
   now?: () => number;
+
+  /**
+   * CLASS MODE (Stage 2). Fetch the head-signed roster so the private-notebook
+   * write path can resolve the student LabMember (the session owner) and the
+   * head LabMember (role === "head") it seals the per-student subkey to. Default:
+   * getLabRemote. Only ever called when at least one private class notebook is
+   * partitioned out of the team-key push, so a non-class lab pays no extra fetch.
+   */
+  getRemoteImpl?: typeof getLabRemote;
+
+  /**
+   * CLASS MODE (Stage 2). Read the unlocked session identity to recover the
+   * student's x25519 PRIVATE key (decision 1: from getSessionIdentity at call
+   * time, no new long-lived reference). writePrivateNotebookRecord needs it to
+   * recover / mint the per-student subkey. Default: getSessionIdentity.
+   */
+  getIdentityImpl?: typeof getSessionIdentity;
+
+  /**
+   * CLASS MODE (Stage 2). The dedicated subkey write path for one private
+   * notebook. Default: writePrivateNotebookRecord. Injected in tests to assert
+   * the partition routes exactly the private notebooks here and nothing else.
+   */
+  writePrivateNotebookImpl?: typeof writePrivateNotebookRecord;
 }
 
 /**
@@ -113,12 +144,33 @@ export interface LabSyncRunResult {
   skipped?: string[];
   tombstoned?: string[];
   heavyHeld?: number;
+  /**
+   * CLASS MODE (Stage 2). R2 object keys of private student notebooks pushed via
+   * the dedicated subkey path this run (sealed under the per-student subkey, not
+   * the team key). Empty on every non-class lab and every flag-off run.
+   */
+  privateNotebooksPushed?: string[];
 }
 
 // Module-level default for the index dedup cache. The runner only ever syncs the
 // current session member's own records, so this holds a single entry. It resets
 // on reload, which at worst causes one redundant index push per session.
 const moduleIndexCache = new Map<string, string>();
+
+/**
+ * Lowercase hex sha256 of the given bytes via WebCrypto, used to dedup the
+ * private-notebook write path against its carried-forward manifest. Mirrors the
+ * content-hash dedup the team-key sync engine does internally (lab-sync.ts), so a
+ * private notebook unchanged since last sync is not re-sealed and re-pushed.
+ */
+async function sha256HexBytes(bytes: Uint8Array): Promise<string> {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  const digest = await crypto.subtle.digest("SHA-256", copy.buffer);
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
 
 // ---------------------------------------------------------------------------
 // runLabSyncForSession: main entry point.
@@ -158,10 +210,51 @@ export async function runLabSyncForSession(
   const doSync = deps.syncImpl ?? syncLabWorkToMirror;
 
   // Step 1: enumerate.
-  const records = await enumerateLabWork({ owner, source: deps.source });
+  const enumerated = await enumerateLabWork({ owner, source: deps.source });
 
-  // Step 2: load manifest.
-  const manifest = await deps.manifestStore.load(owner);
+  // CLASS MODE (Stage 2) PARTITION. A private student notebook must NOT ride the
+  // generic team-key push: that would seal it under the team key (classmate
+  // readable) AND leak its preview into the team-key lab INDEX. Partition it OUT
+  // exactly once, up front, so every downstream generic consumer (size-gate,
+  // sync engine, index build, manifest removal scan) sees ONLY the team records.
+  // The private notebook is pushed by the dedicated subkey write path below.
+  //
+  // EXCLUSIVITY INVARIANT: isPrivateClassNotebookRecord is the single, total
+  // arbiter. Every record satisfies exactly one branch, so a private notebook is
+  // pushed by exactly one path, never both. Flag off the predicate always
+  // returns false, so `records` === `enumerated` and the generic path is
+  // byte-identical to today (no partition, no roster fetch, no identity read).
+  const records: LabWorkRecord[] = [];
+  const privateNotebooks: LabWorkRecord[] = [];
+  for (const r of enumerated) {
+    if (isPrivateClassNotebookRecord(r.recordType, r.plaintext)) {
+      privateNotebooks.push(r);
+    } else {
+      records.push(r);
+    }
+  }
+
+  // Step 2: load manifest. The manifest spans BOTH paths (one R2-key -> sha256
+  // map). Split it so the team-key engine only sees the team keys (it tombstones
+  // any input-manifest key it no longer finds among live records; a private-key
+  // it never sees would otherwise be wrongly tombstoned), while the private
+  // notebooks keep their own dedup entries. The two halves are merged back before
+  // save so neither path re-pushes an unchanged record on the next run.
+  const fullManifest = await deps.manifestStore.load(owner);
+  const privateKeySet = new Set(
+    privateNotebooks.map((r) =>
+      labDataObjectKey(session.labId, owner, r.recordType, r.recordId),
+    ),
+  );
+  // Carry forward any private-notebook keys already in the manifest from prior
+  // syncs (their owner is always this session owner, so the key is reconstructable
+  // the same way). A team key is everything not in the private set.
+  const manifest: Record<string, string> = {};
+  const priorPrivateManifest: Record<string, string> = {};
+  for (const [k, v] of Object.entries(fullManifest)) {
+    if (privateKeySet.has(k)) priorPrivateManifest[k] = v;
+    else manifest[k] = v;
+  }
 
   // Phase B size-gating: push only LIGHT content eagerly. Heavy records are
   // indexed (so they stay searchable) but held back from the eager push and
@@ -199,8 +292,75 @@ export async function runLabSyncForSession(
   // Persist the pruned grant set (drops grants that just expired).
   if (grantStore) await grantStore.save(owner, grants);
 
-  // Step 4: persist the updated manifest ONLY on success.
-  await deps.manifestStore.save(owner, result.manifest);
+  // CLASS MODE (Stage 2) PRIVATE NOTEBOOK WRITE. Push each partitioned-out
+  // private notebook through the DEDICATED subkey path. This seals it under the
+  // student's per-student subkey (sealed only to the student + the head), so a
+  // classmate holding the team key cannot read it. We dedup by content sha256
+  // against the carried-forward private manifest so an unchanged notebook is not
+  // re-pushed every sync.
+  //
+  // The roster + identity are read ONLY when there is at least one private
+  // notebook, so every non-class lab (and every flag-off build) pays no extra
+  // fetch and stays byte-identical.
+  const privateManifest: Record<string, string> = { ...priorPrivateManifest };
+  const privatePushed: string[] = [];
+  if (privateNotebooks.length > 0) {
+    const getRemote = deps.getRemoteImpl ?? getLabRemote;
+    const getIdentity = deps.getIdentityImpl ?? getSessionIdentity;
+    const writeNotebook = deps.writePrivateNotebookImpl ?? writePrivateNotebookRecord;
+
+    const remote = await getRemote(session.labId);
+    const identity = getIdentity();
+    const members = remote?.record.members ?? [];
+    const headMember = members.find((m) => m.role === "head");
+    const studentMember = members.find((m) => m.username === owner);
+    const x25519Priv = identity?.keys.encryption.privateKey;
+
+    // Guard: without the roster head, the session student member, and the
+    // student x25519 key we cannot seal the subkey. Skip the private write this
+    // run (the notebook stays unpushed and retries next sync) rather than leak it
+    // under the team key. Never abort the whole sync (the team push already
+    // succeeded and its manifest must still be saved).
+    if (headMember && studentMember && x25519Priv) {
+      for (const nb of privateNotebooks) {
+        const key = labDataObjectKey(
+          session.labId,
+          owner,
+          nb.recordType,
+          nb.recordId,
+        );
+        const sha = await sha256HexBytes(nb.plaintext);
+        if (privateManifest[key] === sha) {
+          // Unchanged since last sync: skip (dedup).
+          continue;
+        }
+        const out = await writeNotebook({
+          labId: session.labId,
+          student: studentMember,
+          head: headMember,
+          recordType: nb.recordType,
+          recordId: nb.recordId,
+          plaintext: nb.plaintext,
+          teamKey: session.labKey,
+          signerEd25519Priv: session.signingKeyPair.ed25519Priv,
+          signerEd25519Pub: session.signingKeyPair.ed25519Pub,
+          x25519PrivateKey: x25519Priv,
+        });
+        if ("subkey" in out) {
+          privateManifest[key] = sha;
+          privatePushed.push(key);
+        }
+        // A { refused } outcome (flag off mid-run) leaves the manifest entry
+        // absent so the next sync retries; it never leaks to the team key.
+      }
+    }
+  }
+
+  // Step 4: persist the updated manifest ONLY on success. Merge the team-key
+  // engine manifest with the private-notebook manifest so neither path re-pushes
+  // an unchanged record next run. The two key spaces are disjoint (a private key
+  // is never in the team manifest and vice versa), so the merge is conflict-free.
+  await deps.manifestStore.save(owner, { ...result.manifest, ...privateManifest });
 
   // Step 5: rebuild the index from ALL records (light and heavy, with an eager
   // flag per entry) and push it when it actually changed. The push is gated on
@@ -238,5 +398,6 @@ export async function runLabSyncForSession(
     skipped: result.skipped,
     tombstoned: result.tombstoned,
     heavyHeld: heavy.length - promotedHeavy.length,
+    privateNotebooksPushed: privatePushed,
   };
 }
