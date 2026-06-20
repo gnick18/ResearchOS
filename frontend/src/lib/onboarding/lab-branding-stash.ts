@@ -50,6 +50,21 @@ export function stashLabLogo(logo: PreparedLogo | null): void {
 }
 
 /**
+ * Whether lab branding is currently stashed, WITHOUT consuming it. The wizard
+ * resume uses this to decide if the lab-setup step is already done (so a
+ * re-entry skips it rather than re-asking the lab name). Read-only, so it never
+ * disturbs the consume-once contract.
+ */
+export function hasStashedLabBranding(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return window.sessionStorage.getItem(BRANDING_KEY) !== null;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Read AND clear the stashed text branding. Returns null when nothing was
  * captured (e.g. the chooser path, which has no wizard LabStep), in which case
  * LabCreateResume falls back to its own LabSetupStep.
