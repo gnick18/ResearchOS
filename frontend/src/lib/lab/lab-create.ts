@@ -138,16 +138,31 @@ export function createLabLocal(params: CreateLabParams): CreateLabLocalResult {
 
 /**
  * The NETWORK half of lab creation, a retryable background publish. POSTs the
- * head-signed genesis entry + sealed envelope to the relay, then best-effort
- * upserts a directory row. Separated from createLabLocal so a PI is a lab head
- * locally the instant they commit, independent of whether the relay is
- * reachable. The genesis artifacts (created.record + created.envelope) are
- * fully JSON-serializable, so the caller can persist them and retry this until
- * it lands.
+ * head-signed genesis entry + sealed envelope to the relay, then upserts a
+ * directory row. Separated from createLabLocal so a PI is a lab head locally
+ * the instant they commit, independent of whether the relay is reachable. The
+ * genesis artifacts (created.record + created.envelope) are fully
+ * JSON-serializable, so the caller can persist them and retry this until it
+ * lands.
+ *
+ * Returns a structured result so callers can distinguish a complete success
+ * (relay + directory both OK) from a partial one (relay only), rather than
+ * treating any non-throw as "done". Callers that only need to know whether to
+ * retry can check `result.ok` (true only when both landed).
  *
  * @throws if the relay rejects the create request (non-2xx HTTP status). The
- *   directory upsert failure is swallowed (best-effort).
+ *   directory upsert failure does NOT throw; it is captured in the return value
+ *   so the pending-genesis state can remain until the directory row also lands.
  */
+export interface PublishLabRemoteResult {
+  /** True when both the relay genesis AND the directory upsert succeeded. */
+  ok: boolean;
+  /** True when the relay genesis publish succeeded (independently). */
+  relayOk: boolean;
+  /** True when the directory upsert succeeded (independently). */
+  directoryOk: boolean;
+}
+
 export async function publishLabRemote(
   labId: string,
   created: CreatedLab,
@@ -164,7 +179,7 @@ export async function publishLabRemote(
      *  is suppressed. Defaults to false, so research-lab callers are unchanged. */
     suppressDirectory?: boolean;
   },
-): Promise<void> {
+): Promise<PublishLabRemoteResult> {
   // Cosmetic branding rides into the relay create body (DO meta), NOT the signed
   // log. piDisplayName is the human PI name shown next to the title; it doubles as
   // the directory row's piDisplayName below.
@@ -179,27 +194,45 @@ export async function publishLabRemote(
     );
   }
 
-  // Best-effort: publish a directory row (listed=false) so the lab can later
-  // be opted into the listing by the PI. A failure here must never block lab
-  // creation -- we simply skip the upsert and the PI can trigger it later.
-  // Class Mode (CM-P1): a class is never directory-listed, so suppressDirectory
-  // skips this upsert entirely regardless of whether a name was supplied.
-  if (!opts?.suppressDirectory && opts?.labName?.trim()) {
-    try {
-      await fetch("/api/directory/labs/publish", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({
-          labId,
-          name: opts.labName.trim(),
-          institution: opts.institution ?? null,
-          piDisplayName: opts.piDisplayName ?? "",
-        }),
-      });
-    } catch {
-      // Intentionally swallowed: directory upsert is best-effort.
-    }
+  // Class Mode (CM-P1): a class is never directory-listed. Skip the upsert
+  // entirely and treat the directory step as succeeded so pending-genesis is
+  // cleared immediately (there is nothing to backfill).
+  if (opts?.suppressDirectory) {
+    return { ok: true, relayOk: true, directoryOk: true };
   }
+
+  // Always upsert a directory row so the lab is visible in the admin roster and
+  // /network even when no lab name was supplied during creation. A placeholder
+  // name is used when the PI skipped the naming step, because a missing row
+  // (rather than a placeholder name) is what makes the lab invisible. The PI can
+  // rename the lab in settings at any time.
+  //
+  // A non-2xx response or a network error means the directory write did NOT land,
+  // so we return directoryOk: false. The caller treats this as a partial success
+  // and leaves the pending-genesis in place so the directory write is retried.
+  const name =
+    opts?.labName?.trim() ||
+    (opts?.piDisplayName ? `${opts.piDisplayName}'s lab` : "Untitled lab");
+  try {
+    const dirRes = await fetch("/api/directory/labs/publish", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        labId,
+        name,
+        institution: opts?.institution ?? null,
+        piDisplayName: opts?.piDisplayName ?? "",
+      }),
+    });
+    if (!dirRes.ok) {
+      return { ok: false, relayOk: true, directoryOk: false };
+    }
+  } catch {
+    // Network-level failure (offline, DNS, etc.).
+    return { ok: false, relayOk: true, directoryOk: false };
+  }
+
+  return { ok: true, relayOk: true, directoryOk: true };
 }
 
 /**

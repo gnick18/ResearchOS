@@ -8,13 +8,16 @@
 //     -> the persisted record/envelope survive JSON stringify/parse unchanged,
 //     and openLabKeyCopy re-derives a 32-byte lab key from the persisted envelope
 //     ALONE (re-derivation works with no stored key).
-//   - publishPendingGenesis returns true + clears the pending genesis when the
-//     relay POST is ok, and returns false + keeps it when the relay throws / is
-//     non-ok.
+//   - publishPendingGenesis returns true + clears the pending genesis when BOTH
+//     the relay POST and the directory upsert are ok.
+//   - publishPendingGenesis returns false + keeps pending when the relay is non-ok.
+//   - publishPendingGenesis returns false + keeps pending when the relay throws.
+//   - publishPendingGenesis returns false + keeps pending when the directory
+//     upsert fails (non-2xx), even though the relay POST succeeded.
 //
 // createLabLocal runs the REAL lab-key crypto so the round-trip exercises real
-// sealing + opening. Only the relay (lab-do-client) and the settings store are
-// mocked.
+// sealing + opening. Only the relay (lab-do-client), the settings store, and
+// global fetch are mocked.
 //
 // No emojis, no em-dashes, no mid-sentence colons.
 
@@ -65,6 +68,11 @@ import type { StoredIdentity } from "@/lib/sharing/identity/storage";
 
 const mockCreateLabRemote = vi.mocked(createLabRemote);
 
+// publishLabRemote now calls fetch directly for the directory upsert. Default
+// to a 200 so existing relay-ok tests pass without needing extra setup; tests
+// that want to exercise a directory failure override this per-test.
+let mockFetch: ReturnType<typeof vi.fn>;
+
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
@@ -81,6 +89,8 @@ function makeRealIdentity(): StoredIdentity {
 beforeEach(() => {
   vi.clearAllMocks();
   settingsStore.clear();
+  mockFetch = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+  vi.stubGlobal("fetch", mockFetch);
 });
 
 // ---------------------------------------------------------------------------
@@ -248,5 +258,36 @@ describe("publishPendingGenesis", () => {
 
     expect(ok).toBe(false);
     expect(await readPendingGenesis("erin")).toEqual(pending);
+  });
+
+  it("returns false + keeps pending when the relay succeeds but the directory upsert returns non-2xx", async () => {
+    // This is the key regression-prevention test. Previously publishPendingGenesis
+    // cleared the pending genesis on relay success alone, stranding the lab with
+    // no directory_labs row. Now the pending genesis is only cleared when BOTH
+    // steps land. Simulating: relay OK (200), directory 503 -> pending stays.
+    const pending = makePending("frank");
+    await savePendingGenesis("frank", pending);
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    // Override the default 200 fetch stub with a 503 for the directory endpoint.
+    mockFetch.mockResolvedValueOnce(new Response(null, { status: 503 }));
+
+    const ok = await publishPendingGenesis("frank", pending);
+
+    expect(ok).toBe(false);
+    // The pending genesis must still be in place so a later retry can attempt
+    // both the relay (idempotent re-send) and the directory write again.
+    expect(await readPendingGenesis("frank")).toEqual(pending);
+  });
+
+  it("returns false + keeps pending when the relay succeeds but the directory fetch throws (network error)", async () => {
+    const pending = makePending("grace");
+    await savePendingGenesis("grace", pending);
+    mockCreateLabRemote.mockResolvedValueOnce({ ok: true, status: 200 } as Response);
+    mockFetch.mockRejectedValueOnce(new Error("directory endpoint unreachable"));
+
+    const ok = await publishPendingGenesis("grace", pending);
+
+    expect(ok).toBe(false);
+    expect(await readPendingGenesis("grace")).toEqual(pending);
   });
 });
