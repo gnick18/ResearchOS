@@ -111,6 +111,22 @@ say, 12 months.
 4. On expiry: the lab reverts to free and the existing 30-day lab-site reclaim grace
    applies (no special longer window for comps).
 
+## 5b. Shipped scope + follow-up (2026-06-19)
+
+SHIPPED (merged + pushed, commit `8c726b6fd`): a comped tier opens ONLY the
+`isLabPublishEntitled` gate (lab/dept comp unlocks lab-site publishing; solo does not).
+This is enough for the beta dogfood (Emile can publish) because every OTHER paid gate is
+free during beta (billing off). Additive, operator-only, fail-safe, no Stripe, 175/175
+billing tests, tsc 0.
+
+FOLLOW-UP (queued, do BEFORE billing goes live): make a comped tier behave like FULL
+premium across ALL paid gates, not just publish. Today `isProduceEntitled`, send/co-edit,
+the Model-A plan resolver (`model-a/resolve.ts`), and allowance still read the real
+subscription only, so once `BILLING_ENABLED` flips on a comped lab would have publish but
+not produce/send. The follow-up routes a comped tier through the plan resolver so a comp
+is a true comped plan everywhere (still $0, still no Stripe). Grant signed off "merge now
++ queue full-premium follow-up" (2026-06-19).
+
 ## 6. First use after sign-off
 
 Once this ships, gift Emile's lab `lab` tier for the chosen duration, then connect
