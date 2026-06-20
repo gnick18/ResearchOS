@@ -19,6 +19,7 @@ import {
   type StudentAssignment,
 } from "@/lib/lab/class-assignment-read";
 import { openAssignmentNotebook } from "@/lib/lab/class-student-open";
+import { tasksApi } from "@/lib/local-api";
 import SubmitNotebookButton from "./SubmitNotebookButton";
 import type { ClassSubmission } from "@/lib/types";
 
@@ -40,12 +41,31 @@ export default function ClassAssignmentsPanel({
   // assignmentId -> the opened notebook (so the submit control mounts inline).
   const [opened, setOpened] = useState<Record<string, OpenedNotebook>>({});
 
+  // Load the assignments AND hydrate any notebook the student already opened, so
+  // the submit state PERSISTS across reloads (the per-assignment notebook is the
+  // student-owned task carrying assignment_id; its submission lives on disk). On
+  // mount the row reflects the real state, not a blank "Open notebook".
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const next = await listStudentAssignments();
-        if (!cancelled) setAssignments(next);
+        const [next, tasks] = await Promise.all([
+          listStudentAssignments(),
+          tasksApi.listAllForUser(currentUser),
+        ]);
+        if (cancelled) return;
+        const hydrated: Record<string, OpenedNotebook> = {};
+        for (const t of tasks) {
+          if (typeof t.assignment_id === "string" && t.assignment_id.length > 0) {
+            hydrated[t.assignment_id] = {
+              taskId: t.id,
+              rev: t.last_edited_at ?? new Date().toISOString(),
+              submission: t.submission ?? null,
+            };
+          }
+        }
+        setAssignments(next);
+        setOpened(hydrated);
       } catch {
         if (!cancelled) {
           setAssignments([]);
@@ -56,7 +76,7 @@ export default function ClassAssignmentsPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [currentUser]);
 
   const onOpen = useCallback(
     async (assignment: StudentAssignment) => {
