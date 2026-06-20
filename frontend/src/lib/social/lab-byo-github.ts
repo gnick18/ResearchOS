@@ -20,6 +20,11 @@
 // full "https://evil/" can never redirect the fetch off GitHub. The pure
 // path-strip logic (stripZipballPrefix) is IO-free and unit-testable on its own.
 //
+// Phase B additions: fetchRepoRootListing and fetchPagesEnabled fetch the root
+// file-name list and GitHub Pages configuration for a validated owner/repo. Both use
+// the same api.github.com host and isSafeOwner/isSafeRepo guards as the rest of this
+// module. These are consumed by the connect route's classify-before-pull step.
+//
 // This module imports the social lane's OWN pure core (lab-byo.ts) for the caps and
 // the file-entry shape. It does NOT import lib/sharing/**, lib/billing/** writes, or
 // the R2 client (the route wires those, exactly like the upload route).
@@ -384,4 +389,86 @@ export function resolvedRefFromEntries(entries: RawZipEntry[]): string | null {
     return null;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Phase B: repo-classification helpers (SSRF-guarded, api.github.com only)
+// ---------------------------------------------------------------------------
+
+/** Minimal shape of one entry in a GitHub /contents listing. */
+interface GhContentsEntry {
+  name: string;
+}
+
+/** Minimal shape of the GitHub /pages response. A 200 with any body means
+ *  Pages is configured; a 404 means it is not. We only need to know which. */
+interface GhPagesJson {
+  source?: unknown;
+}
+
+/**
+ * Fetch the root-level file and directory names of a public GitHub repo.
+ * Used as input to classifyRepo() BEFORE pulling a zipball so the connect
+ * route can route "tool" repos without downloading the whole archive.
+ *
+ * SSRF: fetches ONLY api.github.com. owner and repo are validated by the
+ * caller via isSafeOwner / isSafeRepo before this function is called.
+ * encodeURIComponent is applied as defense in depth.
+ *
+ * Returns an empty array on failure (404, rate-limit, network error) so the
+ * classifier degrades gracefully to "tool" (the safe default for an unknown
+ * repo).
+ */
+export async function fetchRepoRootListing(
+  owner: string,
+  repo: string,
+): Promise<string[]> {
+  if (!isSafeOwner(owner) || !isSafeRepo(repo)) return [];
+  const url = `https://${GITHUB_API_HOST}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/contents`;
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: githubHeaders(),
+      redirect: "follow",
+    });
+    if (!res.ok) return [];
+    const json = (await res.json()) as GhContentsEntry[];
+    if (!Array.isArray(json)) return [];
+    return json.map((e) => (typeof e.name === "string" ? e.name : "")).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Return true when GitHub Pages is enabled for the given repo. Fetches the
+ * /pages endpoint, which returns 200 when Pages is configured and 404 when it
+ * is not. A 403 (repo exists but Pages info is inaccessible for a public
+ * token) is treated as false so the classifier does not over-classify private
+ * repos as sites.
+ *
+ * SSRF: fetches ONLY api.github.com. owner and repo are pre-validated.
+ */
+export async function fetchPagesEnabled(
+  owner: string,
+  repo: string,
+): Promise<boolean> {
+  if (!isSafeOwner(owner) || !isSafeRepo(repo)) return false;
+  const url = `https://${GITHUB_API_HOST}/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/pages`;
+  try {
+    const res = await fetch(url, {
+      method: "GET",
+      headers: githubHeaders(),
+      redirect: "follow",
+    });
+    if (res.status === 200) {
+      // Confirm the body is a valid pages object (source field present means
+      // Pages is actually configured, not just a stale 200 edge case).
+      const json = (await res.json()) as GhPagesJson;
+      return typeof json === "object" && json !== null;
+    }
+    return false;
+  } catch {
+    return false;
+  }
 }
