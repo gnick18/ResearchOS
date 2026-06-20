@@ -238,6 +238,34 @@ const CAUTION_DESCRIPTORS: Record<string, Omit<SettingDescriptor, "tier" | "key"
   },
 };
 
+/** A model-facing catalog of every writable key, derived from the SAFE + CAUTION
+ *  descriptors so it can never drift from the write-list. Each entry is
+ *  "key (label)", and an enum key also lists its option values, so the model maps
+ *  the user's words onto the EXACT key and value instead of guessing a plausible
+ *  name (the spellCheck vs spellCheckInEditor class of miss). Computed once at
+ *  module load, so it is byte-stable across turns and stays in the cached prefix. */
+function buildWritableSettingsCatalog(): string {
+  const entries: string[] = [];
+  const add = (
+    key: string,
+    d: Omit<SettingDescriptor, "tier" | "key">,
+  ): void => {
+    if (d.control === "enum" && d.options && d.options.length > 0) {
+      entries.push(
+        `${key} (${d.label}, options ${d.options.map((o) => o.value).join("/")})`,
+      );
+    } else {
+      entries.push(`${key} (${d.label})`);
+    }
+  };
+  for (const [key, d] of Object.entries(SAFE_DESCRIPTORS)) add(key, d);
+  for (const [key, d] of Object.entries(CAUTION_DESCRIPTORS)) add(key, d);
+  return entries.join("; ");
+}
+
+/** The enumerated writable-key catalog, injected into both tool descriptions. */
+export const WRITABLE_SETTINGS_CATALOG = buildWritableSettingsCatalog();
+
 // The SENSITIVE set. Never written by the tool; returns a handoff card. These are
 // account / membership / money keys. Anything NOT in UserSettings (billing,
 // security, 2FA, sign-out, folder disconnect, privacy) is also treated as
@@ -489,7 +517,11 @@ export const readSettingTool: AiTool = {
     "(safe, caution, or sensitive). Use this to answer \"what is my X set to\" before " +
     "offering to change it with update_setting. An internal bookkeeping key (a schema " +
     "version or cache) returns a note that it is not a user setting. NEVER invent a value; " +
-    "report exactly what the tool returns.",
+    "report exactly what the tool returns. " +
+    "Map the user's words onto the EXACT key, do not guess a name (spell check is " +
+    "spellCheckInEditor, not spellCheck). The common readable keys are: " +
+    WRITABLE_SETTINGS_CATALOG +
+    ".",
   parameters: {
     type: "object",
     properties: {
@@ -566,7 +598,13 @@ export const updateSettingTool: AiTool = {
     "links the user to the settings page. On a successful change the tool renders the live " +
     "control inline in chat so the user can confirm or flip it further; the user's tap is the " +
     "real commit. Always read_setting first if you are unsure of the current value. " +
-    "NEVER invent a value the user did not ask for.",
+    "NEVER invent a value the user did not ask for. " +
+    "Map the user's words onto the EXACT key from this list, do not guess a key name. " +
+    "For example spell check is spellCheckInEditor not spellCheck, and a 24-hour clock is " +
+    "timeFormat set to 24h. Writable keys: " +
+    WRITABLE_SETTINGS_CATALOG +
+    ". A key not in this list (account type, lab membership, purchasing, billing, security) " +
+    "returns a handoff, so do not try to write it.",
   parameters: {
     type: "object",
     properties: {
