@@ -1786,6 +1786,49 @@ body {
   animation: sidebar-complete-pulse 1.2s ease-in-out;
 }
 
+/* ── Sequence rail nudge shimmer ───────────────────────────────────────────────
+ * A gentle "look here" cue for a rail operation that is relevant to the current
+ * selection but not yet open (today the protein analysis when a gene of interest
+ * is selected). A soft sky sheen sweeps across a faint gradient while a subtle
+ * sky ring stays lit between sweeps, so the op reads as inviting without ever
+ * auto-opening. NO overflow clipping here, the rail badge must stay visible.
+ * Sky / action brand color 26 160 230 (#1AA0E6), action-deep 18 131 201. */
+@keyframes seq-rail-shimmer {
+  0% {
+    background-position: -140% 0;
+    box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
+  }
+  50% {
+    box-shadow: 0 0 0 2px rgba(26, 160, 230, 0.55), 0 0 10px rgba(18, 131, 201, 0.35);
+  }
+  100% {
+    background-position: 240% 0;
+    box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
+  }
+}
+
+.seq-rail-shimmer {
+  background-image: linear-gradient(
+    115deg,
+    transparent 0%,
+    transparent 35%,
+    rgba(26, 160, 230, 0.22) 50%,
+    transparent 65%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  background-repeat: no-repeat;
+  animation: seq-rail-shimmer 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .seq-rail-shimmer {
+    animation: none;
+    background-image: none;
+    box-shadow: 0 0 0 1px rgba(26, 160, 230, 0.45);
+  }
+}
+
 /* ── PCR Block Editing Animations ─────────────────────────────────────────────── */
 
 @keyframes jiggle {

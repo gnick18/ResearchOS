@@ -86,11 +86,14 @@ describe("useAutoOpenInspector", () => {
     expect(setActiveOp).not.toHaveBeenCalled();
   });
 
-  it("a CDS selection auto-opens Protein", () => {
+  it("a CDS selection does NOT auto-open Protein (the rail op shimmers instead)", () => {
+    // Picking a gene of interest must not auto-pop the protein analysis. The
+    // protein panel only opens on an explicit rail click; the rail op shimmers
+    // to invite it. So the auto-open hook never fires for a CDS pick.
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
     click(container, "select-cds");
-    expect(setActiveOp).toHaveBeenLastCalledWith("protein");
+    expect(setActiveOp).not.toHaveBeenCalled();
   });
 
   it("a primer selection auto-opens Primers", () => {
@@ -103,7 +106,7 @@ describe("useAutoOpenInspector", () => {
   it("clearing the selection does NOT open / close / move the inspector", () => {
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
-    click(container, "select-cds");
+    click(container, "select-primer");
     setActiveOp.mockClear();
     click(container, "clear");
     expect(setActiveOp).not.toHaveBeenCalled();
@@ -112,7 +115,7 @@ describe("useAutoOpenInspector", () => {
   it("does not thrash on a SAME-selection re-render", () => {
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
-    click(container, "select-cds");
+    click(container, "select-primer");
     expect(setActiveOp).toHaveBeenCalledTimes(1);
     // A re-render that does NOT change the selection identity must not re-open.
     click(container, "bump");
@@ -123,10 +126,10 @@ describe("useAutoOpenInspector", () => {
   it("re-opens when the selection identity genuinely changes", () => {
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
+    click(container, "select-region");
     click(container, "select-primer");
-    click(container, "select-cds");
-    expect(setActiveOp).toHaveBeenCalledTimes(2);
-    expect(setActiveOp).toHaveBeenNthCalledWith(1, "primers");
-    expect(setActiveOp).toHaveBeenNthCalledWith(2, "protein");
+    // Region does not auto-open, so only the primer pick fires the hook.
+    expect(setActiveOp).toHaveBeenCalledTimes(1);
+    expect(setActiveOp).toHaveBeenLastCalledWith("primers");
   });
 });

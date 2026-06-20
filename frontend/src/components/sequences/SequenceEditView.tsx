@@ -915,7 +915,15 @@ export default function SequenceEditView({
   // always visible. Not persisted (out of scope for phase 1).
   const [activeOp, setActiveOp] = useState<string | null>(null);
   const toggleOp = useCallback(
-    (id: string) => setActiveOp((cur) => (cur === id ? null : id)),
+    (id: string) =>
+      setActiveOp((cur) => {
+        const next = cur === id ? null : id;
+        // Opening the protein op explicitly clears any prior drawer dismissal so
+        // the per-CDS drawer co-renders fresh, matching the old auto-open. A
+        // re-click that COLLAPSES the op leaves dismissal untouched.
+        if (next === "protein") setProteinDrawerDismissedIdx(null);
+        return next;
+      }),
     [],
   );
   // sequence editor master (BeakerSearch step 1). The Cmd-K COMMAND PALETTE now
@@ -2655,6 +2663,10 @@ export default function SequenceEditView({
       if (!f || !isCodingFeature(f)) return;
       selectFeature(index);
       setProteinDrawerDismissedIdx((prev) => (prev === index ? null : prev));
+      // Explicit-open contract — the drawer + protein inspector now co-render
+      // only when the protein op is active, so opening from a menu action must
+      // raise the op, the same panels the old auto-open showed.
+      setActiveOp("protein");
     },
     [doc.features, selectFeature],
   );
@@ -3754,11 +3766,16 @@ export default function SequenceEditView({
   // selection-derived selIsPrimer / selIsCoding here anymore.
   const selFeat = selectedFeatureIdx != null ? doc.features[selectedFeatureIdx] : null;
 
-  // sequence editor master — PROTEIN-PROPERTIES DRAWER GATE. The drawer opens
-  // when the selected feature is CODING (cds / gene / mat_peptide / sig_peptide)
-  // and the user has not dismissed it for that same index. Non-coding selections
-  // never open it, so the existing select behavior is unchanged for them.
+  // sequence editor master — PROTEIN-PROPERTIES DRAWER GATE. The drawer is now
+  // EXPLICIT-OPEN, not selection-derived. Picking a gene of interest no longer
+  // auto-pops it (the rail's protein op shimmers instead, see proteinNudge). The
+  // drawer co-renders only when the user has the PROTEIN op open (activeOp ===
+  // "protein"), which the rail "protein" pick and openProteinDrawerForFeature
+  // both set, exactly like the old auto-open co-rendered the panel + drawer. The
+  // selected feature must still be CODING and not dismissed for that same index,
+  // so dismissing collapses the drawer without it immediately reopening.
   const showProteinDrawer =
+    activeOp === "protein" &&
     selectedFeatureIdx != null &&
     !!selFeat &&
     isCodingFeature(selFeat) &&
@@ -4144,9 +4161,22 @@ export default function SequenceEditView({
     [selectionKind, readout, selFeat?.name, selectedCdsProps?.aa, hasOrganism, sequence.organism, sequence.tax_id],
   );
 
+  // RAIL NUDGE — a generic "shimmer this op to invite discovery" hint. Today the
+  // only case is the protein analysis when a gene of interest (a coding feature)
+  // is selected and the protein op is not already open. Selecting the gene no
+  // longer auto-pops the protein panel, so the rail op shimmers to nudge the
+  // user toward it. Kept generic (a single op id) so other ops can shimmer later.
+  const railNudgeOpId = useMemo<string | null>(
+    () =>
+      selectionKind === "feature-cds" && activeOp !== "protein" ? "protein" : null,
+    [selectionKind, activeOp],
+  );
+
   // AUTO-OPEN on a NEW selection (the Figma rule). When the user makes a fresh
   // selection we pop open the contextual op even if the inspector was collapsed,
-  // region -> Primers, feature-cds -> Protein, feature-primer -> Primers. We key
+  // feature-primer -> Primers. A gene of interest (feature-cds) no longer
+  // auto-opens the protein analysis (autoOpenOpForKind returns null for it); the
+  // rail protein op shimmers via railNudgeOpId instead. We key
   // on a derived selection-IDENTITY (kind + the feature index + the region span),
   // and only react when that identity CHANGES, so we never yank the user off a
   // panel they are configuring for the SAME selection, never thrash on a same-
@@ -5737,6 +5767,7 @@ export default function SequenceEditView({
             activeId={activeOp}
             onPick={toggleOp}
             contextBar={inspectorContextBar}
+            nudgeId={railNudgeOpId}
           />
         ) : null}
 

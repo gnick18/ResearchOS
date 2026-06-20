@@ -178,6 +178,7 @@ export function SequenceOperationsRail({
   activeId,
   onPick,
   contextBar,
+  nudgeId,
 }: {
   operations: RailOperation[];
   /** The open operation, or null when the inspector is collapsed. */
@@ -187,6 +188,12 @@ export function SequenceOperationsRail({
   /** The contextual bar shown between the header and the body when an op is
    *  open (sequences redesign phase 3). Absent = no bar (e.g. nothing to say). */
   contextBar?: { selected: boolean; text: string } | null;
+  /** Generic "shimmer this op to invite discovery" hint. When `nudgeId` matches
+   *  an op id AND that op is not the active one, its rail button shimmers to
+   *  nudge the user to click it. Used today for the protein analysis when a gene
+   *  of interest is selected; kept generic so any op can shimmer later. Null or
+   *  absent = no nudge. */
+  nudgeId?: string | null;
 }) {
   const active = operations.find((op) => op.id === activeId) ?? null;
 
@@ -255,6 +262,7 @@ export function SequenceOperationsRail({
             op={op}
             active={op.id === activeId}
             onPick={onPick}
+            nudge={nudgeId === op.id && op.id !== activeId}
           />
         ))}
       </div>
@@ -266,10 +274,14 @@ function RailGroupAndButton({
   op,
   active,
   onPick,
+  nudge,
 }: {
   op: RailOperation;
   active: boolean;
   onPick: (id: string) => void;
+  /** When true, shimmer this rail button to invite a click (see seq-rail-shimmer
+   *  in globals.css). Only set when the op is not the active one. */
+  nudge?: boolean;
 }) {
   return (
     <>
@@ -290,7 +302,7 @@ function RailGroupAndButton({
             active
               ? "border-sky-200 bg-sky-100 text-sky-700 dark:border-sky-800 dark:bg-sky-900/40 dark:text-sky-300"
               : "border-transparent text-foreground-muted hover:bg-surface-sunken"
-          }`}
+          } ${nudge ? "seq-rail-shimmer" : ""}`}
         >
           {op.badge != null ? <Badge badge={op.badge} /> : null}
           {op.icon}
