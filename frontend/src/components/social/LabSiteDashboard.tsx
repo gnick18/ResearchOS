@@ -27,8 +27,8 @@ import PortalShell from "@/components/portal/PortalShell";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import ReferencePicker from "@/components/references/ReferencePicker";
-import { isBlockEmbedMarkdown } from "@/lib/references";
-import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
+import { isBlockEmbedMarkdown, parseObjectEmbed } from "@/lib/references";
+import { bakeAllEmbeds, bakeOne, type BakedEmbed } from "@/lib/export/bake-embeds";
 import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { LAB_BYO_SITES_ENABLED } from "@/lib/social/config";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
@@ -47,6 +47,9 @@ import {
   usePublishFlow,
   type DeployHistoryEntry,
 } from "@/components/social/PublishDeployProgress";
+import LabSiteCanvasEditor from "@/components/social/LabSiteCanvasEditor";
+import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
+import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
@@ -158,6 +161,8 @@ interface PageSummary {
   status: "draft" | "published";
   version: number;
   updatedAt: string;
+  /** True when the page uses the blocks canvas model (blocks_json is non-null). */
+  hasBlocks?: boolean;
 }
 
 type LoadState = "loading" | "ready" | "denied" | "error";
@@ -759,6 +764,15 @@ export default function LabSiteDashboard({
   const [pickerOpen, setPickerOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
+  // Canvas / blocks editor state. When editorIsBlocks is true the page uses
+  // blocks_json; when false it uses body_md. editorBlocksJson is the live
+  // serialized block array from the canvas (updated on every change via
+  // LabSiteCanvasEditor.onChange) so the publish flow can bake its embeds.
+  const [editorIsBlocks, setEditorIsBlocks] = useState(false);
+  const [editorBlocksJson, setEditorBlocksJson] = useState<string | null>(null);
+  // Initial blocks_json fetched when a blocks page is opened (null = empty new page).
+  const [editorInitialBlocksJson, setEditorInitialBlocksJson] = useState<string | null>(null);
+
   const refresh = useCallback(async () => {
     try {
       const res = await fetch("/api/social/lab-site", { method: "GET" });
@@ -850,33 +864,59 @@ export default function LabSiteDashboard({
   }, [slugInput, refresh, demoReadOnly, confirmPermanent]);
 
   const openEditor = useCallback(
-    (page: PageSummary | null) => {
+    async (page: PageSummary | null, asBlocks = false) => {
     if (page) {
       setEditorPath(page.path);
       setEditorTitle(page.title);
-      // In the demo we DO have the body (from the pure DEMO content), so the
-      // editor opens fully populated to show the authoring view. Outside the demo
-      // the list does not carry the body, so we open empty (a re-save overwrites).
-      if (demoReadOnly) {
-        const demoPage = DEMO_NATIVE_PAGES.find((p) => p.path === page.path);
-        setEditorBody(demoPage?.bodyMd ?? "");
-      } else {
-        setEditorBody("");
+      const isBlocks = page.hasBlocks ?? asBlocks;
+      setEditorIsBlocks(isBlocks);
+      setEditorInitialBlocksJson(null);
+      setEditorBlocksJson(null);
+
+      if (isBlocks && !demoReadOnly) {
+        // Fetch the existing blocks_json for this page so the canvas is pre-populated.
+        try {
+          const res = await fetch(
+            `/api/social/lab-site/page/blocks?path=${encodeURIComponent(page.path)}`,
+          );
+          if (res.ok) {
+            const data = (await res.json()) as { blocksJson?: string | null };
+            setEditorInitialBlocksJson(data.blocksJson ?? null);
+          }
+        } catch {
+          // Best effort: canvas starts empty if the fetch fails.
+        }
+      }
+
+      if (!isBlocks) {
+        // In the demo we DO have the body (from the pure DEMO content).
+        if (demoReadOnly) {
+          const demoPage = DEMO_NATIVE_PAGES.find((p) => p.path === page.path);
+          setEditorBody(demoPage?.bodyMd ?? "");
+        } else {
+          setEditorBody("");
+        }
       }
     } else {
       setEditorPath("");
       setEditorTitle("");
       setEditorBody("");
+      setEditorIsBlocks(asBlocks);
+      setEditorInitialBlocksJson(null);
+      setEditorBlocksJson(null);
     }
     setEditorMsg(null);
     },
     [demoReadOnly],
   );
 
-  const newPage = useCallback(() => {
+  const newPage = useCallback((asBlocks = false) => {
     setEditorPath("__new__");
     setEditorTitle("");
     setEditorBody("");
+    setEditorIsBlocks(asBlocks);
+    setEditorInitialBlocksJson(null);
+    setEditorBlocksJson(null);
     setEditorMsg(null);
   }, []);
 
@@ -935,6 +975,22 @@ export default function LabSiteDashboard({
     // Step 1: save the draft. Must throw on failure (flow will stop).
     const path =
       editorPath === "__new__" ? "" : (editorPath ?? "");
+
+    if (editorIsBlocks) {
+      // Blocks page: save via the canvas API route.
+      const blocksJson = editorBlocksJson ?? "[]";
+      const res = await fetch("/api/social/lab-site/page/blocks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ path, title: editorTitle, blocksJson }),
+      });
+      if (!res.ok) throw new Error("Could not save the draft.");
+      const data = (await res.json()) as { path: string };
+      setEditorPath(data.path);
+      return data.path;
+    }
+
+    // Markdown page: original path.
     const res = await fetch("/api/social/lab-site/page", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -948,7 +1004,7 @@ export default function LabSiteDashboard({
     const data = (await res.json()) as { page: PageSummary };
     setEditorPath(data.page.path);
     return data.page.path;
-  }, [editorPath, editorTitle, editorBody]);
+  }, [editorPath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson]);
 
   const flowOnFreeze = useCallback(async () => {
     // Step 2: freeze (bake) embeds. Returns count + snapshots.
@@ -956,18 +1012,49 @@ export default function LabSiteDashboard({
     // and svgToPngDataUrl needs a real canvas, so baking MUST run here in
     // the browser (never on the server). The frozen snapshots are sent with
     // the publish request so the public page renders frozen versions.
+
+    if (editorIsBlocks) {
+      // Blocks page: scan data-block hrefs via scanBlockEmbedHrefs and bake each.
+      const blocks = parseLabSiteBlocks(editorBlocksJson);
+      const hrefs = scanBlockEmbedHrefs(blocks);
+      if (hrefs.length === 0) return { count: 0 };
+      const bakedMap = new Map<string, BakedEmbed>();
+      await Promise.all(
+        hrefs.map(async (href) => {
+          const descriptor = parseObjectEmbed(href);
+          if (!descriptor || !descriptor.isEmbed) return;
+          try {
+            const baked = await bakeOne(descriptor, "", null);
+            bakedMap.set(href, baked);
+          } catch {
+            bakedMap.set(href, { kind: "missing", name: href, label: null });
+          }
+        }),
+      );
+      if (bakedMap.size === 0) return { count: 0 };
+      const serialized = serializeSnapshotBundle(bundleFromBakedMap(bakedMap));
+      if (!serialized) return { count: bakedMap.size };
+      const snapshots = JSON.parse(serialized) as Record<string, unknown>;
+      return { count: bakedMap.size, snapshots };
+    }
+
+    // Markdown page: original bake path.
     const baked = await bakeAllEmbeds([editorBody]);
     if (baked.size === 0) return { count: 0 };
     const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
     if (!serialized) return { count: baked.size };
     const snapshots = JSON.parse(serialized) as Record<string, unknown>;
     return { count: baked.size, snapshots };
-  }, [editorBody]);
+  }, [editorBody, editorIsBlocks, editorBlocksJson]);
 
   const flowOnPublish = useCallback(
     async (savedPath: string, snapshots: Record<string, unknown> | undefined) => {
       // Step 3: flip status to published on the server.
-      const pub = await fetch("/api/social/lab-site/page", {
+      // Blocks pages use the blocks PUT endpoint; markdown pages use the original.
+      const endpoint = editorIsBlocks
+        ? "/api/social/lab-site/page/blocks"
+        : "/api/social/lab-site/page";
+      const pub = await fetch(endpoint, {
         method: "PUT",
         headers: { "content-type": "application/json" },
         body: JSON.stringify(
@@ -976,7 +1063,7 @@ export default function LabSiteDashboard({
       });
       if (!pub.ok) throw new Error("Could not publish.");
     },
-    [],
+    [editorIsBlocks],
   );
 
   const flowOnCheck = useCallback(async () => {
@@ -1041,28 +1128,46 @@ export default function LabSiteDashboard({
         return;
       }
 
-      // Save-only path: unchanged from the original implementation.
+      // Save-only path.
       setEditorBusy(true);
       setEditorMsg(null);
       const path = editorPath === "__new__" ? "" : editorPath;
       try {
-        const res = await fetch("/api/social/lab-site/page", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            path,
-            title: editorTitle,
-            bodyMd: editorBody,
-          }),
-        });
-        if (!res.ok) {
-          setEditorMsg("Could not save the draft.");
-          return;
+        if (editorIsBlocks) {
+          // Blocks page save.
+          const blocksJson = editorBlocksJson ?? "[]";
+          const res = await fetch("/api/social/lab-site/page/blocks", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ path, title: editorTitle, blocksJson }),
+          });
+          if (!res.ok) {
+            setEditorMsg("Could not save the draft.");
+            return;
+          }
+          const data = (await res.json()) as { path: string };
+          setEditorPath(data.path);
+          setEditorMsg("Draft saved.");
+        } else {
+          // Markdown page save (original path).
+          const res = await fetch("/api/social/lab-site/page", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              path,
+              title: editorTitle,
+              bodyMd: editorBody,
+            }),
+          });
+          if (!res.ok) {
+            setEditorMsg("Could not save the draft.");
+            return;
+          }
+          const data = (await res.json()) as { page: PageSummary };
+          const savedPath = data.page.path;
+          setEditorPath(savedPath);
+          setEditorMsg("Draft saved.");
         }
-        const data = (await res.json()) as { page: PageSummary };
-        const savedPath = data.page.path;
-        setEditorPath(savedPath);
-        setEditorMsg("Draft saved.");
         await refresh();
       } catch {
         setEditorMsg("Could not save the draft.");
@@ -1070,7 +1175,7 @@ export default function LabSiteDashboard({
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow],
+    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson],
   );
 
   // ---------------------------------------------------------------------------
@@ -1256,15 +1361,28 @@ export default function LabSiteDashboard({
                     : `research-os.app/${site.slug}`}
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={newPage}
-                disabled={demoReadOnly}
-                title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-              >
-                <Icon name="plus" className="h-4 w-4" /> New page
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => newPage(false)}
+                  disabled={demoReadOnly}
+                  title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                  className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+                >
+                  <Icon name="plus" className="h-4 w-4" /> New page
+                </button>
+                <Tooltip label="A visual drag-and-drop canvas for data-rich companion pages (supplements, paper datasets)">
+                  <button
+                    type="button"
+                    onClick={() => newPage(true)}
+                    disabled={demoReadOnly}
+                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                    className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900"
+                  >
+                    <Icon name="plus" className="h-4 w-4" /> Canvas page
+                  </button>
+                </Tooltip>
+              </div>
             </div>
 
             {!demoReadOnly && (
@@ -1292,16 +1410,23 @@ export default function LabSiteDashboard({
                       className="flex items-center justify-between px-4 py-3"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {p.title || pathLabel(p.path)}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          <p className="truncate text-sm font-medium text-foreground">
+                            {p.title || pathLabel(p.path)}
+                          </p>
+                          {p.hasBlocks && (
+                            <span className="shrink-0 rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                              Canvas
+                            </span>
+                          )}
+                        </div>
                         <p className="truncate text-xs text-muted-foreground">
                           {pathLabel(p.path)} . {p.status}
                         </p>
                       </div>
                       <button
                         type="button"
-                        onClick={() => openEditor(p)}
+                        onClick={() => void openEditor(p)}
                         className="ros-btn-neutral rounded-lg px-3 py-1 text-xs"
                       >
                         Edit
@@ -1328,13 +1453,18 @@ export default function LabSiteDashboard({
               <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_280px] xl:items-start">
                 {/* Editor card */}
                 <section className="rounded-xl border border-border bg-surface-raised p-5">
-                  {/* Header bar: title + status pill */}
+                  {/* Header bar: title + mode badge + status pill */}
                   <div className="mb-3 flex items-center gap-3">
                     <h2 className="flex-1 text-lg font-medium text-foreground">
                       {editorPath === "__new__" || editorPath === ""
                         ? "Edit home page"
                         : `Edit ${pathLabel(editorPath)}`}
                     </h2>
+                    {editorIsBlocks && (
+                      <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                        Canvas
+                      </span>
+                    )}
                     {!demoReadOnly && (
                       <StatusPill state={flow.publishState} />
                     )}
@@ -1351,33 +1481,63 @@ export default function LabSiteDashboard({
                     className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
                     placeholder="Welcome to the Smith Lab"
                   />
-                  <div className="mb-1 flex items-center justify-between">
-                    <label className="block text-xs text-muted-foreground">
-                      Body (markdown)
-                    </label>
-                    <button
-                      type="button"
-                      onClick={() => setPickerOpen(true)}
-                      disabled={demoReadOnly}
-                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                      className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
-                    >
-                      <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
-                    </button>
-                  </div>
-                  <textarea
-                    ref={bodyRef}
-                    value={editorBody}
-                    onChange={(e) => setEditorBody(e.target.value)}
-                    readOnly={demoReadOnly}
-                    rows={12}
-                    className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
-                    placeholder="# Our research\n\nWrite your page in markdown."
-                  />
-                  <p className="mb-4 text-[11px] text-muted-foreground">
-                    Inserted figures and tables are frozen (baked) when you publish,
-                    so visitors see exactly what you published.
-                  </p>
+
+                  {/* Canvas editor path (blocks page) */}
+                  {editorIsBlocks ? (
+                    <>
+                      <p className="mb-3 text-xs text-foreground-muted">
+                        Drag blocks from the palette onto the canvas. Click a block
+                        to select it and edit its settings in the inspector on the
+                        right. Data blocks (figure, table, dataset, chart) are live
+                        while you edit and frozen for citation when you publish.
+                      </p>
+                      <div className="mb-4">
+                        <LabSiteCanvasEditor
+                          initialBlocksJson={editorInitialBlocksJson}
+                          onChange={setEditorBlocksJson}
+                          disabled={demoReadOnly}
+                        />
+                      </div>
+                    </>
+                  ) : (
+                    /* Markdown editor path (legacy body_md page) */
+                    <>
+                      <div className="mb-1 flex items-center justify-between">
+                        <label className="block text-xs text-muted-foreground">
+                          Body (markdown)
+                        </label>
+                        <button
+                          type="button"
+                          onClick={() => setPickerOpen(true)}
+                          disabled={demoReadOnly}
+                          title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                          className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
+                        >
+                          <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
+                        </button>
+                      </div>
+                      <textarea
+                        ref={bodyRef}
+                        value={editorBody}
+                        onChange={(e) => setEditorBody(e.target.value)}
+                        readOnly={demoReadOnly}
+                        rows={12}
+                        className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
+                        placeholder="# Our research\n\nWrite your page in markdown."
+                      />
+                      <p className="mb-4 text-[11px] text-muted-foreground">
+                        Inserted figures and tables are frozen (baked) when you publish,
+                        so visitors see exactly what you published.
+                      </p>
+                      {pickerOpen && (
+                        <ReferencePicker
+                          onPick={(markdown) => insertReference(markdown)}
+                          onClose={() => setPickerOpen(false)}
+                        />
+                      )}
+                    </>
+                  )}
+
                   <div className="flex flex-wrap items-center gap-2">
                     <button
                       type="button"
@@ -1415,13 +1575,6 @@ export default function LabSiteDashboard({
                   {/* Deploy progress panel (hidden until publish is triggered). */}
                   {!demoReadOnly && (
                     <PublishDeployPanel flow={flow} siteUrl={siteUrl} />
-                  )}
-
-                  {pickerOpen && (
-                    <ReferencePicker
-                      onPick={(markdown) => insertReference(markdown)}
-                      onClose={() => setPickerOpen(false)}
-                    />
                   )}
                 </section>
 
