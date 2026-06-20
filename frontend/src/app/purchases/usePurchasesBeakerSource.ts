@@ -37,7 +37,7 @@ import {
   fetchAllTasksIncludingShared,
 } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { setPurchaseApproval, declinePurchase } from "@/lib/lab/pi-actions";
 import {
   isPiEditConfirmed,
@@ -123,8 +123,10 @@ export function usePurchasesBeakerSource(args: UsePurchasesBeakerSourceArgs): vo
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
-  const accountType = useAccountType(currentUser || null);
-  const isLabHead = accountType === "lab_head";
+  // Purchase approval (incl. the BeakerBot purchase tools) is a delegated power
+  // (Lab Manager Phase 1): the lab head OR a Lab Manager. isLabHead here means
+  // "has PI powers"; the name is kept so the downstream tool logic is untouched.
+  const isLabHead = useHasPiPowers(currentUser || null) === true;
 
   // Hover bias removed (ai centered-redesign bot). hoveredKey is always null;
   // hoveredTask is always null (selected context only).

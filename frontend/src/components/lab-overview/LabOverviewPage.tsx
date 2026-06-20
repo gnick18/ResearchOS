@@ -31,7 +31,7 @@ import { useQuery } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import { isPurchasePending } from "@/lib/types";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useLabData } from "@/hooks/useLabData";
 import { Icon, type IconName } from "@/components/icons";
 import { PageContainer } from "@/components/layout/PageContainer";
@@ -69,8 +69,11 @@ function useNeedsYou(): {
   isLoading: boolean;
 } {
   const { currentUser } = useCurrentUser();
-  const accountType = useAccountType(currentUser);
-  const isLabHead = accountType === "lab_head";
+  // Lab Overview / ops is a delegated power (Lab Manager Phase 1): the lab head
+  // OR a Lab Manager can see it. isLabHead here means "has PI powers"; the name is
+  // kept so the downstream ops logic is untouched. Strict === true so the loading
+  // (undefined) state reads as "no".
+  const isLabHead = useHasPiPowers(currentUser) === true;
   const { tasks } = useLabData();
 
   const { data: items = [], isLoading: itemsLoading } = useQuery<

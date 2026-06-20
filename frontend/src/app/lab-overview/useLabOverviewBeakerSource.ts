@@ -47,7 +47,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { labApi } from "@/lib/local-api";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
-import { useAccountType } from "@/hooks/useAccountType";
+import { useHasPiPowers } from "@/hooks/useIsLabManager";
 import { useLabData } from "@/hooks/useLabData";
 import {
   useLabUserProfileMap,
@@ -123,8 +123,10 @@ export function useLabOverviewBeakerSource(
   const { currentUser: providerCurrentUser } = useCurrentUser();
   const currentUser = providerCurrentUser ?? "";
 
-  const accountType = useAccountType(currentUser || null);
-  const isLabHead = accountType === "lab_head";
+  // Lab Overview / ops + the PI copilot are delegated powers (Lab Manager Phase
+  // 1): the lab head OR a Lab Manager. isLabHead here means "has PI powers"; the
+  // name is kept so the downstream copilot logic (data.isLabHead) is untouched.
+  const isLabHead = useHasPiPowers(currentUser || null) === true;
 
   // ── Queries, mirroring the page's keys so the cache is shared (no refetch). ─
   const { users, tasks, projects } = useLabData();
