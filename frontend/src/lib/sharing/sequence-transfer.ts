@@ -39,7 +39,8 @@ import { sequencesApi } from "@/lib/local-api";
 import { sequenceStore } from "@/lib/sequences/sequence-store";
 import { readManifestSender } from "@/lib/sharing/sender-stamp";
 import type { ManifestSender } from "@/lib/export/types";
-import type { SeqType, SequenceDetail } from "@/lib/types";
+import type { TargetContext } from "@/lib/storage/json-store";
+import type { SeqType, SequenceDetail, SequenceMeta } from "@/lib/types";
 
 /**
  * The wire envelope for a shared sequence. A small JSON object (not a zip),
@@ -249,4 +250,62 @@ export async function importSequencePayload(
   );
 
   return { sequenceId: created.id };
+}
+
+// ── Destination-scoped materialize (cross-folder, Strategy A) ──────────────────
+
+/**
+ * MATERIALIZE INTO A DESTINATION FOLDER. The cross-folder twin of
+ * importSequencePayload. Writes the GenBank `.gb` + `.meta.json` PAIR into a
+ * SECOND folder via an injected FileService + an EXPLICIT destination username,
+ * instead of the module singleton + the current user.
+ *
+ * The sequence store (sequence-store.ts) drives the module `fileService`
+ * singleton directly, so there is no `ctx` to thread through it the way the
+ * note / calculator stores accept one. We therefore write the pair INLINE here
+ * through dest.fileService, allocating the new id from the DESTINATION folder's
+ * own `_counters.json` so it never collides with a source-folder id. This is the
+ * same GenBank-first, sidecar-second ordering the store's create uses (a torn
+ * write leaves only the .gb, which listMeta skips rather than surfacing a
+ * half-record).
+ *
+ * No project links travel (the sender's project_ids are meaningless in the
+ * destination, exactly as the relay import drops them); the new sequence lands
+ * Unfiled. No provenance stamp is written (a same-account cross-folder copy is
+ * not a cross-boundary receive, mirroring how materializeNoteToDestination omits
+ * received_from).
+ *
+ * ACK-AFTER-WRITE parity: the returned promise resolves only once both files are
+ * on disk in the destination.
+ */
+export async function materializeSequenceToDestination(
+  bytes: Uint8Array,
+  dest: TargetContext,
+): Promise<{ sequenceId: number }> {
+  const payload = parseSequencePayload(bytes);
+  if (!payload) throw new InvalidSequencePayloadError();
+
+  const dir = `users/${dest.username}/sequences`;
+  await dest.fileService.ensureDir(dir);
+
+  // Allocate the next sequence id from the DESTINATION folder's counters.
+  const countersPath = `users/${dest.username}/_counters.json`;
+  const counters =
+    (await dest.fileService.readJson<Record<string, number>>(countersPath)) ?? {};
+  const newId = (counters["sequences"] || 0) + 1;
+  counters["sequences"] = newId;
+  await dest.fileService.writeJson(countersPath, counters);
+
+  // GenBank source FIRST, then the sidecar (the store's torn-write contract).
+  await dest.fileService.writeText(`${dir}/${newId}.gb`, payload.genbank);
+  const meta: SequenceMeta = {
+    id: newId,
+    display_name: payload.display_name,
+    project_ids: [],
+    added_at: new Date().toISOString(),
+    seq_type: payload.seq_type,
+  };
+  await dest.fileService.writeJson(`${dir}/${newId}.meta.json`, meta);
+
+  return { sequenceId: newId };
 }

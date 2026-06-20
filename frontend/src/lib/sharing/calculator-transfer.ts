@@ -29,6 +29,7 @@
 
 import { calculatorsApi } from "@/lib/local-api";
 import { readManifestSender } from "@/lib/sharing/sender-stamp";
+import { getUserStore, type TargetContext } from "@/lib/storage/json-store";
 import type { ManifestSender } from "@/lib/export/types";
 import type {
   CustomCalculator,
@@ -217,5 +218,48 @@ export async function importCalculatorPayload(
     throw new Error("Could not create the imported calculator on disk.");
   }
 
+  return { calculatorId: created.id };
+}
+
+// ── Destination-scoped materialize (cross-folder, Strategy A) ──────────────────
+
+/**
+ * MATERIALIZE INTO A DESTINATION FOLDER. The cross-folder twin of
+ * importCalculatorPayload. Writes a brand-new calculator into a SECOND folder
+ * via an injected FileService + an EXPLICIT destination username, instead of the
+ * module singleton + the current user.
+ *
+ * The calculator store is a JsonStore, so we route through createForUser(record,
+ * destUsername, ctx): the id is allocated from the DESTINATION folder's own
+ * _counters.json (never collides with a source-folder id) and the record lands
+ * under users/<destUsername>/calculators/<newId>.json. A copy is owner-only on
+ * arrival (shared_with reset to "Just me"), mirroring the relay import.
+ *
+ * ACK-AFTER-WRITE parity: the returned promise resolves only once the record is
+ * on disk in the destination.
+ */
+export async function materializeCalculatorToDestination(
+  bytes: Uint8Array,
+  dest: TargetContext,
+): Promise<{ calculatorId: number }> {
+  const payload = parseCalculatorPayload(bytes);
+  if (!payload) throw new InvalidCalculatorPayloadError();
+
+  const now = new Date().toISOString();
+  const store = getUserStore<CustomCalculator>("calculators");
+  const record: Omit<CustomCalculator, "id"> = {
+    name: payload.name,
+    description: payload.description,
+    ...(payload.field ? { field: payload.field } : {}),
+    inputs: payload.inputs,
+    steps: payload.steps,
+    conditionals: payload.conditionals,
+    outputs: payload.outputs,
+    // A copy is owner-only on arrival; the destination user owns it.
+    shared_with: [],
+    created_at: now,
+    updated_at: now,
+  };
+  const created = await store.createForUser(record, dest.username, dest);
   return { calculatorId: created.id };
 }
