@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import Wordmark from "@/components/Wordmark";
 import { Icon } from "@/components/icons";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import { SOCIAL_LAYER_ENABLED } from "@/lib/social/config";
 import { isPricingPublic } from "@/lib/pricing/pricing-live";
 
@@ -80,6 +81,10 @@ export default function MarketingNav({
           </Link>
           <Link
             href="/demo"
+            onClick={(e) => {
+              e.preventDefault();
+              enterDemo();
+            }}
             className="inline-flex items-center justify-center rounded-lg bg-brand-action px-3.5 py-1.5 text-meta font-semibold text-white transition-colors hover:bg-brand-action/90"
           >
             Try the demo

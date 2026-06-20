@@ -27,6 +27,7 @@
 import { useState, useRef, useCallback } from "react";
 import Link from "next/link";
 import { fullSignOut } from "@/lib/auth/full-sign-out";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import {
   useFileSystem,
   isFileSystemAccessSupported,
@@ -575,6 +576,10 @@ export default function FolderConnectGate({
             Not ready to pick a folder?{" "}
             <Link
               href="/demo"
+              onClick={(e) => {
+                e.preventDefault();
+                enterDemo("", { rememberRoute: true });
+              }}
               data-testid="gate-try-demo"
               className="font-semibold text-[#1283c9] hover:underline"
             >

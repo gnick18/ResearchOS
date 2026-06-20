@@ -72,6 +72,7 @@ import RainbowFrame from "@/components/marketing/RainbowFrame";
 import FeatureRow from "@/components/marketing/FeatureRow";
 import { markLandingSeen } from "@/lib/landing/landing-gate";
 import Link from "next/link";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import { ASSET_BASE_URL } from "@/lib/figure/asset-library";
 import { isMobileDevice } from "@/lib/file-system/file-system-context";
 import { isPricingPublic } from "@/lib/pricing/pricing-live";
@@ -1535,6 +1536,10 @@ export default function WelcomePage({
               </button>
               <Link
                 href="/demo"
+                onClick={(e) => {
+                  e.preventDefault();
+                  enterDemo();
+                }}
                 data-testid="welcome-cta-demo"
                 className="inline-flex items-center gap-2 rounded-xl border border-[#cfdcec] bg-white px-6 py-3 text-body font-semibold text-brand-action shadow-[0_2px_12px_rgba(15,40,80,0.06)] transition-transform hover:scale-[1.02]"
               >

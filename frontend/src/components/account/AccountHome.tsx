@@ -13,6 +13,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import {
   extractDirectoryHandleFromDrop,
@@ -608,6 +609,10 @@ export default function AccountHome() {
                 Not ready to pick a folder?{" "}
                 <Link
                   href="/demo"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    enterDemo("", { rememberRoute: true });
+                  }}
                   data-testid="account-home-try-demo"
                   className="font-semibold text-brand-action hover:underline"
                 >

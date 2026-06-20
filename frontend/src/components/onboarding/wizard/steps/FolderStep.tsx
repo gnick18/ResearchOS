@@ -16,6 +16,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { enterDemo } from "@/lib/demo/enter-demo";
 import {
   useFileSystem,
   isFileSystemAccessSupported,
@@ -225,6 +226,10 @@ export default function FolderStep({ onConnected }: FolderStepProps) {
         Not ready to pick a folder?{" "}
         <Link
           href="/demo"
+          onClick={(e) => {
+            e.preventDefault();
+            enterDemo("", { rememberRoute: true });
+          }}
           data-testid="wizard-folder-try-demo"
           className="font-semibold text-[#1283c9] hover:underline"
         >
