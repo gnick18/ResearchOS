@@ -99,3 +99,28 @@ export const LAB_BYO_SITES_ENABLED =
   LAB_SITES_ENABLED &&
   (process.env.NEXT_PUBLIC_LAB_BYO_SITES === "1" ||
     process.env.NEXT_PUBLIC_LAB_BYO_SITES === "true");
+
+// Network feed + follow graph flag (social lane, Build 2).
+//
+// Gates the real feed_events / follow_edges tables and all network-feed UI
+// behind a single env flag, default OFF. With the flag off:
+//   - GET/POST /api/social/network/* 404s (routes are inert)
+//   - NetworkAppShell renders the existing placeholder text byte-for-byte
+//   - The two new Neon tables are never queried
+//
+// Mirrors the LAB_SITES_ENABLED / NEXT_PUBLIC_LAB_SITES split exactly:
+// the server gate is read lazily at request time; the client gate is inlined
+// at build time. Flip NEXT_PUBLIC_NETWORK_FEED=1 in Vercel to go live.
+
+/** SERVER gate for network-feed routes. Read lazily at request time. */
+export function isNetworkFeedEnabled(): boolean {
+  return (
+    process.env.NETWORK_FEED_ENABLED === "true" ||
+    process.env.NETWORK_FEED_ENABLED === "1"
+  );
+}
+
+/** CLIENT gate for network-feed UI. Inlined at build time, default OFF. */
+export const NETWORK_FEED_ENABLED =
+  process.env.NEXT_PUBLIC_NETWORK_FEED === "1" ||
+  process.env.NEXT_PUBLIC_NETWORK_FEED === "true";

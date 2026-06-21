@@ -65,6 +65,17 @@ export async function POST(request: Request): Promise<Response> {
     // Label the roster row with the member's own email so the head's roster is
     // readable (the head already possesses invited members' addresses).
     await enrollMemberActive(labOwnerKey, memberOwnerKey, email);
+    // Feed event: announce the join publicly. Fire-and-forget so a feed write
+    // failure never breaks the join. Only emits when NETWORK_FEED_ENABLED.
+    if (process.env.NETWORK_FEED_ENABLED === "true" || process.env.NETWORK_FEED_ENABLED === "1") {
+      void import("@/lib/social/network-feed-db").then(({ emitFeedEvent }) =>
+        emitFeedEvent({
+          actorOwnerKey: memberOwnerKey,
+          kind: "lab_joined",
+          id: `${memberOwnerKey}:lab_joined:${labOwnerKey}`,
+        }),
+      );
+    }
     // entityId is the cryptographic labId; the member uses it to poll for their
     // sealed data-key copy (Phase 4A) once a labmate seals to them.
     return json(200, { ok: true, labId: redeemed.entityId });
