@@ -26,6 +26,24 @@ import {
   type RememberedFolder,
 } from "./indexeddb-store";
 import { MULTI_FOLDER_ENABLED } from "./multi-folder-config";
+import {
+  type PendingTakeover,
+  resolveOwnerAction,
+  currentAccountFingerprint,
+} from "./folder-owner-connect";
+import {
+  readFolderOwner,
+  writeFolderOwner,
+  takeoverRecord,
+  revertRecord,
+  lastTakeover,
+  makeTakeoverEventId,
+} from "./folder-owner";
+import {
+  sweepForeignShares,
+  restoreSweptShares,
+} from "../sharing/foreign-share-sweep";
+import { readSharingIdentity } from "../sharing/identity/sidecar";
 import { readMainUser, writeMainUser, pruneOrphanUserMetadataEntries } from "./user-metadata";
 import { clearCurrentUserCache } from "../storage/json-store";
 import { clearPiEditConfirmations } from "../lab/pi-edit-guard";
@@ -97,6 +115,16 @@ interface FileSystemState {
    * switch can re-grant permission without the OS picker.
    */
   rememberedFolders: RememberedFolder[];
+  /**
+   * Account-centric folder identity (Phase B, D2). Set when the signed-in account
+   * connects to a folder ALREADY owned by a DIFFERENT account, so the takeover
+   * warning can render. Null in every other case (no session, flag off, unowned
+   * folder which is silently adopted per D4, or a folder this account owns). While
+   * set, the connecting account has NOT been rebound to this folder, the user must
+   * either Cancel (leave under the original owner) or deliberately Take over.
+   * Always null when NEXT_PUBLIC_MULTI_FOLDER is off.
+   */
+  pendingTakeover: PendingTakeover | null;
 }
 
 interface FileSystemContextValue extends FileSystemState {
@@ -169,6 +197,32 @@ interface FileSystemContextValue extends FileSystemState {
    * clears it. No-op when the flag is off.
    */
   setFolderNickname: (id: string, nickname: string) => Promise<void>;
+  /**
+   * Account-centric folder identity (Phase B, D2 + D6). Deliberately take over a
+   * folder owned by a different account. Sweeps the foreign-shared records this
+   * account cannot view to the folder trash (recoverable, tagged with the takeover
+   * event id), writes the new owner record (recording the previous owner so it can
+   * be reverted), clears pendingTakeover, and rebinds the active user. No-op when
+   * the flag is off or there is no pending takeover. Returns true on success.
+   *
+   * DATA-SAFETY GUARD: safe only while DEVICE_KEY_V2 at-rest encryption is OFF, see
+   * folder-owner.ts. Re-review this flow before shipping at-rest encryption.
+   */
+  takeOverFolder: () => Promise<boolean>;
+  /**
+   * Account-centric folder identity (Phase B, D6). Revert the most recent takeover
+   * on the active folder, restoring exactly the shared files swept under that event
+   * and handing ownership back to the previous owner fingerprint. No-op when the
+   * flag is off or the folder has no recorded takeover. Returns true on success.
+   */
+  revertOwnership: () => Promise<boolean>;
+  /**
+   * Cancel a pending takeover (D2, the visible escape). Leaves the folder under
+   * its original owner with no rebind and clears the warning state. The caller
+   * typically pairs this with disconnect() so the user is not stranded on a folder
+   * they declined to take over. No-op when there is no pending takeover.
+   */
+  cancelTakeover: () => void;
   /**
    * Multi-folder (top-bar folder picker). Pin or unpin one remembered folder for
    * the top-bar quick-switch chips within the current account scope. At most three
@@ -284,6 +338,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     lastConnectedFolder: null,
     captureRefused: false,
     rememberedFolders: [],
+    pendingTakeover: null,
   });
 
   // edit-session bleed fix 2026-05-24: shadow the currentUser into a ref
@@ -682,6 +737,30 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
         // applies because the new code never writes mainUser
         // unsolicited.
 
+        // Account-centric folder identity (Phase B). When MULTI_FOLDER is on AND
+        // a session identity is present, reconcile folder ownership for the
+        // signed-in account. A folder with no owner record is ADOPTED silently
+        // (D4). A folder this account already owns proceeds normally. A folder
+        // owned by a DIFFERENT account surfaces a takeover warning (D2) and does
+        // NOT rebind until the user resolves it. With the flag OFF or no session
+        // this resolves to "none" and writes nothing, so the legacy connect path
+        // below is byte-identical to today. Best-effort, an owner-record IO
+        // failure must never block a connect.
+        let pendingTakeover: PendingTakeover | null = null;
+        if (MULTI_FOLDER_ENABLED && currentAccountFingerprint()) {
+          try {
+            const action = await resolveOwnerAction(
+              MULTI_FOLDER_ENABLED,
+              currentUser,
+            );
+            if (action.kind === "takeover" && action.pendingTakeover) {
+              pendingTakeover = action.pendingTakeover;
+            }
+          } catch (err) {
+            console.warn("[FileSystemProvider] owner resolution failed:", err);
+          }
+        }
+
         // Final escape-hatch guard before we commit "connected": if the user
         // bailed to a different folder during the reads above, do not mark this
         // abandoned folder connected.
@@ -699,6 +778,7 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           availableUsers: users,
           needsInitialization: false,
           lastConnectedFolder: handle.name,
+          pendingTakeover,
         }));
 
         // Once a user is known, load their preferences from disk into the
@@ -1534,6 +1614,8 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       lastConnectedFolder: null,
       captureRefused: false,
       rememberedFolders: survivingFolders,
+      // Phase B: never leak a takeover prompt across a disconnect / folder switch.
+      pendingTakeover: null,
     });
   }, []);
 
@@ -1726,6 +1808,108 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     [],
   );
 
+  // Account-centric folder identity (Phase B, D2). Deliberately take over a
+  // folder owned by a different account. Reads the live owner record, sweeps the
+  // foreign-shared records this account cannot view to the folder trash (tagged
+  // with the takeover event id so it is recoverable, D6), writes the new owner
+  // record recording the previous owner, then clears pendingTakeover.
+  //
+  // DATA-SAFETY GUARD: this blind rebind is safe ONLY while DEVICE_KEY_V2 at-rest
+  // encryption stays OFF, see folder-owner.ts. With at-rest encryption on, the new
+  // owner would not hold the prior owner's unwrap key, so this flow must be
+  // re-reviewed before that ships.
+  const takeOverFolder = useCallback(async (): Promise<boolean> => {
+    if (!MULTI_FOLDER_ENABLED) return false;
+    const myFingerprint = currentAccountFingerprint();
+    const currentUser = currentUserRef.current;
+    if (!myFingerprint) return false;
+
+    try {
+      const prev = await readFolderOwner();
+      // Nothing to take over (record vanished or is already ours), just clear the
+      // prompt so the user is never stuck.
+      if (!prev || prev.owner_fingerprint === myFingerprint) {
+        setState((s) => ({ ...s, pendingTakeover: null }));
+        return false;
+      }
+
+      const eventId = makeTakeoverEventId(
+        new Date().toISOString(),
+        Math.random().toString(36).slice(2, 8),
+      );
+
+      // Sweep the foreign shares first (recoverable, D6). Scoped to the connecting
+      // account's own user dir. No user yet means nothing to sweep.
+      let sweptCount = 0;
+      if (currentUser) {
+        const swept = await sweepForeignShares(
+          currentUser,
+          myFingerprint,
+          eventId,
+        );
+        sweptCount = swept.length;
+      }
+
+      // The new owner's email label, best-effort from this account's sidecar.
+      let myEmail: string | undefined;
+      if (currentUser) {
+        try {
+          const sc = await readSharingIdentity(currentUser);
+          myEmail = sc?.email;
+        } catch {
+          // best-effort label only
+        }
+      }
+
+      await writeFolderOwner(
+        takeoverRecord(prev, myFingerprint, myEmail, {
+          id: eventId,
+          at: new Date().toISOString(),
+          from_fingerprint: prev.owner_fingerprint,
+          to_fingerprint: myFingerprint,
+          swept_count: sweptCount,
+        }),
+      );
+
+      setState((s) => ({ ...s, pendingTakeover: null }));
+      return true;
+    } catch (err) {
+      console.warn("[FileSystemProvider] takeOverFolder failed:", err);
+      return false;
+    }
+  }, []);
+
+  // Account-centric folder identity (Phase B, D6). Revert the most recent takeover
+  // on the active folder, restoring exactly the swept shares and handing ownership
+  // back to the previous owner fingerprint.
+  const revertOwnership = useCallback(async (): Promise<boolean> => {
+    if (!MULTI_FOLDER_ENABLED) return false;
+    try {
+      const rec = await readFolderOwner();
+      const last = lastTakeover(rec);
+      if (!rec || !last) return false;
+
+      // Restore the swept set first, then hand ownership back, so a mid-way
+      // failure leaves the shares recoverable rather than orphaned under a
+      // reverted owner record.
+      await restoreSweptShares(last.id);
+      const reverted = revertRecord(rec);
+      if (reverted) {
+        await writeFolderOwner(reverted);
+      }
+      return true;
+    } catch (err) {
+      console.warn("[FileSystemProvider] revertOwnership failed:", err);
+      return false;
+    }
+  }, []);
+
+  // Account-centric folder identity (Phase B, D2). Cancel a pending takeover, the
+  // visible escape. Leaves the folder under its original owner with no rebind.
+  const cancelTakeover = useCallback((): void => {
+    setState((s) => ({ ...s, pendingTakeover: null }));
+  }, []);
+
   const setFolderPinned = useCallback(
     async (id: string, pinned: boolean): Promise<boolean> => {
       if (!MULTI_FOLDER_ENABLED) return false;
@@ -1757,6 +1941,9 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
     forgetFolder,
     renameFolder,
     setFolderNickname,
+    takeOverFolder,
+    revertOwnership,
+    cancelTakeover,
     setFolderPinned,
   };
 
