@@ -278,14 +278,86 @@ function githubHeaders(): Record<string, string> {
 }
 
 /**
+ * Read a Response body into a single Uint8Array, ABORTING the read the moment the
+ * accumulated byte count exceeds maxBytes. This is the defensive size gate that
+ * makes a too-large repo a clean "too-large" error instead of an OOM 500: the
+ * codeload.github.com zipball streams with chunked transfer encoding and no
+ * Content-Length, so res.arrayBuffer() would buffer the WHOLE archive (hundreds of
+ * MB) into memory; an out-of-memory process kill cannot be caught by the try/catch
+ * around it. Reading chunk-by-chunk and bailing past the cap means we never hold
+ * more than the cap (plus one chunk) in memory.
+ *
+ * Returns the bytes on success, "too-large" when the body exceeds maxBytes, or
+ * "fetch-failed" when the stream errors. On the too-large / error paths the reader
+ * is cancelled so the underlying connection is released rather than left dangling.
+ * If res.body is null (no readable stream), falls back to res.arrayBuffer() under
+ * the same cap check.
+ */
+async function readBodyUnderCap(
+  res: Response,
+  maxBytes: number,
+): Promise<Uint8Array | "too-large" | "fetch-failed"> {
+  // Fallback for an environment / response with no readable stream (res.body null):
+  // buffer via arrayBuffer, but still gate on the cap so behavior matches.
+  if (!res.body) {
+    try {
+      const buf = new Uint8Array(await res.arrayBuffer());
+      if (buf.byteLength > maxBytes) return "too-large";
+      return buf;
+    } catch {
+      return "fetch-failed";
+    }
+  }
+
+  const reader = res.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        // Past the cap: stop reading, release the connection, never buffer the rest.
+        await reader.cancel();
+        return "too-large";
+      }
+      chunks.push(value);
+    }
+  } catch {
+    try {
+      await reader.cancel();
+    } catch {
+      // Already errored / closed; nothing more to release.
+    }
+    return "fetch-failed";
+  }
+
+  // Concatenate the collected chunks into the single Uint8Array the rest of the
+  // function expects (byte-identical to the old res.arrayBuffer() result).
+  const out = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    out.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return out;
+}
+
+/**
  * Download + unzip a PUBLIC GitHub repo's zipball for a VALIDATED connection, then
  * strip the wrapper folder + subdir, returning site-root-relative entries for
  * validateByoEntries. The ONLY network call is to api.github.com (which 302s to
  * codeload.github.com, an allowed GitHub host; fetch follows that redirect).
  *
  * Caps: a Content-Length over the BYO total-bytes cap short-circuits before
- * buffering, and the unzipped total is the real gate in validateByoEntries. The
- * fetch is the IO edge; the pure strip logic above does the path work.
+ * reading (fast path), and the body is then streamed with a running-total guard
+ * (readBodyUnderCap) that aborts past the cap WITHOUT buffering the whole archive,
+ * so a too-large repo with no Content-Length (the codeload case) returns a clean
+ * "too-large" instead of OOM-killing the function. The unzipped total is the final
+ * gate in validateByoEntries. The fetch is the IO edge; the pure strip logic above
+ * does the path work.
  *
  * The connection MUST already be validated (parseGithubConnection); this re-checks
  * defensively and returns "bad-connection" rather than fetching an unsafe URL.
@@ -325,7 +397,10 @@ export async function pullGithubZipball(
   }
   if (!res.ok) return { ok: false, error: "fetch-failed" };
 
-  // Early size guard via Content-Length before buffering the whole body.
+  // Early size guard via Content-Length before reading the body. This is a FAST
+  // PATH only: codeload.github.com streams zipballs with chunked transfer encoding
+  // and NO Content-Length, so this header is usually absent and the real gate is
+  // the streamed read below.
   const lenHeader = res.headers.get("content-length");
   if (lenHeader) {
     const len = Number(lenHeader);
@@ -334,17 +409,17 @@ export async function pullGithubZipball(
     }
   }
 
-  let zipBytes: Uint8Array;
-  try {
-    const buf = await res.arrayBuffer();
-    zipBytes = new Uint8Array(buf);
-  } catch {
-    return { ok: false, error: "fetch-failed" };
-  }
+  // Stream the body and ABORT as soon as cumulative bytes exceed the cap, so a
+  // too-large repo (e.g. a ~434 MB zipball with no Content-Length) is never
+  // buffered whole. An out-of-memory process kill is NOT a catchable JS exception,
+  // so res.arrayBuffer() on an unbounded body would 500 the route rather than
+  // return a clean error; reading chunk-by-chunk with a running-total guard keeps
+  // the cap enforced even when Content-Length is absent (the codeload case).
+  const read = await readBodyUnderCap(res, BYO_MAX_TOTAL_BYTES);
+  if (read === "too-large") return { ok: false, error: "too-large" };
+  if (read === "fetch-failed") return { ok: false, error: "fetch-failed" };
+  const zipBytes = read;
   if (zipBytes.byteLength === 0) return { ok: false, error: "bad-zip" };
-  if (zipBytes.byteLength > BYO_MAX_TOTAL_BYTES) {
-    return { ok: false, error: "too-large" };
-  }
 
   let unzipped: Record<string, Uint8Array>;
   try {

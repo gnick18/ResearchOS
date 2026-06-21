@@ -110,7 +110,15 @@ async function pullAndStore(
   conn: GithubConnection,
 ): Promise<Response> {
   // Pull the zipball + strip the wrapper folder / subdir (the IO edge).
-  const pulled = await pullGithubZipball(conn);
+  // pullGithubZipball returns a clean result and now streams under the size cap
+  // (so a too-large repo can no longer OOM the function), but wrap it anyway so any
+  // unexpected upstream-fetch throw maps to 502 rather than a raw 500.
+  let pulled;
+  try {
+    pulled = await pullGithubZipball(conn);
+  } catch {
+    return json(502, { error: "sync failed", reason: "fetch-failed" });
+  }
   if (!pulled.ok) {
     const status = pulled.error === "fetch-failed" ? 502 : 422;
     return json(status, { error: "sync failed", reason: pullErrorReason(pulled.error) });
@@ -118,8 +126,14 @@ async function pullAndStore(
 
   // Validate every entry path (zip-slip) + caps + require root index.html in the
   // pure core. A single bad entry fails the WHOLE sync, so nothing is partially
-  // stored. This is the SAME bar a manual upload is held to.
-  const result = validateByoEntries(pulled.entries);
+  // stored. This is the SAME bar a manual upload is held to. A throw on malformed
+  // content maps to 422 (invalid content), never a raw 500.
+  let result;
+  try {
+    result = validateByoEntries(pulled.entries);
+  } catch {
+    return json(422, { error: "invalid site", reason: "bad-zip" });
+  }
   if (!result.ok) {
     return json(422, { error: "invalid site", reason: result.error });
   }
@@ -205,12 +219,20 @@ async function ingestTool(
   rootFileNames: string[],
 ): Promise<Response> {
   const readmeFilename = detectReadmeFilename(rootFileNames) ?? "README.md";
-  const result = await ingestToolRepo({
-    labOwnerKey: ownerKey,
-    owner: conn.owner,
-    repo: conn.repo,
-    readmeFilename,
-  });
+  // ingestToolRepo fetches repo metadata + wiki pages (the IO edge) and returns
+  // null on a clean failure; wrap it so an unexpected upstream throw maps to 502
+  // rather than a raw 500.
+  let result;
+  try {
+    result = await ingestToolRepo({
+      labOwnerKey: ownerKey,
+      owner: conn.owner,
+      repo: conn.repo,
+      readmeFilename,
+    });
+  } catch {
+    return json(502, { error: "sync failed", reason: "fetch-failed" });
+  }
   if (!result) {
     // ingestToolRepo returns null when owner/repo validation fails or the repo
     // metadata cannot be fetched (does not exist or is private).
@@ -230,11 +252,16 @@ export async function POST(request: Request): Promise<Response> {
   // 1. flag(s).
   if (!isLabByoSitesEnabled()) return json(404, { error: "not found" });
 
-  // 2-4. session -> ownership -> entitlement.
-  const callerOwnerKey = await resolveCallerOwnerKey();
-  const entitled = callerOwnerKey
-    ? await isLabPublishEntitled(callerOwnerKey)
-    : false;
+  // 2-4. session -> ownership -> entitlement. A session-resolve or billing-read
+  // throw maps to 503 (store/DB unavailable), never a raw 500.
+  let callerOwnerKey: string | null;
+  let entitled: boolean;
+  try {
+    callerOwnerKey = await resolveCallerOwnerKey();
+    entitled = callerOwnerKey ? await isLabPublishEntitled(callerOwnerKey) : false;
+  } catch {
+    return json(503, { error: "store unavailable" });
+  }
   const verdict = authorizeWrite({
     callerOwnerKey,
     targetOwnerKey: callerOwnerKey,
