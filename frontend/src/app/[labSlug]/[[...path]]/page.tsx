@@ -30,6 +30,7 @@ import { getLabPublicCard } from "@/lib/social/lab-public-card";
 import { getToolByOwner } from "@/lib/social/lab-tool-db";
 import { parseBadgeSnapshotJson, type BadgeSnapshot } from "@/lib/badges/snapshot";
 import { BADGES_ENABLED } from "@/lib/badges/config";
+import { bumpLabSiteView } from "@/lib/social/lab-site-analytics";
 
 /**
  * Public lab companion-site route (lab-domains Phase 2, social lane).
@@ -236,6 +237,15 @@ export default async function LabSitePublicPage({
     badgeSnapshotJson,
   } = await resolve(labSlug, path);
   if (decision.kind !== "render" || !page) notFound();
+
+  // Part 3 analytics: count this public page view. Fire-and-forget so a Neon
+  // outage never blocks or errors the render. siteKey maps the normalized path
+  // to the convention from the plan: "" -> "home", any other path -> the path.
+  // The demo lab slug is excluded to keep demo traffic out of real analytics.
+  if (!isDemoLabSlug(slug)) {
+    const siteKey = normPath === "" ? "home" : normPath;
+    void bumpLabSiteView(page.labOwnerKey, siteKey);
+  }
 
   // Phase A: if this lab has a tool connection, render the software-companion
   // page view instead of the native lab-site page view. The tool row carries
