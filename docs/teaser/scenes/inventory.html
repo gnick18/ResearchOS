@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scene: Inventory</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#eef2f9;color:#15243b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .scene{width:820px;max-width:94vw;transform-origin:center;animation:push 1.0s cubic-bezier(.4,0,.2,1) 2.9s forwards}
+  .card{background:#fff;border:1px solid #e2e8f3;border-radius:20px;box-shadow:0 24px 60px rgba(20,40,80,.10);overflow:hidden}
+
+  /* Header */
+  .hd{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid #eef1f7}
+  .hd-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1aa0e6 0%,#10b981 100%);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .hd b{font-size:17px;font-weight:600}.hd .sub{font-size:13px;color:#7a869b}
+  .hd-right{margin-left:auto}
+  .badge{font-size:11px;font-weight:600;color:#0e7a44;background:#e6f7ef;padding:3px 10px;border-radius:999px}
+
+  /* Grid area */
+  .grid-area{padding:16px 22px 22px;display:flex;gap:18px;align-items:flex-start}
+
+  /* Row labels */
+  .row-labels{display:flex;flex-direction:column;gap:2px;padding-top:20px}
+  .rl{width:18px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#7a869b;flex:0 0 auto}
+
+  /* Column labels + grid */
+  .grid-wrap{flex:1;min-width:0}
+  .col-labels{display:flex;gap:2px;padding-left:0;margin-bottom:4px}
+  .cl{flex:1;text-align:center;font-size:10px;font-weight:600;color:#7a869b}
+  .box-grid{display:flex;flex-direction:column;gap:2px;position:relative}
+  .grid-row{display:flex;gap:2px}
+  .cell{flex:1;height:22px;border-radius:4px;border:1px solid #e2e8f3;background:#f4f6fa;opacity:0;transform:scale(.6);transition:none}
+
+  /* Cell tones matching inventory-ui.ts */
+  .cell-in   {background:#6ee7b7;border-color:transparent} /* emerald-200 approx */
+  .cell-low  {background:#fcd34d;border-color:transparent} /* amber-200 approx */
+  .cell-exp  {background:#fca5a5;border-color:transparent} /* rose-200 approx */
+  .cell-empty{background:#e8ecf2;border-color:#d8dde8}
+
+  /* Selection ring on the highlighted cell */
+  .cell-selected{
+    outline:2.5px solid #1283c9;
+    outline-offset:2px;
+    z-index:2;
+    position:relative;
+  }
+
+  /* Tooltip chip */
+  .tooltip{
+    position:absolute;
+    background:#15243b;
+    color:#fff;
+    font-size:12px;
+    font-weight:600;
+    padding:5px 11px;
+    border-radius:8px;
+    white-space:nowrap;
+    pointer-events:none;
+    opacity:0;
+    transform:translateY(4px);
+    animation:fade .3s ease 2.55s forwards;
+    box-shadow:0 4px 12px rgba(20,40,80,.22);
+    bottom:calc(100% + 8px);
+    left:50%;
+    translate:-50% 0;
+    z-index:10;
+  }
+  .tooltip::after{
+    content:'';
+    position:absolute;
+    top:100%;left:50%;translate:-50% 0;
+    border:5px solid transparent;
+    border-top-color:#15243b;
+  }
+  .tooltip-wrap{position:relative;display:inline-block}
+
+  /* Legend */
+  .legend{display:flex;gap:14px;align-items:center;padding:0 22px 16px}
+  .leg{display:flex;align-items:center;gap:5px;font-size:12px;color:#7a869b}
+  .leg-dot{width:10px;height:10px;border-radius:3px;flex:0 0 auto}
+
+  /* Wave animation delays — cells reveal in ~10 staggered waves, 0.10s apart */
+  /* Wave 0: 0.10s — cols 1–5 of first 3 rows (occupied) */
+  /* Wave 1: 0.20s — rest of row A, rows B cols 1-4 */
+  /* … grouped to keep CSS size manageable */
+
+  .w0{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.08s forwards}
+  .w1{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.17s forwards}
+  .w2{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.26s forwards}
+  .w3{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.35s forwards}
+  .w4{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.44s forwards}
+  .w5{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.53s forwards}
+  .w6{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.62s forwards}
+  .w7{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.71s forwards}
+  .w8{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.80s forwards}
+  .w9{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.89s forwards}
+  .w10{animation:pop .22s cubic-bezier(.2,.9,.3,1) 0.98s forwards}
+  .w11{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.07s forwards}
+  .w12{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.16s forwards}
+  .w13{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.25s forwards}
+  .w14{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.34s forwards}
+  .w15{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.43s forwards}
+  .w16{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.52s forwards}
+  .w17{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.61s forwards}
+  .w18{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.70s forwards}
+  .w19{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.79s forwards}
+  .w20{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.88s forwards}
+  .w21{animation:pop .22s cubic-bezier(.2,.9,.3,1) 1.97s forwards}
+  .w22{animation:pop .22s cubic-bezier(.2,.9,.3,1) 2.06s forwards}
+  .w23{animation:pop .22s cubic-bezier(.2,.9,.3,1) 2.15s forwards}
+  .w24{animation:pop .22s cubic-bezier(.2,.9,.3,1) 2.24s forwards}
+  /* Selection ring fades in after grid settles */
+  .ring-in{animation:pop .22s cubic-bezier(.2,.9,.3,1) 2.40s forwards}
+
+  @keyframes pop{to{opacity:1;transform:scale(1)}}
+  @keyframes fade{to{opacity:1;transform:none}}
+  @keyframes push{to{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="card">
+
+    <div class="hd">
+      <!-- Freezer / box icon (inline SVG, no external assets) -->
+      <div class="hd-icon">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <!-- Box outline -->
+          <rect x="2" y="4" width="14" height="11" rx="2" stroke="#fff" stroke-width="1.5" fill="none"/>
+          <!-- Grid lines inside box -->
+          <line x1="7" y1="4" x2="7" y2="15" stroke="#fff" stroke-width="1" opacity=".7"/>
+          <line x1="11" y1="4" x2="11" y2="15" stroke="#fff" stroke-width="1" opacity=".7"/>
+          <line x1="2" y1="9" x2="16" y2="9" stroke="#fff" stroke-width="1" opacity=".7"/>
+          <!-- Handle on top -->
+          <path d="M7 4 L7 2.5 Q9 1.5 11 2.5 L11 4" stroke="#fff" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div><b>Inventory</b><div class="sub">Freezer A, Box 3</div></div>
+      <div class="hd-right"><span class="badge">81 positions</span></div>
+    </div>
+
+    <!-- 9x9 grid: rows A-I, cols 1-9 -->
+    <!-- Status layout (visually interesting spread):
+         in_stock (emerald): most cells
+         low (amber): A5, B3, E7, G2, I4
+         expired (rose): C6, F9
+         empty (light gray): D1, H8, I9, D9, B9
+    -->
+    <div class="grid-area">
+      <div class="row-labels">
+        <div class="rl">A</div>
+        <div class="rl">B</div>
+        <div class="rl">C</div>
+        <div class="rl">D</div>
+        <div class="rl">E</div>
+        <div class="rl">F</div>
+        <div class="rl">G</div>
+        <div class="rl">H</div>
+        <div class="rl">I</div>
+      </div>
+      <div class="grid-wrap">
+        <div class="col-labels">
+          <div class="cl">1</div><div class="cl">2</div><div class="cl">3</div>
+          <div class="cl">4</div><div class="cl">5</div><div class="cl">6</div>
+          <div class="cl">7</div><div class="cl">8</div><div class="cl">9</div>
+        </div>
+        <div class="box-grid">
+          <!-- Row A: in in in in LOW in in in in -->
+          <div class="grid-row">
+            <div class="cell cell-in w0"></div>
+            <div class="cell cell-in w1"></div>
+            <div class="cell cell-in w2"></div>
+            <div class="cell cell-in w3"></div>
+            <div class="cell cell-low w4"></div>
+            <div class="cell cell-in w5"></div>
+            <div class="cell cell-in w6"></div>
+            <div class="cell cell-in w7"></div>
+            <div class="cell cell-in w8"></div>
+          </div>
+          <!-- Row B: in in LOW in in in in in empty -->
+          <div class="grid-row">
+            <div class="cell cell-in w1"></div>
+            <div class="cell cell-in w2"></div>
+            <div class="cell cell-low w3"></div>
+            <div class="cell cell-in w4"></div>
+            <div class="cell cell-in w5"></div>
+            <div class="cell cell-in w6"></div>
+            <div class="cell cell-in w7"></div>
+            <div class="cell cell-in w8"></div>
+            <div class="cell cell-empty w9"></div>
+          </div>
+          <!-- Row C: in in in in in EXP in in in -->
+          <div class="grid-row">
+            <div class="cell cell-in w2"></div>
+            <div class="cell cell-in w3"></div>
+            <div class="cell cell-in w4"></div>
+            <div class="cell cell-in w5"></div>
+            <div class="cell cell-in w6"></div>
+            <div class="cell cell-exp w7"></div>
+            <div class="cell cell-in w8"></div>
+            <div class="cell cell-in w9"></div>
+            <div class="cell cell-in w10"></div>
+          </div>
+          <!-- Row D: empty in in in in in in in empty -->
+          <div class="grid-row">
+            <div class="cell cell-empty w4"></div>
+            <div class="cell cell-in w5"></div>
+            <div class="cell cell-in w6"></div>
+            <div class="cell cell-in w7"></div>
+            <div class="cell cell-in w8"></div>
+            <div class="cell cell-in w9"></div>
+            <div class="cell cell-in w10"></div>
+            <div class="cell cell-in w11"></div>
+            <div class="cell cell-empty w12"></div>
+          </div>
+          <!-- Row E: in in in in in in LOW in in -->
+          <div class="grid-row">
+            <div class="cell cell-in w6"></div>
+            <div class="cell cell-in w7"></div>
+            <div class="cell cell-in w8"></div>
+            <div class="cell cell-in w9"></div>
+            <div class="cell cell-in w10"></div>
+            <div class="cell cell-in w11"></div>
+            <div class="cell cell-low w12"></div>
+            <div class="cell cell-in w13"></div>
+            <div class="cell cell-in w14"></div>
+          </div>
+          <!-- Row F: in in in in in in in in EXP -->
+          <div class="grid-row">
+            <div class="cell cell-in w8"></div>
+            <div class="cell cell-in w9"></div>
+            <div class="cell cell-in w10"></div>
+            <div class="cell cell-in w11"></div>
+            <div class="cell cell-in w12"></div>
+            <div class="cell cell-in w13"></div>
+            <div class="cell cell-in w14"></div>
+            <div class="cell cell-in w15"></div>
+            <div class="cell cell-exp w16"></div>
+          </div>
+          <!-- Row G: in LOW in in in in in in in -->
+          <div class="grid-row">
+            <div class="cell cell-in w10"></div>
+            <div class="cell cell-low w11"></div>
+            <div class="cell cell-in w12"></div>
+            <div class="cell cell-in w13"></div>
+            <div class="cell cell-in w14"></div>
+            <div class="cell cell-in w15"></div>
+            <div class="cell cell-in w16"></div>
+            <div class="cell cell-in w17"></div>
+            <div class="cell cell-in w18"></div>
+          </div>
+          <!-- Row H: in in in in in in in empty in — H6 selected (tooltip target) -->
+          <div class="grid-row">
+            <div class="cell cell-in w12"></div>
+            <div class="cell cell-in w13"></div>
+            <div class="cell cell-in w14"></div>
+            <div class="cell cell-in w15"></div>
+            <div class="cell cell-in w16"></div>
+            <!-- H6 selected cell with tooltip -->
+            <div class="tooltip-wrap">
+              <div class="cell cell-in w17 ring-in cell-selected"></div>
+              <div class="tooltip">Anti-GAPDH · 4 vials</div>
+            </div>
+            <div class="cell cell-in w18"></div>
+            <div class="cell cell-empty w19"></div>
+            <div class="cell cell-in w20"></div>
+          </div>
+          <!-- Row I: in in in LOW in in in in empty -->
+          <div class="grid-row">
+            <div class="cell cell-in w14"></div>
+            <div class="cell cell-in w15"></div>
+            <div class="cell cell-in w16"></div>
+            <div class="cell cell-low w17"></div>
+            <div class="cell cell-in w18"></div>
+            <div class="cell cell-in w19"></div>
+            <div class="cell cell-in w20"></div>
+            <div class="cell cell-in w21"></div>
+            <div class="cell cell-empty w22"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Legend -->
+    <div class="legend">
+      <div class="leg"><div class="leg-dot" style="background:#6ee7b7"></div>In stock</div>
+      <div class="leg"><div class="leg-dot" style="background:#fcd34d"></div>Low</div>
+      <div class="leg"><div class="leg-dot" style="background:#fca5a5"></div>Expired</div>
+      <div class="leg"><div class="leg-dot" style="background:#e8ecf2;border:1px solid #d8dde8"></div>Empty</div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>
