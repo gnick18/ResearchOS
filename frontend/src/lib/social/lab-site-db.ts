@@ -703,6 +703,30 @@ export async function publishPage(
     );
   }
 
+  // Network feed event for the publish. Fire-and-forget + flag-guarded so it
+  // never blocks or breaks publishing and stays fully inert until NETWORK_FEED is
+  // on. targetSlug (looked up here, since publishPage is keyed by owner+path) lets
+  // the feed card deep-link to the published site. One event per published
+  // version (the id carries page.version) so a re-publish does not spam the feed.
+  if (
+    process.env.NETWORK_FEED_ENABLED === "true" ||
+    process.env.NETWORK_FEED_ENABLED === "1"
+  ) {
+    void (async () => {
+      const site = await getSiteByOwner(labOwnerKey).catch(() => null);
+      const { emitFeedEvent } = await import("@/lib/social/network-feed-db");
+      await emitFeedEvent({
+        actorOwnerKey: labOwnerKey,
+        kind: "site_published",
+        subjectType: "page",
+        subjectId: p,
+        subjectLabel: page.title,
+        targetSlug: site?.labSlug,
+        id: `${labOwnerKey}:site_published:${p}:${page.version}`,
+      });
+    })();
+  }
+
   return page;
 }
 

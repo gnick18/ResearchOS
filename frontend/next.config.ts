@@ -237,15 +237,23 @@ const nextConfig: NextConfig = {
         ],
       },
       {
-        // Public lab pages rendered at /:labSlug/* (the [labSlug]/[[...path]] route).
-        // Requests arrive from *.research-os.com subdomains (cookie-isolated, no auth)
-        // after the proxy.ts rewrite. We override the default CSP_LAB_PUBLIC here to
-        // broaden img-src to https: so that README badge images from shields.io,
-        // anaconda.org, raw.githubusercontent.com, etc. load correctly. Next.js applies
-        // headers rules in order and REPLACES earlier same-key values, so this entry
-        // wins over the /(.*) rule above for paths that match both. The authed app
-        // routes (everything that is NOT /:labSlug/*) keep the strict CSP unchanged.
-        source: "/:labSlug/:path*",
+        // Public lab pages served from <slug>.research-os.com (cookie-isolated, no
+        // auth). Scoped by HOST, not path: the broadened img-src (https:, for README
+        // badge images from shields.io / anaconda.org / zenodo.org /
+        // raw.githubusercontent.com) applies ONLY to lab subdomains. A path-based rule
+        // would wrongly loosen img-src on authed app routes like /datahub/x AND would
+        // miss lab pages served at the subdomain root (proxy.ts rewrites the path, so
+        // the incoming path is "/" not "/:labSlug"). The host condition matches any
+        // <sub>.research-os.com (the apex and research-os.app do not match, keeping the
+        // authed-app CSP strict). Source "/(.*)" so every path on the lab host wins
+        // over the global strict CSP above.
+        source: "/(.*)",
+        has: [
+          {
+            type: "host",
+            value: "(?<labhost>[a-z0-9-]+\\.research-os\\.com)",
+          },
+        ],
         headers: [
           { key: "Content-Security-Policy", value: CSP_LAB_PUBLIC },
         ],
