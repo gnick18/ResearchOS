@@ -60,6 +60,12 @@ export interface DeployHistoryEntry {
   label: string;
   /** Whether this entry is the current live version. */
   isCurrent: boolean;
+  /**
+   * The integer version number from lab_site_page_versions. Present when the
+   * entry comes from the real history table; undefined for legacy placeholder
+   * entries. The restore handler uses this to identify which version to restore.
+   */
+  version?: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -304,29 +310,72 @@ export function DeployHistory({ entries, onRestore }: DeployHistoryProps) {
         <p className="text-xs text-muted-foreground">
           No publishes yet. Push live to create your first deploy.
         </p>
-      ) : (
+      ) : entries.length === 1 ? (
+        /* Single version: show the Live badge but no Restore button. */
         <ul>
           {entries.map((entry) => (
             <li
               key={`${entry.publishedAt}-${entry.label}`}
               className="flex items-start gap-2.5 border-t border-border py-2.5 first:border-t-0 first:pt-0"
             >
-              {/* Status dot */}
               <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-emerald-600 dark:bg-emerald-400" />
-
-              {/* Label + time */}
               <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] font-semibold text-foreground">
-                  {entry.label}
+                <div className="flex items-center gap-1.5">
+                  {entry.version !== undefined && (
+                    <span className="text-[11px] text-muted-foreground">
+                      v{entry.version}
+                    </span>
+                  )}
+                  <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-400">
+                    Live
+                  </span>
+                </div>
+                <p className="mt-0.5 text-[11px] text-muted-foreground">
+                  {formatPublishTime(entry.publishedAt)}
                 </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <ul>
+          {entries.map((entry) => (
+            <li
+              key={`${entry.version ?? entry.publishedAt}-${entry.label}`}
+              className="flex items-start gap-2.5 border-t border-border py-2.5 first:border-t-0 first:pt-0"
+            >
+              {/* Status dot: filled green for live, muted for older */}
+              <span
+                className={[
+                  "mt-1 h-2 w-2 shrink-0 rounded-full",
+                  entry.isCurrent
+                    ? "bg-emerald-600 dark:bg-emerald-400"
+                    : "bg-border",
+                ].join(" ")}
+              />
+
+              {/* Version + time */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  {entry.version !== undefined && (
+                    <span className="text-[12px] font-semibold text-foreground">
+                      v{entry.version}
+                    </span>
+                  )}
+                  {entry.isCurrent && (
+                    <span className="inline-flex items-center rounded-full border border-emerald-400/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:border-emerald-500/40 dark:text-emerald-400">
+                      Live
+                    </span>
+                  )}
+                </div>
                 <p className="text-[11px] text-muted-foreground">
-                  live, {formatPublishTime(entry.publishedAt)}
+                  {formatPublishTime(entry.publishedAt)}
                 </p>
               </div>
 
-              {/* Restore */}
+              {/* Restore (hidden for the live version) */}
               {!entry.isCurrent && onRestore && (
-                <Tooltip label="Restore this version as a new draft">
+                <Tooltip label="Re-publish this version. Your current version stays in history.">
                   <button
                     type="button"
                     onClick={() => onRestore(entry)}
@@ -342,8 +391,8 @@ export function DeployHistory({ entries, onRestore }: DeployHistoryProps) {
       )}
 
       <p className="mt-3 border-t border-border pt-3 text-xs text-muted-foreground leading-relaxed">
-        Each push is a versioned deploy. Because companion pages are citable, an
-        older version stays viewable and restorable so a citation never 404s.
+        Each push is versioned. Because companion pages are citable, every prior
+        version stays restorable so a citation never breaks.
       </p>
     </div>
   );

@@ -1487,11 +1487,49 @@ export default function LabSiteDashboard({
     }
   }, [siteUrl]);
 
+  // ---------------------------------------------------------------------------
+  // Deploy history: real versioned list from lab_site_page_versions.
+  //
+  // Fetched from GET /api/social/lab-site/page/versions?path=<editorPath>
+  // each time the editor opens a page or after a successful publish. The
+  // server returns newest-first with an isLive flag on the current version.
+  // Restore POSTs to the same route with { path, version } and reloads the
+  // page list + history sidebar.
+  // ---------------------------------------------------------------------------
+  const [historyVersions, setHistoryVersions] = useState<DeployHistoryEntry[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+
+  const loadHistory = useCallback(async (path: string) => {
+    if (demoReadOnly) return; // Demo has no real history.
+    try {
+      const params = new URLSearchParams({ path });
+      if (siteOwnerKeyProp) params.set("siteOwnerKey", siteOwnerKeyProp);
+      const res = await fetch(`/api/social/lab-site/page/versions?${params.toString()}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        versions: Array<{ version: number; title: string; publishedAt: string; isLive: boolean }>;
+      };
+      const entries: DeployHistoryEntry[] = (data.versions ?? []).map((v) => ({
+        publishedAt: v.publishedAt,
+        label: v.title || pathLabel(path) || "Home page",
+        isCurrent: v.isLive,
+        version: v.version,
+      }));
+      setHistoryVersions(entries);
+    } catch {
+      // Non-fatal: sidebar stays empty.
+    }
+  }, [demoReadOnly, siteOwnerKeyProp]);
+
   const flowOnDone = useCallback(() => {
     // Refresh the page list and clear editor busy flag after all steps complete.
     void refresh();
     setEditorBusy(false);
-  }, [refresh]);
+    // Reload deploy history so the newly published version appears at the top.
+    if (editorPath !== null && editorPath !== "__new__") {
+      void loadHistory(editorPath);
+    }
+  }, [refresh, editorPath, loadHistory]);
 
   const flow = usePublishFlow({
     pagePath: editorPath ?? "",
@@ -1591,33 +1629,48 @@ export default function LabSiteDashboard({
     [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp],
   );
 
-  // ---------------------------------------------------------------------------
-  // Deploy history entries for the currently-open page.
-  //
-  // lab_site_pages has no versioned history table yet. We render the current
-  // published page as the top entry and populate the list from PageSummary
-  // data. A full version history requires a new additive table or a JSONB
-  // history column.
-  //
-  // TODO(deploy-history): when the history table exists, fetch versioned
-  // entries from GET /api/social/lab-site/page/history?path=<editorPath> and
-  // render each version with its publishedAt timestamp, label (body preview or
-  // commit message), and a Restore button wired to POST ...?action=restore.
-  // ---------------------------------------------------------------------------
-  const deployHistoryEntries = useMemo((): DeployHistoryEntry[] => {
-    // editorPath null means no editor open; "__new__" means a page not yet saved.
-    // editorPath "" is valid (the home page).
-    if (editorPath === null || editorPath === "__new__") return [];
-    const page = pages.find((p) => p.path === editorPath);
-    if (!page || page.status !== "published") return [];
-    return [
-      {
-        publishedAt: page.updatedAt,
-        label: page.title || pathLabel(page.path) || "Home page",
-        isCurrent: true,
-      },
-    ];
-  }, [editorPath, pages]);
+  // Reload history whenever the editor opens a saved page.
+  useEffect(() => {
+    if (editorPath === null || editorPath === "__new__") {
+      setHistoryVersions([]);
+      return;
+    }
+    void loadHistory(editorPath);
+  }, [editorPath, loadHistory]);
+
+  const deployHistoryEntries: DeployHistoryEntry[] = historyVersions;
+
+  const handleRestore = useCallback(async (entry: DeployHistoryEntry & { version?: number }) => {
+    if (editorPath === null || editorPath === "__new__") return;
+    if (entry.version === undefined) return;
+    if (!window.confirm(
+      `Restore version ${entry.version} of "${entry.label || pathLabel(editorPath)}"?\n\nThis publishes that version as a new live deploy. Your current version stays in history and can be restored again.`
+    )) return;
+
+    setHistoryBusy(true);
+    try {
+      const res = await fetch("/api/social/lab-site/page/versions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path: editorPath,
+          version: entry.version,
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
+      });
+      if (!res.ok) {
+        setEditorMsg("Could not restore that version right now.");
+        return;
+      }
+      // Reload the page list and history so the dashboard reflects the new live version.
+      await refresh();
+      await loadHistory(editorPath);
+    } catch {
+      setEditorMsg("Could not restore that version right now.");
+    } finally {
+      setHistoryBusy(false);
+    }
+  }, [editorPath, siteOwnerKeyProp, refresh, loadHistory]);
 
   const body = (
     <>
@@ -2137,12 +2190,7 @@ export default function LabSiteDashboard({
                 {!demoReadOnly && (
                   <DeployHistory
                     entries={deployHistoryEntries}
-                    // TODO(deploy-history): wire onRestore once lab_site_pages has a
-                    // versioned history table. The handler should POST to
-                    // /api/social/lab-site/page/restore with { path, publishedAt } and
-                    // load the returned body_md + snapshots_json into the editor as a
-                    // new draft so the user can review before re-publishing.
-                    onRestore={undefined}
+                    onRestore={historyBusy ? undefined : handleRestore}
                   />
                 )}
               </div>
