@@ -38,6 +38,7 @@ import {
   isWikiCaptureMode,
 } from "@/lib/file-system/wiki-capture-mock";
 import LeaveDemoModal from "@/components/LeaveDemoModal";
+import { ACCOUNT_HUB_ENABLED } from "@/lib/account/account-hub-config";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -247,8 +248,9 @@ export default function UserAvatarMenu({
   const isDark = resolved === "dark";
 
   // When the user has a published identity with a fingerprint, "My profile"
-  // opens the in-app popup over the current page; otherwise it links to the
-  // profile editor card in Settings so they can create one.
+  // opens the in-app popup over the current page (flag off) or links to the
+  // public /u/<handle> page (flag on). The popup is deprecated in favour of
+  // the dedicated /u/<handle> network page when ACCOUNT_HUB_ENABLED is on.
   const openProfile = useProfileModal((s) => s.open);
   const ownFingerprint = sharing.sidecar?.fingerprint ?? null;
 
@@ -263,6 +265,23 @@ export default function UserAvatarMenu({
     },
     [ownFingerprint, openProfile],
   );
+
+  // When the hub is enabled, fetch the caller's handle so we can link to
+  // /u/<handle> instead of opening the modal. Falls back to /account#identity
+  // if the profile API is unavailable or returns no handle.
+  const [ownHandle, setOwnHandle] = useState<string | null>(null);
+  useEffect(() => {
+    if (!ACCOUNT_HUB_ENABLED) return;
+    void fetch("/api/account/profile")
+      .then((r) => r.json() as Promise<{ profile?: { handle?: string } | null }>)
+      .then((data) => {
+        const h = data?.profile?.handle ?? null;
+        setOwnHandle(h);
+      })
+      .catch(() => {
+        /* silently degrade: link falls back to /account#identity */
+      });
+  }, []);
 
   // Settings opens as a living popup over the current page (Apple-style zoom
   // from the clicked point), the full settings body. The unified Settings shell
@@ -375,11 +394,40 @@ export default function UserAvatarMenu({
 
           {/* Navigation items */}
           <div className="py-1">
-            {ownFingerprint && (
-              <DropdownItem onClick={openOwnProfile}>
-                <PersonIcon />
-                My public profile
-              </DropdownItem>
+            {ACCOUNT_HUB_ENABLED ? (
+              // Hub is on: show an Account link at the top + a link to the
+              // public network profile instead of the in-app modal popup.
+              <>
+                <DropdownItem href="/account" onClick={close}>
+                  <PersonIcon />
+                  Account
+                </DropdownItem>
+                {/* My public profile links to /u/<handle> when we have one,
+                    or falls back to /account#identity so there is always a
+                    destination. The modal is retired in the hub path. */}
+                {ownFingerprint && (
+                  <DropdownItem
+                    href={
+                      ownHandle
+                        ? `/u/${ownHandle}`
+                        : "/account#identity"
+                    }
+                    onClick={close}
+                  >
+                    <PersonIcon />
+                    My public profile
+                  </DropdownItem>
+                )}
+              </>
+            ) : (
+              // Hub is off: exact same behavior as before — no Account link,
+              // "My public profile" opens the modal.
+              ownFingerprint && (
+                <DropdownItem onClick={openOwnProfile}>
+                  <PersonIcon />
+                  My public profile
+                </DropdownItem>
+              )
             )}
             {isRealSharingEnabled() && (
               <DropdownItem href="/researchers" onClick={close}>

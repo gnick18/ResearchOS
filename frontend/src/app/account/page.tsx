@@ -11,27 +11,46 @@
 // billing summary + lab-head switch). When off, renders AccountHome (today's
 // bare surface). The flag defaults OFF so this is safe to merge.
 
-import PortalShell from "@/components/portal/PortalShell";
 import AccountHome from "@/components/account/AccountHome";
 import { ACCOUNT_HUB_ENABLED } from "@/lib/account/account-hub-config";
+import PortalShell from "@/components/portal/PortalShell";
 
-// Lazy import AccountHub only when the flag is on, keeping the flag-off bundle
-// identical to today. Dynamic import avoids a top-level import that would
-// bundle AccountHub (and its billing hooks) unconditionally.
+// When the flag is on, the hub manages its own full-width layout via
+// PortalShell wide=true + AccountHubShell. When off, AccountHome stays inside
+// the standard narrow PortalShell unchanged (byte-identical to the old render).
 import dynamic from "next/dynamic";
 
-const AccountHub = ACCOUNT_HUB_ENABLED
-  ? dynamic(() => import("@/components/account/AccountHub"), { ssr: false })
+const AccountHubShell = ACCOUNT_HUB_ENABLED
+  ? dynamic(
+      () => import("@/components/account/AccountHubShell"),
+      { ssr: false },
+    )
   : null;
 
 export default function AccountRoute() {
+  if (AccountHubShell) {
+    // Full-width hub: PortalShell supplies the auth gate + header; the hub
+    // shell supplies its own max-w-6xl two-pane layout inside the wide frame.
+    return (
+      <PortalShell
+        title="Account"
+        wide
+        gateHeading="Sign in to your ResearchOS account"
+        tagline="Your account is the cloud part: profile, billing, and settings, available on any device. Your research data stays local on your own computer."
+      >
+        <AccountHubShell />
+      </PortalShell>
+    );
+  }
+
+  // Flag off: identical to today.
   return (
     <PortalShell
       title="Account"
       gateHeading="Sign in to your ResearchOS account"
       tagline="Your account is the cloud part: profile, billing, and settings, available on any device. Your research data stays local on your own computer."
     >
-      {AccountHub ? <AccountHub /> : <AccountHome />}
+      <AccountHome />
     </PortalShell>
   );
 }
