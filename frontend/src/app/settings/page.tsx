@@ -93,6 +93,7 @@ import SettingsShell, {
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
+import BillingForecastSection from "@/components/settings/sections/BillingForecastSection";
 import ModelABilling from "@/components/billing/ModelABilling";
 import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
@@ -490,6 +491,15 @@ function SettingsBodyInner({
                     <CloudStorageUsageSection />
                   </>
                 ),
+              },
+              {
+                id: "billing-forecast",
+                group: "Usage & billing",
+                title: "Billing forecast & history",
+                icon: "gauge" as const,
+                keywords:
+                  "billing forecast projected charge month-end base usage storage hosted cap history accrual charge credit balance receipts",
+                render: () => <BillingForecastSection />,
               },
             ],
           } satisfies SettingsGroupDef,

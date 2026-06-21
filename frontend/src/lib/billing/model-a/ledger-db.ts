@@ -99,3 +99,66 @@ export async function ensureCloudLedgerSchema(sql: Sql = getSql()): Promise<void
 export function __resetCloudSchemaCacheForTests(): void {
   schemaEnsured = false;
 }
+
+/** One row from cloud_usage_ledger as returned to the billing UI. */
+export interface LedgerEntry {
+  /** 'accrual' | 'charge' | 'credit' */
+  kind: string;
+  /** Signed cents: positive for accruals/credits, negative for card runs. */
+  centsDelta: number;
+  /** Billing period label (e.g. '2026-06') for accruals; reason string for credits;
+   *  null for raw card-charge rows. */
+  period: string | null;
+  /** The running accrued balance at this row (window SUM over id). */
+  balanceCents: number;
+  /** ISO timestamp. */
+  createdAt: string;
+}
+
+/**
+ * Recent ledger entries for a billing owner, newest first, with a per-row
+ * running balance attached via a window SUM. Used by the billing history table
+ * in Settings. Additive read, never writes.
+ */
+export async function listLedgerEntries(
+  ownerKey: string,
+  limit = 24,
+  sql: Sql = getSql(),
+): Promise<LedgerEntry[]> {
+  await ensureCloudLedgerSchema(sql);
+  // Compute running balance forward (oldest row first) in a CTE so each row
+  // carries "balance after this entry", then flip to newest-first for the UI.
+  const rows = (await sql`
+    WITH ordered AS (
+      SELECT
+        kind,
+        cents_delta,
+        period,
+        created_at,
+        SUM(cents_delta) OVER (
+          PARTITION BY owner_key ORDER BY id
+          ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+        ) AS running_balance
+      FROM cloud_usage_ledger
+      WHERE owner_key = ${ownerKey}
+      ORDER BY id
+    )
+    SELECT kind, cents_delta, period, created_at, running_balance
+    FROM ordered
+    ORDER BY created_at DESC
+    LIMIT ${limit}
+  `) as Array<{
+    kind: string;
+    cents_delta: number;
+    period: string | null;
+    created_at: string;
+    running_balance: number;
+  }>;
+  return rows.map((r) => ({
+    kind: r.kind,
+    centsDelta: Number(r.cents_delta),
+    period: r.period,
+    balanceCents: Number(r.running_balance),
+    createdAt: r.created_at,
+  }));
+}
