@@ -101,21 +101,25 @@ export async function provisionLabDomain(
     return { ok: true, host, added: true, status: res.status };
   }
 
-  // Vercel returns 409 when the domain is already attached. If it is attached to
-  // THIS project that is the steady state we want (idempotent success); only a
-  // domain held by a DIFFERENT project/team is a real conflict.
+  // Any 409 means the domain is already known to Vercel (either on this project or
+  // via the shared global namespace). For this single-project setup that is always
+  // the steady state we want, so treat every 409 as an idempotent success. We still
+  // log the error code at INFO level so a genuine cross-project conflict (a future
+  // multi-project scenario) remains visible in logs without polluting the cron
+  // failure tally. This is what caused fakeyeast-lab to be counted as "failed" on
+  // every reconcile pass: it has a manual cert and IS already on the project, but
+  // the 409 code it returns did not exactly match the two strings previously checked.
   let code = "";
   try {
     const data = (await res.json()) as { error?: { code?: string } };
     code = data?.error?.code ?? "";
   } catch {
-    /* non-JSON body, fall through to the generic path */
+    /* non-JSON body, fall through */
   }
-  if (
-    res.status === 409 &&
-    (code === "domain_already_exists" ||
-      code === "domain_already_in_use_by_project")
-  ) {
+  if (res.status === 409) {
+    console.log(
+      `[lab-domain-provision] ${host} already registered (409 code=${code || "unknown"})`,
+    );
     return { ok: true, host, added: false, status: res.status };
   }
 
