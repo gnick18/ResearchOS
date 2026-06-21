@@ -30,10 +30,13 @@
 import { useMemo } from "react";
 import Link from "next/link";
 
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import MarketingNav from "@/components/MarketingNav";
 import MarketingFooter from "@/components/MarketingFooter";
 import MarketingBackdrop from "@/components/marketing/MarketingBackdrop";
 import RenderedMarkdown from "@/components/RenderedMarkdown";
+import LabSiteBlockView from "@/components/social/LabSiteBlockView";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
 import LabIdentityHeader from "@/components/social/LabIdentityHeader";
 import LabSiteNav from "@/components/social/LabSiteNav";
@@ -49,11 +52,22 @@ import type { BakedEmbed } from "@/lib/export/bake-embeds";
 import type { HostedAssetEntry } from "@/lib/social/lab-site-hosted";
 import type { PublishedPageEntry } from "@/lib/social/lab-site-db";
 import { isDemoLabSlug, type DemoLabCard } from "@/lib/social/demo-lab";
+import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
+
+// The app origin for building the "Manage this site" deep link. Read at build
+// time (no window access) so SSR and client hydration agree. Falls back to
+// the canonical app URL so the link is correct even when the env var is absent.
+const APP_ORIGIN =
+  (process.env.NEXT_PUBLIC_APP_BASE_URL ?? "https://research-os.app").replace(
+    /\/+$/,
+    "",
+  );
 
 export default function LabSitePageView({
   slug,
   title,
   bodyMd,
+  blocksJson,
   snapshots,
   hostedAssets,
   publishedPages,
@@ -61,14 +75,27 @@ export default function LabSitePageView({
   hasByo,
   card,
   badgeSnapshot,
+  canEdit,
+  editOwnerKey,
 }: {
   slug: string;
   title: string;
   bodyMd: string;
   /**
+   * The block-based page body (P1 companion builder). When non-null, the page
+   * is a BLOCKS page rendered via LabSiteBlockView; bodyMd is ignored. When
+   * null, the page is a markdown page rendered via RenderedMarkdown (existing
+   * behavior, byte-identical to pre-P1). The server route passes this from
+   * lab_site_pages.blocks_json when non-null.
+   *
+   * The snapshots map (below) is also used for baked block embeds: each data
+   * block's sourceId is the key (same href convention as markdown embeds).
+   */
+  blocksJson?: string | null;
+  /**
    * Frozen baked-block snapshots keyed by embed link href (Phase 3b). Passed
    * from the server route as a plain record (serializable across the
-   * server/client boundary); rebuilt into the Map RenderedMarkdown expects.
+   * server/client boundary); rebuilt into the Map RenderedMarkdown / LabSiteBlockView expect.
    * Absent / empty means a text-only page or a page published before Phase 3b,
    * and any block embed then renders the calm unavailable card. A public reader
    * has no local workspace, so blocks render FROZEN, never live.
@@ -113,9 +140,30 @@ export default function LabSitePageView({
    * empty snapshot, so a lab that has never published badges renders nothing.
    */
   badgeSnapshot?: BadgeSnapshot;
+  /**
+   * Token-handoff lane. True when the server validated a ?roEdit= signed token
+   * that proves the current visitor is the site owner or a granted editor.
+   * When true, the prominent "Edit this site" bridge bar is shown instead of
+   * the generic "Manage this site" hint. False / absent = generic hint (default).
+   *
+   * Cookie isolation is preserved: no session, no app cookie is read or set
+   * here. The token is validated server-side in the [labSlug] route before this
+   * component is rendered; this prop is only the result of that validation.
+   */
+  canEdit?: boolean;
+  /**
+   * The billing owner key embedded in the validated ?roEdit= token. Used to
+   * build the precise deep link back to the builder
+   * (/account/lab-site?siteOwnerKey=<key>) so a granted editor lands directly
+   * on the correct PI's site instead of their own dashboard. Undefined when
+   * canEdit is false (no token or invalid token).
+   */
+  editOwnerKey?: string;
 }) {
   const heading = title?.trim() || slug;
   // Rebuild the Map from the serialized record once per snapshots object.
+  // Used by both RenderedMarkdown (markdown path) and LabSiteBlockView (blocks
+  // path); the same keying convention applies to both.
   const bakedEmbeds = useMemo(
     () => new Map<string, BakedEmbed>(Object.entries(snapshots ?? {})),
     [snapshots],
@@ -125,6 +173,14 @@ export default function LabSitePageView({
     () => new Map<string, HostedAssetEntry>(Object.entries(hostedAssets ?? {})),
     [hostedAssets],
   );
+  // Parse the blocks array once per blocksJson string. A null/absent blocksJson
+  // means this is a markdown page; a non-null string (even "[]") is a blocks page.
+  const parsedBlocks = useMemo(
+    () => (blocksJson != null ? parseLabSiteBlocks(blocksJson) : null),
+    [blocksJson],
+  );
+  // True when this page is a blocks page (P1 companion builder path).
+  const isBlocksPage = parsedBlocks !== null;
   // Demo framing is DEMO-SLUG-SCOPED so it can never appear on a real lab's site.
   const isDemo = isDemoLabSlug(slug);
   const pages = publishedPages ?? [];
@@ -187,12 +243,26 @@ export default function LabSitePageView({
             </h1>
           )}
 
-          <RenderedMarkdown
-            content={bodyMd ?? ""}
-            className="prose prose-gray mt-8 max-w-3xl dark:prose-invert"
-            bakedEmbeds={bakedEmbeds}
-            hostedAssets={hostedAssetsMap}
-          />
+          {isBlocksPage ? (
+            /* P1 blocks path: render via LabSiteBlockView. The bakedEmbeds map
+               is passed so data blocks use frozen snapshots on the public page.
+               A public reader has no local workspace so live embeds are never
+               used here; the map replaces the live ObjectEmbed path entirely. */
+            <div className="mt-8">
+              <LabSiteBlockView
+                blocks={parsedBlocks ?? []}
+                bakedEmbeds={bakedEmbeds}
+              />
+            </div>
+          ) : (
+            /* Legacy markdown path: byte-identical to pre-P1. */
+            <RenderedMarkdown
+              content={bodyMd ?? ""}
+              className="prose prose-gray mt-8 max-w-3xl dark:prose-invert"
+              bakedEmbeds={bakedEmbeds}
+              hostedAssets={hostedAssetsMap}
+            />
+          )}
 
           {/* Companion listing (paper pages + BYO link). */}
           <LabCompanionList
@@ -225,6 +295,56 @@ export default function LabSitePageView({
               is off this renders nothing and the page is byte-identical. */}
           {badgeSnapshot && (
             <BadgePublicView snapshot={badgeSnapshot} />
+          )}
+
+          {/* Owner/editor bridge (token-handoff lane) vs generic hint.
+              When canEdit is true, the ?roEdit= token was validated server-side
+              and this visitor is the proven owner or a granted editor. Show the
+              prominent "Edit this site" bridge bar so they can jump straight to
+              the builder. No session is read here, no cookie is set on .com;
+              the bar is purely a styled deep-link affordance.
+              When canEdit is false (no token or invalid/expired token), fall
+              back to the byte-identical static "Manage this site" hint as before.
+              Both branches are gated on LAB_SITES_COM_ORIGIN_ENABLED && !isDemo
+              (same as the existing hint). */}
+          {LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && canEdit && editOwnerKey ? (
+            /* Prominent "Edit this site" bridge bar for the proven owner/editor.
+               Deep-links directly to the builder with the ownerKey pre-scoped
+               so a granted editor lands on the correct PI site, not their own
+               dashboard. The builder re-checks isSiteEditor/owner server-side
+               before granting any write access. */
+            <div className="mt-10 flex items-center gap-2 rounded-xl border border-border bg-surface-raised px-4 py-3">
+              <Icon name="pencil" className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <p className="flex-1 text-sm text-foreground">
+                You are viewing your public lab site.
+              </p>
+              <Tooltip label="Open the site builder on research-os.app to edit this page">
+                <a
+                  href={`${APP_ORIGIN}/account/lab-site?siteOwnerKey=${encodeURIComponent(editOwnerKey)}`}
+                  className="ros-btn-neutral inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium"
+                >
+                  <Icon name="pencil" className="h-3.5 w-3.5" />
+                  Edit this site
+                </a>
+              </Tooltip>
+            </div>
+          ) : (
+            LAB_SITES_COM_ORIGIN_ENABLED && !isDemo && (
+              /* Generic "Is this your lab? Manage this site" hint (unchanged).
+                 Shown to all visitors when no valid edit token is present.
+                 Byte-identical to the pre-token-handoff render. */
+              <div className="mt-10 flex items-center gap-1.5 text-xs text-muted-foreground">
+                <Icon name="globe" className="h-3.5 w-3.5 shrink-0 opacity-60" />
+                <span>Is this your lab?</span>
+                <a
+                  href={`${APP_ORIGIN}/account/lab-site`}
+                  className="text-brand-action underline-offset-2 hover:underline"
+                >
+                  Manage this site
+                </a>
+                <span>on research-os.app.</span>
+              </div>
+            )
           )}
         </div>
       </section>

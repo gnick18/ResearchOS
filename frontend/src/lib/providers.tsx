@@ -427,6 +427,18 @@ function PendingELNImportMount() {
 // day). Gated by a per-day stamp in localStorage so it is a once-a-day delight,
 // not every load. Stored as a local YYYY-MM-DD date string.
 const SPLASH_DAY_KEY = "researchos:splash-day";
+
+// Minimum time the branded StagedLoadingScreen stays up on a LOGIN transition,
+// in milliseconds. A successful OAuth return resolves the cloud session a tick
+// after landing on "/?sharingClaim=1", which is so fast the splash would flash
+// by sub-second. We hold it for at least this floor so the BeakerBot "Loading
+// ResearchOS" screen is a deliberate, visible brand moment on every login. The
+// splash still NEVER dismisses before the underlying state has actually resolved
+// (the floor is a minimum, not a maximum), so it stays honest. Scoped to login
+// only: a logged-out landing visitor and a same-device cold reconnect do not see
+// this floor.
+const LOGIN_SPLASH_MIN_MS = 1500;
+
 const localDayStamp = () => {
   const d = new Date();
   const month = String(d.getMonth() + 1).padStart(2, "0");
@@ -621,6 +633,47 @@ function AppContent({ children }: { children: ReactNode }) {
   // instead of the folder wall. Only consulted when the flag is on; the hook runs
   // unconditionally (rules of hooks) but is cheap and inert otherwise.
   const hasCloudSession = useHasCloudSession();
+
+  // Login-splash minimum-display floor (splash-every-login). A LOGIN return is a
+  // post-OAuth landing on "/?sharingClaim=1" (sharingClaimReturn) or a "Sign in
+  // with <provider>" intent in flight (?signIn, signInInFlight). The cloud-session
+  // check (hasCloudSession) resolves a tick after the return, so without a floor
+  // the branded splash would flash by sub-second. We stamp the moment the login
+  // window is first observed and keep the splash held until LOGIN_SPLASH_MIN_MS has
+  // elapsed AND the underlying state has resolved, so the splash is a deliberate
+  // brand moment yet never lies about readiness. Scoped to login: a logged-out
+  // landing visitor (no return marker) and a same-device cold reconnect (handled by
+  // the higher-precedence isLoading branch) never arm this floor. Date.now() + a
+  // timeout are fine here ("use client"); the timer is cleaned up on unmount.
+  const isLoginReturn = sharingClaimReturn || signInInFlight;
+  const loginSplashStartRef = useRef<number | null>(null);
+  const [loginSplashFloorElapsed, setLoginSplashFloorElapsed] = useState(false);
+  useEffect(() => {
+    if (!isLoginReturn) {
+      // Not a login window: reset so a later genuine login re-arms the floor.
+      loginSplashStartRef.current = null;
+      setLoginSplashFloorElapsed(false);
+      return;
+    }
+    if (loginSplashStartRef.current === null) {
+      loginSplashStartRef.current = Date.now();
+    }
+    const elapsed = Date.now() - loginSplashStartRef.current;
+    const remaining = LOGIN_SPLASH_MIN_MS - elapsed;
+    if (remaining <= 0) {
+      setLoginSplashFloorElapsed(true);
+      return;
+    }
+    setLoginSplashFloorElapsed(false);
+    const timer = window.setTimeout(
+      () => setLoginSplashFloorElapsed(true),
+      remaining,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isLoginReturn]);
+  // The floor is "still holding" only during an active login window before the
+  // minimum has elapsed. Used to extend the post-OAuth HOLD below.
+  const loginSplashFloorActive = isLoginReturn && !loginSplashFloorElapsed;
 
   // ORCID-login email-capture (section 18.7). ORCID OIDC returns no email, so a
   // fresh ORCID sign-in lands with an orcidId but no session email, which breaks
@@ -1063,6 +1116,54 @@ function AppContent({ children }: { children: ReactNode }) {
           }}
         />
       </QueryClientProvider>
+    );
+  }
+
+  // Post-OAuth HOLD (login-flash fix, 2026-06-20). The account-first redirect just
+  // below requires hasCloudSession === true, but useHasCloudSession starts at null
+  // and resolves a tick later (it calls getSession() in an effect). On the OAuth
+  // return to "/" that leaves a brief ambiguous window where the session is still
+  // unknown (hasCloudSession === null) yet the visitor is not connected and has no
+  // current user, so the gate fell THROUGH to a login / landing screen (Folder-
+  // ConnectGate, the sign-in screen, or UserLoginScreen) and then unmounted it the
+  // instant the session resolved to true and the redirect branch took over. That
+  // mount/unmount churn is the flashing Grant reported. Hold on the neutral loading
+  // screen until the check resolves, but ONLY when account-first is on and we are
+  // in that exact ambiguous post-auth window. A genuinely logged-out visitor
+  // (hasCloudSession === false) is NOT held, so the landing still appears with no
+  // added delay. Every higher-precedence branch above (demo / wiki-capture, the
+  // reconnect loading screen, unsupported-device, the research onboarding wizard,
+  // and the ORCID email-capture) has already returned, so this never delays them.
+  //
+  // splash-every-login (2026-06-20): this same neutral splash now ALSO covers the
+  // minimum-display floor on a login return, so a fast OAuth resolve does not flash
+  // the brand splash by sub-second. Two cases hold here, both in the pre-app window
+  // (not connected, no current user, no empty-folder init, not a fixture):
+  //   (a) the original flash-fix hold: account-first on and the cloud-session check
+  //       is still in flight (hasCloudSession === null), OR
+  //   (b) the login-splash floor is still running (loginSplashFloorActive): a login
+  //       return is in progress (?sharingClaim / ?signIn) and LOGIN_SPLASH_MIN_MS
+  //       has not yet elapsed. This is NOT gated on account-first, so the splash is
+  //       a deliberate moment on EVERY login, and it composes with (a) rather than
+  //       replacing it. Once BOTH the floor has elapsed AND the session resolves,
+  //       the branch stops matching and the flow falls through to the real outcome
+  //       (AccountFirstRedirect / FolderConnectGate / the app shell), so the splash
+  //       never dismisses before the underlying state is ready and never lingers
+  //       past it once the floor is done. A logged-out visitor with no return marker
+  //       arms neither case, so the landing still appears immediately.
+  if (
+    ((isAccountFirstEnabled() && hasCloudSession === null) ||
+      loginSplashFloorActive) &&
+    !isConnected &&
+    !currentUser &&
+    !needsInitialization &&
+    !isDemoOrWikiCapture()
+  ) {
+    return (
+      <StagedLoadingScreen
+        stage={loadingStage}
+        onPickDifferentFolder={() => void disconnect()}
+      />
     );
   }
 

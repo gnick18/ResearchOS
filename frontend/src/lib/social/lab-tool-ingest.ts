@@ -236,6 +236,54 @@ function rawContentUrl(owner: string, repo: string, ref: string, filePath: strin
   return `https://${GH_RAW_HOST}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(ref)}/${filePath}`;
 }
 
+/**
+ * Rewrite RELATIVE image sources in README markdown to absolute
+ * raw.githubusercontent.com URLs. A relative repo image like assets/logo.png,
+ * left as-is, resolves against the lab-site origin
+ * (<slug>.research-os.com/assets/logo.png) where the catch-all returns the HTML
+ * shell with a 200, so the <img> is broken. Rewriting to the repo raw URL makes
+ * it a real external image (which the lab-public CSP img-src then allows).
+ *
+ * Absolute (http/https), protocol-relative (//), data:, and anchor (#) sources
+ * are left untouched. Covers markdown ![alt](src) and HTML <img src="...">.
+ * `ref` is the git ref the README was fetched at (HEAD for the default branch).
+ * Pure + exported so the rewrite is unit-tested without a network fetch.
+ */
+export function rewriteRelativeReadmeImages(
+  markdown: string,
+  owner: string,
+  repo: string,
+  ref: string,
+): string {
+  const rawBase = `https://${GH_RAW_HOST}/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}/${encodeURIComponent(ref)}/`;
+  const toAbsolute = (src: string): string => {
+    const s = src.trim();
+    if (
+      /^(https?:)?\/\//i.test(s) ||
+      s.startsWith("data:") ||
+      s.startsWith("#")
+    ) {
+      return src;
+    }
+    // Strip a leading "./" or a repo-root-relative "/" so the path joins cleanly.
+    const clean = s.replace(/^\.?\//, "");
+    return rawBase + clean;
+  };
+  // Markdown image syntax: ![alt](src) or ![alt](src "title"). Capture the src up
+  // to the first whitespace or closing paren so an optional title is preserved.
+  let out = markdown.replace(
+    /(!\[[^\]]*\]\()([^)\s]+)/g,
+    (_m, prefix: string, src: string) => prefix + toAbsolute(src),
+  );
+  // HTML <img src="..."> (single or double quoted).
+  out = out.replace(
+    /(<img\b[^>]*?\bsrc=)(["'])([^"']+)\2/gi,
+    (_m, prefix: string, q: string, src: string) =>
+      `${prefix}${q}${toAbsolute(src)}${q}`,
+  );
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // IO helpers
 // ---------------------------------------------------------------------------
@@ -500,8 +548,13 @@ export async function ingestToolRepo(opts: {
     logoUrl: meta.logoUrl,
   });
 
-  // README -> home page ("").
-  const homeBody = readmeMd ?? `# ${meta.name}\n\n${meta.description ?? ""}`;
+  // README -> home page (""). Rewrite relative image paths to absolute raw URLs
+  // first, so repo-relative images (e.g. assets/logo.png) load on the public lab
+  // site instead of resolving against the lab origin (where the catch-all returns
+  // the HTML shell, a broken image). "HEAD" matches the ref fetchReadme used.
+  const homeBody = readmeMd
+    ? rewriteRelativeReadmeImages(readmeMd, owner, repo, "HEAD")
+    : `# ${meta.name}\n\n${meta.description ?? ""}`;
   await store("", meta.name, homeBody);
 
   // Wiki pages -> "wiki/<slug>".

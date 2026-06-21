@@ -139,6 +139,7 @@ function makeFakeDeps() {
         updatedAt: "now",
         snapshotsJson: null,
         hostedJson: null,
+        blocksJson: null,
       };
     },
     publishPage: async (labOwnerKey, path, snapshotsJson = null, hostedJson = null) => {
@@ -160,6 +161,7 @@ function makeFakeDeps() {
         updatedAt: "now",
         snapshotsJson,
         hostedJson,
+        blocksJson: null,
       };
     },
     putByoFile: async (fragment, relPath, bytes) => {

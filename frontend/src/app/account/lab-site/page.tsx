@@ -32,9 +32,21 @@ export const metadata: Metadata = {
 export default async function LabSiteDashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ demo?: string }>;
+  searchParams: Promise<{ demo?: string; siteOwnerKey?: string }>;
 }) {
   if (!LAB_SITES_ENABLED) notFound();
-  const { demo } = await searchParams;
-  return <LabSiteDashboard demoReadOnly={isDemoLabSlug(demo ?? "")} />;
+  const { demo, siteOwnerKey } = await searchParams;
+  // siteOwnerKey is supplied by the "Sites you can edit" Edit link when a
+  // granted editor opens another PI's site. The dashboard threads it through
+  // every load/save/publish call; the server re-checks isSiteEditor on each
+  // write so a forged or revoked key never gains access.
+  // Demo mode and editor mode are mutually exclusive: a granted editor never
+  // enters the dashboard in demo mode (demo is a public, no-session walkthrough).
+  const isDemoMode = !siteOwnerKey && isDemoLabSlug(demo ?? "");
+  return (
+    <LabSiteDashboard
+      demoReadOnly={isDemoMode}
+      siteOwnerKey={siteOwnerKey ?? undefined}
+    />
+  );
 }

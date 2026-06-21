@@ -15,6 +15,15 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
+// TODO (orchestrator): To emit work_shared feed events on a sealed send,
+// add an emitFeedEvent({ actorOwnerKey, kind: "work_shared", subjectLabel })
+// call in app/api/relay/confirm/route.ts after the inbox row is flipped to
+// "ready". The relay confirm route knows the sender's fingerprint; map it to
+// an ownerKey via getBindingByFingerprint + the peppered owner-key hash. That
+// route is currently in the sharing lane (not the social lane) so adding the
+// emit there requires coordination with the Popup Unifier lane. Build 2 does
+// not modify the relay confirm route; this TODO marks the wiring point.
+
 /** A researcher to share with, resolved from a network surface. */
 export interface ShareRecipient {
   /** Display name (always present for a listed researcher). */

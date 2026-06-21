@@ -50,10 +50,11 @@ import {
   validateSlug,
 } from "@/lib/social/slug-registry";
 import {
-  getSlug,
   loadTakenSlugsWithPrefix,
   reserveSlug,
 } from "@/lib/social/slug-registry-db";
+import { isSiteEditor } from "@/lib/social/lab-site-editors-db";
+import { mintEditToken } from "@/lib/social/lab-site-edit-token";
 
 export const runtime = "nodejs";
 
@@ -61,26 +62,43 @@ export const runtime = "nodejs";
 // GET — the caller's site + pages (dashboard load)
 // ---------------------------------------------------------------------------
 
-export async function GET(): Promise<Response> {
+export async function GET(request: Request): Promise<Response> {
   if (!isLabSitesEnabled()) return json(404, { error: "not found" });
 
   const callerOwnerKey = await resolveCallerOwnerKey();
-  // Read still requires the full write authz: only the entitled owner may see
-  // their own draft pages. authorizeWrite with target === caller covers
-  // signed-in + entitled in one fail-closed decision.
-  const entitled = callerOwnerKey
-    ? await isLabPublishEntitled(callerOwnerKey)
-    : false;
-  const verdict = authorizeWrite({
-    callerOwnerKey,
-    targetOwnerKey: callerOwnerKey,
-    entitled,
-  });
-  if (verdict.kind === "deny") {
-    return json(verdict.status, { error: verdict.error });
+  if (!callerOwnerKey) return json(401, { error: "unauthorized" });
+
+  const { searchParams } = new URL(request.url);
+  const siteOwnerKeyParam = searchParams.get("siteOwnerKey");
+
+  let ownerKey: string;
+
+  if (siteOwnerKeyParam && siteOwnerKeyParam !== callerOwnerKey) {
+    // Editor path: caller is not the site owner. Verify the grant server-side.
+    // isSiteEditor is the single source of truth; a forged siteOwnerKey gets 403.
+    let granted: boolean;
+    try {
+      granted = await isSiteEditor(siteOwnerKeyParam, "", callerOwnerKey);
+    } catch {
+      return json(503, { error: "store unavailable" });
+    }
+    if (!granted) return json(403, { error: "forbidden" });
+    ownerKey = siteOwnerKeyParam;
+  } else {
+    // Owner path: read the caller's own site. Entitlement check mirrors the
+    // original: only the entitled owner may read draft pages for their own site.
+    const entitled = await isLabPublishEntitled(callerOwnerKey);
+    const verdict = authorizeWrite({
+      callerOwnerKey,
+      targetOwnerKey: callerOwnerKey,
+      entitled,
+    });
+    if (verdict.kind === "deny") {
+      return json(verdict.status, { error: verdict.error });
+    }
+    ownerKey = callerOwnerKey;
   }
 
-  const ownerKey = callerOwnerKey as string;
   let site = null;
   let pages: Awaited<ReturnType<typeof listPages>> = [];
   try {
@@ -89,14 +107,36 @@ export async function GET(): Promise<Response> {
   } catch {
     return json(503, { error: "store unavailable" });
   }
+  // Mint a short-lived signed token for the "View public site" link. The token
+  // lets the .com public page detect the signed-in owner/editor and show the
+  // prominent "Edit this site" bridge bar instead of the static "Manage this
+  // site" hint. Minted here (server-side) so node:crypto is available; the
+  // client-side dashboard receives it opaquely and appends it to the .com URL.
+  // Null when AUTH_SECRET is absent (token feature disabled, bridge degrades to
+  // the static link). TTL is 10 minutes (see lab-site-edit-token.ts).
+  const editToken = site ? mintEditToken(site.labSlug, ownerKey) : null;
+
   return json(200, {
     site: site ? { slug: site.labSlug, createdAt: site.createdAt } : null,
+    // ownerKey: the billing owner key for THIS site. The caller is either the
+    // owner or a server-verified granted editor, so returning it is safe.
+    ownerKey,
+    // isOwner: true when the caller IS this site's owner (not a delegate). The
+    // route resolves an own-key siteOwnerKey param to owner mode server-side, so
+    // the dashboard uses this to render owner chrome instead of the granted-editor
+    // banner even when a siteOwnerKey equal to the caller's own key is in the URL.
+    isOwner: ownerKey === callerOwnerKey,
+    // editToken: a pre-minted ?roEdit= token for the "View public site" link.
+    // The dashboard appends it to the .com URL so the public page can show the
+    // "Edit this site" bridge bar for the verified caller.
+    editToken,
     pages: pages.map((p) => ({
       path: p.path,
       title: p.title,
       status: p.status,
       version: p.version,
       updatedAt: p.updatedAt,
+      hasBlocks: p.blocksJson !== null,
     })),
   });
 }

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Title: Chemistry</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#eef2f9;color:#15243b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .group{display:flex;align-items:center;gap:26px;opacity:0;animation:groupin .5s cubic-bezier(.2,.8,.2,1) .05s forwards}
+
+  /* Signature BeakerBot morph ball (pulse variant, exact keyframes) */
+  .blob{width:58px;height:58px;background:#1aa0e6;border-radius:48% 52% 50% 50% / 52% 48% 52% 48%;
+    box-shadow:0 8px 24px rgba(26,160,230,.30);animation:bbPulse 2.4s ease-in-out infinite}
+
+  .word{display:inline-flex;align-items:baseline;font-size:70px;font-weight:700;letter-spacing:-.015em;line-height:1}
+  .ch{display:inline-block;opacity:0;transform:translateY(7px);animation:chin .2s ease forwards;color:#15243b}
+  .caret{display:inline-block;width:5px;height:58px;margin-left:6px;border-radius:2px;background:#1283c9;opacity:0;
+    animation:caretin .12s ease 0.970s forwards, blink .9s step-end 0.970s infinite}
+
+  @keyframes bbPulse{
+    0%,100%{border-radius:48% 52% 50% 50% / 52% 48% 52% 48%;transform:scale(.62) rotate(0deg);opacity:.55}
+    33%{border-radius:62% 38% 55% 45% / 60% 52% 48% 40%;transform:scale(.95) rotate(45deg);opacity:1}
+    66%{border-radius:40% 60% 45% 55% / 45% 55% 45% 55%;transform:scale(.82) rotate(-35deg);opacity:.85}
+  }
+  @keyframes groupin{to{opacity:1}}
+  @keyframes chin{to{opacity:1;transform:none}}
+  @keyframes caretin{to{opacity:1}}
+  @keyframes blink{50%{opacity:0}}
+</style>
+</head>
+<body>
+  <div class="group">
+    <div class="blob"></div>
+    <div class="word"><span class="ch" style="animation-delay:0.500s">C</span><span class="ch" style="animation-delay:0.550s">h</span><span class="ch" style="animation-delay:0.600s">e</span><span class="ch" style="animation-delay:0.650s">m</span><span class="ch" style="animation-delay:0.700s">i</span><span class="ch" style="animation-delay:0.750s">s</span><span class="ch" style="animation-delay:0.800s">t</span><span class="ch" style="animation-delay:0.850s">r</span><span class="ch" style="animation-delay:0.900s">y</span><span class="caret"></span></div>
+  </div>
+</body>
+</html>

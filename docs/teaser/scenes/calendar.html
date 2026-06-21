@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scene: Calendar</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#eef2f9;color:#15243b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .scene{width:840px;max-width:96vw;transform-origin:center;animation:push 1.0s cubic-bezier(.4,0,.2,1) 2.9s forwards}
+  .card{background:#fff;border:1px solid #e2e8f3;border-radius:20px;box-shadow:0 24px 60px rgba(20,40,80,.10);overflow:hidden}
+
+  /* Header */
+  .hd{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid #eef1f7}
+  .hd-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1aa0e6 0%,#7f77dd 100%);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .hd b{font-size:17px;font-weight:600}
+  .hd .sub{font-size:13px;color:#7a869b}
+  .hd-right{margin-left:auto}
+  .badge{font-size:11px;font-weight:600;color:#1283c9;background:#e6f1fb;padding:3px 10px;border-radius:999px}
+
+  /* Week grid */
+  .week-wrap{padding:0 0 4px}
+
+  /* Day header row */
+  .day-header{display:grid;grid-template-columns:44px repeat(7,1fr);border-bottom:1px solid #eef1f7}
+  .dh-corner{padding:8px 4px}
+  .dh-cell{border-left:1px solid #eef1f7;padding:6px 4px;text-align:center}
+  .dh-cell .dow{font-size:11px;font-weight:600;color:#7a869b;text-transform:uppercase;letter-spacing:.05em}
+  .dh-cell .dnum{margin-top:3px;display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:14px;font-weight:500;color:#15243b}
+  .dh-cell.today .dnum{background:#f59e0b;color:#78350f}
+
+  /* Time grid */
+  .time-grid{display:grid;grid-template-columns:44px repeat(7,1fr);position:relative}
+  .hour-col{position:relative}
+  .hour-slot{height:52px;border-top:1px solid #eef1f7;padding:2px 6px 0 0;text-align:right;font-size:11px;color:#b0b9c6;font-weight:500}
+  .day-col{position:relative;border-left:1px solid #eef1f7}
+  .day-col-inner{position:relative;height:260px;/* 5 visible hour slots */}
+  .day-col.today-col{background:rgba(245,158,11,.04)}
+  .grid-line{height:52px;border-top:1px solid #eef1f7}
+
+  /* Events */
+  .ev{position:absolute;left:3px;right:3px;border-radius:6px;padding:3px 6px;font-size:11px;font-weight:600;line-height:1.3;overflow:hidden;opacity:0;transform:translateY(6px) scale(.97);box-shadow:0 2px 6px rgba(20,40,80,.10)}
+  .ev .ev-time{font-size:10px;font-weight:500;opacity:.8;margin-top:1px}
+
+  /* Event color classes from EVENT_TYPE_COLORS */
+  .ev-meeting{background:#A6D2F4;color:#1e4d78}
+  .ev-deadline{background:#FFD2B0;color:#7a3a00}
+  .ev-seminar{background:#D6B5F0;color:#4a1d8a}
+  .ev-run{background:#B7EBB1;color:#1a5c1a}
+  .ev-offsite{background:#FFF1A8;color:#7a6200}
+  .ev-conf{background:#c4b5fd;color:#3b0764}
+
+  /* Staggered pop-in animations */
+  .e1{animation:evpop .38s cubic-bezier(.2,.9,.3,1) .30s forwards}
+  .e2{animation:evpop .38s cubic-bezier(.2,.9,.3,1) .55s forwards}
+  .e3{animation:evpop .38s cubic-bezier(.2,.9,.3,1) .75s forwards}
+  .e4{animation:evpop .38s cubic-bezier(.2,.9,.3,1) .95s forwards}
+  .e5{animation:evpop .38s cubic-bezier(.2,.9,.3,1) 1.15s forwards}
+  .e6{animation:evpop .38s cubic-bezier(.2,.9,.3,1) 1.35s forwards}
+  .e7{animation:evpop .38s cubic-bezier(.2,.9,.3,1) 1.55s forwards}
+
+  /* Current-time red line */
+  .now-line{position:absolute;left:0;right:0;pointer-events:none;opacity:0;animation:fade .5s ease 1.9s forwards;z-index:10}
+  .now-line-bar{height:2px;background:#ef4444}
+  .now-dot{width:10px;height:10px;border-radius:50%;background:#ef4444;position:absolute;left:-5px;top:-4px}
+
+  @keyframes evpop{to{opacity:1;transform:none}}
+  @keyframes fade{to{opacity:1}}
+  @keyframes push{to{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="card">
+
+    <!-- Header -->
+    <div class="hd">
+      <div class="hd-icon">
+        <!-- Calendar icon -->
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <rect x="2" y="3.5" width="14" height="12" rx="2" stroke="#fff" stroke-width="1.6" fill="none"/>
+          <line x1="2" y1="7" x2="16" y2="7" stroke="#fff" stroke-width="1.4"/>
+          <line x1="6" y1="2" x2="6" y2="5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+          <line x1="12" y1="2" x2="12" y2="5" stroke="#fff" stroke-width="1.6" stroke-linecap="round"/>
+          <circle cx="6.5" cy="10.5" r="1.1" fill="#fff" opacity=".9"/>
+          <circle cx="9" cy="10.5" r="1.1" fill="#fff" opacity=".9"/>
+          <circle cx="11.5" cy="10.5" r="1.1" fill="#fff" opacity=".9"/>
+        </svg>
+      </div>
+      <div>
+        <b>Calendar</b>
+        <div class="sub">Jun 16 - Jun 22, 2025</div>
+      </div>
+      <div class="hd-right"><span class="badge">Week view</span></div>
+    </div>
+
+    <!-- Week grid -->
+    <div class="week-wrap">
+
+      <!-- Day header row -->
+      <div class="day-header">
+        <div class="dh-corner"></div>
+        <div class="dh-cell"><div class="dow">Mon</div><div class="dnum">16</div></div>
+        <div class="dh-cell"><div class="dow">Tue</div><div class="dnum">17</div></div>
+        <div class="dh-cell today"><div class="dow">Wed</div><div class="dnum">18</div></div>
+        <div class="dh-cell"><div class="dow">Thu</div><div class="dnum">19</div></div>
+        <div class="dh-cell"><div class="dow">Fri</div><div class="dnum">20</div></div>
+        <div class="dh-cell"><div class="dow">Sat</div><div class="dnum">21</div></div>
+        <div class="dh-cell"><div class="dow">Sun</div><div class="dnum">22</div></div>
+      </div>
+
+      <!-- Time grid: 5 rows (9a-2p) -->
+      <div class="time-grid">
+
+        <!-- Hour labels -->
+        <div class="hour-col">
+          <div class="hour-slot">9a</div>
+          <div class="hour-slot">10a</div>
+          <div class="hour-slot">11a</div>
+          <div class="hour-slot">12p</div>
+          <div class="hour-slot">1p</div>
+        </div>
+
+        <!-- Mon -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- Lab meeting 10-11a -->
+            <div class="ev ev-meeting e1" style="top:52px;height:50px">
+              Lab meeting
+              <div class="ev-time">10a - 11a</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tue -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- qPCR run 9-10:30a -->
+            <div class="ev ev-run e2" style="top:2px;height:76px">
+              qPCR run
+              <div class="ev-time">9a - 10:30a</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Wed (today) -->
+        <div class="day-col today-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- Seminar 11a-12p -->
+            <div class="ev ev-seminar e3" style="top:104px;height:50px">
+              Seminar
+              <div class="ev-time">11a - 12p</div>
+            </div>
+            <!-- Current-time line at ~10:20a (68% of 9-10 slot = 52 + 35 = 87px from top) -->
+            <div class="now-line" style="top:87px">
+              <div class="now-dot"></div>
+              <div class="now-line-bar"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Thu -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- Sequencing review 1-2p -->
+            <div class="ev ev-deadline e4" style="top:208px;height:50px">
+              Data review
+              <div class="ev-time">1p - 2p</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Fri -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- Offsite 9-11a -->
+            <div class="ev ev-offsite e5" style="top:2px;height:102px">
+              Conference
+              <div class="ev-time">9a - 11a</div>
+            </div>
+            <!-- Manuscript check 12p -->
+            <div class="ev ev-conf e6" style="top:156px;height:50px">
+              Writing sprint
+              <div class="ev-time">12p - 1p</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sat -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+          </div>
+        </div>
+
+        <!-- Sun -->
+        <div class="day-col">
+          <div class="day-col-inner">
+            <div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div><div class="grid-line"></div>
+            <!-- Sunday prep -->
+            <div class="ev ev-run e7" style="top:52px;height:50px">
+              Prep samples
+              <div class="ev-time">10a - 11a</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div>
+</body>
+</html>

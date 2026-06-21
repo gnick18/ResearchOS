@@ -5,6 +5,7 @@ import {
   parseSidebarLinks,
   wikiPageToRawFilename,
   wikiPageToPath,
+  rewriteRelativeReadmeImages,
 } from "@/lib/social/lab-tool-ingest";
 
 // ---------------------------------------------------------------------------
@@ -195,5 +196,55 @@ describe("wikiPageToPath", () => {
     expect(result).toBe("wiki/faq-notes");
     expect(result.startsWith("wiki/")).toBe(true);
     expect(result).not.toContain(" ");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// rewriteRelativeReadmeImages
+// ---------------------------------------------------------------------------
+
+describe("rewriteRelativeReadmeImages", () => {
+  const base = "https://raw.githubusercontent.com/acme/starfish/HEAD/";
+
+  it("rewrites a relative markdown image to the raw absolute URL", () => {
+    const out = rewriteRelativeReadmeImages(
+      "![logo](assets/STARFISH_LOGO.png)",
+      "acme",
+      "starfish",
+      "HEAD",
+    );
+    expect(out).toBe(`![logo](${base}assets/STARFISH_LOGO.png)`);
+  });
+
+  it("strips a leading ./ and a repo-root-relative / before joining", () => {
+    expect(
+      rewriteRelativeReadmeImages("![a](./img/a.png)", "acme", "starfish", "HEAD"),
+    ).toBe(`![a](${base}img/a.png)`);
+    expect(
+      rewriteRelativeReadmeImages("![b](/img/b.png)", "acme", "starfish", "HEAD"),
+    ).toBe(`![b](${base}img/b.png)`);
+  });
+
+  it("leaves absolute http(s), protocol-relative, and data sources untouched", () => {
+    const md = [
+      "![shield](https://img.shields.io/badge/x.svg)",
+      "![http](http://example.com/i.png)",
+      "![proto](//cdn.example.com/i.png)",
+      "![data](data:image/png;base64,AAAA)",
+    ].join("\n");
+    expect(rewriteRelativeReadmeImages(md, "acme", "starfish", "HEAD")).toBe(md);
+  });
+
+  it("rewrites a relative HTML <img src> and leaves an absolute one alone", () => {
+    expect(
+      rewriteRelativeReadmeImages(
+        '<img src="assets/logo.png" alt="x">',
+        "acme",
+        "starfish",
+        "HEAD",
+      ),
+    ).toBe(`<img src="${base}assets/logo.png" alt="x">`);
+    const abs = '<img src="https://anaconda.org/badge.svg">';
+    expect(rewriteRelativeReadmeImages(abs, "acme", "starfish", "HEAD")).toBe(abs);
   });
 });

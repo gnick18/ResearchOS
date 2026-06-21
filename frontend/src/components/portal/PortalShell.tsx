@@ -40,6 +40,10 @@ export interface PortalShellProps {
   tagline: string;
   /** Override the gate heading. Defaults to "Sign in to your <title> portal". */
   gateHeading?: string;
+  /** Render the content area full width (no max-w-4xl clamp), for dashboard-style
+   *  pages like the lab-site builder that lay out their own multi-column width.
+   *  Defaults to false, so the standard narrow account/portal pages are unchanged. */
+  wide?: boolean;
   children: ReactNode;
 }
 
@@ -47,6 +51,7 @@ export default function PortalShell({
   title,
   tagline,
   gateHeading,
+  wide = false,
   children,
 }: PortalShellProps) {
   const [auth, setAuth] = useState<AuthState>("loading");
@@ -99,7 +104,13 @@ export default function PortalShell({
           ) : null}
         </header>
 
-        <main className="relative z-10 mx-auto w-full max-w-4xl flex-1 px-5 py-8">
+        <main
+          className={
+            wide
+              ? "relative z-10 w-full flex-1"
+              : "relative z-10 mx-auto w-full max-w-4xl flex-1 px-5 py-8"
+          }
+        >
           {auth === "loading" ? (
             <div className="flex items-center justify-center py-24 text-meta text-foreground-muted">
               Loading your portal&hellip;

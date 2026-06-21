@@ -29,8 +29,8 @@ import { useShowcaseUnlock } from "./showcase/useShowcaseUnlock";
 import StreakBadge from "./StreakBadge";
 import LabHeaderLogo from "@/components/lab/LabHeaderLogo";
 import PiContextBanner from "@/components/lab-head/PiContextBanner";
-import FolderSwitcher from "@/components/file-system/FolderSwitcher";
 import NetworkNavButton from "@/components/social/NetworkNavButton";
+import TopBarFolderChips from "@/components/file-system/TopBarFolderChips";
 import { MULTI_FOLDER_ENABLED } from "@/lib/file-system/multi-folder-config";
 import { installStreakActivityTracking } from "@/lib/streak/streak-activity-bootstrap";
 import { readStreak } from "@/lib/streak/streak-sidecar";
@@ -638,14 +638,16 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           // Permanent trailing controls, rendered inside the nav beside the More
           // menu and kept SEPARATE from the drag-customizable tab strip. The
           // Network button (self-gated by SOCIAL_LAYER_ENABLED) opens the public
-          // .com network; the folder pill (NEXT_PUBLIC_MULTI_FOLDER, always=true)
-          // keeps add-folder and switching one click away. Both are non-draggable
-          // destinations, not workspace tools.
+          // .com network; the folder control (NEXT_PUBLIC_MULTI_FOLDER) keeps
+          // add-folder and switching one click away. Both are non-draggable
+          // destinations, not workspace tools. The top-bar folder picker shows up
+          // to three pinned quick-switch chips inline and overflows into the
+          // existing FolderSwitcher dropdown for the rest and for management.
           trailing={
             <div className="flex items-center gap-1.5">
               <NetworkNavButton tinted={tinted} />
               {MULTI_FOLDER_ENABLED ? (
-                <FolderSwitcher variant="header" always tinted={tinted} />
+                <TopBarFolderChips tinted={tinted} />
               ) : null}
             </div>
           }

@@ -26,7 +26,9 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
+import { setHostedAssetBytes } from "@/lib/collab/server/db";
 import { normalizePagePath, type PageStatus } from "./lab-site";
+import { hostedAssetId } from "./lab-site-hosted";
 import {
   ensureSlugRegistrySchema,
   reserveSlug,
@@ -95,6 +97,15 @@ export interface LabSitePageRow {
    * R2 CLIENT-SIDE and sends this manifest, and this layer just stores it.
    */
   hostedJson: string | null;
+  /**
+   * The block-based page body (P1 companion builder), as the raw JSON text stored
+   * in the blocks_json column. When non-null, the page is a BLOCKS page and
+   * blocks_json is the canonical body. When null, the page is a MARKDOWN page and
+   * body_md is rendered. Pages are either one or the other; the write helpers
+   * enforce this by clearing the other column on each save. Callers parse via
+   * parseLabSiteBlocks (lab-site-blocks.ts).
+   */
+  blocksJson: string | null;
 }
 
 /**
@@ -168,6 +179,42 @@ export async function ensureLabSiteSchema(): Promise<void> {
     ALTER TABLE lab_sites
       ADD COLUMN IF NOT EXISTS badge_snapshot_json text
   `;
+  // P1 companion-builder: the block-based page representation. Pages are
+  // EITHER markdown (body_md) OR blocks (blocks_json); whichever column is
+  // non-null takes precedence in the renderer. Added as a nullable column via
+  // IF NOT EXISTS so the schema-ensure stays idempotent and a pre-P1
+  // deployment migrates forward in place (existing rows keep blocks_json = NULL
+  // = "markdown page", so the public render falls back to body_md per page).
+  // body_md is kept untouched for the life of the markdown authoring path.
+  await sql`
+    ALTER TABLE lab_site_pages
+      ADD COLUMN IF NOT EXISTS blocks_json text
+  `;
+  // Deploy-history (Phase 5a): every published version is snapshotted here so
+  // a citation can never 404 even after a re-publish. The live row in
+  // lab_site_pages is always the current version; this table is the append-only
+  // immutable log. The PRIMARY KEY (lab_owner_key, path, version) makes the
+  // INSERT idempotent (ON CONFLICT DO NOTHING) so a re-publish at the same
+  // version number does not error. The public render never reads this table;
+  // it continues to read the live lab_site_pages row.
+  await sql`
+    CREATE TABLE IF NOT EXISTS lab_site_page_versions (
+      lab_owner_key  text not null,
+      path           text not null,
+      version        integer not null,
+      title          text not null default '',
+      body_md        text not null default '',
+      blocks_json    text,
+      snapshots_json text,
+      hosted_json    text,
+      published_at   timestamptz not null default now(),
+      primary key (lab_owner_key, path, version)
+    )
+  `;
+  await sql`
+    CREATE INDEX IF NOT EXISTS idx_lab_site_page_versions_owner_path
+      ON lab_site_page_versions(lab_owner_key, path)
+  `;
 }
 
 function rowToSite(r: {
@@ -184,7 +231,7 @@ function rowToSite(r: {
   };
 }
 
-/** The raw shape of a lab_site_pages SELECT, including the Phase 3b column. */
+/** The raw shape of a lab_site_pages SELECT, including the Phase 3b+ columns. */
 interface RawPageRow {
   lab_owner_key: string;
   path: string;
@@ -195,6 +242,7 @@ interface RawPageRow {
   updated_at: string;
   snapshots_json?: string | null;
   hosted_json?: string | null;
+  blocks_json?: string | null;
 }
 
 function rowToPage(r: RawPageRow): LabSitePageRow {
@@ -208,6 +256,7 @@ function rowToPage(r: RawPageRow): LabSitePageRow {
     updatedAt: r.updated_at,
     snapshotsJson: r.snapshots_json ?? null,
     hostedJson: r.hosted_json ?? null,
+    blocksJson: r.blocks_json ?? null,
   };
 }
 
@@ -383,7 +432,7 @@ export async function getPage(
   const p = normalizePagePath(path);
   const sql = getSql();
   const rows = (await sql`
-    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
+    SELECT lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json, blocks_json
     FROM lab_site_pages
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
     LIMIT 1
@@ -502,6 +551,83 @@ export async function upsertPage(input: {
   return getPage(input.labOwnerKey, p);
 }
 
+// ---------------------------------------------------------------------------
+// Native-page storage metering (Part 1, per-site storage metering build)
+// ---------------------------------------------------------------------------
+
+/**
+ * The site_key for a native lab-site page path. Matches the definition in the
+ * storage-metering proposal:
+ *   - "home" for the home page (path === "")
+ *   - the page path for any other native page
+ * BYO pages use "byo" (set by the BYO route, not here).
+ *
+ * Exported for unit tests.
+ */
+export function siteKeyForPath(path: string): string {
+  const normalized = normalizePagePath(path);
+  return normalized === "" ? "home" : normalized;
+}
+
+/**
+ * The stable hosted-asset id for a native page's own content (not for embedded
+ * datasets, which use hostedAssetId with their specific hrefs). Uses a
+ * deterministic sentinel href "__native_page__" so re-publishing the same page
+ * always yields the same billing row (no per-publish leak). The id shape is
+ * identical to dataset asset ids and passes isValidAssetId.
+ *
+ * Exported for unit tests.
+ */
+export function pageNativeAssetId(
+  labOwnerKey: string,
+  pagePath: string,
+): string {
+  return hostedAssetId(labOwnerKey, pagePath, "__native_page__");
+}
+
+/**
+ * The byte size of the stored native-page representation. Bytes are the
+ * UTF-8 length of (blocks_json ?? body_md ?? "") plus (snapshots_json ?? "").
+ * This matches what is actually persisted in Neon and what the PI billing
+ * view will compare across pages.
+ *
+ * Exported for unit tests.
+ */
+export function nativePageBytes(
+  blocksJson: string | null,
+  bodyMd: string,
+  snapshotsJson: string | null,
+): number {
+  const body = blocksJson ?? bodyMd ?? "";
+  const snapshots = snapshotsJson ?? "";
+  return Buffer.byteLength(body, "utf8") + Buffer.byteLength(snapshots, "utf8");
+}
+
+/**
+ * Reports a native page's byte size to the hosted-asset billing table. Called
+ * from publishPage after the DB write succeeds. Failures are swallowed (a
+ * billing-report failure must never roll back or fail a publish). The metered
+ * bytes equal nativePageBytes(blocksJson, bodyMd, snapshotsJson). The
+ * site_key is siteKeyForPath(pagePath).
+ */
+async function meterNativePage(
+  labOwnerKey: string,
+  pagePath: string,
+  blocksJson: string | null,
+  bodyMd: string,
+  snapshotsJson: string | null,
+): Promise<void> {
+  try {
+    const assetId = pageNativeAssetId(labOwnerKey, pagePath);
+    const bytes = nativePageBytes(blocksJson, bodyMd, snapshotsJson);
+    const siteKey = siteKeyForPath(pagePath);
+    await setHostedAssetBytes(assetId, labOwnerKey, bytes, siteKey);
+  } catch {
+    // A billing-report failure must not fail or roll back the publish.
+    // The reconcile path can re-meter later.
+  }
+}
+
 /**
  * Publishes a page: flips status to published, increments version, and stores the
  * frozen baked-block snapshots (Phase 3b). Returns the updated row, or null if
@@ -539,9 +665,130 @@ export async function publishPage(
         hosted_json = ${hostedJson},
         updated_at = now()
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
-    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json
+    RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json, blocks_json
   `) as RawPageRow[];
-  return rows[0] ? rowToPage(rows[0]) : null;
+  if (!rows[0]) return null;
+  const page = rowToPage(rows[0]);
+  // Part 1, per-site storage metering: register the published page's bytes to
+  // the billing table. Fire-and-forget (meterNativePage swallows failures so
+  // a DB blip cannot fail the publish or roll back the row). The metered bytes
+  // are the UTF-8 length of the stored page representation (blocks_json or
+  // body_md, plus snapshots_json when present). site_key = siteKeyForPath(path).
+  void meterNativePage(
+    labOwnerKey,
+    p,
+    rows[0].blocks_json ?? null,
+    rows[0].body_md ?? "",
+    snapshotsJson,
+  );
+
+  // Snapshot this version into deploy history. Fire-and-forget: a failure here
+  // is logged and swallowed so the live publish is never blocked. ON CONFLICT
+  // DO NOTHING keeps it idempotent if a retry publishes the same version number.
+  // This is the hook point for the deploy-history table (lab_site_page_versions).
+  // file: lab-site-db.ts, function: publishPage, after meterNativePage call.
+  try {
+    await sql`
+      INSERT INTO lab_site_page_versions
+        (lab_owner_key, path, version, title, body_md, blocks_json, snapshots_json, hosted_json, published_at)
+      VALUES
+        (${labOwnerKey}, ${p}, ${page.version}, ${page.title}, ${page.bodyMd},
+         ${page.blocksJson}, ${page.snapshotsJson}, ${page.hostedJson}, now())
+      ON CONFLICT (lab_owner_key, path, version) DO NOTHING
+    `;
+  } catch (err) {
+    console.warn(
+      "[lab-site-db] history snapshot failed (publish succeeded, history skipped):",
+      err,
+    );
+  }
+
+  // Network feed event for the publish. Fire-and-forget + flag-guarded so it
+  // never blocks or breaks publishing and stays fully inert until NETWORK_FEED is
+  // on. targetSlug (looked up here, since publishPage is keyed by owner+path) lets
+  // the feed card deep-link to the published site. One event per published
+  // version (the id carries page.version) so a re-publish does not spam the feed.
+  if (
+    process.env.NETWORK_FEED_ENABLED === "true" ||
+    process.env.NETWORK_FEED_ENABLED === "1"
+  ) {
+    void (async () => {
+      const site = await getSiteByOwner(labOwnerKey).catch(() => null);
+      const { emitFeedEvent } = await import("@/lib/social/network-feed-db");
+      await emitFeedEvent({
+        actorOwnerKey: labOwnerKey,
+        kind: "site_published",
+        subjectType: "page",
+        subjectId: p,
+        subjectLabel: page.title,
+        targetSlug: site?.labSlug,
+        id: `${labOwnerKey}:site_published:${p}:${page.version}`,
+      });
+    })();
+  }
+
+  return page;
+}
+
+// ---------------------------------------------------------------------------
+// blocks_json helpers (P1 companion builder)
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetches the raw blocks_json text for a page, or null when none is stored.
+ * A null return means the page is a markdown page (body_md is the canonical
+ * body). Callers parse the text via parseLabSiteBlocks in lab-site-blocks.ts.
+ */
+export async function getPageBlocksJson(
+  labOwnerKey: string,
+  path: string,
+): Promise<string | null> {
+  if (!labOwnerKey) return null;
+  const p = normalizePagePath(path);
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT blocks_json
+    FROM lab_site_pages
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+    LIMIT 1
+  `) as Array<{ blocks_json?: string | null }>;
+  return rows[0]?.blocks_json ?? null;
+}
+
+/**
+ * Writes (or clears) the blocks_json for a page. When blocksJson is non-null,
+ * the page becomes a BLOCKS page: body_md is set to '' and status resets to
+ * draft so the old markdown body never resurfaces on the public page. When
+ * blocksJson is null, the column is cleared (reverting to a markdown page is
+ * handled by upsertPage, not here). The page must already exist via upsertPage
+ * (or a prior setPageBlocksJson call with a non-null value that created the
+ * row). Returns true when the row was found and updated.
+ *
+ * NOTE: this does NOT create the row if absent. The P2 editor must first call
+ * upsertPage (markdown path) or a future P2 upsertBlocksPage helper to ensure
+ * the row exists before calling this.
+ */
+export async function setPageBlocksJson(
+  labOwnerKey: string,
+  path: string,
+  blocksJson: string | null,
+): Promise<boolean> {
+  if (!labOwnerKey) return false;
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+  const rows = (await sql`
+    UPDATE lab_site_pages
+    SET blocks_json = ${blocksJson},
+        body_md = CASE WHEN ${blocksJson} IS NOT NULL THEN '' ELSE body_md END,
+        status = 'draft',
+        snapshots_json = NULL,
+        hosted_json = NULL,
+        updated_at = now()
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+    RETURNING lab_owner_key
+  `) as Array<{ lab_owner_key: string }>;
+  return rows.length > 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -627,4 +874,165 @@ export async function rebindLabSlug(args: {
   `;
 
   return { ok: true };
+}
+
+// ---------------------------------------------------------------------------
+// Deploy-history reads + restore (Phase 5a)
+// ---------------------------------------------------------------------------
+
+/** A slim version-list entry for the dashboard history panel. */
+export interface PageVersionEntry {
+  version: number;
+  title: string;
+  publishedAt: string;
+  /** True when this version equals the current live row's version. */
+  isLive: boolean;
+}
+
+/** The full stored representation of a historical version, used for restore. */
+export interface PageVersionFull {
+  version: number;
+  title: string;
+  bodyMd: string;
+  blocksJson: string | null;
+  snapshotsJson: string | null;
+  hostedJson: string | null;
+  publishedAt: string;
+}
+
+/**
+ * Lists all stored versions of a page, newest first.
+ *
+ * Each entry carries the version number, title, published_at timestamp, and an
+ * isLive flag that marks the version matching the current live row's version
+ * (so the UI can show a "Live" badge on the current deploy). Returns an empty
+ * array when no history exists yet (the table was just created, or the page was
+ * never published since deploy-history shipped).
+ *
+ * Reads lab_site_pages for the live version number (one extra SELECT) so the
+ * isLive calculation is always consistent with the live row, not a stale
+ * client value.
+ */
+export async function listPageVersions(
+  labOwnerKey: string,
+  path: string,
+): Promise<PageVersionEntry[]> {
+  if (!labOwnerKey) return [];
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+
+  // Fetch the current live version number in parallel with the history rows.
+  const [liveRows, historyRows] = await Promise.all([
+    (sql`
+      SELECT version FROM lab_site_pages
+      WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+      LIMIT 1
+    ` as unknown) as Promise<Array<{ version: string | number }>>,
+    (sql`
+      SELECT version, title, published_at
+      FROM lab_site_page_versions
+      WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+      ORDER BY version DESC
+    ` as unknown) as Promise<Array<{ version: string | number; title: string; published_at: string }>>,
+  ]);
+
+  const liveVersion = liveRows[0] ? Number(liveRows[0].version) : -1;
+  return (historyRows).map((r) => ({
+    version: Number(r.version),
+    title: r.title,
+    publishedAt: r.published_at,
+    isLive: Number(r.version) === liveVersion,
+  }));
+}
+
+/**
+ * Returns the full stored content of a specific historical version for
+ * preview or restore. Returns null when the (labOwnerKey, path, version)
+ * tuple has no history row (version never published, or history not yet
+ * accumulated for that page).
+ */
+export async function getPageVersion(
+  labOwnerKey: string,
+  path: string,
+  version: number,
+): Promise<PageVersionFull | null> {
+  if (!labOwnerKey) return null;
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+  const rows = (await sql`
+    SELECT version, title, body_md, blocks_json, snapshots_json, hosted_json, published_at
+    FROM lab_site_page_versions
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p} AND version = ${version}
+    LIMIT 1
+  `) as Array<{
+    version: string | number;
+    title: string;
+    body_md: string;
+    blocks_json?: string | null;
+    snapshots_json?: string | null;
+    hosted_json?: string | null;
+    published_at: string;
+  }>;
+  if (!rows[0]) return null;
+  return {
+    version: Number(rows[0].version),
+    title: rows[0].title,
+    bodyMd: rows[0].body_md,
+    blocksJson: rows[0].blocks_json ?? null,
+    snapshotsJson: rows[0].snapshots_json ?? null,
+    hostedJson: rows[0].hosted_json ?? null,
+    publishedAt: rows[0].published_at,
+  };
+}
+
+/**
+ * Restores a historical version by copying its content back into the live
+ * lab_site_pages row and then publishing it as a NEW version. The restored-from
+ * version stays in history unchanged (the operation is never destructive). The
+ * new publish is itself snapshotted into lab_site_page_versions via the normal
+ * publishPage path so the restore appears at the top of the history list.
+ *
+ * Returns the new live row after the restore publish, or null when the
+ * requested version does not exist.
+ */
+export async function restorePageVersion(
+  labOwnerKey: string,
+  path: string,
+  version: number,
+): Promise<LabSitePageRow | null> {
+  const historical = await getPageVersion(labOwnerKey, path, version);
+  if (!historical) return null;
+
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+
+  // Overwrite the live row's content and reset status to draft so the next
+  // publish (below) increments the version correctly. We also clear any stale
+  // snapshots / hosted manifest because the restored content may differ.
+  await sql`
+    UPDATE lab_site_pages
+    SET title          = ${historical.title},
+        body_md        = ${historical.bodyMd},
+        blocks_json    = ${historical.blocksJson},
+        snapshots_json = NULL,
+        hosted_json    = NULL,
+        status         = 'draft',
+        updated_at     = now()
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+  `;
+
+  // Publish as a new version. This reuses all of publishPage's semantics:
+  // it bumps the version counter, writes the live row back to 'published',
+  // and inserts a new history snapshot so the restore appears at the top of
+  // the history list. Pass the historical snapshots/hosted so the page is
+  // immediately live (not just a draft).
+  return publishPage(
+    labOwnerKey,
+    p,
+    historical.snapshotsJson,
+    historical.hostedJson,
+  );
 }

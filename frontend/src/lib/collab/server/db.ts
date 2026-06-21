@@ -237,25 +237,61 @@ export async function ensureHostedAssetsSchema(): Promise<void> {
     CREATE INDEX IF NOT EXISTS idx_lab_hosted_assets_owner
       ON lab_hosted_assets (lab_owner_key)
   `;
+  // Part 1, per-site storage metering: nullable site_key column tags each asset
+  // to the site (and page path) that owns it. Added idempotently so a re-deploy
+  // never fails and existing rows stay NULL (billed to the lab total with no
+  // change). A NULL site_key reads as "Other / legacy" in the PI storage UI.
+  await sql`
+    ALTER TABLE lab_hosted_assets
+      ADD COLUMN IF NOT EXISTS site_key TEXT
+  `;
 }
 
-/** Upsert one published asset's byte size. The social lane calls this on publish
- *  and whenever the hosted dataset changes. */
+/**
+ * Upsert one published asset's byte size. The social lane calls this on publish
+ * and whenever the hosted dataset changes.
+ *
+ * `siteKey` is an OPTIONAL per-site tag (Part 1, storage metering). When
+ * provided it is written on INSERT and updated on conflict, enabling
+ * getLabHostedBytesBySite to group by site. When omitted the site_key column
+ * is left as-is via COALESCE (an existing value is preserved, a new row gets
+ * NULL), so existing callers that do not pass siteKey see byte-identical
+ * behavior and never clobber a previously set site tag.
+ */
 export async function setHostedAssetBytes(
   assetId: string,
   labOwnerKey: string,
   bytes: number,
+  siteKey?: string,
 ): Promise<void> {
   const sql = getSql();
   await ensureHostedAssetsSchema();
-  await sql`
-    INSERT INTO lab_hosted_assets (asset_id, lab_owner_key, bytes, updated_at)
-    VALUES (${assetId}, ${labOwnerKey}, ${Math.max(0, Math.round(bytes))}, now())
-    ON CONFLICT (asset_id) DO UPDATE SET
-      lab_owner_key = EXCLUDED.lab_owner_key,
-      bytes         = EXCLUDED.bytes,
-      updated_at    = now()
-  `;
+  const safeBytes = Math.max(0, Math.round(bytes));
+  if (siteKey !== undefined) {
+    // siteKey provided: write it on INSERT, update it on conflict so a re-publish
+    // on a different page path (rare) also updates the tag.
+    await sql`
+      INSERT INTO lab_hosted_assets (asset_id, lab_owner_key, bytes, site_key, updated_at)
+      VALUES (${assetId}, ${labOwnerKey}, ${safeBytes}, ${siteKey}, now())
+      ON CONFLICT (asset_id) DO UPDATE SET
+        lab_owner_key = EXCLUDED.lab_owner_key,
+        bytes         = EXCLUDED.bytes,
+        site_key      = EXCLUDED.site_key,
+        updated_at    = now()
+    `;
+  } else {
+    // siteKey not provided: preserve any existing site_key via COALESCE so
+    // legacy callers never clobber a tag set by a metering-aware caller.
+    await sql`
+      INSERT INTO lab_hosted_assets (asset_id, lab_owner_key, bytes, updated_at)
+      VALUES (${assetId}, ${labOwnerKey}, ${safeBytes}, now())
+      ON CONFLICT (asset_id) DO UPDATE SET
+        lab_owner_key = EXCLUDED.lab_owner_key,
+        bytes         = EXCLUDED.bytes,
+        site_key      = COALESCE(lab_hosted_assets.site_key, EXCLUDED.site_key),
+        updated_at    = now()
+    `;
+  }
 }
 
 /** Drop an asset's row (the social lane calls this on delete or after GC). */
@@ -275,6 +311,31 @@ export async function getLabHostedBytes(labOwnerKey: string): Promise<number> {
     WHERE lab_owner_key = ${labOwnerKey}
   `) as Array<{ b: string | number }>;
   return Number(rows[0]?.b ?? 0);
+}
+
+/**
+ * Per-site hosted-asset byte totals for a lab, grouped by site_key. Returns
+ * one row per distinct site_key value, including NULL (legacy / untagged
+ * assets). The sum of all returned `bytes` values equals the value returned
+ * by `getLabHostedBytes` for the same labOwnerKey.
+ *
+ * Used by the PI storage UI (Part 2) to show a per-site breakdown in dollars.
+ * The dollar cost of each row is `hostedAssetMonthlyCost(row.bytes)` (in
+ * pricing/service-model.ts); this function only returns raw bytes.
+ */
+export async function getLabHostedBytesBySite(
+  labOwnerKey: string,
+): Promise<Array<{ siteKey: string | null; bytes: number }>> {
+  const sql = getSql();
+  await ensureHostedAssetsSchema();
+  const rows = (await sql`
+    SELECT site_key, COALESCE(SUM(bytes), 0) AS b
+    FROM lab_hosted_assets
+    WHERE lab_owner_key = ${labOwnerKey}
+    GROUP BY site_key
+    ORDER BY site_key NULLS LAST
+  `) as Array<{ site_key: string | null; b: string | number }>;
+  return rows.map((r) => ({ siteKey: r.site_key ?? null, bytes: Number(r.b) }));
 }
 
 /** Mark an asset permanently archived. The prepaid permanent-archive purchase

@@ -16,7 +16,8 @@
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons.
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 
 import { LAB_SITES_COM_ORIGIN_ENABLED } from "@/lib/social/config";
 import FileDropzone from "@/components/ui/FileDropzone";
@@ -27,8 +28,8 @@ import PortalShell from "@/components/portal/PortalShell";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import ReferencePicker from "@/components/references/ReferencePicker";
-import { isBlockEmbedMarkdown } from "@/lib/references";
-import { bakeAllEmbeds } from "@/lib/export/bake-embeds";
+import { isBlockEmbedMarkdown, parseObjectEmbed } from "@/lib/references";
+import { bakeAllEmbeds, bakeOne, type BakedEmbed } from "@/lib/export/bake-embeds";
 import { bundleFromBakedMap, serializeSnapshotBundle } from "@/lib/social/lab-site-snapshots";
 import { LAB_BYO_SITES_ENABLED } from "@/lib/social/config";
 import DemoSampleLabRibbon from "@/components/social/DemoSampleLabRibbon";
@@ -40,9 +41,250 @@ import {
   buildBadgeSnapshot,
   serializeBadgeSnapshot,
 } from "@/lib/badges/snapshot";
+import {
+  DeployHistory,
+  PublishDeployPanel,
+  StatusPill,
+  usePublishFlow,
+  type DeployHistoryEntry,
+} from "@/components/social/PublishDeployProgress";
+import LabSiteCanvasEditor from "@/components/social/LabSiteCanvasEditor";
+import LabSiteHomepageEditor from "@/components/social/LabSiteHomepageEditor";
+import LabSiteUsagePanel from "@/components/social/LabSiteUsagePanel";
+import LabSiteShell from "@/components/social/LabSiteShell";
+import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
+import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
+
+// ---------------------------------------------------------------------------
+// SiteEditorsPanel: "Who can edit this site" (lab owner only)
+// ---------------------------------------------------------------------------
+
+interface EditorEntry {
+  memberKey: string;
+  label: string | null;
+  grantedAt: string;
+}
+
+interface MemberEntry {
+  memberKey: string;
+  label: string | null;
+}
+
+/**
+ * Panel visible ONLY to the lab owner. Lists members who have been granted
+ * editor access to this site, with a revoke control per member, and an "Add
+ * editor" picker showing the lab's active billing members.
+ *
+ * Fetches GET /api/social/lab-site/editors?path= on mount. The owner key is
+ * never passed from the client (the server derives it from the session). All
+ * write actions (POST grant, DELETE revoke) are owner-only server-side.
+ */
+function SiteEditorsPanel({ slug }: { slug: string }) {
+  const [editors, setEditors] = useState<EditorEntry[]>([]);
+  const [members, setMembers] = useState<MemberEntry[]>([]);
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  // The path for a whole-site grant is always "".
+  const SITE_PATH = "";
+
+  const load = useCallback(async () => {
+    try {
+      const res = await fetch(
+        `/api/social/lab-site/editors?path=${encodeURIComponent(SITE_PATH)}`,
+      );
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        editors: EditorEntry[];
+        members: MemberEntry[];
+      };
+      setEditors(Array.isArray(data.editors) ? data.editors : []);
+      setMembers(Array.isArray(data.members) ? data.members : []);
+    } catch {
+      // Non-fatal: panel renders empty on error.
+    }
+  }, []);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const grant = useCallback(
+    async (memberKey: string) => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/social/lab-site/editors", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path: SITE_PATH, memberKey }),
+        });
+        if (!res.ok) {
+          setMsg("Could not grant access right now.");
+          return;
+        }
+        setPickerOpen(false);
+        await load();
+      } catch {
+        setMsg("Could not grant access right now.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load],
+  );
+
+  const revoke = useCallback(
+    async (memberKey: string) => {
+      setBusy(true);
+      setMsg(null);
+      try {
+        const res = await fetch("/api/social/lab-site/editors", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ path: SITE_PATH, memberKey }),
+        });
+        if (!res.ok) {
+          setMsg("Could not revoke access right now.");
+          return;
+        }
+        await load();
+      } catch {
+        setMsg("Could not revoke access right now.");
+      } finally {
+        setBusy(false);
+      }
+    },
+    [load],
+  );
+
+  // Members not already granted (the picker should not show existing editors).
+  const editorKeys = useMemo(() => new Set(editors.map((e) => e.memberKey)), [editors]);
+  const availableMembers = useMemo(
+    () => members.filter((m) => !editorKeys.has(m.memberKey)),
+    [members, editorKeys],
+  );
+
+  // Display label: use the stored email label when available, otherwise shorten
+  // the owner key for readability.
+  function memberLabel(entry: { memberKey: string; label: string | null }): string {
+    if (entry.label) return entry.label;
+    return entry.memberKey.length > 16
+      ? `${entry.memberKey.slice(0, 8)}…`
+      : entry.memberKey;
+  }
+
+  return (
+    <section className="mb-6 rounded-xl border border-border bg-surface-raised p-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Icon name="users" className="h-4 w-4 text-muted-foreground" />
+          <h2 className="text-sm font-medium text-foreground">
+            Who can edit this site
+          </h2>
+        </div>
+        <Tooltip label="Grant a lab member full create, edit, and publish access to this site">
+          <button
+            type="button"
+            disabled={busy || availableMembers.length === 0}
+            onClick={() => setPickerOpen((v) => !v)}
+            className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs disabled:opacity-50"
+          >
+            <Icon name="plus" className="h-3.5 w-3.5" /> Add editor
+          </button>
+        </Tooltip>
+      </div>
+
+      <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+        Granted members can create, edit, and publish pages on{" "}
+        <span className="font-medium">{slug}.research-os.com</span> without
+        needing lab-wide Lab Manager access. Only you can add or remove editors.
+      </p>
+
+      {editors.length === 0 ? (
+        <p className="text-xs text-muted-foreground">
+          No editors yet. Add a lab member to let them manage this site.
+        </p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border">
+          {editors.map((e) => (
+            <li
+              key={e.memberKey}
+              className="flex items-center justify-between px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm text-foreground">{memberLabel(e)}</p>
+                <p className="text-[11px] text-muted-foreground">
+                  Granted{" "}
+                  {new Date(e.grantedAt).toLocaleDateString(undefined, {
+                    month: "short",
+                    day: "numeric",
+                    year: "numeric",
+                  })}
+                </p>
+              </div>
+              <Tooltip label="Remove this editor's access to the site">
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void revoke(e.memberKey)}
+                  className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                >
+                  <Icon name="trash" className="h-3.5 w-3.5" /> Revoke
+                </button>
+              </Tooltip>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {pickerOpen && availableMembers.length > 0 && (
+        <div className="mt-3 rounded-lg border border-border bg-surface-sunken p-3">
+          <p className="mb-2 text-xs text-muted-foreground">
+            Select a lab member to grant editor access:
+          </p>
+          <ul className="divide-y divide-border rounded-lg border border-border bg-background">
+            {availableMembers.map((m) => (
+              <li key={m.memberKey}>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void grant(m.memberKey)}
+                  className="w-full px-3 py-2 text-left text-sm text-foreground hover:bg-surface-raised disabled:opacity-50"
+                >
+                  {memberLabel(m)}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => setPickerOpen(false)}
+            className="mt-2 text-xs text-muted-foreground underline"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+
+      {members.length === 0 && (
+        <p className="mt-3 text-xs text-muted-foreground">
+          No active lab members to add. Invite members from Lab settings first.
+        </p>
+      )}
+
+      {msg && (
+        <p className="mt-2 text-xs text-destructive" role="alert">
+          {msg}
+        </p>
+      )}
+    </section>
+  );
+}
 
 /**
  * Lab badges card (badges phase 2). Lets the lab head choose which earned
@@ -151,6 +393,17 @@ interface PageSummary {
   status: "draft" | "published";
   version: number;
   updatedAt: string;
+  /** True when the page uses the blocks canvas model (blocks_json is non-null). */
+  hasBlocks?: boolean;
+  /**
+   * True when the page is the home page ("" path) and its blocks_json contains
+   * section blocks (section-hero, section-about, etc.). The homepage structured
+   * editor is used for this page instead of the canvas editor.
+   *
+   * The server does not need to set this field; the client derives it from
+   * hasBlocks + path being "".  It is included here for clarity.
+   */
+  hasSections?: boolean;
 }
 
 type LoadState = "loading" | "ready" | "denied" | "error";
@@ -714,8 +967,106 @@ function SlugRenameSection({
   );
 }
 
+// ---------------------------------------------------------------------------
+// GrantedSitesSection: "Sites you can edit" (visible to granted editors only)
+// ---------------------------------------------------------------------------
+
+interface GrantedSiteEntry {
+  labOwnerKey: string;
+  path: string;
+  labSlug: string;
+}
+
+/**
+ * Fetches GET /api/social/lab-site/editable on mount and renders a list of
+ * companion sites the signed-in member has been granted editor access to.
+ * Each entry links to the dashboard pre-scoped to that site (sets the
+ * siteOwnerKey URL param so the dashboard loads the PI's site, not the
+ * caller's own). Renders nothing when the caller has no grants.
+ *
+ * Security: the server derives the caller from the session and only returns
+ * sites they are genuinely granted. No owner key is passed from the client.
+ *
+ * @param currentSiteOwnerKey  When the dashboard is already scoped to a
+ *   granted site, pass that owner key so the section can highlight it.
+ */
+function GrantedSitesSection({
+  currentSiteOwnerKey,
+}: {
+  currentSiteOwnerKey?: string;
+}) {
+  const [sites, setSites] = useState<GrantedSiteEntry[]>([]);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/social/lab-site/editable");
+        if (!res.ok) return;
+        const data = (await res.json()) as { sites: GrantedSiteEntry[] };
+        setSites(Array.isArray(data.sites) ? data.sites : []);
+      } catch {
+        // Non-fatal: if the request fails the section simply stays hidden.
+      }
+    })();
+  }, []);
+
+  if (sites.length === 0) return null;
+
+  return (
+    <section className="mb-6 rounded-xl border border-border bg-surface-raised p-5">
+      <div className="mb-3 flex items-center gap-2">
+        <Icon name="users" className="h-4 w-4 text-muted-foreground" />
+        <h2 className="text-sm font-medium text-foreground">
+          Sites you can edit
+        </h2>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground leading-relaxed">
+        Lab owners have granted you editor access to these companion sites. You
+        can create, edit, and publish pages on each one.
+      </p>
+      <ul className="divide-y divide-border rounded-lg border border-border">
+        {sites.map((s) => {
+          const isActive = currentSiteOwnerKey === s.labOwnerKey;
+          return (
+            <li
+              key={`${s.labOwnerKey}-${s.path}`}
+              className="flex items-center justify-between px-3 py-2"
+            >
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {s.labSlug}.research-os.com
+                </p>
+                {isActive && (
+                  <p className="text-[11px] text-brand-600 dark:text-brand-400">
+                    Currently editing
+                  </p>
+                )}
+              </div>
+              {isActive ? (
+                <span className="shrink-0 rounded-lg border border-border px-2.5 py-1 text-xs text-muted-foreground">
+                  Open
+                </span>
+              ) : (
+                <Tooltip label={`Open the builder for ${s.labSlug}.research-os.com`}>
+                  <Link
+                    href={`/account/lab-site?siteOwnerKey=${encodeURIComponent(s.labOwnerKey)}`}
+                    className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs"
+                  >
+                    <Icon name="pencil" className="h-3.5 w-3.5" /> Edit
+                  </Link>
+                </Tooltip>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
 export default function LabSiteDashboard({
   demoReadOnly = false,
+  siteOwnerKey: siteOwnerKeyProp,
 }: {
   /**
    * Read-only demo walkthrough (demo-lab-network Phase 2). When true the dashboard
@@ -726,6 +1077,18 @@ export default function LabSiteDashboard({
    * `?demo=fakeyeast-lab` turns it on), so it can never affect a real lab.
    */
   demoReadOnly?: boolean;
+  /**
+   * When a granted editor opens a PI's site, the route passes the site owner key
+   * here (resolved from the ?siteOwnerKey= URL param). The dashboard then loads
+   * THAT lab's site and pages instead of the caller's own, and threads the owner
+   * key through every save and publish request so the write routes apply their
+   * isSiteEditor check server-side.
+   *
+   * When undefined the dashboard behaves exactly as before (loads the caller's own
+   * site, no siteOwnerKey in any request body). The PI's own dashboard never
+   * receives this prop.
+   */
+  siteOwnerKey?: string;
 }) {
   const [load, setLoad] = useState<LoadState>("loading");
   const [site, setSite] = useState<SiteSummary | null>(null);
@@ -752,9 +1115,43 @@ export default function LabSiteDashboard({
   const [pickerOpen, setPickerOpen] = useState(false);
   const bodyRef = useRef<HTMLTextAreaElement>(null);
 
+  // Canvas / blocks editor state. When editorIsBlocks is true the page uses
+  // blocks_json; when false it uses body_md. editorBlocksJson is the live
+  // serialized block array from the canvas (updated on every change via
+  // LabSiteCanvasEditor.onChange) so the publish flow can bake its embeds.
+  const [editorIsBlocks, setEditorIsBlocks] = useState(false);
+  const [editorBlocksJson, setEditorBlocksJson] = useState<string | null>(null);
+  // Initial blocks_json fetched when a blocks page is opened (null = empty new page).
+  const [editorInitialBlocksJson, setEditorInitialBlocksJson] = useState<string | null>(null);
+
+  // Homepage structured-section editor state (P3). When editorIsSection is true
+  // the home page ("" path) uses the LabSiteHomepageEditor instead of the canvas
+  // or the markdown textarea. It shares editorBlocksJson + editorInitialBlocksJson
+  // (the same blocks_json column) and the same publish flow as the canvas editor.
+  // editorIsSection implies editorIsBlocks (the section editor writes blocks_json).
+  const [editorIsSection, setEditorIsSection] = useState(false);
+
+  // Pre-minted ?roEdit= token for the "View public site" link (token-handoff lane).
+  // The server mints it in the GET response (server-side node:crypto). When present
+  // the "View public site" link appends it so the .com public page can show the
+  // prominent "Edit this site" bridge bar to the verified owner/editor.
+  // Null when AUTH_SECRET is absent (token feature disabled, bridge degrades to
+  // the static "Manage this site" hint). Token TTL = 10 min. After 10 min of
+  // inactivity the owner would get the static hint, which is acceptable.
+  const [editToken, setEditToken] = useState<string | null>(null);
+  // True when the caller IS this site's owner. A siteOwnerKey in the URL equal to
+  // the caller's own key resolves to owner mode server-side, so this guards the
+  // granted-editor banner from showing on the owner's OWN site.
+  const [isOwner, setIsOwner] = useState(false);
+
   const refresh = useCallback(async () => {
     try {
-      const res = await fetch("/api/social/lab-site", { method: "GET" });
+      // When the dashboard is scoped to a granted site, add the siteOwnerKey query
+      // param so the server loads that PI's pages (the server re-checks isSiteEditor).
+      const url = siteOwnerKeyProp
+        ? `/api/social/lab-site?siteOwnerKey=${encodeURIComponent(siteOwnerKeyProp)}`
+        : "/api/social/lab-site";
+      const res = await fetch(url, { method: "GET" });
       if (res.status === 401 || res.status === 403 || res.status === 404) {
         setLoad("denied");
         return;
@@ -766,14 +1163,19 @@ export default function LabSiteDashboard({
       const data = (await res.json()) as {
         site: SiteSummary | null;
         pages: PageSummary[];
+        ownerKey?: string;
+        editToken?: string | null;
+        isOwner?: boolean;
       };
       setSite(data.site);
       setPages(Array.isArray(data.pages) ? data.pages : []);
+      setEditToken(data.editToken ?? null);
+      setIsOwner(data.isOwner === true);
       setLoad("ready");
     } catch {
       setLoad("error");
     }
-  }, []);
+  }, [siteOwnerKeyProp]);
 
   // Demo walkthrough hydration: load the seeded site + pages from the pure DEMO
   // content WITHOUT any network call, so the wizard tour never reads or writes the
@@ -843,33 +1245,75 @@ export default function LabSiteDashboard({
   }, [slugInput, refresh, demoReadOnly, confirmPermanent]);
 
   const openEditor = useCallback(
-    (page: PageSummary | null) => {
+    async (page: PageSummary | null, asBlocks = false) => {
     if (page) {
       setEditorPath(page.path);
       setEditorTitle(page.title);
-      // In the demo we DO have the body (from the pure DEMO content), so the
-      // editor opens fully populated to show the authoring view. Outside the demo
-      // the list does not carry the body, so we open empty (a re-save overwrites).
-      if (demoReadOnly) {
-        const demoPage = DEMO_NATIVE_PAGES.find((p) => p.path === page.path);
-        setEditorBody(demoPage?.bodyMd ?? "");
-      } else {
-        setEditorBody("");
+      const isBlocks = page.hasBlocks ?? asBlocks;
+      setEditorIsBlocks(isBlocks);
+      setEditorInitialBlocksJson(null);
+      setEditorBlocksJson(null);
+      // Section editor: the home page ("" path) always opens in the structured
+      // section editor when it has blocks (or is being opened fresh). Non-home
+      // pages always use the canvas editor even if their path happens to start
+      // with "".
+      const isSection = page.path === "" && isBlocks;
+      setEditorIsSection(isSection);
+
+      if (isBlocks && !demoReadOnly) {
+        // Fetch the existing blocks_json for this page so the canvas/section
+        // editor is pre-populated.
+        // When a granted editor is editing a PI's site, include siteOwnerKey so
+        // the server authorizes via isSiteEditor and returns that PI's blocks.
+        // The server re-checks the grant on every fetch.
+        try {
+          const blocksParams = new URLSearchParams({ path: page.path });
+          if (siteOwnerKeyProp) blocksParams.set("siteOwnerKey", siteOwnerKeyProp);
+          const res = await fetch(
+            `/api/social/lab-site/page/blocks?${blocksParams.toString()}`,
+          );
+          if (res.ok) {
+            const data = (await res.json()) as { blocksJson?: string | null };
+            setEditorInitialBlocksJson(data.blocksJson ?? null);
+          }
+        } catch {
+          // Best effort: canvas starts empty if the fetch fails.
+        }
+      }
+
+      if (!isBlocks) {
+        // In the demo we DO have the body (from the pure DEMO content).
+        if (demoReadOnly) {
+          const demoPage = DEMO_NATIVE_PAGES.find((p) => p.path === page.path);
+          setEditorBody(demoPage?.bodyMd ?? "");
+        } else {
+          setEditorBody("");
+        }
       }
     } else {
       setEditorPath("");
       setEditorTitle("");
       setEditorBody("");
+      setEditorIsBlocks(asBlocks);
+      setEditorIsSection(false);
+      setEditorInitialBlocksJson(null);
+      setEditorBlocksJson(null);
     }
     setEditorMsg(null);
     },
-    [demoReadOnly],
+    [demoReadOnly, siteOwnerKeyProp],
   );
 
-  const newPage = useCallback(() => {
+  const newPage = useCallback((asBlocks = false) => {
     setEditorPath("__new__");
     setEditorTitle("");
     setEditorBody("");
+    setEditorIsBlocks(asBlocks);
+    // New pages via this button are always non-home pages so the section editor
+    // is never used here. The section editor is only wired for the "" home path.
+    setEditorIsSection(false);
+    setEditorInitialBlocksJson(null);
+    setEditorBlocksJson(null);
     setEditorMsg(null);
   }, []);
 
@@ -904,6 +1348,210 @@ export default function LabSiteDashboard({
     [],
   );
 
+  // The public URL for the current lab's site (used in the deploy panel + pill).
+  const siteUrl = useMemo(() => {
+    if (!site) return "";
+    return LAB_SITES_COM_ORIGIN_ENABLED
+      ? `${site.slug}.research-os.com`
+      : `research-os.app/${site.slug}`;
+  }, [site]);
+
+  // ---------------------------------------------------------------------------
+  // Publish flow (P4: status pill + staged deploy panel)
+  //
+  // The flow hook owns the deploy-progress state for the currently-open page.
+  // When a new page is opened the panel is reset to hidden. The three real async
+  // steps (save, freeze, publish) are wired to the flow so the panel shows
+  // honest progress rather than a fake timer.
+  // ---------------------------------------------------------------------------
+
+  // Individual stable callbacks for the publish flow steps.
+  // They capture the latest editor state in their deps rather than via refs.
+
+  const flowOnSave = useCallback(async (): Promise<string> => {
+    // Step 1: save the draft. Must throw on failure (flow will stop).
+    const path =
+      editorPath === "__new__" ? "" : (editorPath ?? "");
+
+    if (editorIsBlocks) {
+      // Blocks page: save via the canvas API route. Include siteOwnerKey when
+      // editing a PI's site as a granted editor (server re-checks isSiteEditor).
+      const blocksJson = editorBlocksJson ?? "[]";
+      const res = await fetch("/api/social/lab-site/page/blocks", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path,
+          title: editorTitle,
+          blocksJson,
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
+      });
+      if (!res.ok) throw new Error("Could not save the draft.");
+      const data = (await res.json()) as { path: string };
+      setEditorPath(data.path);
+      return data.path;
+    }
+
+    // Markdown page: original path. Include siteOwnerKey for editor-grant path.
+    const res = await fetch("/api/social/lab-site/page", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        path,
+        title: editorTitle,
+        bodyMd: editorBody,
+        ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+      }),
+    });
+    if (!res.ok) throw new Error("Could not save the draft.");
+    const data = (await res.json()) as { page: PageSummary };
+    setEditorPath(data.page.path);
+    return data.page.path;
+  }, [editorPath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp]);
+
+  const flowOnFreeze = useCallback(async () => {
+    // Step 2: freeze (bake) embeds. Returns count + snapshots.
+    // Bake-on-publish (Phase 3b): block embeds read the author's LOCAL data,
+    // and svgToPngDataUrl needs a real canvas, so baking MUST run here in
+    // the browser (never on the server). The frozen snapshots are sent with
+    // the publish request so the public page renders frozen versions.
+
+    if (editorIsBlocks) {
+      // Blocks page: scan data-block hrefs via scanBlockEmbedHrefs and bake each.
+      const blocks = parseLabSiteBlocks(editorBlocksJson);
+      const hrefs = scanBlockEmbedHrefs(blocks);
+      if (hrefs.length === 0) return { count: 0 };
+      const bakedMap = new Map<string, BakedEmbed>();
+      await Promise.all(
+        hrefs.map(async (href) => {
+          const descriptor = parseObjectEmbed(href);
+          if (!descriptor || !descriptor.isEmbed) return;
+          try {
+            const baked = await bakeOne(descriptor, "", null);
+            bakedMap.set(href, baked);
+          } catch {
+            bakedMap.set(href, { kind: "missing", name: href, label: null });
+          }
+        }),
+      );
+      if (bakedMap.size === 0) return { count: 0 };
+      const serialized = serializeSnapshotBundle(bundleFromBakedMap(bakedMap));
+      if (!serialized) return { count: bakedMap.size };
+      const snapshots = JSON.parse(serialized) as Record<string, unknown>;
+      return { count: bakedMap.size, snapshots };
+    }
+
+    // Markdown page: original bake path.
+    const baked = await bakeAllEmbeds([editorBody]);
+    if (baked.size === 0) return { count: 0 };
+    const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
+    if (!serialized) return { count: baked.size };
+    const snapshots = JSON.parse(serialized) as Record<string, unknown>;
+    return { count: baked.size, snapshots };
+  }, [editorBody, editorIsBlocks, editorBlocksJson]);
+
+  const flowOnPublish = useCallback(
+    async (savedPath: string, snapshots: Record<string, unknown> | undefined) => {
+      // Step 3: flip status to published on the server.
+      // Blocks pages use the blocks PUT endpoint; markdown pages use the original.
+      // Include siteOwnerKey when publishing as a granted editor (server re-checks
+      // isSiteEditor before the publish write).
+      const endpoint = editorIsBlocks
+        ? "/api/social/lab-site/page/blocks"
+        : "/api/social/lab-site/page";
+      const pub = await fetch(endpoint, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path: savedPath,
+          ...(snapshots ? { snapshots } : {}),
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
+      });
+      if (!pub.ok) throw new Error("Could not publish.");
+    },
+    [editorIsBlocks, siteOwnerKeyProp],
+  );
+
+  const flowOnCheck = useCallback(async () => {
+    // Step 4: best-effort reachability check.
+    if (!siteUrl) return true;
+    try {
+      const res = await fetch(`https://${siteUrl}`, {
+        method: "HEAD",
+        signal: AbortSignal.timeout(4000),
+      });
+      return res.ok;
+    } catch {
+      return true; // Non-fatal: the site is still live even if unreachable now.
+    }
+  }, [siteUrl]);
+
+  // ---------------------------------------------------------------------------
+  // Deploy history: real versioned list from lab_site_page_versions.
+  //
+  // Fetched from GET /api/social/lab-site/page/versions?path=<editorPath>
+  // each time the editor opens a page or after a successful publish. The
+  // server returns newest-first with an isLive flag on the current version.
+  // Restore POSTs to the same route with { path, version } and reloads the
+  // page list + history sidebar.
+  // ---------------------------------------------------------------------------
+  const [historyVersions, setHistoryVersions] = useState<DeployHistoryEntry[]>([]);
+  const [historyBusy, setHistoryBusy] = useState(false);
+
+  const loadHistory = useCallback(async (path: string) => {
+    if (demoReadOnly) return; // Demo has no real history.
+    try {
+      const params = new URLSearchParams({ path });
+      if (siteOwnerKeyProp) params.set("siteOwnerKey", siteOwnerKeyProp);
+      const res = await fetch(`/api/social/lab-site/page/versions?${params.toString()}`);
+      if (!res.ok) return;
+      const data = (await res.json()) as {
+        versions: Array<{ version: number; title: string; publishedAt: string; isLive: boolean }>;
+      };
+      const entries: DeployHistoryEntry[] = (data.versions ?? []).map((v) => ({
+        publishedAt: v.publishedAt,
+        label: v.title || pathLabel(path) || "Home page",
+        isCurrent: v.isLive,
+        version: v.version,
+      }));
+      setHistoryVersions(entries);
+    } catch {
+      // Non-fatal: sidebar stays empty.
+    }
+  }, [demoReadOnly, siteOwnerKeyProp]);
+
+  const flowOnDone = useCallback(() => {
+    // Refresh the page list and clear editor busy flag after all steps complete.
+    void refresh();
+    setEditorBusy(false);
+    // Reload deploy history so the newly published version appears at the top.
+    if (editorPath !== null && editorPath !== "__new__") {
+      void loadHistory(editorPath);
+    }
+  }, [refresh, editorPath, loadHistory]);
+
+  const flow = usePublishFlow({
+    pagePath: editorPath ?? "",
+    siteUrl,
+    onSave: flowOnSave,
+    onFreeze: flowOnFreeze,
+    onPublish: flowOnPublish,
+    onCheck: flowOnCheck,
+    onDone: flowOnDone,
+  });
+
+  // Reset the deploy panel when the editor opens a different page.
+  useEffect(() => {
+    flow.resetPanel();
+    // We only want to reset when editorPath changes, not when flow changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editorPath]);
+
+  // ---------------------------------------------------------------------------
+  // saveDraft: save-only path (no publish). The publish path goes through flow.
+  // ---------------------------------------------------------------------------
   const saveDraft = useCallback(
     async (then?: "publish") => {
       if (editorPath === null) return;
@@ -911,61 +1559,65 @@ export default function LabSiteDashboard({
         setEditorMsg(DEMO_EDIT_NOTE);
         return;
       }
+
+      // Publish path: delegate entirely to the deploy flow (status pill + panel).
+      if (then === "publish") {
+        setEditorBusy(true);
+        setEditorMsg(null);
+        const ok = await flow.publish();
+        if (!ok) {
+          setEditorMsg("Saved the draft, but could not publish.");
+        } else {
+          setEditorMsg(null);
+        }
+        // editorBusy is reset in onDone (called by flow after all steps).
+        return;
+      }
+
+      // Save-only path.
       setEditorBusy(true);
       setEditorMsg(null);
       const path = editorPath === "__new__" ? "" : editorPath;
       try {
-        const res = await fetch("/api/social/lab-site/page", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            path,
-            title: editorTitle,
-            bodyMd: editorBody,
-          }),
-        });
-        if (!res.ok) {
-          setEditorMsg("Could not save the draft.");
-          return;
-        }
-        const data = (await res.json()) as { page: PageSummary };
-        const savedPath = data.page.path;
-        setEditorPath(savedPath);
-
-        if (then === "publish") {
-          // Bake-on-publish (Phase 3b): block embeds read the author's LOCAL data,
-          // and svgToPngDataUrl needs a real canvas, so baking MUST run here in the
-          // browser (never on the server). The frozen snapshots are sent with the
-          // publish request and stored with the page version; the public page
-          // renders these frozen, since a public reader has no local workspace.
-          let snapshots: Record<string, unknown> | undefined;
-          try {
-            const baked = await bakeAllEmbeds([editorBody]);
-            if (baked.size > 0) {
-              const serialized = serializeSnapshotBundle(bundleFromBakedMap(baked));
-              // serialized is null only when over the byte cap; then publish with
-              // no snapshots and the public page shows the unavailable card.
-              if (serialized) snapshots = JSON.parse(serialized);
-            }
-          } catch {
-            // Baking is best-effort: a bake failure must not block publishing the
-            // text. The page still publishes; unbaked embeds show the calm card.
-            snapshots = undefined;
-          }
-          const pub = await fetch("/api/social/lab-site/page", {
-            method: "PUT",
+        if (editorIsBlocks) {
+          // Blocks page save. Include siteOwnerKey for the editor-grant path.
+          const blocksJson = editorBlocksJson ?? "[]";
+          const res = await fetch("/api/social/lab-site/page/blocks", {
+            method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify(
-              snapshots ? { path: savedPath, snapshots } : { path: savedPath },
-            ),
+            body: JSON.stringify({
+              path,
+              title: editorTitle,
+              blocksJson,
+              ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+            }),
           });
-          if (!pub.ok) {
-            setEditorMsg("Saved the draft, but could not publish.");
-            await refresh();
+          if (!res.ok) {
+            setEditorMsg("Could not save the draft.");
             return;
           }
-          setEditorMsg("Published.");
+          const data = (await res.json()) as { path: string };
+          setEditorPath(data.path);
+          setEditorMsg("Draft saved.");
         } else {
+          // Markdown page save (original path). Include siteOwnerKey for editor-grant path.
+          const res = await fetch("/api/social/lab-site/page", {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({
+              path,
+              title: editorTitle,
+              bodyMd: editorBody,
+              ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+            }),
+          });
+          if (!res.ok) {
+            setEditorMsg("Could not save the draft.");
+            return;
+          }
+          const data = (await res.json()) as { page: PageSummary };
+          const savedPath = data.page.path;
+          setEditorPath(savedPath);
           setEditorMsg("Draft saved.");
         }
         await refresh();
@@ -975,8 +1627,51 @@ export default function LabSiteDashboard({
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh, demoReadOnly],
+    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp],
   );
+
+  // Reload history whenever the editor opens a saved page.
+  useEffect(() => {
+    if (editorPath === null || editorPath === "__new__") {
+      setHistoryVersions([]);
+      return;
+    }
+    void loadHistory(editorPath);
+  }, [editorPath, loadHistory]);
+
+  const deployHistoryEntries: DeployHistoryEntry[] = historyVersions;
+
+  const handleRestore = useCallback(async (entry: DeployHistoryEntry & { version?: number }) => {
+    if (editorPath === null || editorPath === "__new__") return;
+    if (entry.version === undefined) return;
+    if (!window.confirm(
+      `Restore version ${entry.version} of "${entry.label || pathLabel(editorPath)}"?\n\nThis publishes that version as a new live deploy. Your current version stays in history and can be restored again.`
+    )) return;
+
+    setHistoryBusy(true);
+    try {
+      const res = await fetch("/api/social/lab-site/page/versions", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          path: editorPath,
+          version: entry.version,
+          ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+        }),
+      });
+      if (!res.ok) {
+        setEditorMsg("Could not restore that version right now.");
+        return;
+      }
+      // Reload the page list and history so the dashboard reflects the new live version.
+      await refresh();
+      await loadHistory(editorPath);
+    } catch {
+      setEditorMsg("Could not restore that version right now.");
+    } finally {
+      setHistoryBusy(false);
+    }
+  }, [editorPath, siteOwnerKeyProp, refresh, loadHistory]);
 
   const body = (
     <>
@@ -987,6 +1682,52 @@ export default function LabSiteDashboard({
             markdown, and publish when ready.
           </p>
         </header>
+
+        {/* Stat row: quick-glance summary cards. Only rendered when the site is
+            claimed and loaded. Uses data already in component state so there is
+            no additional fetch. */}
+        {load === "ready" && site && (
+          <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            {/* Status card */}
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                <Icon name="globe" className="h-3.5 w-3.5" />
+                Status
+              </div>
+              <p className="text-base font-semibold text-foreground">
+                {pages.some((p) => p.status === "published") ? "Live" : "Draft"}
+              </p>
+            </div>
+            {/* Pages card */}
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                <Icon name="file" className="h-3.5 w-3.5" />
+                Pages
+              </div>
+              <p className="text-base font-semibold text-foreground">{pages.length}</p>
+            </div>
+            {/* Published pages card */}
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                <Icon name="check" className="h-3.5 w-3.5" />
+                Published
+              </div>
+              <p className="text-base font-semibold text-foreground">
+                {pages.filter((p) => p.status === "published").length}
+              </p>
+            </div>
+            {/* Slug card */}
+            <div className="flex flex-col gap-1 rounded-xl border border-border bg-surface-raised p-3">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                <Icon name="receipt" className="h-3.5 w-3.5" />
+                Address
+              </div>
+              <p className="truncate text-sm font-semibold text-foreground">
+                {site.slug}.research-os.com
+              </p>
+            </div>
+          </div>
+        )}
 
         {demoReadOnly && (
           <div className="mb-6 rounded-xl border border-border bg-surface-sunken p-4">
@@ -999,6 +1740,43 @@ export default function LabSiteDashboard({
               the published markdown, the same view a lab head uses to write.
             </p>
           </div>
+        )}
+
+        {/* Granted-editor context banner: shown when the dashboard is scoped to
+            another PI's site. Lets the editor know they are acting as a granted
+            editor, not the site owner, and provides a link back to their own
+            dashboard. Hidden in demo mode (siteOwnerKeyProp is never set in demo)
+            and when the caller is actually the owner (an own-key siteOwnerKey in
+            the URL resolves to owner mode server-side, isOwner true). */}
+        {siteOwnerKeyProp && !isOwner && !demoReadOnly && (
+          <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-surface-sunken p-4">
+            <Icon name="users" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium text-foreground">
+                Editing as a granted editor
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                You are managing this companion site on behalf of its owner. You
+                can create, edit, and publish pages. Only the site owner can grant
+                or revoke editor access.
+              </p>
+            </div>
+            <Tooltip label="Go back to your own lab site dashboard">
+              <Link
+                href="/account/lab-site"
+                className="ros-btn-neutral inline-flex shrink-0 items-center gap-1 rounded-lg px-2.5 py-1 text-xs"
+              >
+                My site
+              </Link>
+            </Tooltip>
+          </div>
+        )}
+
+        {/* "Sites you can edit" section: shown when the caller is on their OWN
+            dashboard (no siteOwnerKeyProp) and has at least one editor grant.
+            Hidden in demo mode. Fetches lazily so it never blocks the main load. */}
+        {!siteOwnerKeyProp && !demoReadOnly && (
+          <GrantedSitesSection currentSiteOwnerKey={siteOwnerKeyProp} />
         )}
 
         {load === "loading" && (
@@ -1124,170 +1902,360 @@ export default function LabSiteDashboard({
 
         {load === "ready" && site && (
           <section>
-            <div className="mb-4 flex items-center justify-between rounded-xl border border-border bg-surface-raised p-4">
-              <div>
-                <p className="text-sm text-muted-foreground">Your site</p>
-                <p className="text-base font-medium text-foreground">
-                  {LAB_SITES_COM_ORIGIN_ENABLED
-                    ? `${site.slug}.research-os.com`
-                    : `research-os.app/${site.slug}`}
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={newPage}
-                disabled={demoReadOnly}
-                title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-              >
-                <Icon name="plus" className="h-4 w-4" /> New page
-              </button>
-            </div>
+            {/* Two-column body: main (left, 1fr) holds pages + editor + BYO +
+                badges; sidebar (right, ~300px) holds the site identity card,
+                slug rename, editor grants, and usage/analytics. On narrow
+                screens (below xl) the two columns stack, sidebar first so the
+                site card and public URL are immediately visible. */}
+            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_300px] xl:items-start">
 
-            {!demoReadOnly && (
-              <SlugRenameSection
-                currentSlug={site.slug}
-                onRenamed={(newSlug) => {
-                  setSite((prev) => prev ? { ...prev, slug: newSlug } : prev);
-                }}
-              />
-            )}
+              {/* ── MAIN column: pages list + page editor + BYO + badges ── */}
+              <div className="min-w-0 space-y-6">
 
-            <div className="mb-8">
-              <h2 className="mb-2 text-sm font-medium text-muted-foreground">
-                Pages
-              </h2>
-              {pages.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No pages yet. Create your home page to get started.
-                </p>
-              ) : (
-                <ul className="divide-y divide-border rounded-xl border border-border bg-surface-raised">
-                  {pages.map((p) => (
-                    <li
-                      key={p.path}
-                      className="flex items-center justify-between px-4 py-3"
+                {/* Page-creation action bar: lives at the top of the main column
+                    so the first visible action on the dashboard is "add content". */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Tooltip label="Build your lab homepage from structured sections (hero, about, team, publications, contact)">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const homePage = pages.find((p) => p.path === "");
+                        if (homePage) {
+                          // Existing home page: open it. Force isBlocks = true so
+                          // the section editor path is taken even if hasBlocks is
+                          // absent from the summary (server will populate from DB).
+                          void openEditor({ ...homePage, hasBlocks: true });
+                        } else {
+                          // No home page yet: create a new one with section editor.
+                          setEditorPath("__new__");
+                          setEditorTitle("");
+                          setEditorBody("");
+                          setEditorIsBlocks(true);
+                          setEditorIsSection(true);
+                          setEditorInitialBlocksJson(null);
+                          setEditorBlocksJson(null);
+                          setEditorMsg(null);
+                        }
+                      }}
+                      disabled={demoReadOnly}
+                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                      className="inline-flex items-center gap-2 rounded-lg border border-green-300 bg-green-50 px-3 py-1.5 text-sm font-medium text-green-700 hover:bg-green-100 disabled:opacity-50 dark:border-green-700 dark:bg-green-950 dark:text-green-300 dark:hover:bg-green-900"
                     >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-foreground">
-                          {p.title || pathLabel(p.path)}
-                        </p>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {pathLabel(p.path)} . {p.status}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => openEditor(p)}
-                        className="ros-btn-neutral rounded-lg px-3 py-1 text-xs"
-                      >
-                        Edit
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {LAB_BYO_SITES_ENABLED && !demoReadOnly && (
-              <ByoUploadSection slug={site.slug} />
-            )}
-            {LAB_BYO_SITES_ENABLED && !demoReadOnly && <ByoGithubSection slug={site.slug} />}
-
-            {/* Lab badges (badges phase 2, flag-gated). Lets the lab head pin
-                earned badges and publish them to the public lab page. Inert
-                when BADGES_ENABLED is false so the flag controls visibility. */}
-            {BADGES_ENABLED && (
-              <LabBadgesSection demoReadOnly={demoReadOnly} />
-            )}
-
-            {editorPath !== null && (
-              <section className="rounded-xl border border-border bg-surface-raised p-5">
-                <h2 className="mb-3 text-lg font-medium text-foreground">
-                  {editorPath === "__new__" || editorPath === ""
-                    ? "Edit home page"
-                    : `Edit ${pathLabel(editorPath)}`}
-                </h2>
-                <label className="mb-1 block text-xs text-muted-foreground">
-                  Title
-                </label>
-                <input
-                  type="text"
-                  value={editorTitle}
-                  onChange={(e) => setEditorTitle(e.target.value)}
-                  readOnly={demoReadOnly}
-                  className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
-                  placeholder="Welcome to the Smith Lab"
-                />
-                <div className="mb-1 flex items-center justify-between">
-                  <label className="block text-xs text-muted-foreground">
-                    Body (markdown)
-                  </label>
+                      <Icon name="globe" className="h-4 w-4" />{" "}
+                      {pages.find((p) => p.path === "") ? "Edit home page" : "Build home page"}
+                    </button>
+                  </Tooltip>
                   <button
                     type="button"
-                    onClick={() => setPickerOpen(true)}
+                    onClick={() => newPage(false)}
                     disabled={demoReadOnly}
                     title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
+                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
                   >
-                    <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
+                    <Icon name="plus" className="h-4 w-4" /> New page
                   </button>
+                  <Tooltip label="A visual drag-and-drop canvas for data-rich companion pages (supplements, paper datasets)">
+                    <button
+                      type="button"
+                      onClick={() => newPage(true)}
+                      disabled={demoReadOnly}
+                      title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                      className="inline-flex items-center gap-2 rounded-lg border border-purple-300 bg-purple-50 px-3 py-1.5 text-sm font-medium text-purple-700 hover:bg-purple-100 disabled:opacity-50 dark:border-purple-700 dark:bg-purple-950 dark:text-purple-300 dark:hover:bg-purple-900"
+                    >
+                      <Icon name="plus" className="h-4 w-4" /> Canvas page
+                    </button>
+                  </Tooltip>
                 </div>
-                <textarea
-                  ref={bodyRef}
-                  value={editorBody}
-                  onChange={(e) => setEditorBody(e.target.value)}
-                  readOnly={demoReadOnly}
-                  rows={12}
-                  className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
-                  placeholder="# Our research\n\nWrite your page in markdown."
-                />
-                <p className="mb-4 text-[11px] text-muted-foreground">
-                  Inserted figures and tables are frozen (baked) when you publish,
-                  so visitors see exactly what you published.
-                </p>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={editorBusy || demoReadOnly}
-                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    onClick={() => void saveDraft()}
-                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-                  >
-                    Save draft
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editorBusy || demoReadOnly}
-                    title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
-                    onClick={() => void saveDraft("publish")}
-                    className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
-                  >
-                    <Icon name="check" className="h-4 w-4" /> Save and publish
-                  </button>
-                  <button
-                    type="button"
-                    disabled={editorBusy}
-                    onClick={() => setEditorPath(null)}
-                    className="ros-btn-neutral rounded-lg px-3 py-1.5 text-sm"
-                  >
-                    Close
-                  </button>
-                  {editorMsg && (
-                    <span className="text-xs text-muted-foreground">
-                      {editorMsg}
-                    </span>
+
+                {/* Pages list */}
+                <div>
+                  <h2 className="mb-2 text-sm font-medium text-muted-foreground">
+                    Pages
+                  </h2>
+                  {pages.length === 0 ? (
+                    <p className="text-sm text-muted-foreground">
+                      No pages yet. Create your home page to get started.
+                    </p>
+                  ) : (
+                    <ul className="divide-y divide-border rounded-xl border border-border bg-surface-raised">
+                      {pages.map((p) => (
+                        <li
+                          key={p.path}
+                          className="flex items-center justify-between px-4 py-3"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className="truncate text-sm font-medium text-foreground">
+                                {p.title || pathLabel(p.path)}
+                              </p>
+                              {p.hasBlocks && p.path !== "" && (
+                                <span className="shrink-0 rounded-full border border-purple-200 bg-purple-50 px-1.5 py-0.5 text-[10px] font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                                  Canvas
+                                </span>
+                              )}
+                              {p.path === "" && p.hasBlocks && (
+                                <span className="shrink-0 rounded-full border border-green-200 bg-green-50 px-1.5 py-0.5 text-[10px] font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
+                                  Sections
+                                </span>
+                              )}
+                            </div>
+                            <p className="truncate text-xs text-muted-foreground">
+                              {pathLabel(p.path)} . {p.status}
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => void openEditor(p)}
+                            className="ros-btn-neutral rounded-lg px-3 py-1 text-xs"
+                          >
+                            Edit
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
                   )}
                 </div>
 
-                {pickerOpen && (
-                  <ReferencePicker
-                    onPick={(markdown) => insertReference(markdown)}
-                    onClose={() => setPickerOpen(false)}
+                {/* Page editor (shown when a page is open for editing). The
+                    editor card + deploy-history panel keep their existing
+                    inner grid (editor left, history right at xl). */}
+                {editorPath !== null && (
+                  <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1fr_280px] xl:items-start">
+                    {/* Editor card */}
+                    <section className="rounded-xl border border-border bg-surface-raised p-5">
+                      {/* Header bar: title + mode badge + status pill */}
+                      <div className="mb-3 flex items-center gap-3">
+                        <h2 className="flex-1 text-lg font-medium text-foreground">
+                          {editorPath === "__new__" || editorPath === ""
+                            ? "Edit home page"
+                            : `Edit ${pathLabel(editorPath)}`}
+                        </h2>
+                        {editorIsSection && (
+                          <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
+                            Sections
+                          </span>
+                        )}
+                        {editorIsBlocks && !editorIsSection && (
+                          <span className="rounded-full border border-purple-200 bg-purple-50 px-2 py-0.5 text-xs font-semibold text-purple-700 dark:border-purple-800 dark:bg-purple-950 dark:text-purple-300">
+                            Canvas
+                          </span>
+                        )}
+                        {!demoReadOnly && (
+                          <StatusPill state={flow.publishState} />
+                        )}
+                      </div>
+
+                      <label className="mb-1 block text-xs text-muted-foreground">
+                        Title
+                      </label>
+                      <input
+                        type="text"
+                        value={editorTitle}
+                        onChange={(e) => setEditorTitle(e.target.value)}
+                        readOnly={demoReadOnly}
+                        className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
+                        placeholder="Welcome to the Smith Lab"
+                      />
+
+                      {/* Homepage structured-section editor path (P3).
+                          Used when editorIsSection is true (home page, "" path).
+                          Renders a vertical list of typed section blocks (hero,
+                          about, team, publications, contact) via simple forms.
+                          Shares the same editorBlocksJson + publish flow as the
+                          canvas editor (both write to blocks_json). */}
+                      {editorIsSection ? (
+                        <div className="mb-4">
+                          <LabSiteHomepageEditor
+                            initialBlocksJson={editorInitialBlocksJson}
+                            labSlug={site?.slug}
+                            onChange={setEditorBlocksJson}
+                            disabled={demoReadOnly}
+                          />
+                        </div>
+                      ) : editorIsBlocks ? (
+                        /* Canvas editor path (blocks page, non-home) */
+                        <>
+                          <p className="mb-3 text-xs text-foreground-muted">
+                            Drag blocks from the palette onto the canvas. Click a block
+                            to select it and edit its settings in the inspector on the
+                            right. Data blocks (figure, table, dataset, chart) are live
+                            while you edit and frozen for citation when you publish.
+                          </p>
+                          <div className="mb-4">
+                            <LabSiteCanvasEditor
+                              initialBlocksJson={editorInitialBlocksJson}
+                              onChange={setEditorBlocksJson}
+                              disabled={demoReadOnly}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        /* Markdown editor path (legacy body_md page) */
+                        <>
+                          <div className="mb-1 flex items-center justify-between">
+                            <label className="block text-xs text-muted-foreground">
+                              Body (markdown)
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setPickerOpen(true)}
+                              disabled={demoReadOnly}
+                              title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                              className="ros-btn-neutral inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs disabled:opacity-50"
+                            >
+                              <Icon name="plus" className="h-3.5 w-3.5" /> Insert figure or table
+                            </button>
+                          </div>
+                          <textarea
+                            ref={bodyRef}
+                            value={editorBody}
+                            onChange={(e) => setEditorBody(e.target.value)}
+                            readOnly={demoReadOnly}
+                            rows={12}
+                            className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm text-foreground read-only:opacity-70"
+                            placeholder="# Our research\n\nWrite your page in markdown."
+                          />
+                          <p className="mb-4 text-[11px] text-muted-foreground">
+                            Inserted figures and tables are frozen (baked) when you publish,
+                            so visitors see exactly what you published.
+                          </p>
+                          {pickerOpen && (
+                            <ReferencePicker
+                              onPick={(markdown) => insertReference(markdown)}
+                              onClose={() => setPickerOpen(false)}
+                            />
+                          )}
+                        </>
+                      )}
+
+                      <div className="flex flex-wrap items-center gap-2">
+                        <button
+                          type="button"
+                          disabled={editorBusy || demoReadOnly}
+                          title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                          onClick={() => void saveDraft()}
+                          className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm disabled:opacity-50"
+                        >
+                          Save draft
+                        </button>
+                        <button
+                          type="button"
+                          disabled={editorBusy || demoReadOnly}
+                          title={demoReadOnly ? DEMO_EDIT_NOTE : undefined}
+                          onClick={() => void saveDraft("publish")}
+                          className="btn-brand inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium disabled:opacity-50"
+                        >
+                          <Icon name="check" className="h-4 w-4" /> Push live
+                        </button>
+                        <button
+                          type="button"
+                          disabled={editorBusy}
+                          onClick={() => setEditorPath(null)}
+                          className="ros-btn-neutral rounded-lg px-3 py-1.5 text-sm"
+                        >
+                          Close
+                        </button>
+                        {editorMsg && (
+                          <span className="text-xs text-muted-foreground">
+                            {editorMsg}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Deploy progress panel (hidden until publish is triggered). */}
+                      {!demoReadOnly && (
+                        <PublishDeployPanel flow={flow} siteUrl={siteUrl} />
+                      )}
+                    </section>
+
+                    {/* Deploy history sidebar */}
+                    {!demoReadOnly && (
+                      <DeployHistory
+                        entries={deployHistoryEntries}
+                        onRestore={historyBusy ? undefined : handleRestore}
+                      />
+                    )}
+                  </div>
+                )}
+
+                {/* BYO upload and GitHub-connect are PI-only (they manage the
+                    lab's static-site source, not page content). Hidden in demo
+                    mode and in granted-editor mode. */}
+                {LAB_BYO_SITES_ENABLED && !demoReadOnly && !siteOwnerKeyProp && (
+                  <ByoUploadSection slug={site.slug} />
+                )}
+                {LAB_BYO_SITES_ENABLED && !demoReadOnly && !siteOwnerKeyProp && (
+                  <ByoGithubSection slug={site.slug} />
+                )}
+
+                {/* Lab badges (badges phase 2, flag-gated). Lets the lab head
+                    pin earned badges and publish them to the public lab page.
+                    PI-only, hidden in demo mode and in granted-editor mode. */}
+                {BADGES_ENABLED && !siteOwnerKeyProp && (
+                  <LabBadgesSection demoReadOnly={demoReadOnly} />
+                )}
+              </div>
+
+              {/* ── SIDEBAR column: site identity + controls + usage ── */}
+              <div className="space-y-4 xl:sticky xl:top-6">
+
+                {/* "Your site" live card with public URL and view link. */}
+                <div className="rounded-xl border border-border bg-surface-raised p-4">
+                  <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-foreground-muted">
+                    Your site
+                  </p>
+                  <p className="mb-3 text-sm font-medium text-foreground">
+                    {LAB_SITES_COM_ORIGIN_ENABLED
+                      ? `${site.slug}.research-os.com`
+                      : `research-os.app/${site.slug}`}
+                  </p>
+                  <Tooltip label="Open your live public site to see what visitors see">
+                    <a
+                      href={(() => {
+                        const base = LAB_SITES_COM_ORIGIN_ENABLED
+                          ? `https://${site.slug}.research-os.com`
+                          : `https://research-os.app/${site.slug}`;
+                        return LAB_SITES_COM_ORIGIN_ENABLED && editToken
+                          ? `${base}?roEdit=${encodeURIComponent(editToken)}`
+                          : base;
+                      })()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="ros-btn-neutral inline-flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm"
+                    >
+                      <Icon name="globe" className="h-4 w-4" /> View public site
+                    </a>
+                  </Tooltip>
+                </div>
+
+                {/* Slug rename and site-editor grants are PI-only controls. A
+                    granted editor (siteOwnerKeyProp set) has no authority to
+                    rename the slug or manage grants, so both panels are hidden
+                    in editor mode. */}
+                {!demoReadOnly && !siteOwnerKeyProp && (
+                  <SlugRenameSection
+                    currentSlug={site.slug}
+                    onRenamed={(newSlug) => {
+                      setSite((prev) => prev ? { ...prev, slug: newSlug } : prev);
+                    }}
                   />
                 )}
-              </section>
-            )}
+
+                {/* Site editor grants panel: PI only, hidden in demo mode and
+                    in granted-editor mode. */}
+                {!demoReadOnly && !siteOwnerKeyProp && <SiteEditorsPanel slug={site.slug} />}
+
+                {/* Storage and analytics panel: shown to the owner and to
+                    granted editors viewing the owner's site. Hidden in demo
+                    mode (no real metering data). The route gates by session +
+                    entitlement / editor grant server-side; the panel just
+                    renders what it receives. */}
+                {!demoReadOnly && (
+                  <LabSiteUsagePanel siteOwnerKey={siteOwnerKeyProp} />
+                )}
+              </div>
+
+            </div>
           </section>
         )}
     </>
@@ -1305,7 +2273,11 @@ export default function LabSiteDashboard({
       <div className="relative min-h-screen">
         <MarketingBackdrop />
         <MarketingNav />
-        <main className="mx-auto w-full max-w-3xl px-5 py-12">{body}</main>
+        <main className="w-full pb-12 pt-6">
+          <LabSiteShell slug={site?.slug ?? null} demoReadOnly>
+            {body}
+          </LabSiteShell>
+        </main>
         <MarketingFooter />
       </div>
     );
@@ -1316,8 +2288,9 @@ export default function LabSiteDashboard({
       title="Lab site"
       gateHeading="Sign in to manage your lab site"
       tagline="Claim your lab's slug, write companion-site pages in markdown, and publish when ready. Your account is the cloud part; your research data stays local on your own computer."
+      wide
     >
-      <div className="mx-auto w-full max-w-3xl">{body}</div>
+      <LabSiteShell slug={site?.slug ?? null}>{body}</LabSiteShell>
     </PortalShell>
   );
 }

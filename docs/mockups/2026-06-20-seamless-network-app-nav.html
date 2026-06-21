@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Seamless network <-> app navigation, concept</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#171717;--muted:#6b7080;--border:#e5e7eb;--action:#1283c9;--purple:#5b47d6;--good:#15803d}
+  html[data-t="dark"]{--surface:#0a0e1a;--raised:#1c2638;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.16);--action:#3b9fe0;--good:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:18px}
+  h1{font-size:19px;font-weight:800;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin:3px 0 16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .ghost{background:var(--raised);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{border:0;background:var(--raised);color:var(--muted);padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .seg button.on{background:var(--action);color:#fff}
+
+  .frame{background:var(--raised);border:1px solid var(--border);border-radius:12px;overflow:hidden;margin-top:14px}
+  .addr{display:flex;align-items:center;gap:9px;padding:8px 13px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--border)}
+  .bar{flex:1;display:flex;align-items:center;gap:7px;background:var(--raised);border:1px solid var(--border);border-radius:7px;padding:4px 10px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted)}
+  .bar .lock{color:var(--good)}
+  .bar .origin{color:var(--fg);font-weight:600}
+  .who{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;color:var(--fg);background:var(--sunken);border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+  .who .av{width:16px;height:16px;border-radius:50%;background:var(--purple);color:#fff;display:grid;place-items:center;font-size:9px;font-weight:800}
+
+  /* the authed-aware bridge bar */
+  .bridge{display:flex;align-items:center;gap:10px;padding:8px 14px;font-size:12.5px;border-bottom:1px solid var(--border)}
+  .bridge.pub{background:color-mix(in srgb,var(--action) 9%,transparent);color:var(--action)}
+  .bridge.app{background:color-mix(in srgb,var(--purple) 9%,transparent);color:var(--purple)}
+  .bridge b{font-weight:700}
+  .bridge .jump{margin-left:auto;border:0;color:#fff;border-radius:7px;padding:6px 13px;font-size:12.5px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+  .bridge.pub .jump{background:var(--action)}
+  .bridge.app .jump{background:var(--purple)}
+  .bridge .jump svg{width:13px;height:13px}
+
+  .stage{padding:22px;min-height:240px}
+  .pubview h2{font-size:22px;font-weight:800;margin:0 0 4px}
+  .pubview .tag{color:var(--muted);font-size:13px;margin:0 0 14px}
+  .pubview .cardrow{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+  .pubview .c{border:1px solid var(--border);border-radius:10px;padding:12px;font-size:12.5px}
+  .pubview .c b{display:block;margin-bottom:3px}
+  .appview .eh{font-size:14px;font-weight:700;margin:0 0 10px}
+  .appview .palette{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .appview .blk{border:1px solid var(--border);background:var(--sunken);border-radius:8px;padding:7px 11px;font-size:12px;font-weight:600}
+  .appview .canvas{border:1px dashed var(--border);border-radius:10px;padding:22px;color:var(--muted);font-size:12.5px;text-align:center}
+
+  .flash{animation:flash .5s ease}
+  @keyframes flash{0%{opacity:.25;transform:translateY(4px)}100%{opacity:1;transform:none}}
+
+  .note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.55}
+  .note b{color:var(--fg)}
+
+  .dec{margin-top:22px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .dec h2{font-size:14px;margin:0 0 4px}
+  .ditem{padding:11px 0;border-top:1px solid var(--border)}
+  .ditem:first-of-type{border-top:0}
+  .ditem .t{font-weight:600;font-size:13.5px;margin:0 0 3px}
+  .ditem .d{color:var(--muted);font-size:12.5px;margin:0 0 8px;line-height:1.5}
+  .vb{border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px}
+  .vb.ok.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .vb.tw.on{background:#b45309;color:#fff;border-color:#b45309}
+  .vb.no.on{background:#b42318;color:#fff;border-color:#b42318}
+  .note2{width:100%;margin-top:8px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);padding:7px 9px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:34px}
+  .exp{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>Seamless network and app navigation</h1>
+    <p class="sub">research-os.com (public network + lab sites, no login) and research-os.app (the gated builder/app) should feel like ONE place. Click the bridge bar to hop.</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="seg" id="ba"><button data-v="after" class="on">After</button><button data-v="before">Before</button></div>
+    <button class="ghost" id="themeBtn">Dark mode</button>
+  </div>
+</div>
+
+<div id="afterWrap">
+  <div class="frame">
+    <div class="addr">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="bar"><span class="lock">&#128274;</span><span id="origin" class="origin">fungal-interaction-fake.research-os.com</span><span id="path"></span></span>
+      <span class="who"><span class="av">GN</span>Dr. Grant Nickles</span>
+    </div>
+    <div id="bridge"></div>
+    <div class="stage" id="stage"></div>
+  </div>
+  <p class="note" id="afterNote"></p>
+</div>
+
+<div id="beforeWrap" style="display:none">
+  <div class="frame">
+    <div class="addr"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="bar"><span class="origin">research-os.app/login</span></span></div>
+    <div class="stage" style="text-align:center;padding-top:48px">
+      <p style="font-size:16px;font-weight:700;margin:0 0 6px">Sign in to continue</p>
+      <p style="color:var(--muted);font-size:13px;margin:0 0 16px">You clicked a lab on research-os.com and landed on a login wall, no context, no idea which site you were on, and your session did not carry over.</p>
+      <div style="display:inline-flex;gap:8px"><span class="ghost">Email</span><span class="ghost">Password</span></div>
+    </div>
+  </div>
+  <p class="note"><b>The problem today.</b> The public network (.com) and the app (.app) are two separate worlds. Going from a public lab site to editing it means a hard jump to a login wall, the original context is lost, and a signed-in user is asked to sign in again. It feels like leaving one product and entering another.</p>
+</div>
+
+<div class="dec">
+  <h2>Mark the direction</h2>
+  <p class="sub" style="margin:0 0 14px">Approve / Tweak / Needs work each, add a note, Export.</p>
+  <div id="ditems"></div>
+  <button class="exp" id="expBtn">Copy decisions to clipboard</button>
+  <span id="expMsg" style="font-size:12.5px;color:var(--muted);margin-left:10px"></span>
+</div>
+
+<script>
+  let view = "pub";
+  const origin=document.getElementById("origin"), path=document.getElementById("path");
+  const bridge=document.getElementById("bridge"), stage=document.getElementById("stage"), afterNote=document.getElementById("afterNote");
+
+  function render(){
+    if(view==="pub"){
+      origin.textContent="fungal-interaction-fake.research-os.com"; path.textContent="";
+      bridge.className="bridge pub";
+      bridge.innerHTML=`<span>&#128279; You are viewing your <b>public site</b>. Signed in, so you can edit it.</span>
+        <button class="jump" id="jump"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Edit this site</button>`;
+      stage.className="stage flash";
+      stage.innerHTML=`<div class="pubview"><h2>Fungal Interactions Lab</h2><p class="tag">University of Wisconsin-Madison &middot; interaction networks across 730 genomes</p>
+        <div class="cardrow"><div class="c"><b>ICS 2026 supplement</b>Live interactive data companion</div><div class="c"><b>Team</b>1 PI, 3 members</div><div class="c"><b>Publications</b>4 papers, citable</div></div></div>`;
+      afterNote.innerHTML=`<b>From the public site.</b> A signed-in owner or granted editor sees a calm bridge bar with one <b>Edit this site</b> button that takes them straight into the builder for THIS exact site, no login wall, identity carried over. A logged-out visitor just sees the public site (no bridge bar), nothing to confuse them.`;
+    } else {
+      origin.textContent="research-os.app"; path.textContent="/account/lab-site";
+      bridge.className="bridge app";
+      bridge.innerHTML=`<span>&#9998; Editing <b>fungal-interaction-fake</b> in the builder. Changes are private until you publish.</span>
+        <button class="jump" id="jump"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M19 5l-9 9M5 7v12h12"/></svg>View public site</button>`;
+      stage.className="stage flash";
+      stage.innerHTML=`<div class="appview"><p class="eh">Companion data-site builder</p>
+        <div class="palette"><span class="blk">Live figure</span><span class="blk">Interactive table</span><span class="blk">Dataset</span><span class="blk">Text</span></div>
+        <div class="canvas">Drag a block here, this is the same builder, reached in one click from the public site</div></div>`;
+      afterNote.innerHTML=`<b>From the app.</b> The builder always offers a <b>View public site</b> jump back to the live .com page, so you flip between editing and seeing-what-visitors-see without ever feeling like you changed products. The identity chip stays the whole time, one session across both origins.`;
+    }
+    document.getElementById("jump").onclick=()=>{ view = view==="pub" ? "app" : "pub"; render(); };
+    void stage.offsetWidth;
+  }
+  render();
+
+  document.querySelectorAll("#ba button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#ba button").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    document.getElementById("afterWrap").style.display = b.dataset.v==="after" ? "block":"none";
+    document.getElementById("beforeWrap").style.display = b.dataset.v==="before" ? "block":"none";
+  });
+  const tb=document.getElementById("themeBtn");
+  tb.onclick=()=>{const d=document.documentElement.getAttribute("data-t")==="dark";document.documentElement.setAttribute("data-t",d?"light":"dark");tb.textContent=d?"Dark mode":"Light mode";};
+
+  const items=[
+    {id:"bridge",t:"An authed-aware bridge bar on public lab sites",d:"When a signed-in owner/editor views a public lab site on .com, a slim bar offers one-click 'Edit this site' into the builder for that exact site. A logged-out visitor never sees it, the public page stays clean."},
+    {id:"context",t:"Context + identity carried across origins",d:"The hop lands you on the SAME site you were viewing (no re-find), and the session carries over, no second login crossing .com <-> .app. One identity chip the whole time."},
+    {id:"back",t:"'View public site' jump from the builder",d:"The builder always offers a one-click jump to the live public page, so editing and seeing-what-visitors-see are a toggle, not two separate destinations."},
+    {id:"loggedout",t:"Logged-out stays simple",d:"A public visitor sees only the public site, no app chrome, no bridge bar. The seamlessness is additive for authed users, never clutter for the audience."}
+  ];
+  const KEY="seamless-nav-decisions-v1";
+  const store=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const save=()=>localStorage.setItem(KEY,JSON.stringify(store));
+  const host=document.getElementById("ditems");
+  items.forEach(it=>{
+    const w=document.createElement("div");w.className="ditem";
+    w.innerHTML=`<p class="t">${it.t}</p><p class="d">${it.d}</p><div><button class="vb ok" data-v="ok">Approve</button><button class="vb tw" data-v="tw">Tweak</button><button class="vb no" data-v="no">Needs work</button></div><textarea class="note2" placeholder="Note (optional)"></textarea>`;
+    const st=store[it.id]||{},n=w.querySelector(".note2");n.value=st.note||"";
+    w.querySelectorAll(".vb").forEach(b=>{if(st.v===b.dataset.v)b.classList.add("on");b.onclick=()=>{w.querySelectorAll(".vb").forEach(x=>x.classList.remove("on"));b.classList.add("on");store[it.id]={...(store[it.id]||{}),v:b.dataset.v,note:n.value,t:it.t};save();};});
+    n.oninput=()=>{store[it.id]={...(store[it.id]||{}),note:n.value,t:it.t};save();};
+    host.appendChild(w);
+  });
+  document.getElementById("expBtn").onclick=async()=>{
+    let out="Seamless network<->app nav, decisions\n\n";
+    items.forEach(it=>{const st=store[it.id]||{};const v=st.v==="ok"?"APPROVE":st.v==="no"?"NEEDS WORK":st.v==="tw"?"TWEAK":"(none)";out+=`- [${v}] ${it.t}\n`;if(st.note)out+=`    note: ${st.note}\n`;});
+    try{await navigator.clipboard.writeText(out);document.getElementById("expMsg").textContent="Copied. Paste it back into chat.";}
+    catch{document.getElementById("expMsg").textContent="Copy failed, select + copy manually.";}
+  };
+</script>
+</body>
+</html>

@@ -155,7 +155,9 @@ const CAPTURE_RELAY_ORIGIN =
  *   frame-src blob:: PDF previews render via <iframe src=blob:...>.
  *   frame-ancestors 'none': blocks clickjacking via third-party embedding.
  */
-const CSP = [
+// Shared directives that are identical across all CSP variants. Keep as a typed
+// tuple so the per-variant arrays below each get precise type narrowing.
+const CSP_SHARED_DIRECTIVES = [
   "default-src 'self'",
   // assets.research-os.com: the smart-icon-search semantic layer dynamically
   // imports onnxruntime-web's wasm loader (`ort-wasm-simd-threaded.jsep.mjs`) as
@@ -163,13 +165,9 @@ const CSP = [
   // connect-src), so the CDN must be allowed here too, not only in connect-src.
   "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval' 'unsafe-eval' https://va.vercel-scripts.com https://assets.research-os.com",
   "style-src 'self' 'unsafe-inline'",
-  // assets.research-os.com: the open-asset (icon library) CDN on Cloudflare R2.
-  // Thumbnails load via <img>, so the custom domain must be in img-src (the R2
-  // wildcard below only covers the s3 endpoint, not the custom domain).
-  "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com https://assets.research-os.com",
   // Welcome-page demo loop videos + posters. They moved from Vercel Blob to the
   // R2 custom domain (assets.research-os.com/welcome/*.mp4), so the R2 origin must
-  // be in media-src too — img-src already has it (posters loaded, videos did not).
+  // be in media-src too.
   "media-src 'self' https://*.public.blob.vercel-storage.com https://assets.research-os.com",
   "font-src 'self' data:",
   // assets.research-os.com: loadAssetManifest + fetchAssetSvg fetch the icon
@@ -181,6 +179,29 @@ const CSP = [
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self'",
+] as const;
+
+// Authed-app CSP (research-os.app and localhost). Keeps img-src locked to our own
+// hosts only (Vercel Blob + R2 CDN + self).
+//   assets.research-os.com: the open-asset (icon library) CDN on Cloudflare R2.
+//   Thumbnails load via <img>, so the custom domain must be in img-src (the R2
+//   wildcard below only covers the s3 endpoint, not the custom domain).
+const CSP = [
+  ...CSP_SHARED_DIRECTIVES,
+  "img-src 'self' blob: data: https://*.public.blob.vercel-storage.com https://assets.research-os.com",
+].join("; ");
+
+// Public lab-site CSP (*.research-os.com subdomains, rewritten to /:labSlug/*).
+// These pages are cookie-isolated, no-auth, and render README content from third-
+// party GitHub repos. READMEs routinely embed remote badge images (shields.io,
+// anaconda.org, raw.githubusercontent.com, badgen.net, etc.) that are blocked by
+// the locked-down authed-app img-src. Since this origin carries no auth cookies and
+// no sensitive state, broadening img-src to https: is the right trade-off: any
+// https image is allowed, which is consistent with how a public GitHub README
+// renders in a browser. The authed .app origin is unaffected.
+const CSP_LAB_PUBLIC = [
+  ...CSP_SHARED_DIRECTIVES,
+  "img-src 'self' blob: data: https: https://*.public.blob.vercel-storage.com https://assets.research-os.com",
 ].join("; ");
 
 const nextConfig: NextConfig = {
@@ -213,6 +234,28 @@ const nextConfig: NextConfig = {
             key: "Strict-Transport-Security",
             value: "max-age=63072000; includeSubDomains; preload",
           },
+        ],
+      },
+      {
+        // Public lab pages served from <slug>.research-os.com (cookie-isolated, no
+        // auth). Scoped by HOST, not path: the broadened img-src (https:, for README
+        // badge images from shields.io / anaconda.org / zenodo.org /
+        // raw.githubusercontent.com) applies ONLY to lab subdomains. A path-based rule
+        // would wrongly loosen img-src on authed app routes like /datahub/x AND would
+        // miss lab pages served at the subdomain root (proxy.ts rewrites the path, so
+        // the incoming path is "/" not "/:labSlug"). The host condition matches any
+        // <sub>.research-os.com (the apex and research-os.app do not match, keeping the
+        // authed-app CSP strict). Source "/(.*)" so every path on the lab host wins
+        // over the global strict CSP above.
+        source: "/(.*)",
+        has: [
+          {
+            type: "host",
+            value: "(?<labhost>[a-z0-9-]+\\.research-os\\.com)",
+          },
+        ],
+        headers: [
+          { key: "Content-Security-Policy", value: CSP_LAB_PUBLIC },
         ],
       },
       {

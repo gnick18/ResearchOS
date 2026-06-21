@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BYO_MAX_TOTAL_BYTES } from "@/lib/social/lab-byo";
 import {
   isSafeOwner,
   isSafeRepo,
   isSafeRef,
   normalizeSubdir,
   parseGithubConnection,
+  pullGithubZipball,
   resolvedRefFromEntries,
   stripZipballPrefix,
   zipballUrl,
@@ -157,5 +159,92 @@ describe("resolvedRefFromEntries", () => {
     expect(
       resolvedRefFromEntries([{ rawPath: "plainfolder/index.html", bytes: b("") }]),
     ).toBeNull();
+  });
+});
+
+describe("pullGithubZipball streamed size guard (no Content-Length OOM)", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const CONN = { owner: "smithlab", repo: "companion", ref: "main", subdir: "" };
+
+  /**
+   * Build a mock Response whose body streams 1 MB chunks with NO Content-Length
+   * (the codeload.github.com case). totalChunks * chunkSize is the would-be full
+   * size. pulledChunks counts how many chunks the reader actually pulled, so the
+   * test can assert the read ABORTS past the cap instead of buffering the whole
+   * body. cancelled records that the reader released the stream on abort.
+   */
+  function makeStreamingResponse(totalChunks: number, chunkBytes: number) {
+    const counters = { pulledChunks: 0, cancelled: false };
+    let emitted = 0;
+    const stream = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        if (emitted >= totalChunks) {
+          controller.close();
+          return;
+        }
+        counters.pulledChunks += 1;
+        emitted += 1;
+        controller.enqueue(new Uint8Array(chunkBytes));
+      },
+      cancel() {
+        counters.cancelled = true;
+      },
+    });
+    const res = {
+      status: 200,
+      ok: true,
+      headers: new Headers(), // deliberately NO content-length (chunked transfer)
+      body: stream,
+    } as unknown as Response;
+    return { res, counters };
+  }
+
+  it("returns too-large and aborts WITHOUT buffering an over-cap body that has no Content-Length", async () => {
+    const chunkBytes = 1024 * 1024; // 1 MB chunks
+    const overCapChunks = Math.ceil(BYO_MAX_TOTAL_BYTES / chunkBytes) + 8; // a few MB over
+    const { res, counters } = makeStreamingResponse(overCapChunks, chunkBytes);
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => res),
+    );
+
+    const result = await pullGithubZipball(CONN);
+
+    expect(result).toEqual({ ok: false, error: "too-large" });
+    // The read aborted: it pulled only enough chunks to cross the cap (plus the
+    // stream's small internal prefetch buffer), never the whole body, and it
+    // cancelled the stream to release the connection.
+    expect(counters.cancelled).toBe(true);
+    expect(counters.pulledChunks).toBeLessThan(overCapChunks);
+    const capChunks = Math.ceil(BYO_MAX_TOTAL_BYTES / chunkBytes);
+    expect(counters.pulledChunks).toBeLessThanOrEqual(capChunks + 4);
+  });
+
+  it("maps a body stream error to fetch-failed and cancels the reader", async () => {
+    const counters = { cancelled: false };
+    const stream = new ReadableStream<Uint8Array>({
+      pull() {
+        throw new Error("stream boom");
+      },
+      cancel() {
+        counters.cancelled = true;
+      },
+    });
+    const res = {
+      status: 200,
+      ok: true,
+      headers: new Headers(),
+      body: stream,
+    } as unknown as Response;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => res),
+    );
+
+    const result = await pullGithubZipball(CONN);
+    expect(result).toEqual({ ok: false, error: "fetch-failed" });
   });
 });

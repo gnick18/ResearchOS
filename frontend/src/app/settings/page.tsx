@@ -93,10 +93,12 @@ import SettingsShell, {
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
+import BillingForecastSection from "@/components/settings/sections/BillingForecastSection";
 import ModelABilling from "@/components/billing/ModelABilling";
 import { AccountBenefitsUpsell } from "@/components/settings/sections/AccountBenefitsUpsell";
 import NotificationsSection from "@/components/settings/sections/NotificationsSection";
 import FolderSwitcher from "@/components/file-system/FolderSwitcher";
+import PinnedFoldersSection from "@/components/file-system/PinnedFoldersSection";
 import { fullSignOut } from "@/lib/auth/full-sign-out";
 
 const GANTT_VIEW_OPTIONS: { value: UserSettings["defaultGanttViewMode"]; label: string }[] = [
@@ -489,6 +491,15 @@ function SettingsBodyInner({
                     <CloudStorageUsageSection />
                   </>
                 ),
+              },
+              {
+                id: "billing-forecast",
+                group: "Usage & billing",
+                title: "Billing forecast & history",
+                icon: "gauge" as const,
+                keywords:
+                  "billing forecast projected charge month-end base usage storage hosted cap history accrual charge credit balance receipts",
+                render: () => <BillingForecastSection />,
               },
             ],
           } satisfies SettingsGroupDef,
@@ -1186,6 +1197,11 @@ function DataFolderSection({
           nothing when the flag is off. */}
       <p className="text-meta text-foreground-muted">Folders you have opened before:</p>
       <FolderSwitcher variant="panel" />
+      {/* Top-bar folder picker: pick which connected folders show as the
+          up-to-three quick-switch chips in the top nav. Same flag gate as the
+          switcher, renders nothing when the flag is off or nothing is
+          remembered. */}
+      <PinnedFoldersSection />
     </SectionShell>
   );
 }

@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Companion data-site builder, drag-and-drop concept</title>
+<style>
+  :root {
+    --surface:#f8fafc; --raised:#fff; --sunken:#f1f5f9; --fg:#171717; --muted:#6b7080;
+    --border:#e5e7eb; --action:#1283c9; --purple:#5b47d6; --sky:#1aa0e6; --good:#15803d;
+  }
+  html[data-t="dark"]{
+    --surface:#0a0e1a; --raised:#1c2638; --sunken:#0d1424; --fg:#f1f5f9; --muted:#b4bfd0;
+    --border:rgba(255,255,255,.16); --action:#3b9fe0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:18px}
+  h1{font-size:19px;font-weight:800;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin:3px 0 16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .ghost{background:var(--raised);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer}
+  .wrap{display:grid;grid-template-columns:208px 1fr 232px;gap:14px;margin-top:8px;align-items:start}
+  @media(max-width:1100px){.wrap{grid-template-columns:1fr}}
+  .panel{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:12px}
+  .panel h2{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+
+  /* palette */
+  .palgrp{font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+  .palgrp:first-of-type{margin-top:0}
+  .block{display:flex;align-items:center;gap:8px;border:1px solid var(--border);background:var(--sunken);border-radius:9px;padding:8px 9px;margin-bottom:6px;cursor:grab;font-size:12.5px;font-weight:600}
+  .block:active{cursor:grabbing}
+  .block .ic{flex:none;width:24px;height:24px;border-radius:6px;display:grid;place-items:center;background:color-mix(in srgb,var(--action) 16%,transparent);color:var(--action)}
+  .block.data .ic{background:color-mix(in srgb,var(--purple) 18%,transparent);color:var(--purple)}
+  .block svg{width:14px;height:14px}
+  .hint{font-size:11px;color:var(--muted);line-height:1.5;margin-top:8px}
+
+  /* canvas = a browser frame */
+  .frame{background:var(--raised);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:8px;padding:7px 12px;border-bottom:1px solid var(--border);background:var(--sunken);font-size:12px;color:var(--muted)}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--border)}
+  .url{margin-left:6px;font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+  .vp{margin-left:auto;display:flex;gap:4px}
+  .vp button{border:1px solid var(--border);background:var(--raised);border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:var(--muted)}
+  .vp button.on{color:var(--action);border-color:var(--action)}
+  .pub{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:7px;padding:5px 12px;font-size:12px;font-weight:700;cursor:pointer}
+  .canvas{padding:18px;min-height:520px;transition:max-width .2s;margin:0 auto}
+  .canvas.mobile{max-width:380px}
+
+  /* placed blocks */
+  .pb{position:relative;border:1px solid transparent;border-radius:10px;padding:10px;margin-bottom:10px}
+  .pb:hover{border-color:var(--border)}
+  .pb.sel{border-color:var(--action);box-shadow:0 0 0 1px var(--action)}
+  .pb .tb{position:absolute;top:-12px;right:8px;display:none;gap:2px;background:var(--raised);border:1px solid var(--border);border-radius:7px;padding:2px}
+  .pb:hover .tb,.pb.sel .tb{display:flex}
+  .pb .tb button{border:0;background:none;cursor:pointer;color:var(--muted);width:24px;height:22px;border-radius:5px;display:grid;place-items:center}
+  .pb .tb button:hover{background:var(--sunken);color:var(--fg)}
+  .pb .tb svg{width:14px;height:14px}
+  .pb .drag{position:absolute;left:-2px;top:50%;transform:translateY(-50%);color:var(--border);cursor:grab;font-size:14px;opacity:0;transition:.15s}
+  .pb:hover .drag{opacity:1}
+  [contenteditable]{outline:none}
+  [contenteditable]:focus{background:color-mix(in srgb,var(--action) 8%,transparent);border-radius:4px}
+  .h1b{font-size:24px;font-weight:800;margin:0}
+  .txt{font-size:14px;color:var(--fg);line-height:1.65;margin:0}
+  .cap{font-size:11.5px;color:var(--muted);margin-top:6px;text-align:center}
+
+  /* data embeds */
+  .embed{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--surface)}
+  .embed .eh{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);font-size:11px;font-weight:700;color:var(--purple);background:color-mix(in srgb,var(--purple) 8%,transparent)}
+  .embed .eh svg{width:13px;height:13px}
+  .live{margin-left:auto;font-size:9.5px;font-weight:800;letter-spacing:.04em;color:var(--good);display:flex;align-items:center;gap:4px}
+  .live::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--good)}
+  .grid{width:100%;border-collapse:collapse;font-size:11.5px}
+  .grid th,.grid td{border-bottom:1px solid var(--border);padding:4px 8px;text-align:left}
+  .grid th{color:var(--muted);font-weight:700;background:var(--sunken)}
+  .filt{display:flex;gap:6px;padding:6px 8px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .chip{font-size:10.5px;border:1px solid var(--border);border-radius:20px;padding:2px 9px;color:var(--muted);background:var(--raised)}
+  .chip.on{color:var(--action);border-color:var(--action)}
+
+  /* drop affordance */
+  .drop{border:1.5px dashed var(--border);border-radius:10px;color:var(--muted);font-size:12px;text-align:center;padding:14px;margin-bottom:10px}
+  .drop.over{border-color:var(--action);color:var(--action);background:color-mix(in srgb,var(--action) 7%,transparent)}
+
+  /* inspector */
+  .ins label{font-size:11px;font-weight:700;color:var(--muted);display:block;margin:10px 0 4px}
+  .ins select,.ins input{width:100%;border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:8px;padding:6px 8px;font-size:12.5px}
+  .ins .empty{font-size:12px;color:var(--muted);line-height:1.6}
+  .seg{display:flex;gap:4px}
+  .seg button{flex:1;border:1px solid var(--border);background:var(--sunken);border-radius:7px;padding:5px;font-size:11px;cursor:pointer;color:var(--muted)}
+  .seg button.on{color:var(--action);border-color:var(--action)}
+
+  /* decisions */
+  .dec{margin-top:24px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .dec h2{font-size:14px;margin:0 0 4px}
+  .ditem{padding:11px 0;border-top:1px solid var(--border)}
+  .ditem:first-of-type{border-top:0}
+  .ditem .t{font-weight:600;font-size:13.5px;margin:0 0 3px}
+  .ditem .d{color:var(--muted);font-size:12.5px;margin:0 0 8px;line-height:1.5}
+  .vb{border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px}
+  .vb.ok.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .vb.tw.on{background:#b45309;color:#fff;border-color:#b45309}
+  .vb.no.on{background:#b42318;color:#fff;border-color:#b42318}
+  .note{width:100%;margin-top:8px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);padding:7px 9px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:34px}
+  .exp{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>Companion data-site builder</h1>
+    <p class="sub">The Wix-style canvas for a paper's supplemental data site (SEPARATE from the lab homepage). Drag a block from the left onto the page. The data blocks are the point.</p>
+  </div>
+  <button class="ghost" id="themeBtn">Dark mode</button>
+</div>
+
+<div class="wrap">
+  <!-- PALETTE -->
+  <div class="panel">
+    <h2>Blocks</h2>
+    <div class="palgrp">Data and embeds</div>
+    <div class="block data" draggable="true" data-k="figure"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 16l3-4 3 2 4-6"/></svg></span>Live figure</div>
+    <div class="block data" draggable="true" data-k="table"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg></span>Interactive table</div>
+    <div class="block data" draggable="true" data-k="explorer"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg></span>Dataset explorer</div>
+    <div class="block data" draggable="true" data-k="chart"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4M4 20h16M9 16v-5M14 16V8M19 16v-9"/></svg></span>Chart</div>
+    <div class="palgrp">Content and layout</div>
+    <div class="block" draggable="true" data-k="heading"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 4v16M18 4v16M6 12h12"/></svg></span>Heading</div>
+    <div class="block" draggable="true" data-k="text"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10"/></svg></span>Text</div>
+    <div class="block" draggable="true" data-k="image"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9.5" r="1.5"/><path d="M21 16l-5-5L5 20"/></svg></span>Image</div>
+    <div class="block" draggable="true" data-k="cols"><span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="7" height="16" rx="1"/><rect x="14" y="4" width="7" height="16" rx="1"/></svg></span>Two columns</div>
+    <p class="hint">Drag any block onto the canvas, or just click it. Data blocks bind to your real ResearchOS figures and datasets and stay live until you publish.</p>
+  </div>
+
+  <!-- CANVAS -->
+  <div class="frame">
+    <div class="bar">
+      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+      <span class="url">fungal-interaction-fake.research-os.com/ics-2026-supplement</span>
+      <span class="vp">
+        <button data-vp="desktop" class="on">Desktop</button>
+        <button data-vp="mobile">Mobile</button>
+        <button class="pub" id="pubBtn">Publish</button>
+      </span>
+    </div>
+    <div class="canvas" id="canvas"></div>
+  </div>
+
+  <!-- INSPECTOR -->
+  <div class="panel ins" id="inspector">
+    <h2>Properties</h2>
+    <div class="empty" id="insEmpty">Select a block on the canvas to edit it. A data block lets you pick which figure or dataset it shows, the caption, and the width.</div>
+    <div id="insBody" style="display:none"></div>
+  </div>
+</div>
+
+<!-- DECISIONS -->
+<div class="dec">
+  <h2>Mark the direction</h2>
+  <p class="sub" style="margin:0 0 14px">Approve / Tweak / Needs work on each, add a note, then Export. This is the companion-data builder only; the lab homepage stays the structured-section builder.</p>
+  <div id="ditems"></div>
+  <button class="exp" id="expBtn">Copy decisions to clipboard</button>
+  <span id="expMsg" style="font-size:12.5px;color:var(--muted);margin-left:10px"></span>
+</div>
+
+<script>
+  // ---- block rendering ----------------------------------------------------
+  const sample = {
+    figure: () => `<div class="embed"><div class="eh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19V5m0 14h16M8 16l3-4 3 2 4-6"/></svg>Live figure, fig3-ics-counts<span class="live">live</span></div>
+      <svg viewBox="0 0 320 120" style="width:100%;display:block"><polyline points="10,100 60,70 110,80 160,40 210,55 260,20 300,30" fill="none" stroke="var(--action)" stroke-width="2.5"/><polyline points="10,110 60,95 110,98 160,80 210,86 260,70 300,74" fill="none" stroke="var(--purple)" stroke-width="2.5"/></svg></div>
+      <p class="cap" contenteditable>Figure 3. Interaction-cluster counts across 730 genomes.</p>`,
+    table: () => `<div class="embed"><div class="eh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M9 4v16"/></svg>Interactive table, supp-table-2<span class="live">live</span></div>
+      <table class="grid"><tr><th>gene</th><th>cluster</th><th>edges</th><th>score</th></tr><tr><td>cyp51A</td><td>BGC-7</td><td>34</td><td>0.91</td></tr><tr><td>abcC</td><td>BGC-2</td><td>21</td><td>0.78</td></tr><tr><td>hmg1</td><td>BGC-7</td><td>40</td><td>0.88</td></tr></table></div>
+      <p class="cap" contenteditable>Supplementary Table 2. Sortable, searchable, 1,699 rows.</p>`,
+    explorer: () => `<div class="embed"><div class="eh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Dataset explorer, regulatory-interactome<span class="live">live</span></div>
+      <div class="filt"><span class="chip on">all species</span><span class="chip">A. fumigatus</span><span class="chip">score &gt; 0.8</span><span class="chip">+ filter</span></div>
+      <table class="grid"><tr><th>source</th><th>target</th><th>type</th><th>conf</th></tr><tr><td>g0042</td><td>g1190</td><td>activates</td><td>0.93</td></tr><tr><td>g0311</td><td>g0042</td><td>represses</td><td>0.81</td></tr></table></div>
+      <p class="cap" contenteditable>Streamed from the raw dataset, the reader filters it themselves.</p>`,
+    chart: () => `<div class="embed"><div class="eh"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4M4 20h16M9 16v-5M14 16V8M19 16v-9"/></svg>Chart, expression-by-condition<span class="live">live</span></div>
+      <svg viewBox="0 0 320 120" style="width:100%;display:block"><rect x="30" y="40" width="34" height="60" fill="var(--action)"/><rect x="90" y="20" width="34" height="80" fill="var(--action)"/><rect x="150" y="60" width="34" height="40" fill="var(--purple)"/><rect x="210" y="35" width="34" height="65" fill="var(--purple)"/><line x1="20" y1="100" x2="300" y2="100" stroke="var(--border)"/></svg></div>
+      <p class="cap" contenteditable>Bar chart with SEM, built from the table's real replicates.</p>`,
+    heading: () => `<p class="h1b" contenteditable>A new section heading</p>`,
+    text: () => `<p class="txt" contenteditable>Click to write. This is plain prose for the methods, captions, or narrative around your data, no markdown to learn.</p>`,
+    image: () => `<div class="embed" style="display:grid;place-items:center;padding:26px;color:var(--muted);font-size:12px">Drop or pick an image</div><p class="cap" contenteditable>Image caption</p>`,
+    cols: () => `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div class="drop">Drop a block</div><div class="drop">Drop a block</div></div>`
+  };
+  const names = {figure:"Live figure",table:"Interactive table",explorer:"Dataset explorer",chart:"Chart",heading:"Heading",text:"Text",image:"Image",cols:"Two columns"};
+  const dataKinds = ["figure","table","explorer","chart"];
+  const sources = {figure:["fig3-ics-counts","fig1-phylo","fig2-heatmap"],table:["supp-table-2","supp-table-1"],explorer:["regulatory-interactome","ortholog-map"],chart:["expression-by-condition","growth-curves"]};
+
+  const canvas = document.getElementById("canvas");
+  let sel = null;
+
+  function seed(){
+    add("heading"); canvas.lastChild.querySelector("[contenteditable]").textContent="Interaction-cluster supplement, ICS 2026";
+    add("text"); canvas.lastChild.querySelector("[contenteditable]").textContent="Companion data for the paper. Everything below is live from the lab's own ResearchOS data and freezes for citation when published.";
+    add("figure"); add("table");
+  }
+
+  function add(kind, before){
+    const pb = document.createElement("div");
+    pb.className="pb"; pb.dataset.kind=kind;
+    pb.innerHTML = `<span class="drag">⠿</span>
+      <div class="tb">
+        <button data-a="up" aria-label="Move up"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button>
+        <button data-a="down" aria-label="Move down"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M6 13l6 6 6-6"/></svg></button>
+        <button data-a="del" aria-label="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 7h14M9 7V5h6v2M7 7l1 12h8l1-12"/></svg></button>
+      </div>
+      <div class="body">${sample[kind]()}</div>`;
+    if(before) canvas.insertBefore(pb, before); else canvas.appendChild(pb);
+    pb.querySelector(".tb").onclick=(e)=>{const a=e.target.closest("button")?.dataset.a; if(!a)return; e.stopPropagation();
+      if(a==="del"){ if(pb===sel){sel=null;renderIns();} pb.remove(); }
+      if(a==="up"&&pb.previousElementSibling) canvas.insertBefore(pb,pb.previousElementSibling);
+      if(a==="down"&&pb.nextElementSibling) canvas.insertBefore(pb.nextElementSibling,pb);
+    };
+    pb.onclick=(e)=>{ if(e.target.closest(".tb"))return; select(pb); };
+    return pb;
+  }
+  function select(pb){ if(sel)sel.classList.remove("sel"); sel=pb; pb.classList.add("sel"); renderIns(); }
+
+  function renderIns(){
+    const empty=document.getElementById("insEmpty"), body=document.getElementById("insBody");
+    if(!sel){ empty.style.display="block"; body.style.display="none"; return; }
+    empty.style.display="none"; body.style.display="block";
+    const k=sel.dataset.kind;
+    let html=`<label>Block</label><div style="font-size:12.5px;font-weight:600;margin-bottom:4px">${names[k]}</div>`;
+    if(dataKinds.includes(k)){
+      html+=`<label>Source</label><select>${(sources[k]||[]).map(s=>`<option>${s}</option>`).join("")}</select>`;
+      html+=`<label>Caption</label><input value="Edit on the block"/>`;
+    } else {
+      html+=`<label>Content</label><div class="empty">Edit the text directly on the canvas.</div>`;
+    }
+    html+=`<label>Width</label><div class="seg"><button>Inset</button><button class="on">Column</button><button>Full</button></div>`;
+    body.innerHTML=html;
+  }
+
+  // ---- drag from palette + reorder ---------------------------------------
+  let dragKind=null;
+  document.querySelectorAll(".block").forEach(b=>{
+    b.addEventListener("dragstart",e=>{dragKind=b.dataset.k; e.dataTransfer.setData("text/plain",b.dataset.k);});
+    b.addEventListener("click",()=>{const pb=add(b.dataset.k); select(pb); pb.scrollIntoView({block:"nearest"});});
+  });
+  canvas.addEventListener("dragover",e=>{e.preventDefault(); canvas.style.outline="2px dashed var(--action)"; canvas.style.outlineOffset="-6px";});
+  canvas.addEventListener("dragleave",()=>{canvas.style.outline="none";});
+  canvas.addEventListener("drop",e=>{e.preventDefault(); canvas.style.outline="none"; const k=e.dataTransfer.getData("text/plain")||dragKind; if(k&&sample[k]){const pb=add(k); select(pb);}});
+
+  // ---- viewport + theme + publish ----------------------------------------
+  document.querySelectorAll("[data-vp]").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("[data-vp]").forEach(x=>x.classList.remove("on")); b.classList.add("on");
+    canvas.classList.toggle("mobile", b.dataset.vp==="mobile");
+  });
+  const tb=document.getElementById("themeBtn");
+  tb.onclick=()=>{const d=document.documentElement.getAttribute("data-t")==="dark"; document.documentElement.setAttribute("data-t",d?"light":"dark"); tb.textContent=d?"Dark mode":"Light mode";};
+  document.getElementById("pubBtn").onclick=()=>alert("On publish, every live figure / table / dataset on the page is FROZEN (baked) to a snapshot, so the citable URL always shows exactly what was published, even if the lab's data changes later.");
+
+  // ---- decisions ----------------------------------------------------------
+  const items=[
+    {id:"canvas",t:"Drag-and-drop canvas (not a markdown box)",d:"A real builder, drag blocks from the palette onto the page, click to edit in place, reorder. This replaces the markdown textarea for companion/supplement pages."},
+    {id:"data",t:"Data blocks are first-class and the star",d:"Live figure, interactive table, dataset explorer, chart, each binds to the lab's real ResearchOS data. This is the moat, a live interactive supplement at a citable URL."},
+    {id:"layout",t:"Free layout (columns, widths, full-bleed)",d:"Two-column, inset/column/full-bleed widths, spacers, the Wix-style freedom. Each paper's supplement is unique, so layout is not templated here."},
+    {id:"bake",t:"Freeze (bake) on publish for citation",d:"Editing shows LIVE data; publishing snapshots every embed so the citable URL is stable forever. The badge flips live -> frozen on publish."},
+    {id:"split",t:"Separate from the homepage builder",d:"The lab homepage stays the structured-section builder (hero/about/team/publications). This freeform canvas is ONLY for supplement/companion pages. Confirm the split."}
+  ];
+  const KEY="companion-builder-decisions-v1";
+  const store=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const save=()=>localStorage.setItem(KEY,JSON.stringify(store));
+  const host=document.getElementById("ditems");
+  items.forEach(it=>{
+    const w=document.createElement("div"); w.className="ditem";
+    w.innerHTML=`<p class="t">${it.t}</p><p class="d">${it.d}</p>
+      <div><button class="vb ok" data-v="ok">Approve</button><button class="vb tw" data-v="tw">Tweak</button><button class="vb no" data-v="no">Needs work</button></div>
+      <textarea class="note" placeholder="Note (optional)"></textarea>`;
+    const st=store[it.id]||{}, note=w.querySelector(".note"); note.value=st.note||"";
+    w.querySelectorAll(".vb").forEach(b=>{ if(st.v===b.dataset.v)b.classList.add("on");
+      b.onclick=()=>{w.querySelectorAll(".vb").forEach(x=>x.classList.remove("on")); b.classList.add("on"); store[it.id]={...(store[it.id]||{}),v:b.dataset.v,note:note.value,t:it.t}; save();};});
+    note.oninput=()=>{store[it.id]={...(store[it.id]||{}),note:note.value,t:it.t}; save();};
+    host.appendChild(w);
+  });
+  document.getElementById("expBtn").onclick=async()=>{
+    let out="Companion data-site builder, decisions\n\n";
+    items.forEach(it=>{const st=store[it.id]||{}; const v=st.v==="ok"?"APPROVE":st.v==="no"?"NEEDS WORK":st.v==="tw"?"TWEAK":"(none)"; out+=`- [${v}] ${it.t}\n`; if(st.note)out+=`    note: ${st.note}\n`;});
+    try{await navigator.clipboard.writeText(out); document.getElementById("expMsg").textContent="Copied. Paste it back into chat.";}
+    catch{document.getElementById("expMsg").textContent="Copy failed, select + copy manually.";}
+  };
+
+  seed();
+</script>
+</body>
+</html>

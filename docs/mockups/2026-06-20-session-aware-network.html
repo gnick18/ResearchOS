@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Session-aware network, concept</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#171717;--muted:#6b7080;--border:#e5e7eb;--action:#1283c9;--purple:#5b47d6;--good:#15803d}
+  html[data-t="dark"]{--surface:#0a0e1a;--raised:#1c2638;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.16);--action:#3b9fe0;--good:#34d399}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:18px}
+  h1{font-size:19px;font-weight:800;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin:3px 0 14px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}
+  .ghost{background:var(--raised);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer}
+  .seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+  .seg button{border:0;background:var(--raised);color:var(--muted);padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .seg button.on{background:var(--action);color:#fff}
+
+  .app{margin-top:14px;border:1px solid var(--border);border-radius:14px;overflow:hidden;background:var(--raised)}
+  /* top bar */
+  .bar{display:flex;align-items:center;gap:12px;padding:10px 16px;border-bottom:1px solid var(--border);background:var(--raised)}
+  .brand{font-weight:800;font-size:15px}
+  .brand .os{color:var(--action)}
+  .srch{flex:1;max-width:420px;display:flex;align-items:center;gap:8px;background:var(--sunken);border:1px solid var(--border);border-radius:20px;padding:6px 12px;color:var(--muted);font-size:12.5px}
+  .srch svg{width:14px;height:14px}
+  .barright{margin-left:auto;display:flex;align-items:center;gap:10px}
+  .signin{background:var(--action);color:#fff;border:0;border-radius:8px;padding:7px 14px;font-size:12.5px;font-weight:700;cursor:pointer}
+  .av{width:30px;height:30px;border-radius:50%;background:var(--purple);color:#fff;display:grid;place-items:center;font-size:11px;font-weight:800}
+  .bell{color:var(--muted)} .bell svg{width:17px;height:17px}
+
+  .body{display:grid;grid-template-columns:212px 1fr 230px;gap:0}
+  @media(max-width:920px){.body{grid-template-columns:1fr}}
+  .rail{border-right:1px solid var(--border);padding:14px 12px}
+  .rail.right{border-right:0;border-left:1px solid var(--border)}
+  .me{display:flex;align-items:center;gap:9px;padding:8px;border:1px solid var(--border);border-radius:10px;margin-bottom:12px}
+  .me .av{width:34px;height:34px}
+  .me b{font-size:13px;display:block} .me span{font-size:11px;color:var(--muted)}
+  .navi{display:flex;align-items:center;gap:9px;padding:7px 9px;border-radius:8px;font-size:13px;color:var(--fg);cursor:pointer}
+  .navi:hover{background:var(--sunken)}
+  .navi.on{background:color-mix(in srgb,var(--action) 12%,transparent);color:var(--action);font-weight:700}
+  .navi svg{width:15px;height:15px;flex:none}
+  .navlabel{font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:14px 0 6px 9px}
+  .labrow{display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:8px;font-size:12.5px;cursor:pointer}
+  .labrow:hover{background:var(--sunken)}
+  .labdot{width:7px;height:7px;border-radius:50%;background:var(--good);flex:none}
+  .can{margin-left:auto;font-size:9.5px;font-weight:800;color:var(--purple);border:1px solid color-mix(in srgb,var(--purple) 40%,transparent);border-radius:5px;padding:1px 5px}
+
+  .feed{padding:16px}
+  .youredit{border:1px solid var(--border);border-radius:12px;padding:13px;margin-bottom:14px;background:color-mix(in srgb,var(--purple) 6%,transparent)}
+  .youredit h3{font-size:12.5px;font-weight:800;margin:0 0 9px;color:var(--purple);display:flex;align-items:center;gap:6px}
+  .youredit h3 svg{width:14px;height:14px}
+  .site{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--border);font-size:12.5px}
+  .site:first-of-type{border-top:0}
+  .site .nm{flex:1} .site .nm b{display:block} .site .nm span{font-size:11px;color:var(--muted)}
+  .site .role{font-size:10px;font-weight:700;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 6px}
+  .edit{border:0;background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border-radius:7px;padding:5px 11px;font-size:11.5px;font-weight:700;cursor:pointer;display:inline-flex;gap:5px;align-items:center}
+  .edit svg{width:12px;height:12px}
+
+  .fcard{border:1px solid var(--border);border-radius:11px;padding:12px;margin-bottom:10px}
+  .fhead{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--muted);margin-bottom:7px}
+  .fhead .av{width:24px;height:24px;font-size:9px;background:var(--action)}
+  .fhead b{color:var(--fg)}
+  .fbody{font-size:13px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;border:1px solid var(--border);border-radius:7px;padding:3px 8px;background:var(--sunken)}
+
+  .rcard{border:1px solid var(--border);border-radius:10px;padding:11px;margin-bottom:10px}
+  .rcard h4{font-size:11px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin:0 0 8px}
+  .person{display:flex;align-items:center;gap:8px;padding:6px 0;font-size:12px}
+  .person .av{width:26px;height:26px;font-size:9px}
+  .person .x{margin-left:auto;font-size:11px;color:var(--action);font-weight:600;cursor:pointer}
+
+  /* logged-out discovery */
+  .disco{padding:20px}
+  .disco .hero{text-align:center;padding:14px 0 18px}
+  .disco .hero h2{font-size:22px;font-weight:800;margin:0 0 6px}
+  .disco .hero p{color:var(--muted);font-size:13px;margin:0 auto;max-width:460px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:11px;margin-top:6px}
+  .gc{border:1px solid var(--border);border-radius:11px;padding:12px;font-size:12.5px}
+  .gc b{display:block;margin-bottom:3px}
+  .gc .meta{color:var(--muted);font-size:11px}
+  .locked{margin-top:16px;text-align:center;font-size:12.5px;color:var(--muted)}
+  .locked b{color:var(--fg)}
+
+  .note{font-size:12.5px;color:var(--muted);margin-top:12px;line-height:1.55}
+  .note b{color:var(--fg)}
+
+  .dec{margin-top:22px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .dec h2{font-size:14px;margin:0 0 4px}
+  .ditem{padding:11px 0;border-top:1px solid var(--border)}
+  .ditem:first-of-type{border-top:0}
+  .ditem .t{font-weight:600;font-size:13.5px;margin:0 0 3px}
+  .ditem .d{color:var(--muted);font-size:12.5px;margin:0 0 8px;line-height:1.5}
+  .vb{border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px}
+  .vb.ok.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .vb.tw.on{background:#b45309;color:#fff;border-color:#b45309}
+  .vb.no.on{background:#b42318;color:#fff;border-color:#b42318}
+  .note2{width:100%;margin-top:8px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);padding:7px 9px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:34px}
+  .exp{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>Session-aware network</h1>
+    <p class="sub">Same /network URL (on .app, public). Toggle the session, logged-out gets public discovery, logged-in gets the social shell + builder access on sites you can edit.</p>
+  </div>
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="seg" id="sess"><button data-v="in" class="on">Logged in</button><button data-v="out">Logged out</button></div>
+    <button class="ghost" id="themeBtn">Dark mode</button>
+  </div>
+</div>
+
+<div class="app">
+  <div class="bar">
+    <span class="brand">Research<span class="os">OS</span> Network</span>
+    <span class="srch"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Search researchers, labs, departments</span>
+    <span class="barright" id="barright"></span>
+  </div>
+  <div id="stage"></div>
+</div>
+
+<p class="note" id="note"></p>
+
+<div class="dec">
+  <h2>Mark the direction</h2>
+  <p class="sub" style="margin:0 0 14px">Approve / Tweak / Needs work each, add a note, Export.</p>
+  <div id="ditems"></div>
+  <button class="exp" id="expBtn">Copy decisions to clipboard</button>
+  <span id="expMsg" style="font-size:12.5px;color:var(--muted);margin-left:10px"></span>
+</div>
+
+<script>
+  let sess="in";
+  const barright=document.getElementById("barright"), stage=document.getElementById("stage"), note=document.getElementById("note");
+
+  function render(){
+    if(sess==="in"){
+      barright.innerHTML=`<span class="bell"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.7 21a2 2 0 0 1-3.4 0"/></svg></span><span class="av">GN</span>`;
+      stage.innerHTML=`
+      <div class="body">
+        <div class="rail">
+          <div class="me"><span class="av">GN</span><div><b>Dr. Grant Nickles</b><span>View your profile</span></div></div>
+          <div class="navi on"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l9-9 9 9M5 10v10h14V10"/></svg>Home feed</div>
+          <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21v-1a6 6 0 0 1 12 0v1"/></svg>Your profile</div>
+          <div class="navi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>Discover</div>
+          <div class="navlabel">Your labs</div>
+          <div class="labrow"><span class="labdot"></span>Fungal Interactions Lab<span class="can">edit</span></div>
+          <div class="labrow"><span class="labdot"></span>Castellanos Lab<span class="can">edit</span></div>
+          <div class="navlabel">Your department</div>
+          <div class="labrow"><span class="labdot" style="background:var(--action)"></span>Plant Pathology, UW-Madison</div>
+        </div>
+
+        <div class="feed">
+          <div class="youredit">
+            <h3><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Sites you can edit</h3>
+            <div class="site"><div class="nm"><b>fungal-interaction-fake.research-os.com</b><span>Lab site + ICS 2026 companion</span></div><span class="role">Owner</span><button class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Build</button></div>
+            <div class="site"><div class="nm"><b>castellanos-lab.research-os.com</b><span>Granted edit access by the PI</span></div><span class="role">Editor</span><button class="edit"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>Build</button></div>
+          </div>
+
+          <div class="fcard"><div class="fhead"><span class="av">OS</span><b>Owen Sullivan</b> shared a dataset with your lab</div><div class="fbody">Regulatory interactome, 1,699 edges <span class="chip">Open in app</span></div></div>
+          <div class="fcard"><div class="fhead"><span class="av">EG</span><b>Emile Gluck-Thaler</b> published a companion site</div><div class="fbody">Fungal Interactions Lab, ICS 2026 supplement <span class="chip">View site</span></div></div>
+        </div>
+
+        <div class="rail right">
+          <div class="rcard"><h4>People you may know</h4>
+            <div class="person"><span class="av">RS</span>Robin Stewart<span class="x">Connect</span></div>
+            <div class="person"><span class="av">KA</span>Kritika A.<span class="x">Connect</span></div>
+          </div>
+          <div class="rcard"><h4>Labs near you</h4>
+            <div class="person"><span class="av" style="background:var(--good)">SL</span>Sullivan Lab<span class="x">View</span></div>
+          </div>
+        </div>
+      </div>`;
+      note.innerHTML=`<b>Logged in.</b> Same /network URL, but the session is read (it is on .app, so a login in another tab is already here). You get the social shell, your profile / labs / department on the rail, search up top, a feed, and a "Sites you can edit" block that lists every site you OWN or were GRANTED edit access on, each with a one-click Build into the builder. The edit/build affordances are driven by the per-site editor grants, an Owner sees their lab, a granted Editor sees the sites the PI shared.`;
+    } else {
+      barright.innerHTML=`<button class="signin">Sign in</button>`;
+      stage.innerHTML=`
+      <div class="disco">
+        <div class="hero"><h2>Find any researcher or lab</h2><p>Public, no login. Discover labs, researchers, and their published companion sites across ResearchOS.</p></div>
+        <div class="grid">
+          <div class="gc"><b>Fungal Interactions Lab</b><div class="meta">UW-Madison &middot; 4 members</div></div>
+          <div class="gc"><b>Sullivan Lab</b><div class="meta">Carleton &middot; 1 member</div></div>
+          <div class="gc"><b>Dr. Emile Gluck-Thaler</b><div class="meta">Researcher &middot; UW-Madison</div></div>
+          <div class="gc"><b>Castellanos Lab</b><div class="meta">2 companion sites</div></div>
+        </div>
+        <p class="locked"><b>Sign in</b> to follow labs, build a feed, and edit the sites you have access to. Everything above stays public.</p>
+      </div>`;
+      note.innerHTML=`<b>Logged out.</b> The public discovery surface, fully viewable with NO login (honoring the locked "never gate a .com view" rule). Search + browse labs/researchers/sites. The only thing behind sign-in is the PERSONAL layer, your feed, follows, and the builder. Nothing public is hidden.`;
+    }
+  }
+  render();
+
+  document.querySelectorAll("#sess button").forEach(b=>b.onclick=()=>{
+    document.querySelectorAll("#sess button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); sess=b.dataset.v; render();
+  });
+  const tb=document.getElementById("themeBtn");
+  tb.onclick=()=>{const d=document.documentElement.getAttribute("data-t")==="dark";document.documentElement.setAttribute("data-t",d?"light":"dark");tb.textContent=d?"Dark mode":"Light mode";};
+
+  const items=[
+    {id:"split",t:"Public discovery logged-out, social shell logged-in",d:"Same /network URL. Logged-out is the public search/browse surface (no gating, honors the locked .com rule). Logged-in reads the session (it is on .app) and renders the social-app shell."},
+    {id:"rail",t:"Left rail, You / Your labs / Your department",d:"Profile, the labs you belong to, your department/institution, plus Discover, the social-media nav you described. Search lives in the top bar."},
+    {id:"edit",t:"'Sites you can edit' + one-click Build",d:"Logged-in users see every site they OWN or were GRANTED edit access on, each with a Build button into the builder. Driven by the per-site editor grants we just built (Owner vs Editor)."},
+    {id:"autologin",t:"Auto-login from another .app tab (free)",d:"Because /network is the same origin as the app, an existing session is already present, no new login, no cross-origin handshake."},
+    {id:"feed",t:"A feed + right-rail suggestions",d:"Center feed of shares/publishes/lab activity; right rail of people-you-may-know + labs-near-you. The 'normal social media' middle + suggestions."}
+  ];
+  const KEY="session-network-decisions-v1";
+  const store=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const save=()=>localStorage.setItem(KEY,JSON.stringify(store));
+  const host=document.getElementById("ditems");
+  items.forEach(it=>{
+    const w=document.createElement("div");w.className="ditem";
+    w.innerHTML=`<p class="t">${it.t}</p><p class="d">${it.d}</p><div><button class="vb ok" data-v="ok">Approve</button><button class="vb tw" data-v="tw">Tweak</button><button class="vb no" data-v="no">Needs work</button></div><textarea class="note2" placeholder="Note (optional)"></textarea>`;
+    const st=store[it.id]||{},n=w.querySelector(".note2");n.value=st.note||"";
+    w.querySelectorAll(".vb").forEach(b=>{if(st.v===b.dataset.v)b.classList.add("on");b.onclick=()=>{w.querySelectorAll(".vb").forEach(x=>x.classList.remove("on"));b.classList.add("on");store[it.id]={...(store[it.id]||{}),v:b.dataset.v,note:n.value,t:it.t};save();};});
+    n.oninput=()=>{store[it.id]={...(store[it.id]||{}),note:n.value,t:it.t};save();};
+    host.appendChild(w);
+  });
+  document.getElementById("expBtn").onclick=async()=>{
+    let out="Session-aware network, decisions\n\n";
+    items.forEach(it=>{const st=store[it.id]||{};const v=st.v==="ok"?"APPROVE":st.v==="no"?"NEEDS WORK":st.v==="tw"?"TWEAK":"(none)";out+=`- [${v}] ${it.t}\n`;if(st.note)out+=`    note: ${st.note}\n`;});
+    try{await navigator.clipboard.writeText(out);document.getElementById("expMsg").textContent="Copied. Paste it back into chat.";}
+    catch{document.getElementById("expMsg").textContent="Copy failed, select + copy manually.";}
+  };
+</script>
+</body>
+</html>

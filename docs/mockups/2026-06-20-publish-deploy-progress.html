@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Publish and deploy progress, concept</title>
+<style>
+  :root{--surface:#f8fafc;--raised:#fff;--sunken:#f1f5f9;--fg:#171717;--muted:#6b7080;--border:#e5e7eb;--action:#1283c9;--purple:#5b47d6;--good:#15803d;--amber:#b45309}
+  html[data-t="dark"]{--surface:#0a0e1a;--raised:#1c2638;--sunken:#0d1424;--fg:#f1f5f9;--muted:#b4bfd0;--border:rgba(255,255,255,.16);--action:#3b9fe0;--good:#34d399;--amber:#fbbf24}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--surface);color:var(--fg);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;padding:18px}
+  h1{font-size:19px;font-weight:800;margin:0}
+  .sub{color:var(--muted);font-size:13px;margin:3px 0 16px}
+  .top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+  .ghost{background:var(--raised);color:var(--fg);border:1px solid var(--border);border-radius:8px;padding:7px 12px;font-size:13px;font-weight:600;cursor:pointer}
+  .cols{display:grid;grid-template-columns:1fr 300px;gap:16px;align-items:start}
+  @media(max-width:880px){.cols{grid-template-columns:1fr}}
+
+  /* builder frame */
+  .frame{background:var(--raised);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+  .bar{display:flex;align-items:center;gap:10px;padding:10px 14px;border-bottom:1px solid var(--border);background:var(--sunken)}
+  .where{font-size:12px;color:var(--muted)}
+  .where b{color:var(--fg);font-weight:600}
+  .url{font-family:ui-monospace,Menlo,monospace;font-size:11.5px}
+  /* status pill */
+  .pill{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;border-radius:20px;padding:3px 11px;border:1px solid}
+  .pill .d{width:7px;height:7px;border-radius:50%}
+  .pill.live{color:var(--good);border-color:color-mix(in srgb,var(--good) 45%,transparent);background:color-mix(in srgb,var(--good) 12%,transparent)}
+  .pill.live .d{background:var(--good)}
+  .pill.draft{color:var(--amber);border-color:color-mix(in srgb,var(--amber) 45%,transparent);background:color-mix(in srgb,var(--amber) 12%,transparent)}
+  .pill.draft .d{background:var(--amber)}
+  .pill.busy{color:var(--action);border-color:color-mix(in srgb,var(--action) 45%,transparent);background:color-mix(in srgb,var(--action) 10%,transparent)}
+  .pill.busy .d{background:var(--action);animation:pulse 1s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .push{margin-left:auto;background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer}
+  .push:disabled{opacity:.55;cursor:default}
+
+  .editarea{padding:16px}
+  .editarea .note{font-size:12.5px;color:var(--muted);background:var(--sunken);border:1px dashed var(--border);border-radius:9px;padding:18px;text-align:center}
+
+  /* deploy progress */
+  .deploy{margin-top:14px;border:1px solid var(--border);border-radius:11px;overflow:hidden;display:none}
+  .deploy.show{display:block}
+  .deploy .dh{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid var(--border);font-size:12.5px;font-weight:700;background:var(--sunken)}
+  .deploy .dh .lab{margin-left:auto;font-size:11px;font-weight:600;color:var(--muted)}
+  .steps{padding:6px 13px 12px}
+  .step{display:flex;align-items:center;gap:10px;padding:8px 0;font-size:13px;color:var(--muted)}
+  .step .si{flex:none;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--border)}
+  .step .si svg{width:11px;height:11px}
+  .step.done{color:var(--fg)}
+  .step.done .si{border-color:var(--good);background:var(--good);color:#fff}
+  .step.run{color:var(--fg)}
+  .step.run .si{border-color:var(--action);border-top-color:transparent;animation:spin .7s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .step .meta{margin-left:auto;font-size:11px;color:var(--muted)}
+  .donebar{display:none;align-items:center;gap:10px;padding:11px 13px;border-top:1px solid var(--border);background:color-mix(in srgb,var(--good) 9%,transparent)}
+  .donebar.show{display:flex}
+  .donebar .ok{color:var(--good);font-weight:700;font-size:13px;display:flex;align-items:center;gap:6px}
+  .view{margin-left:auto;border:1px solid var(--border);background:var(--raised);color:var(--fg);border-radius:7px;padding:5px 12px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+  .view svg{width:13px;height:13px}
+
+  /* history sidebar */
+  .panel{background:var(--raised);border:1px solid var(--border);border-radius:12px;padding:14px}
+  .panel h2{font-size:11px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:0 0 10px}
+  .dep{display:flex;align-items:center;gap:9px;padding:9px 0;border-top:1px solid var(--border);font-size:12.5px}
+  .dep:first-of-type{border-top:0}
+  .dep .di{flex:none;width:8px;height:8px;border-radius:50%;background:var(--good)}
+  .dep .dt{flex:1}
+  .dep .dt b{font-weight:600}
+  .dep .dt span{display:block;color:var(--muted);font-size:11px}
+  .dep .ra{font-size:11px;color:var(--action);cursor:pointer;font-weight:600}
+  .applies{margin-top:14px;font-size:12px;color:var(--muted);line-height:1.55;border-top:1px solid var(--border);padding-top:12px}
+
+  /* decisions */
+  .dec{margin-top:22px;background:var(--raised);border:1px solid var(--border);border-radius:14px;padding:16px 18px}
+  .dec h2{font-size:14px;margin:0 0 4px}
+  .ditem{padding:11px 0;border-top:1px solid var(--border)}
+  .ditem:first-of-type{border-top:0}
+  .ditem .t{font-weight:600;font-size:13.5px;margin:0 0 3px}
+  .ditem .d{color:var(--muted);font-size:12.5px;margin:0 0 8px;line-height:1.5}
+  .vb{border:1px solid var(--border);background:var(--sunken);color:var(--fg);border-radius:7px;padding:4px 10px;font-size:12px;font-weight:600;cursor:pointer;margin-right:6px}
+  .vb.ok.on{background:var(--good);color:#fff;border-color:var(--good)}
+  .vb.tw.on{background:#b45309;color:#fff;border-color:#b45309}
+  .vb.no.on{background:#b42318;color:#fff;border-color:#b42318}
+  .note2{width:100%;margin-top:8px;border:1px solid var(--border);border-radius:8px;background:var(--sunken);color:var(--fg);padding:7px 9px;font-size:12.5px;font-family:inherit;resize:vertical;min-height:34px}
+  .exp{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:0;border-radius:9px;padding:9px 16px;font-weight:700;font-size:13px;cursor:pointer;margin-top:14px}
+</style>
+</head>
+<body>
+<div class="top">
+  <div>
+    <h1>Publish and deploy progress</h1>
+    <p class="sub">One shared component for BOTH the homepage builder and the companion data-site builder. Always know if your changes are live, and watch the deploy when you push.</p>
+  </div>
+  <button class="ghost" id="themeBtn">Dark mode</button>
+</div>
+
+<div class="cols">
+  <div class="frame">
+    <div class="bar">
+      <span class="where">Editing <b id="ctx">companion site</b></span>
+      <span class="url">/ics-2026-supplement</span>
+      <span class="pill draft" id="pill"><span class="d"></span><span id="pillTxt">Unpublished changes</span></span>
+      <button class="push" id="pushBtn">Push live</button>
+    </div>
+
+    <div class="editarea">
+      <div class="note">Your editor / canvas lives here. The status pill above and the deploy panel below are the new part, the same in both builders.</div>
+
+      <div class="deploy" id="deploy">
+        <div class="dh"><span>Deploying your changes</span><span class="lab" id="depLab">started just now</span></div>
+        <div class="steps" id="steps"></div>
+        <div class="donebar" id="donebar">
+          <span class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7"/></svg>Live now</span>
+          <span style="font-size:12px;color:var(--muted)">fungal-interaction-fake.research-os.com/ics-2026-supplement</span>
+          <button class="view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 5h5v5M19 5l-9 9M5 7v12h12"/></svg>View site</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="panel">
+      <h2>Deploy history</h2>
+      <div class="dep"><span class="di"></span><div class="dt"><b id="hTop">Current version</b><span id="hTopMeta">live, published 4 min ago</span></div></div>
+      <div class="dep"><span class="di"></span><div class="dt"><b>Added Figure 3 and the table</b><span>live, yesterday 4:12 PM</span></div><span class="ra">Restore</span></div>
+      <div class="dep"><span class="di"></span><div class="dt"><b>First publish</b><span>live, Jun 18</span></div><span class="ra">Restore</span></div>
+      <div class="applies">Each push is a versioned deploy. Because companion pages are citable, an older version stays viewable and restorable, so a citation never 404s.</div>
+    </div>
+
+    <div class="panel" style="margin-top:14px">
+      <h2>Try it</h2>
+      <button class="ghost" id="replayBtn" style="width:100%">Replay a deploy</button>
+      <p class="applies" style="border:0;padding:0;margin-top:10px">Toggle which builder this is shown in, the flow is identical:</p>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button class="ghost" data-ctx="companion site" style="flex:1">Companion</button>
+        <button class="ghost" data-ctx="lab homepage" style="flex:1">Homepage</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="dec">
+  <h2>Mark the direction</h2>
+  <p class="sub" style="margin:0 0 14px">Approve / Tweak / Needs work each, add a note, Export.</p>
+  <div id="ditems"></div>
+  <button class="exp" id="expBtn">Copy decisions to clipboard</button>
+  <span id="expMsg" style="font-size:12.5px;color:var(--muted);margin-left:10px"></span>
+</div>
+
+<script>
+  const STAGES=[
+    {t:"Saving your changes",meta:"draft saved"},
+    {t:"Freezing figures and tables for citation",meta:"4 embeds baked"},
+    {t:"Publishing to your site",meta:""},
+    {t:"Checking it is reachable",meta:"200 OK"}
+  ];
+  const stepsEl=document.getElementById("steps");
+  const deploy=document.getElementById("deploy");
+  const donebar=document.getElementById("donebar");
+  const pill=document.getElementById("pill"), pillTxt=document.getElementById("pillTxt");
+  const pushBtn=document.getElementById("pushBtn");
+  const ctxEl=document.getElementById("ctx");
+
+  function setPill(state,txt){pill.className="pill "+state; pillTxt.textContent=txt;}
+
+  function renderSteps(){
+    stepsEl.innerHTML="";
+    STAGES.forEach((s,i)=>{
+      const d=document.createElement("div"); d.className="step"; d.dataset.i=i;
+      d.innerHTML=`<span class="si"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="m5 13 4 4L19 7"/></svg></span><span>${s.t}</span><span class="meta"></span>`;
+      stepsEl.appendChild(d);
+    });
+  }
+
+  function run(){
+    const isHome=ctxEl.textContent==="lab homepage";
+    const stages=STAGES.filter((s,i)=> !(isHome && i===1)); // homepage often has no embeds to bake
+    renderSteps();
+    const nodes=[...stepsEl.children].filter((n,i)=> !(isHome && i===1));
+    if(isHome){ const skip=stepsEl.children[1]; if(skip) skip.style.display="none"; }
+    deploy.classList.add("show"); donebar.classList.remove("show");
+    setPill("busy","Publishing"); pushBtn.disabled=true;
+    let i=0;
+    const tick=()=>{
+      if(i>0){const p=nodes[i-1]; p.className="step done"; p.querySelector(".meta").textContent=stages[i-1].meta;}
+      if(i>=nodes.length){
+        donebar.classList.add("show"); setPill("live","Live"); pushBtn.disabled=false;
+        document.getElementById("hTopMeta").textContent="live, published just now";
+        return;
+      }
+      nodes[i].className="step run"; i++;
+      setTimeout(tick, 850);
+    };
+    tick();
+  }
+
+  pushBtn.onclick=run;
+  document.getElementById("replayBtn").onclick=()=>{setPill("draft","Unpublished changes"); deploy.classList.remove("show"); donebar.classList.remove("show"); setTimeout(run,150);};
+  document.querySelectorAll("[data-ctx]").forEach(b=>b.onclick=()=>{ctxEl.textContent=b.dataset.ctx; setPill("draft","Unpublished changes"); deploy.classList.remove("show");});
+
+  const tb=document.getElementById("themeBtn");
+  tb.onclick=()=>{const d=document.documentElement.getAttribute("data-t")==="dark"; document.documentElement.setAttribute("data-t",d?"light":"dark"); tb.textContent=d?"Dark mode":"Light mode";};
+
+  const items=[
+    {id:"pill",t:"Persistent live-vs-draft status pill",d:"Always visible in the builder, Live (green) / Unpublished changes (amber) / Publishing (blue). The user never wonders whether what they see is what visitors see."},
+    {id:"stages",t:"Honest staged deploy progress on push",d:"Real named steps, save -> freeze figures/tables -> publish -> reachability check -> Live, each with a spinner then a check. Not a fake progress bar, the steps mirror the actual pipeline."},
+    {id:"bake",t:"Freeze-for-citation shown as its own step",d:"The bake-on-publish is surfaced ('4 embeds baked') so the user understands why a citable page is stable. Skipped/instant when a page has no live embeds (common on the homepage)."},
+    {id:"history",t:"Versioned deploy history + restore",d:"A list of past publishes with time + status, and Restore on older ones. Because companion pages are citable, an old version stays viewable so a citation never 404s."},
+    {id:"shared",t:"One shared component, both builders",d:"Identical status pill + deploy panel in the homepage builder AND the companion builder. Toggle the demo to see the flow is the same."}
+  ];
+  const KEY="publish-deploy-decisions-v1";
+  const store=JSON.parse(localStorage.getItem(KEY)||"{}");
+  const save=()=>localStorage.setItem(KEY,JSON.stringify(store));
+  const host=document.getElementById("ditems");
+  items.forEach(it=>{
+    const w=document.createElement("div");w.className="ditem";
+    w.innerHTML=`<p class="t">${it.t}</p><p class="d">${it.d}</p><div><button class="vb ok" data-v="ok">Approve</button><button class="vb tw" data-v="tw">Tweak</button><button class="vb no" data-v="no">Needs work</button></div><textarea class="note2" placeholder="Note (optional)"></textarea>`;
+    const st=store[it.id]||{},note=w.querySelector(".note2");note.value=st.note||"";
+    w.querySelectorAll(".vb").forEach(b=>{if(st.v===b.dataset.v)b.classList.add("on");b.onclick=()=>{w.querySelectorAll(".vb").forEach(x=>x.classList.remove("on"));b.classList.add("on");store[it.id]={...(store[it.id]||{}),v:b.dataset.v,note:note.value,t:it.t};save();};});
+    note.oninput=()=>{store[it.id]={...(store[it.id]||{}),note:note.value,t:it.t};save();};
+    host.appendChild(w);
+  });
+  document.getElementById("expBtn").onclick=async()=>{
+    let out="Publish and deploy progress, decisions\n\n";
+    items.forEach(it=>{const st=store[it.id]||{};const v=st.v==="ok"?"APPROVE":st.v==="no"?"NEEDS WORK":st.v==="tw"?"TWEAK":"(none)";out+=`- [${v}] ${it.t}\n`;if(st.note)out+=`    note: ${st.note}\n`;});
+    try{await navigator.clipboard.writeText(out);document.getElementById("expMsg").textContent="Copied. Paste it back into chat.";}
+    catch{document.getElementById("expMsg").textContent="Copy failed, select + copy manually.";}
+  };
+
+  renderSteps();
+</script>
+</body>
+</html>
