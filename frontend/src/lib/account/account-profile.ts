@@ -115,6 +115,51 @@ export async function ensureAccountProfileSchema(): Promise<void> {
   // capped TEXT; links is jsonb so the set can grow without another migration.
   await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS bio text`;
   await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS links jsonb`;
+  // Cloud theme sync: plaintext preference stored outside the E2E-encrypted
+  // settings blob so it can be applied immediately on login, before the user
+  // unlocks their identity key. Values: "light" | "dark" | "system" | null.
+  await sql`ALTER TABLE account_profiles ADD COLUMN IF NOT EXISTS theme text`;
+}
+
+const VALID_THEMES = new Set(["light", "dark", "system"]);
+
+/**
+ * Returns the account's last saved theme choice, or null when never set.
+ * Null callers fall back to localStorage (no regression on new accounts).
+ */
+export async function getAccountTheme(ownerKey: string): Promise<string | null> {
+  const sql = getSql();
+  // Ensure the theme column exists before reading it. CREATE/ALTER IF NOT EXISTS
+  // is idempotent and cheap; without it the first read on a DB where no profile
+  // route has run yet throws an undefined-column error (the lab_site_views 42P01
+  // lesson). Theme reads are per-login, not per-keystroke, so the cost is fine.
+  await ensureAccountProfileSchema();
+  const rows = (await sql`
+    SELECT theme FROM account_profiles WHERE owner_key = ${ownerKey} LIMIT 1
+  `) as Array<{ theme: string | null }>;
+  const raw = rows[0]?.theme ?? null;
+  // Guard against stale DB values written by a future schema change.
+  return raw && VALID_THEMES.has(raw) ? raw : null;
+}
+
+/**
+ * Persists the user's theme choice into their account row. Ignores invalid
+ * values silently so a bad client call never throws and never corrupts the row.
+ */
+export async function setAccountTheme(ownerKey: string, theme: string): Promise<void> {
+  if (!VALID_THEMES.has(theme)) return; // ignore unknown values, no-op
+  const sql = getSql();
+  // Ensure the theme column exists before writing (idempotent + cheap). Skipping
+  // it here is the exact optimization that caused the lab_site_views prod 503: a
+  // PUT that lands before any profile route has run the ALTER would write to a
+  // missing column and silently fail to persist. Theme toggles are rare, so the
+  // extra round-trip is negligible against the correctness it buys.
+  await ensureAccountProfileSchema();
+  // Update only the theme column; leave all other profile fields untouched.
+  await sql`
+    UPDATE account_profiles SET theme = ${theme}, updated_at = now()
+    WHERE owner_key = ${ownerKey}
+  `;
 }
 
 /** Coerce a jsonb links value (object, JSON string, or null) into ProfileLinks. */
