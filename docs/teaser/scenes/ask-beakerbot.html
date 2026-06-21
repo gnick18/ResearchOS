@@ -26,23 +26,28 @@
   .pbar{height:6px;margin:8px 15px 14px;background:#e9eef6;border-radius:999px;overflow:hidden}
   .pfill{height:100%;width:0;background:linear-gradient(90deg,#1aa0e6,#7f77dd);border-radius:999px;animation:fill 1.7s cubic-bezier(.4,0,.2,1) 4.6s forwards}
   .result{animation:pop .5s cubic-bezier(.2,.8,.2,1) 6.5s forwards}
-  .chart{display:flex;align-items:flex-end;gap:18px;height:120px;padding:18px 22px 14px}
-  .bar{flex:1;border-radius:7px 7px 0 0;transform:scaleY(0);transform-origin:bottom}
-  .bar.b1{height:64px;background:#FFD2B0;animation:grow .55s cubic-bezier(.2,.9,.3,1) 6.8s forwards}
-  .bar.b2{height:96px;background:#B7EBB1;animation:grow .55s cubic-bezier(.2,.9,.3,1) 6.95s forwards}
-  .bar.b3{height:78px;background:#A6D2F4;animation:grow .55s cubic-bezier(.2,.9,.3,1) 7.1s forwards}
-  .bar.b4{height:112px;background:#D6B5F0;animation:grow .55s cubic-bezier(.2,.9,.3,1) 7.25s forwards}
+  .proto{display:flex;align-items:center;gap:11px;padding:22px 22px 24px}
+  .blk{width:62px;height:62px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#fff;flex:0 0 auto;box-shadow:0 5px 12px rgba(20,40,80,.13);opacity:0;transform:translateY(12px) scale(.88)}
+  .blk .t{font-size:15px;font-weight:700;line-height:1}
+  .blk .d{font-size:10.5px;font-weight:600;opacity:.92;margin-top:5px}
+  .cyc{display:flex;align-items:center;gap:9px;padding:9px 11px;border:1.5px dashed #c4b5fd;background:rgba(124,77,221,.06);border-radius:15px;position:relative;flex:0 0 auto}
+  .cyc .badge{position:absolute;top:-10px;left:13px;font-size:10.5px;font-weight:700;color:#7c4ddd;background:#fff;border:1.5px solid #c4b5fd;border-radius:999px;padding:1px 9px;opacity:0;animation:blkin .35s ease 7.15s forwards}
+  .k1{animation:blkin .42s cubic-bezier(.2,.9,.3,1) 6.7s forwards}
+  .k2{animation:blkin .42s cubic-bezier(.2,.9,.3,1) 6.9s forwards}
+  .k3{animation:blkin .42s cubic-bezier(.2,.9,.3,1) 7.05s forwards}
+  .k4{animation:blkin .42s cubic-bezier(.2,.9,.3,1) 7.25s forwards}
+  .k5{animation:blkin .42s cubic-bezier(.2,.9,.3,1) 7.4s forwards}
   .input{display:flex;align-items:center;gap:10px;margin:0 22px 22px;padding:12px 16px;border:1.5px solid #dbe3ef;border-radius:14px;background:#fafbfe}
-  .typed{font-size:16px;color:#15243b;white-space:nowrap;overflow:hidden;border-right:2px solid #1283c9;width:0;animation:type 2.1s steps(30,end) .9s forwards, caret .7s step-end 8, clearcaret 0s linear 3.0s forwards, cleartext .25s ease 3.05s forwards}
+  .typed{font-size:16px;color:#15243b;white-space:nowrap;overflow:hidden;border-right:2px solid #1283c9;width:0;animation:type 2.1s steps(27,end) .9s forwards, caret .7s step-end 8, clearcaret 0s linear 3.0s forwards, cleartext .25s ease 3.05s forwards}
   .send{margin-left:auto;width:34px;height:34px;border-radius:10px;background:#1283c9;color:#fff;display:flex;align-items:center;justify-content:center;font-size:16px;flex:0 0 auto}
-  @keyframes type{to{width:30ch}}
+  @keyframes type{to{width:213px}}
   @keyframes caret{50%{border-color:transparent}}
   @keyframes clearcaret{to{border-color:transparent}}
   @keyframes cleartext{to{opacity:0}}
   @keyframes pop{to{opacity:1;transform:none}}
   @keyframes slide{to{opacity:1;transform:none}}
   @keyframes check{to{opacity:1;transform:none}}
-  @keyframes grow{to{transform:scaleY(1)}}
+  @keyframes blkin{to{opacity:1;transform:none}}
   @keyframes fill{to{width:100%}}
   @keyframes push{to{transform:scale(1.05)}}
 </style>
@@ -70,8 +75,17 @@
         <div class="pbar"><div class="pfill"></div></div>
       </div>
       <div class="embed result">
-        <div class="eh">Reagent volumes (uL)<span class="tag">chart</span></div>
-        <div class="chart"><div class="bar b1"></div><div class="bar b2"></div><div class="bar b3"></div><div class="bar b4"></div></div>
+        <div class="eh">Thermal cycling protocol<span class="tag">qPCR</span></div>
+        <div class="proto">
+          <div class="blk k1" style="background:#ef4444"><div class="t">95&deg;C</div><div class="d">3 min</div></div>
+          <div class="cyc">
+            <span class="badge">&times;40</span>
+            <div class="blk k2" style="background:#ef4444"><div class="t">95&deg;C</div><div class="d">15 s</div></div>
+            <div class="blk k3" style="background:#f59e0b"><div class="t">60&deg;C</div><div class="d">30 s</div></div>
+          </div>
+          <div class="blk k4" style="background:#f97316"><div class="t">72&deg;C</div><div class="d">5 min</div></div>
+          <div class="blk k5" style="background:#3b82f6"><div class="t">4&deg;C</div><div class="d">hold</div></div>
+        </div>
       </div>
     </div>
     <div class="input"><span class="typed">Plan my qPCR run for Friday</span><span class="send">&#8593;</span></div>

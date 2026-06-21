@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scene: Sequences</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#eef2f9;color:#15243b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden}
+  .scene{width:840px;max-width:94vw;transform-origin:center;animation:push 1.0s cubic-bezier(.4,0,.2,1) 2.9s forwards}
+  .card{background:#fff;border:1px solid #e2e8f3;border-radius:20px;box-shadow:0 24px 60px rgba(20,40,80,.10);overflow:hidden}
+
+  /* Header */
+  .hd{display:flex;align-items:center;gap:12px;padding:16px 22px;border-bottom:1px solid #eef1f7}
+  .hd-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1aa0e6 0%,#7f77dd 100%);display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+  .hd b{font-size:17px;font-weight:600}
+  .hd .sub{font-size:13px;color:#7a869b}
+  .hd-right{margin-left:auto;display:flex;align-items:center;gap:8px}
+  .badge{font-size:11px;font-weight:600;color:#0e6e9e;background:#e0f2fe;padding:3px 10px;border-radius:999px}
+
+  /* Body */
+  .body{padding:18px 22px 22px;display:flex;flex-direction:column;gap:14px}
+
+  /* Track label */
+  .track-label{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#7a869b;margin-bottom:4px}
+
+  /* Sequence track */
+  .seq-track{position:relative}
+  .seq-ruler{display:flex;align-items:center;gap:0;margin-bottom:3px}
+  .ruler-tick{font-size:10px;color:#94a3b8;font-family:Roboto Mono,Monaco,monospace;font-weight:400;width:18px;text-align:center}
+
+  .bases-row{display:flex;align-items:center;height:28px;border-radius:8px;overflow:hidden;background:#f8fafd;border:1px solid #e7edf6;position:relative;z-index:2}
+  .base{width:18px;height:28px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;font-family:Roboto Mono,Monaco,monospace;flex:0 0 18px;opacity:0;animation:basein .18s ease forwards}
+
+  /* DNA base palette (standard bioinformatics: A=green, T=red, G=gold, C=blue) */
+  .A{color:#166534;background:#bbf7d0}
+  .T{color:#7f1d1d;background:#fecaca}
+  .G{color:#713f12;background:#fef9c3}
+  .C{color:#1e3a5f;background:#bfdbfe}
+  .gap{color:#94a3b8;background:transparent}
+
+  /* Staggered cascade — row 1 (top sequence) */
+  .r1 .b01{animation-delay:.20s}.r1 .b02{animation-delay:.24s}.r1 .b03{animation-delay:.28s}
+  .r1 .b04{animation-delay:.32s}.r1 .b05{animation-delay:.36s}.r1 .b06{animation-delay:.40s}
+  .r1 .b07{animation-delay:.44s}.r1 .b08{animation-delay:.48s}.r1 .b09{animation-delay:.52s}
+  .r1 .b10{animation-delay:.56s}.r1 .b11{animation-delay:.60s}.r1 .b12{animation-delay:.64s}
+  .r1 .b13{animation-delay:.68s}.r1 .b14{animation-delay:.72s}.r1 .b15{animation-delay:.76s}
+  .r1 .b16{animation-delay:.80s}.r1 .b17{animation-delay:.84s}.r1 .b18{animation-delay:.88s}
+  .r1 .b19{animation-delay:.92s}.r1 .b20{animation-delay:.96s}.r1 .b21{animation-delay:1.00s}
+  .r1 .b22{animation-delay:1.04s}.r1 .b23{animation-delay:1.08s}.r1 .b24{animation-delay:1.12s}
+  .r1 .b25{animation-delay:1.16s}.r1 .b26{animation-delay:1.20s}.r1 .b27{animation-delay:1.24s}
+  .r1 .b28{animation-delay:1.28s}.r1 .b29{animation-delay:1.32s}.r1 .b30{animation-delay:1.36s}
+  .r1 .b31{animation-delay:1.40s}.r1 .b32{animation-delay:1.44s}
+
+  /* Staggered cascade — row 2 (bottom sequence), offset 0.10s behind row 1 */
+  .r2 .b01{animation-delay:.30s}.r2 .b02{animation-delay:.34s}.r2 .b03{animation-delay:.38s}
+  .r2 .b04{animation-delay:.42s}.r2 .b05{animation-delay:.46s}.r2 .b06{animation-delay:.50s}
+  .r2 .b07{animation-delay:.54s}.r2 .b08{animation-delay:.58s}.r2 .b09{animation-delay:.62s}
+  .r2 .b10{animation-delay:.66s}.r2 .b11{animation-delay:.70s}.r2 .b12{animation-delay:.74s}
+  .r2 .b13{animation-delay:.78s}.r2 .b14{animation-delay:.82s}.r2 .b15{animation-delay:.86s}
+  .r2 .b16{animation-delay:.90s}.r2 .b17{animation-delay:.94s}.r2 .b18{animation-delay:.98s}
+  .r2 .b19{animation-delay:1.02s}.r2 .b20{animation-delay:1.06s}.r2 .b21{animation-delay:1.10s}
+  .r2 .b22{animation-delay:1.14s}.r2 .b23{animation-delay:1.18s}.r2 .b24{animation-delay:1.22s}
+  .r2 .b25{animation-delay:1.26s}.r2 .b26{animation-delay:1.30s}.r2 .b27{animation-delay:1.34s}
+  .r2 .b28{animation-delay:1.38s}.r2 .b29{animation-delay:1.42s}.r2 .b30{animation-delay:1.46s}
+  .r2 .b31{animation-delay:1.50s}.r2 .b32{animation-delay:1.54s}
+
+  /* Connector row between sequences */
+  .conn-row{display:flex;align-items:center;height:14px;padding:0 0;margin:1px 0;position:relative;z-index:2}
+  .conn-cell{width:18px;height:14px;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:Roboto Mono,Monaco,monospace;font-weight:600;opacity:0;flex:0 0 18px;animation:connin .15s ease forwards}
+  .conn-match{color:#15803d}   /* match pipe */
+  .conn-miss{color:#b91c1c}    /* mismatch dot */
+  .conn-gap{color:#94a3b8}     /* space */
+
+  /* connectors appear at same time as row2 bases */
+  .cr .c01{animation-delay:.30s}.cr .c02{animation-delay:.34s}.cr .c03{animation-delay:.38s}
+  .cr .c04{animation-delay:.42s}.cr .c05{animation-delay:.46s}.cr .c06{animation-delay:.50s}
+  .cr .c07{animation-delay:.54s}.cr .c08{animation-delay:.58s}.cr .c09{animation-delay:.62s}
+  .cr .c10{animation-delay:.66s}.cr .c11{animation-delay:.70s}.cr .c12{animation-delay:.74s}
+  .cr .c13{animation-delay:.78s}.cr .c14{animation-delay:.82s}.cr .c15{animation-delay:.86s}
+  .cr .c16{animation-delay:.90s}.cr .c17{animation-delay:.94s}.cr .c18{animation-delay:.98s}
+  .cr .c19{animation-delay:1.02s}.cr .c20{animation-delay:1.06s}.cr .c21{animation-delay:1.10s}
+  .cr .c22{animation-delay:1.14s}.cr .c23{animation-delay:1.18s}.cr .c24{animation-delay:1.22s}
+  .cr .c25{animation-delay:1.26s}.cr .c26{animation-delay:1.30s}.cr .c27{animation-delay:1.34s}
+  .cr .c28{animation-delay:1.38s}.cr .c29{animation-delay:1.42s}.cr .c30{animation-delay:1.46s}
+  .cr .c31{animation-delay:1.50s}.cr .c32{animation-delay:1.54s}
+
+  /* Highlight band wrapper — spans all 3 rows (seq1 + conn + seq2) */
+  .align-block{position:relative}
+  .align-highlight{
+    position:absolute;
+    /* cells 9-25 of 32: left offset = 8 * 18px = 144px, width = 17 * 18px = 306px */
+    left:144px;
+    width:306px;
+    top:0;
+    bottom:0;
+    border-radius:4px;
+    background:rgba(14,165,233,.10);
+    border-left:2px solid rgba(14,165,233,.45);
+    border-right:2px solid rgba(14,165,233,.45);
+    pointer-events:none;
+    opacity:0;
+    z-index:10;
+    animation:fade .4s ease 1.7s forwards
+  }
+
+  /* Stats bar */
+  .stats-row{display:flex;align-items:center;gap:18px;padding:10px 16px;background:#fafbfe;border:1px solid #e7edf6;border-radius:10px;opacity:0;animation:pop .4s cubic-bezier(.2,.8,.2,1) 2.0s forwards}
+  .stat{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+  .stat .sv{font-size:16px;font-weight:700;color:#15243b}
+  .stat .sk{font-size:11px;color:#7a869b;font-weight:500;text-transform:uppercase;letter-spacing:.04em}
+  .stat-div{width:1px;height:28px;background:#e2e8f3}
+
+  /* Feature arrow track */
+  .features{display:flex;align-items:center;gap:6px;margin-top:4px;opacity:0;animation:pop .4s cubic-bezier(.2,.8,.2,1) 2.3s forwards}
+  .feat{height:20px;border-radius:4px;display:flex;align-items:center;padding:0 9px;font-size:11px;font-weight:600;color:#3a475c;position:relative}
+  .feat::after{content:"";position:absolute;right:-8px;top:0;border-top:10px solid transparent;border-bottom:10px solid transparent;border-left:8px solid}
+  .feat-gene{background:#9DEAED;flex:0 0 90px}.feat-gene::after{border-left-color:#9DEAED}
+  .feat-cds{background:#8FDE8C;flex:0 0 130px}.feat-cds::after{border-left-color:#8FDE8C}
+  .feat-prom{background:#F7C672;flex:0 0 70px}.feat-prom::after{display:none}
+
+  /* Alignment region bracket */
+  .bracket{display:flex;align-items:center;gap:3px;font-size:11px;font-weight:600;color:#0e7a44;background:#e6f7ef;padding:3px 9px;border-radius:999px;opacity:0;animation:fade .35s ease 1.9s forwards}
+
+  @keyframes basein{to{opacity:1}}
+  @keyframes connin{to{opacity:1}}
+  @keyframes fade{to{opacity:1}}
+  @keyframes pop{to{opacity:1;transform:none}}
+  @keyframes push{to{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="card">
+
+    <!-- Header -->
+    <div class="hd">
+      <div class="hd-icon">
+        <!-- DNA helix icon -->
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M4 2 Q9 5 14 2" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".95"/>
+          <path d="M4 7 Q9 10 14 7" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".90"/>
+          <path d="M4 12 Q9 15 14 12" stroke="#fff" stroke-width="1.6" stroke-linecap="round" fill="none" opacity=".85"/>
+          <line x1="6" y1="2.8" x2="6" y2="6.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+          <line x1="9" y1="4.8" x2="9" y2="8.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+          <line x1="12" y1="2.8" x2="12" y2="6.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+          <line x1="6" y1="7.8" x2="6" y2="11.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+          <line x1="9" y1="9.8" x2="9" y2="13.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+          <line x1="12" y1="7.8" x2="12" y2="11.2" stroke="#fff" stroke-width="1.2" opacity=".7"/>
+        </svg>
+      </div>
+      <div>
+        <b>Sequences</b>
+        <div class="sub">pUC19 vs pGEX-3X alignment</div>
+      </div>
+      <div class="hd-right">
+        <span class="badge">2714 bp</span>
+      </div>
+    </div>
+
+    <!-- Body -->
+    <div class="body">
+
+      <!-- Sequence alignment block -->
+      <div>
+        <div class="track-label">Pairwise alignment &nbsp;(bp 210 to 241)</div>
+
+        <!-- Ruler ticks -->
+        <div class="seq-ruler" style="padding-left:1px">
+          <div class="ruler-tick">210</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">214</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">218</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">222</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">226</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">230</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">234</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">238</div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick"></div>
+          <div class="ruler-tick">241</div>
+        </div>
+
+        <!-- Alignment block: highlight wrapper spans all 3 rows -->
+        <div class="align-block">
+          <!-- highlight band (fades in at 1.7s, sits behind rows via z-index) -->
+          <div class="align-highlight"></div>
+
+          <!-- Sequence 1: pUC19 -->
+          <div class="bases-row r1">
+            <div class="base A b01">A</div><div class="base T b02">T</div><div class="base G b03">G</div>
+            <div class="base A b04">A</div><div class="base C b05">C</div><div class="base C b06">C</div>
+            <div class="base G b07">G</div><div class="base T b08">T</div><div class="base A b09">A</div>
+            <div class="base C b10">C</div><div class="base G b11">G</div><div class="base A b12">A</div>
+            <div class="base A b13">A</div><div class="base T b14">T</div><div class="base T b15">T</div>
+            <div class="base C b16">C</div><div class="base G b17">G</div><div class="base A b18">A</div>
+            <div class="base T b19">T</div><div class="base G b20">G</div><div class="base C b21">C</div>
+            <div class="base C b22">C</div><div class="base A b23">A</div><div class="base G b24">G</div>
+            <div class="base T b25">T</div><div class="base A b26">A</div><div class="base C b27">C</div>
+            <div class="base G b28">G</div><div class="base T b29">T</div><div class="base A b30">A</div>
+            <div class="base C b31">C</div><div class="base G b32">G</div>
+          </div>
+
+          <!-- Connector row -->
+          <div class="conn-row cr">
+            <div class="conn-cell conn-miss c01">·</div><div class="conn-cell conn-match c02">|</div><div class="conn-cell conn-miss c03">·</div>
+            <div class="conn-cell conn-match c04">|</div><div class="conn-cell conn-match c05">|</div><div class="conn-cell conn-match c06">|</div>
+            <div class="conn-cell conn-match c07">|</div><div class="conn-cell conn-miss c08">·</div><div class="conn-cell conn-match c09">|</div>
+            <div class="conn-cell conn-match c10">|</div><div class="conn-cell conn-match c11">|</div><div class="conn-cell conn-match c12">|</div>
+            <div class="conn-cell conn-match c13">|</div><div class="conn-cell conn-match c14">|</div><div class="conn-cell conn-match c15">|</div>
+            <div class="conn-cell conn-match c16">|</div><div class="conn-cell conn-match c17">|</div><div class="conn-cell conn-match c18">|</div>
+            <div class="conn-cell conn-match c19">|</div><div class="conn-cell conn-match c20">|</div><div class="conn-cell conn-match c21">|</div>
+            <div class="conn-cell conn-match c22">|</div><div class="conn-cell conn-match c23">|</div><div class="conn-cell conn-match c24">|</div>
+            <div class="conn-cell conn-match c25">|</div><div class="conn-cell conn-miss c26">·</div><div class="conn-cell conn-match c27">|</div>
+            <div class="conn-cell conn-match c28">|</div><div class="conn-cell conn-miss c29">·</div><div class="conn-cell conn-match c30">|</div>
+            <div class="conn-cell conn-match c31">|</div><div class="conn-cell conn-miss c32">·</div>
+          </div>
+
+          <!-- Sequence 2: pGEX-3X -->
+          <div class="bases-row r2">
+            <div class="base G b01">G</div><div class="base T b02">T</div><div class="base A b03">A</div>
+            <div class="base A b04">A</div><div class="base C b05">C</div><div class="base C b06">C</div>
+            <div class="base G b07">G</div><div class="base C b08">C</div><div class="base A b09">A</div>
+            <div class="base C b10">C</div><div class="base G b11">G</div><div class="base A b12">A</div>
+            <div class="base A b13">A</div><div class="base T b14">T</div><div class="base T b15">T</div>
+            <div class="base C b16">C</div><div class="base G b17">G</div><div class="base A b18">A</div>
+            <div class="base T b19">T</div><div class="base G b20">G</div><div class="base C b21">C</div>
+            <div class="base C b22">C</div><div class="base A b23">A</div><div class="base G b24">G</div>
+            <div class="base T b25">T</div><div class="base G b26">G</div><div class="base C b27">C</div>
+            <div class="base G b28">G</div><div class="base A b29">A</div><div class="base A b30">A</div>
+            <div class="base C b31">C</div><div class="base T b32">T</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Feature annotation track -->
+      <div style="opacity:0;animation:pop .4s cubic-bezier(.2,.8,.2,1) 2.1s forwards">
+        <div class="track-label" style="margin-bottom:6px">Features</div>
+        <div class="features" style="opacity:1;animation:none">
+          <div class="feat feat-prom" style="border-radius:4px 0 0 4px">Promoter</div>
+          <div style="width:14px"></div>
+          <div class="feat feat-gene">lacZ-alpha</div>
+          <div style="width:12px"></div>
+          <div class="feat feat-cds">Multiple cloning site</div>
+          <div style="margin-left:auto">
+            <span class="bracket">
+              <svg width="10" height="10" viewBox="0 0 10 10" fill="none" aria-hidden="true"><path d="M3 1H1v8h2M7 1h2v8H7" stroke="#15803d" stroke-width="1.5" stroke-linecap="round"/></svg>
+              &nbsp;aligned region: 88.2%
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats bar -->
+      <div class="stats-row">
+        <div class="stat"><div class="sv">32</div><div class="sk">bases shown</div></div>
+        <div class="stat-div"></div>
+        <div class="stat"><div class="sv">26/32</div><div class="sk">matches</div></div>
+        <div class="stat-div"></div>
+        <div class="stat"><div class="sv">81.3%</div><div class="sk">identity</div></div>
+        <div class="stat-div"></div>
+        <div class="stat"><div class="sv">0</div><div class="sk">gaps</div></div>
+        <div class="stat-div"></div>
+        <div class="stat"><div class="sv" style="color:#1283c9">2714 bp</div><div class="sk">total length</div></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

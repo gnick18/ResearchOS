@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Scene: Lab Sites</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{background:#eef2f9;color:#15243b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;display:flex;align-items:center;justify-content:center;overflow:hidden}
+
+  /* Outer scene wrapper with camera push */
+  .scene{width:820px;max-width:94vw;transform-origin:center;animation:push 1.0s cubic-bezier(.4,0,.2,1) 2.9s forwards}
+
+  /* Feature label card (header chip, same pattern as gantt.html) */
+  .card{background:#fff;border:1px solid #e2e8f3;border-radius:20px;box-shadow:0 24px 60px rgba(20,40,80,.10);overflow:hidden}
+  .hd{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid #eef1f7}
+  .hd-icon{width:32px;height:32px;border-radius:9px;background:linear-gradient(135deg,#1aa0e6 0%,#7f77dd 100%);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .hd-text b{font-size:16px;font-weight:700;letter-spacing:-.01em}
+  .hd-text .sub{font-size:12px;color:#7a869b;margin-top:1px}
+  .hd-badge{margin-left:auto;font-size:11px;font-weight:600;color:#0e7a44;background:#e6f7ef;padding:3px 10px;border-radius:999px}
+
+  /* =========================================================
+     BROWSER CHROME WRAPPER
+     ========================================================= */
+  .browser{margin:0 20px 20px;border:1.5px solid #d5dbe8;border-radius:14px;overflow:hidden;background:#f7f9fc;box-shadow:0 6px 20px rgba(20,40,80,.08)}
+
+  /* Browser top bar */
+  .browser-bar{display:flex;align-items:center;gap:10px;padding:9px 14px;background:#f0f2f7;border-bottom:1.5px solid #d5dbe8}
+  .traffic-dots{display:flex;gap:5px}
+  .dot-r{width:10px;height:10px;border-radius:50%;background:#fc6058;flex-shrink:0}
+  .dot-y{width:10px;height:10px;border-radius:50%;background:#fec02f;flex-shrink:0}
+  .dot-g{width:10px;height:10px;border-radius:50%;background:#2bc840;flex-shrink:0}
+  .url-bar{flex:1;background:#fff;border:1.5px solid #dce3ef;border-radius:8px;padding:4px 10px;font-size:11.5px;color:#4a5568;font-weight:500;display:flex;align-items:center;gap:6px;max-width:340px;margin:0 auto}
+  .url-lock{width:10px;height:10px;flex-shrink:0;opacity:.6}
+  .url-text{opacity:.75;letter-spacing:-.01em}
+
+  /* =========================================================
+     LAB PAGE BODY inside browser
+     ========================================================= */
+  .lab-page{background:#fff;min-height:320px}
+
+  /* --- Hero band --- */
+  .hero{
+    background:linear-gradient(135deg,#1a3a5c 0%,#1e4975 60%,#0e6b8a 100%);
+    padding:22px 28px 20px;
+    display:flex;align-items:center;gap:18px;
+    opacity:0;
+    animation:fadeup .45s cubic-bezier(.2,.9,.3,1) .25s forwards
+  }
+  .hero-avatar{
+    width:52px;height:52px;border-radius:14px;
+    background:linear-gradient(135deg,#38bdf8 0%,#0ea5e9 100%);
+    display:flex;align-items:center;justify-content:center;
+    font-size:22px;font-weight:800;color:#fff;
+    flex-shrink:0;box-shadow:0 4px 12px rgba(0,0,0,.25)
+  }
+  .hero-text .lab-name{font-size:20px;font-weight:800;color:#fff;letter-spacing:-.02em;line-height:1.1}
+  .hero-text .lab-tagline{font-size:12.5px;color:rgba(255,255,255,.72);margin-top:4px;font-weight:400}
+  .hero-domain{margin-left:auto;font-size:10.5px;color:rgba(255,255,255,.55);font-weight:500;white-space:nowrap;align-self:flex-end;padding-bottom:2px}
+
+  /* --- Site nav row --- */
+  .site-nav{
+    display:flex;align-items:center;gap:0;
+    border-bottom:1.5px solid #e8edf5;
+    padding:0 20px;
+    background:#fafbfe;
+    opacity:0;
+    animation:fadeup .35s cubic-bezier(.2,.9,.3,1) .6s forwards
+  }
+  .nav-item{
+    font-size:12.5px;font-weight:600;color:#7a869b;
+    padding:9px 14px;border-bottom:2.5px solid transparent;cursor:pointer;
+    white-space:nowrap
+  }
+  .nav-item.active{color:#1283c9;border-bottom-color:#1283c9}
+
+  /* --- Content area --- */
+  .content{padding:18px 24px;display:flex;flex-direction:column;gap:14px}
+
+  /* About section card */
+  .section-card{
+    border:1.5px solid #edf0f7;border-radius:12px;overflow:hidden;
+    opacity:0;transform:translateY(10px)
+  }
+  .section-card.s1{animation:risecard .38s cubic-bezier(.2,.9,.3,1) .9s forwards}
+  .section-card.s2{animation:risecard .38s cubic-bezier(.2,.9,.3,1) 1.2s forwards}
+  .section-card.s3{animation:risecard .38s cubic-bezier(.2,.9,.3,1) 1.5s forwards}
+
+  .sec-hd{
+    background:#f5f7fc;
+    padding:9px 15px;
+    font-size:12px;font-weight:700;color:#3a475c;letter-spacing:.04em;text-transform:uppercase;
+    border-bottom:1.5px solid #edf0f7;
+    display:flex;align-items:center;gap:8px
+  }
+  .sec-hd-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+  /* About body */
+  .about-body{padding:12px 15px;font-size:12.5px;color:#4a5872;line-height:1.6}
+
+  /* Team avatars row */
+  .team-row{padding:12px 15px;display:flex;align-items:center;gap:10px}
+  .member{display:flex;flex-direction:column;align-items:center;gap:4px;width:60px}
+  .member-av{
+    width:40px;height:40px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    font-size:14px;font-weight:700;color:#fff;
+    box-shadow:0 2px 6px rgba(20,40,80,.14)
+  }
+  .member-name{font-size:10px;font-weight:600;color:#4a5872;text-align:center;line-height:1.2}
+  .member-role{font-size:9.5px;color:#9aa5ba;text-align:center;line-height:1.2}
+
+  /* Publications list */
+  .pub-list{padding:8px 15px 12px;display:flex;flex-direction:column;gap:7px}
+  .pub-item{
+    padding:8px 10px;border:1.5px solid #edf0f7;border-radius:9px;
+    background:#fafbfe;
+    opacity:0;transform:translateX(-8px)
+  }
+  .pub-item.p1{animation:slidein .3s ease 1.75s forwards}
+  .pub-item.p2{animation:slidein .3s ease 1.92s forwards}
+  .pub-item.p3{animation:slidein .3s ease 2.09s forwards}
+  .pub-title{font-size:11.5px;font-weight:600;color:#1e3a5f;line-height:1.4}
+  .pub-meta{font-size:10.5px;color:#9aa5ba;margin-top:2px}
+  .pub-badge{display:inline-block;font-size:9.5px;font-weight:600;color:#1283c9;background:#e6f1fb;padding:1px 7px;border-radius:999px;margin-top:3px}
+
+  /* ResearchOS wordmark "OS" rainbow */
+  .wordmark{display:inline-flex;align-items:baseline;font-size:11px;font-weight:700;color:#1e3a5f;letter-spacing:-.01em}
+  .wordmark .os{background:linear-gradient(90deg,#e53e3e,#dd6b20,#d69e2e,#38a169,#3182ce,#805ad5);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* "Powered by" footer inside browser */
+  .browser-footer{
+    padding:6px 18px 8px;
+    border-top:1.5px solid #edf0f7;
+    display:flex;align-items:center;gap:5px;
+    opacity:0;
+    animation:fade .3s ease 2.4s forwards
+  }
+
+  /* =========================================================
+     KEYFRAMES
+     ========================================================= */
+  @keyframes fadeup{to{opacity:1;transform:none}}
+  @keyframes risecard{to{opacity:1;transform:none}}
+  @keyframes slidein{to{opacity:1;transform:none}}
+  @keyframes fade{to{opacity:1}}
+  @keyframes push{to{transform:scale(1.04)}}
+</style>
+</head>
+<body>
+<div class="scene">
+  <div class="card">
+
+    <!-- Feature header chip -->
+    <div class="hd">
+      <div class="hd-icon">
+        <!-- Globe icon (lab sites) -->
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <circle cx="9" cy="9" r="6.5" stroke="#fff" stroke-width="1.4" fill="none" opacity=".95"/>
+          <ellipse cx="9" cy="9" rx="3" ry="6.5" stroke="#fff" stroke-width="1.2" fill="none" opacity=".8"/>
+          <line x1="2.5" y1="9" x2="15.5" y2="9" stroke="#fff" stroke-width="1.2" opacity=".75"/>
+          <line x1="3.5" y1="6" x2="14.5" y2="6" stroke="#fff" stroke-width="1" opacity=".6"/>
+          <line x1="3.5" y1="12" x2="14.5" y2="12" stroke="#fff" stroke-width="1" opacity=".6"/>
+        </svg>
+      </div>
+      <div class="hd-text">
+        <b>Lab Sites</b>
+        <div class="sub">vasquez-lab.research-os.com</div>
+      </div>
+      <div class="hd-badge">Live</div>
+    </div>
+
+    <!-- Browser chrome wrapper -->
+    <div class="browser">
+      <!-- Top bar: traffic lights + URL pill -->
+      <div class="browser-bar">
+        <div class="traffic-dots">
+          <div class="dot-r"></div>
+          <div class="dot-y"></div>
+          <div class="dot-g"></div>
+        </div>
+        <div class="url-bar">
+          <!-- Lock icon SVG -->
+          <svg class="url-lock" viewBox="0 0 10 12" fill="none" aria-hidden="true">
+            <rect x="1.5" y="5" width="7" height="6.5" rx="1.5" fill="#4a5568" opacity=".5"/>
+            <path d="M3 5V3.5a2 2 0 0 1 4 0V5" stroke="#4a5568" stroke-width="1.3" fill="none" opacity=".5"/>
+          </svg>
+          <span class="url-text">vasquez-lab.research-os.com</span>
+        </div>
+      </div>
+
+      <!-- Lab page content -->
+      <div class="lab-page">
+
+        <!-- Hero band -->
+        <div class="hero">
+          <div class="hero-avatar">V</div>
+          <div class="hero-text">
+            <div class="lab-name">Vasquez Lab</div>
+            <div class="lab-tagline">Microbial ecology and adaptive evolution, UW-Madison</div>
+          </div>
+          <div class="hero-domain">research-os.com</div>
+        </div>
+
+        <!-- Site nav row -->
+        <div class="site-nav">
+          <div class="nav-item active">Home</div>
+          <div class="nav-item">People</div>
+          <div class="nav-item">Publications</div>
+          <div class="nav-item">Data</div>
+        </div>
+
+        <!-- Content sections -->
+        <div class="content">
+
+          <!-- About section -->
+          <div class="section-card s1">
+            <div class="sec-hd">
+              <div class="sec-hd-dot" style="background:#B7EBB1"></div>
+              About
+            </div>
+            <div class="about-body">
+              We study how microbial communities adapt to environmental pressure across soil, gut, and aquatic systems.
+              Our work combines long-read sequencing, comparative genomics, and open data publishing to make findings
+              immediately reproducible.
+            </div>
+          </div>
+
+          <!-- Team section -->
+          <div class="section-card s2">
+            <div class="sec-hd">
+              <div class="sec-hd-dot" style="background:#A6D2F4"></div>
+              Team
+            </div>
+            <div class="team-row">
+              <div class="member">
+                <div class="member-av" style="background:linear-gradient(135deg,#1a3a5c,#1e6b99)">MV</div>
+                <div class="member-name">Dr. M. Vasquez</div>
+                <div class="member-role">PI</div>
+              </div>
+              <div class="member">
+                <div class="member-av" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8)">JL</div>
+                <div class="member-name">J. Lin</div>
+                <div class="member-role">Postdoc</div>
+              </div>
+              <div class="member">
+                <div class="member-av" style="background:linear-gradient(135deg,#7c3aed,#a78bfa)">KP</div>
+                <div class="member-name">K. Patel</div>
+                <div class="member-role">PhD</div>
+              </div>
+              <div class="member">
+                <div class="member-av" style="background:linear-gradient(135deg,#059669,#34d399)">RO</div>
+                <div class="member-name">R. Osei</div>
+                <div class="member-role">PhD</div>
+              </div>
+              <div class="member">
+                <div class="member-av" style="background:linear-gradient(135deg,#b45309,#fbbf24)">AM</div>
+                <div class="member-name">A. Mora</div>
+                <div class="member-role">MS</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Publications section -->
+          <div class="section-card s3">
+            <div class="sec-hd">
+              <div class="sec-hd-dot" style="background:#D6B5F0"></div>
+              Publications
+            </div>
+            <div class="pub-list">
+              <div class="pub-item p1">
+                <div class="pub-title">Adaptive sweeps in soil microbiomes under nitrogen stress</div>
+                <div class="pub-meta">Vasquez, Lin et al. &middot; Nature Microbiology, 2025</div>
+                <div class="pub-badge">Open data</div>
+              </div>
+              <div class="pub-item p2">
+                <div class="pub-title">Long-read metagenome assembly reveals novel CAZyme diversity</div>
+                <div class="pub-meta">Patel, Vasquez et al. &middot; Cell Host Microbe, 2024</div>
+                <div class="pub-badge">Preprint</div>
+              </div>
+              <div class="pub-item p3">
+                <div class="pub-title">Community coalescence rates predict invasion resistance</div>
+                <div class="pub-meta">Osei, Mora et al. &middot; ISME J, 2024</div>
+                <div class="pub-badge">Open data</div>
+              </div>
+            </div>
+          </div>
+
+        </div><!-- /content -->
+
+        <!-- Powered-by footer inside browser -->
+        <div class="browser-footer">
+          <span style="font-size:10.5px;color:#b0bac9">Powered by</span>
+          <span class="wordmark">Research<span class="os">OS</span></span>
+        </div>
+
+      </div><!-- /lab-page -->
+    </div><!-- /browser -->
+
+  </div><!-- /card -->
+</div><!-- /scene -->
+</body>
+</html>
