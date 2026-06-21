@@ -113,8 +113,10 @@ describe("bumpLabSiteView (UPSERT increment)", () => {
 
   it("issues an INSERT ... ON CONFLICT DO UPDATE SET views = views + 1", async () => {
     await bumpLabSiteView("owner-abc", "home");
-    expect(sql).toHaveBeenCalledTimes(1);
-    const text = sqlText(sql);
+    // Two calls now: the ensureLabSiteViewsSchema CREATE (call 0) then the INSERT
+    // (call 1). The ensure guards against 42P01 on a fresh database.
+    expect(sql).toHaveBeenCalledTimes(2);
+    const text = sqlText(sql, 1);
     expect(text).toContain("INSERT INTO lab_site_views");
     expect(text).toContain("ON CONFLICT");
     expect(text).toContain("DO UPDATE SET views = lab_site_views.views + 1");
@@ -122,7 +124,8 @@ describe("bumpLabSiteView (UPSERT increment)", () => {
 
   it("passes labOwnerKey and siteKey as template values", async () => {
     await bumpLabSiteView("owner-xyz", "people");
-    const args = sql.mock.calls[0];
+    // calls[0] is the ensure CREATE; the INSERT (with the values) is calls[1].
+    const args = sql.mock.calls[1];
     // Template values are the rest args after the TemplateStringsArray.
     const values = args.slice(1);
     expect(values).toContain("owner-xyz");
@@ -131,7 +134,8 @@ describe("bumpLabSiteView (UPSERT increment)", () => {
 
   it("includes CURRENT_DATE in the query", async () => {
     await bumpLabSiteView("owner-abc", "byo");
-    const text = sqlText(sql);
+    // calls[0] is the ensure CREATE; the INSERT (with CURRENT_DATE) is calls[1].
+    const text = sqlText(sql, 1);
     expect(text).toContain("CURRENT_DATE");
   });
 });
@@ -202,11 +206,13 @@ describe("getLabSiteViews (result shaping)", () => {
       { day: "2026-06-19", views: "15" },
       { day: "2026-06-20", views: "35" },
     ];
-    // First call = bySite query, second call = daily query (Promise.all order).
+    // call 1 = ensureLabSiteViewsSchema CREATE, call 2 = bySite query, call 3 =
+    // daily query (the ensure runs before the Promise.all).
     let callCount = 0;
     const sql = vi.fn().mockImplementation(() => {
       callCount++;
-      if (callCount === 1) return Promise.resolve(bySiteRows);
+      if (callCount === 1) return Promise.resolve([]);
+      if (callCount === 2) return Promise.resolve(bySiteRows);
       return Promise.resolve(dailyRows);
     }) as unknown as NeonQueryFunction<false, false>;
     _testSetSql(sql);
@@ -260,6 +266,8 @@ describe("getLabSiteViews (result shaping)", () => {
 
     await getLabSiteViews("owner-abc");
 
-    expect(sql).toHaveBeenCalledTimes(2);
+    // Three calls now: the ensureLabSiteViewsSchema CREATE then the two parallel
+    // (bySite + daily) reads.
+    expect(sql).toHaveBeenCalledTimes(3);
   });
 });

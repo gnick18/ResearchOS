@@ -102,6 +102,10 @@ export async function bumpLabSiteView(
 ): Promise<void> {
   try {
     const sql = getSql();
+    // Ensure the table exists before the first write. CREATE TABLE IF NOT EXISTS
+    // is idempotent and cheap; without it the very first bump on a fresh database
+    // throws 42P01 (relation does not exist) and no views are ever recorded.
+    await ensureLabSiteViewsSchema();
     await sql`
       INSERT INTO lab_site_views (lab_owner_key, site_key, day, views)
       VALUES (${labOwnerKey}, ${siteKey}, CURRENT_DATE, 1)
@@ -142,6 +146,10 @@ export async function getLabSiteViews(
   sinceDays = 30,
 ): Promise<LabSiteViewsResult> {
   const sql = getSql();
+  // Ensure the table exists before reading. Without this the usage route throws
+  // 42P01 (relation does not exist) on a database where no bump has run yet, which
+  // surfaced as a 503 on the PI usage panel.
+  await ensureLabSiteViewsSchema();
   const days = Math.max(1, Math.min(365, Math.floor(sinceDays)));
 
   const [bySiteRows, dailyRows] = await Promise.all([
