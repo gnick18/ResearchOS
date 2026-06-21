@@ -50,6 +50,7 @@ import {
 } from "@/components/social/PublishDeployProgress";
 import LabSiteCanvasEditor from "@/components/social/LabSiteCanvasEditor";
 import LabSiteHomepageEditor from "@/components/social/LabSiteHomepageEditor";
+import LabSiteUsagePanel from "@/components/social/LabSiteUsagePanel";
 import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
 import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
@@ -1901,6 +1902,14 @@ export default function LabSiteDashboard({
             {/* Site editor grants panel: PI only, hidden in demo mode and in
                 granted-editor mode. */}
             {!demoReadOnly && !siteOwnerKeyProp && <SiteEditorsPanel slug={site.slug} />}
+
+            {/* Storage and analytics panel: shown to the owner and to granted
+                editors viewing the owner's site. Hidden in demo mode (no real
+                metering data). The route gates by session + entitlement / editor
+                grant server-side; the panel just renders what it receives. */}
+            {!demoReadOnly && (
+              <LabSiteUsagePanel siteOwnerKey={siteOwnerKeyProp} />
+            )}
 
             <div className="mb-8">
               <h2 className="mb-2 text-sm font-medium text-muted-foreground">
