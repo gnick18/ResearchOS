@@ -25,6 +25,7 @@ import {
   describeDropExtractionError,
 } from "@/lib/file-system/drop-folder";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
+import { LAB_SITES_ENABLED } from "@/lib/social/config";
 import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
 import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
@@ -61,6 +62,9 @@ interface QuickLink {
 
 const LINKS: QuickLink[] = [
   { href: "/researchers", label: "Researcher directory", desc: "Find researchers and share with them." },
+  ...(LAB_SITES_ENABLED
+    ? [{ href: "/account/lab-site", label: "Lab site", desc: "Manage your lab's public companion site." }]
+    : []),
 ];
 
 // ---------------------------------------------------------------------------
