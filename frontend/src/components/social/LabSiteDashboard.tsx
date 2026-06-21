@@ -51,6 +51,7 @@ import {
 import LabSiteCanvasEditor from "@/components/social/LabSiteCanvasEditor";
 import LabSiteHomepageEditor from "@/components/social/LabSiteHomepageEditor";
 import LabSiteUsagePanel from "@/components/social/LabSiteUsagePanel";
+import LabSiteShell from "@/components/social/LabSiteShell";
 import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
 import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
 
@@ -2212,7 +2213,11 @@ export default function LabSiteDashboard({
       <div className="relative min-h-screen">
         <MarketingBackdrop />
         <MarketingNav />
-        <main className="mx-auto w-full max-w-3xl px-5 py-12">{body}</main>
+        <main className="w-full pb-12 pt-6">
+          <LabSiteShell slug={site?.slug ?? null} demoReadOnly>
+            {body}
+          </LabSiteShell>
+        </main>
         <MarketingFooter />
       </div>
     );
@@ -2224,7 +2229,7 @@ export default function LabSiteDashboard({
       gateHeading="Sign in to manage your lab site"
       tagline="Claim your lab's slug, write companion-site pages in markdown, and publish when ready. Your account is the cloud part; your research data stays local on your own computer."
     >
-      <div className="mx-auto w-full max-w-3xl">{body}</div>
+      <LabSiteShell slug={site?.slug ?? null}>{body}</LabSiteShell>
     </PortalShell>
   );
 }
