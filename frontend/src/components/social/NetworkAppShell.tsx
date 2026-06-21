@@ -100,7 +100,14 @@ function LabRow({
 }
 
 function SiteRow({ site }: { site: EditableSiteEntry }) {
-  const builderHref = `/account/lab-site?siteOwnerKey=${encodeURIComponent(site.ownerKey)}`;
+  // The owner's OWN site links to the bare builder (owner mode). Only a granted
+  // editor carries siteOwnerKey, which the dashboard reads as delegate mode.
+  // Passing the owner their own key would wrongly show the "editing on behalf of
+  // its owner" delegate banner on their own site.
+  const builderHref =
+    site.role === "Owner"
+      ? "/account/lab-site"
+      : `/account/lab-site?siteOwnerKey=${encodeURIComponent(site.ownerKey)}`;
   return (
     <div className="flex items-center gap-2.5 border-t border-border py-2 text-[12.5px] first:border-t-0">
       <div className="min-w-0 flex-1">
