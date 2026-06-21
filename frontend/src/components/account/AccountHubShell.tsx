@@ -4,7 +4,7 @@
 //
 // Wraps the /account surface in a two-pane layout that mirrors LabSiteShell:
 //   LEFT RAIL  (sticky, 224 px on desktop, collapses above content on mobile)
-//   MAIN PANEL (min-w-0, fills remaining width inside a max-w-6xl frame)
+//   MAIN PANEL (min-w-0, fills the remaining width in the full-width frame)
 //
 // The five sections (Overview, Identity, Plan & billing, Your labs, Security)
 // are client-side only; no routes change. All existing AccountHub hooks and
@@ -1265,7 +1265,7 @@ export default function AccountHubShell() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start">
         {/* Left rail */}
         <aside className="lg:sticky lg:top-6">
