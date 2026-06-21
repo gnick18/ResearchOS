@@ -26,7 +26,9 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
+import { setHostedAssetBytes } from "@/lib/collab/server/db";
 import { normalizePagePath, type PageStatus } from "./lab-site";
+import { hostedAssetId } from "./lab-site-hosted";
 import {
   ensureSlugRegistrySchema,
   reserveSlug,
@@ -524,6 +526,83 @@ export async function upsertPage(input: {
   return getPage(input.labOwnerKey, p);
 }
 
+// ---------------------------------------------------------------------------
+// Native-page storage metering (Part 1, per-site storage metering build)
+// ---------------------------------------------------------------------------
+
+/**
+ * The site_key for a native lab-site page path. Matches the definition in the
+ * storage-metering proposal:
+ *   - "home" for the home page (path === "")
+ *   - the page path for any other native page
+ * BYO pages use "byo" (set by the BYO route, not here).
+ *
+ * Exported for unit tests.
+ */
+export function siteKeyForPath(path: string): string {
+  const normalized = normalizePagePath(path);
+  return normalized === "" ? "home" : normalized;
+}
+
+/**
+ * The stable hosted-asset id for a native page's own content (not for embedded
+ * datasets, which use hostedAssetId with their specific hrefs). Uses a
+ * deterministic sentinel href "__native_page__" so re-publishing the same page
+ * always yields the same billing row (no per-publish leak). The id shape is
+ * identical to dataset asset ids and passes isValidAssetId.
+ *
+ * Exported for unit tests.
+ */
+export function pageNativeAssetId(
+  labOwnerKey: string,
+  pagePath: string,
+): string {
+  return hostedAssetId(labOwnerKey, pagePath, "__native_page__");
+}
+
+/**
+ * The byte size of the stored native-page representation. Bytes are the
+ * UTF-8 length of (blocks_json ?? body_md ?? "") plus (snapshots_json ?? "").
+ * This matches what is actually persisted in Neon and what the PI billing
+ * view will compare across pages.
+ *
+ * Exported for unit tests.
+ */
+export function nativePageBytes(
+  blocksJson: string | null,
+  bodyMd: string,
+  snapshotsJson: string | null,
+): number {
+  const body = blocksJson ?? bodyMd ?? "";
+  const snapshots = snapshotsJson ?? "";
+  return Buffer.byteLength(body, "utf8") + Buffer.byteLength(snapshots, "utf8");
+}
+
+/**
+ * Reports a native page's byte size to the hosted-asset billing table. Called
+ * from publishPage after the DB write succeeds. Failures are swallowed (a
+ * billing-report failure must never roll back or fail a publish). The metered
+ * bytes equal nativePageBytes(blocksJson, bodyMd, snapshotsJson). The
+ * site_key is siteKeyForPath(pagePath).
+ */
+async function meterNativePage(
+  labOwnerKey: string,
+  pagePath: string,
+  blocksJson: string | null,
+  bodyMd: string,
+  snapshotsJson: string | null,
+): Promise<void> {
+  try {
+    const assetId = pageNativeAssetId(labOwnerKey, pagePath);
+    const bytes = nativePageBytes(blocksJson, bodyMd, snapshotsJson);
+    const siteKey = siteKeyForPath(pagePath);
+    await setHostedAssetBytes(assetId, labOwnerKey, bytes, siteKey);
+  } catch {
+    // A billing-report failure must not fail or roll back the publish.
+    // The reconcile path can re-meter later.
+  }
+}
+
 /**
  * Publishes a page: flips status to published, increments version, and stores the
  * frozen baked-block snapshots (Phase 3b). Returns the updated row, or null if
@@ -563,7 +642,21 @@ export async function publishPage(
     WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
     RETURNING lab_owner_key, path, title, body_md, status, version, updated_at, snapshots_json, hosted_json, blocks_json
   `) as RawPageRow[];
-  return rows[0] ? rowToPage(rows[0]) : null;
+  if (!rows[0]) return null;
+  const page = rowToPage(rows[0]);
+  // Part 1, per-site storage metering: register the published page's bytes to
+  // the billing table. Fire-and-forget (meterNativePage swallows failures so
+  // a DB blip cannot fail the publish or roll back the row). The metered bytes
+  // are the UTF-8 length of the stored page representation (blocks_json or
+  // body_md, plus snapshots_json when present). site_key = siteKeyForPath(path).
+  void meterNativePage(
+    labOwnerKey,
+    p,
+    rows[0].blocks_json ?? null,
+    rows[0].body_md ?? "",
+    snapshotsJson,
+  );
+  return page;
 }
 
 // ---------------------------------------------------------------------------

@@ -93,8 +93,12 @@ export async function POST(request: Request): Promise<Response> {
   // another lab's asset.
   const assetId = hostedAssetId(ownerKey, parsed.path, parsed.href);
 
+  // site_key is the page path the dataset embed lives on ("" => "home", else the
+  // path). This tags the asset to the per-site storage breakdown for the PI view.
+  const siteKey = parsed.path === "" ? "home" : parsed.path;
+
   try {
-    await setHostedAssetBytes(assetId, ownerKey, parsed.bytes);
+    await setHostedAssetBytes(assetId, ownerKey, parsed.bytes, siteKey);
   } catch {
     return json(503, { error: "store unavailable" });
   }

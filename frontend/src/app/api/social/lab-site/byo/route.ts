@@ -180,11 +180,13 @@ export async function POST(request: Request): Promise<Response> {
 
   // Report total bytes to billing (one metered asset per BYO site). READ-ONLY use
   // of the billing primitive: we report the byte count, we never compute a price.
+  // site_key = "byo" tags this asset to the BYO site line in the PI storage view.
   try {
     await setHostedAssetBytes(
       byoAssetId(ownerKey),
       ownerKey,
       result.manifest.totalBytes,
+      "byo",
     );
   } catch {
     // A billing-report failure must not lose the uploaded site; the GC/reconcile
