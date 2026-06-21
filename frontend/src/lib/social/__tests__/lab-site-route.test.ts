@@ -76,7 +76,9 @@ describe("GET /api/social/lab-site gating matrix", () => {
     // toMatchObject (not toEqual), the response additionally carries the
     // owner-aware-nav fields (editToken/ownerKey) added by the edit-token handoff,
     // which are not the concern of this gating-matrix assertion.
-    expect(await res.json()).toMatchObject({ site: null, pages: [] });
+    // isOwner is true here, the caller resolved to their own site (no
+    // siteOwnerKey param), so the dashboard renders owner chrome.
+    expect(await res.json()).toMatchObject({ site: null, pages: [], isOwner: true });
   });
 
   it("503s when the store throws (fail closed, not a crash)", async () => {
@@ -95,7 +97,21 @@ describe("GET /api/social/lab-site gating matrix", () => {
     listPages.mockResolvedValue([]);
     const res = await GET(editorRequest("other-owner"));
     expect(res.status).toBe(200);
-    const body = (await res.json()) as { site: { slug: string } };
+    const body = (await res.json()) as { site: { slug: string }; isOwner: boolean };
     expect(body.site?.slug).toBe("smithlab");
+    // A granted editor on someone else's site is NOT the owner, so the dashboard
+    // shows the granted-editor banner.
+    expect(body.isOwner).toBe(false);
+  });
+
+  it("isOwner is true when siteOwnerKey equals the caller's own key", async () => {
+    // A hand-built URL with the caller's OWN key resolves to owner mode, so no
+    // isSiteEditor grant is needed and the banner stays hidden.
+    isSiteEditor.mockResolvedValue(false);
+    getSiteByOwner.mockResolvedValue({ labSlug: "ownlab", createdAt: "2026-01-01" });
+    const res = await GET(editorRequest("owner-1"));
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as { isOwner: boolean };
+    expect(body.isOwner).toBe(true);
   });
 });

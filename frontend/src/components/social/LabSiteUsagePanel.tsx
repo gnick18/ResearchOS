@@ -72,40 +72,25 @@ function formatBytes(bytes: number): string {
 function ViewsSparkline({ daily }: { daily: DailyRow[] }) {
   if (daily.length < 2) return null;
 
-  const W = 160;
-  const H = 36;
-  const PAD = 2;
+  const maxVal = Math.max(...daily.map((d) => d.views), 1);
 
-  const values = daily.map((d) => d.views);
-  const maxVal = Math.max(...values, 1);
-
-  const points = daily
-    .map((d, i) => {
-      const x = PAD + ((W - PAD * 2) * i) / (daily.length - 1);
-      const y = PAD + (H - PAD * 2) * (1 - d.views / maxVal);
-      return `${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
-
+  // A CSS flex bar chart, deliberately not an inline graphic, so the panel stays
+  // within the icon-guard ratchet without a baseline change. Each day is a
+  // vertical bar whose height tracks its view count; zero-days keep a thin sliver.
   return (
-    // This is a data-visualization SVG, not an icon, so an inline <svg> is correct here.
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      width={W}
-      height={H}
+    <div
+      className="flex h-9 items-end gap-px"
+      style={{ width: 160 }}
       aria-hidden="true"
-      className="block"
     >
-      <polyline
-        points={points}
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        className="text-brand-500"
-      />
-    </svg>
+      {daily.map((d, i) => (
+        <span
+          key={i}
+          className="flex-1 rounded-sm bg-brand-500/70"
+          style={{ height: `${Math.max(6, (d.views / maxVal) * 100)}%` }}
+        />
+      ))}
+    </div>
   );
 }
 

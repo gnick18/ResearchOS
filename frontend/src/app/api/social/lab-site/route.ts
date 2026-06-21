@@ -121,6 +121,11 @@ export async function GET(request: Request): Promise<Response> {
     // ownerKey: the billing owner key for THIS site. The caller is either the
     // owner or a server-verified granted editor, so returning it is safe.
     ownerKey,
+    // isOwner: true when the caller IS this site's owner (not a delegate). The
+    // route resolves an own-key siteOwnerKey param to owner mode server-side, so
+    // the dashboard uses this to render owner chrome instead of the granted-editor
+    // banner even when a siteOwnerKey equal to the caller's own key is in the URL.
+    isOwner: ownerKey === callerOwnerKey,
     // editToken: a pre-minted ?roEdit= token for the "View public site" link.
     // The dashboard appends it to the .com URL so the public page can show the
     // "Edit this site" bridge bar for the verified caller.

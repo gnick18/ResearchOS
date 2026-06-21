@@ -1138,6 +1138,10 @@ export default function LabSiteDashboard({
   // the static "Manage this site" hint). Token TTL = 10 min. After 10 min of
   // inactivity the owner would get the static hint, which is acceptable.
   const [editToken, setEditToken] = useState<string | null>(null);
+  // True when the caller IS this site's owner. A siteOwnerKey in the URL equal to
+  // the caller's own key resolves to owner mode server-side, so this guards the
+  // granted-editor banner from showing on the owner's OWN site.
+  const [isOwner, setIsOwner] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -1160,10 +1164,12 @@ export default function LabSiteDashboard({
         pages: PageSummary[];
         ownerKey?: string;
         editToken?: string | null;
+        isOwner?: boolean;
       };
       setSite(data.site);
       setPages(Array.isArray(data.pages) ? data.pages : []);
       setEditToken(data.editToken ?? null);
+      setIsOwner(data.isOwner === true);
       setLoad("ready");
     } catch {
       setLoad("error");
@@ -1639,8 +1645,10 @@ export default function LabSiteDashboard({
         {/* Granted-editor context banner: shown when the dashboard is scoped to
             another PI's site. Lets the editor know they are acting as a granted
             editor, not the site owner, and provides a link back to their own
-            dashboard. Hidden in demo mode (siteOwnerKeyProp is never set in demo). */}
-        {siteOwnerKeyProp && !demoReadOnly && (
+            dashboard. Hidden in demo mode (siteOwnerKeyProp is never set in demo)
+            and when the caller is actually the owner (an own-key siteOwnerKey in
+            the URL resolves to owner mode server-side, isOwner true). */}
+        {siteOwnerKeyProp && !isOwner && !demoReadOnly && (
           <div className="mb-6 flex items-start gap-3 rounded-xl border border-border bg-surface-sunken p-4">
             <Icon name="users" className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
