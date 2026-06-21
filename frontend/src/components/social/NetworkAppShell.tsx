@@ -2,7 +2,7 @@
 //
 // Rendered server-side when the caller has an Auth.js session. It fetches:
 //   1. The caller's account profile (handle + display name) for the left rail.
-//   2. Their publicly listed labs via getResearcherPublicLabs (left rail).
+//   2. Their own labs (listed or not) via getResearcherOwnLabs (left rail).
 //   3. Their own lab site via getSiteByOwner (Owner row in "Sites you can edit").
 //   4. Sites they were GRANTED editor access to via listSitesEditableBy (Editor rows).
 //
@@ -19,7 +19,7 @@ import Link from "next/link";
 import { Icon } from "@/components/icons";
 import PublicResearcherSearch from "@/components/social/PublicResearcherSearch";
 import { getAccountProfile } from "@/lib/account/account-profile";
-import { getResearcherPublicLabs } from "@/lib/account/researcher-labs";
+import { getResearcherOwnLabs } from "@/lib/account/researcher-labs";
 import { getSiteByOwner } from "@/lib/social/lab-site-db";
 import { listSitesEditableBy } from "@/lib/social/lab-site-editors-db";
 
@@ -153,11 +153,11 @@ export default async function NetworkAppShell({
   const handle = profile?.handle ?? null;
   const displayName = profile?.displayName ?? sessionEmail.split("@")[0];
 
-  // Fetch labs only when we have a handle (requires a second round-trip, but it
-  // is already server-side so it does not block client rendering).
-  const labs = handle
-    ? await getResearcherPublicLabs(handle).catch(() => [])
-    : [];
+  // Fetch the caller's OWN labs for the rail, keyed by their owner key directly.
+  // This is their authenticated view, so it includes UNLISTED own labs (the
+  // listed-only rule governs the public profile, not what you see of yourself,
+  // Grant decision 2026-06-20).
+  const labs = await getResearcherOwnLabs(ownerKey).catch(() => []);
 
   // Build the unified "Sites you can edit" list.
   const editableSites: EditableSiteEntry[] = [];

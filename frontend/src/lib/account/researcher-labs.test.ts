@@ -174,3 +174,48 @@ describe("getResearcherPublicLabs", () => {
     expect(firstCallArgs[1]).toBe("alice");
   });
 });
+
+async function importOwnHelper() {
+  const mod = await import("./researcher-labs");
+  return mod.getResearcherOwnLabs;
+}
+
+describe("getResearcherOwnLabs", () => {
+  it("returns empty array for an empty owner key (no SQL call)", async () => {
+    const fn = await importOwnHelper();
+    expect(await fn("")).toEqual([]);
+    expect(mockSql).not.toHaveBeenCalled();
+  });
+
+  it("queries by owner key directly with NO handle lookup (single SQL call)", async () => {
+    // The owner-rail path skips the account_profiles handle resolution, so there
+    // is exactly ONE call (the join), unlike the public path's two.
+    mockSql.mockResolvedValueOnce([
+      {
+        name: "Unlisted Fungal Lab",
+        institution: "UW-Madison",
+        slug: "fungal-interaction-fake",
+        pi_key: "key_owner",
+        researcher_key: "key_owner",
+      },
+    ]);
+
+    const fn = await importOwnHelper();
+    const result = await fn("key_owner");
+
+    expect(mockSql).toHaveBeenCalledTimes(1);
+    expect(result).toHaveLength(1);
+    expect(result[0]).toEqual({
+      name: "Unlisted Fungal Lab",
+      institution: "UW-Madison",
+      slug: "fungal-interaction-fake",
+      isPi: true,
+    });
+  });
+
+  it("returns empty when the owner has no labs", async () => {
+    mockSql.mockResolvedValueOnce([]);
+    const fn = await importOwnHelper();
+    expect(await fn("key_nolabs")).toEqual([]);
+  });
+});
