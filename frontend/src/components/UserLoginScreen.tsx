@@ -80,6 +80,36 @@ interface UserLoginScreenProps {
 // carries back so the resume effect knows which account to unlock and match.
 const UNLOCK_QUERY_PARAM = "sharingUnlock";
 
+// Silent auto-unlock gating (pure, unit-tested). Decides whether the unlock gate
+// that just opened should FIRST try a no-redirect unlock from the session the
+// user already holds, instead of forcing a redundant second OAuth round-trip.
+// We only attempt when provider-unlock is genuinely on offer for that account
+// (it has CLAIMED an identity AND we are online), we are not already mid-attempt
+// or in recovery mode, the resume (?sharingUnlock return) path is not the owner
+// of this gate, and we have not already tried once. A false here means "show the
+// manual gate exactly as today" — every door (provider, passkey, recovery,
+// reset-keep-data) stays available, so this can never soft-lock. The security
+// rule (verified session email === claimed identity email) is enforced
+// separately by evaluateUnlockMatch; this predicate only decides whether to look.
+export function shouldAttemptSilentUnlock(opts: {
+  username: string | null | undefined;
+  claimed: boolean;
+  isOnline: boolean;
+  recoveryMode: boolean;
+  resumeHandled: boolean;
+  inFlight: boolean;
+  alreadyAttempted: boolean;
+}): boolean {
+  if (!opts.username) return false;
+  if (opts.alreadyAttempted) return false;
+  if (opts.resumeHandled) return false;
+  if (opts.inFlight) return false;
+  if (opts.recoveryMode) return false;
+  if (!opts.claimed) return false;
+  if (!opts.isOnline) return false;
+  return true;
+}
+
 // D5/D6 read-only badge glyph for the user-switcher tiles. A small
 // "person plus link" mark, matching the same icon used on the Lab Roster
 // "Sharing" pill (lab-head/LabRoster.tsx) so the two surfaces read as one
@@ -568,6 +598,105 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     })();
   }, [loading, users]);
 
+  // Silent auto-unlock from the EXISTING session. Grant's bug: a user who has
+  // ALREADY signed in with a provider at the front door AND connected a folder
+  // was still shown the "Unlock your account" modal and forced to click a
+  // provider for a SECOND OAuth round-trip just to unlock the folder's sealed
+  // identity. The provider-unlock match logic previously ran ONLY on the
+  // ?sharingUnlock RETURN path (the resume effect above), never against the
+  // session the user already holds.
+  //
+  // So: when the unlock gate is about to show for a sealed identity that offers
+  // provider-unlock (the account is claimed + we are online), FIRST try to
+  // unlock from the present session, reusing the EXACT same security rule as the
+  // resume effect — read /api/auth/session, run evaluateUnlockMatch(sessionEmail,
+  // sidecarEmail), and on a match call performLogin WITHOUT any second redirect.
+  // On no-session / no-email / mismatch / fetch error we fall through to the
+  // existing modal (provider buttons, passkey, recovery code, and the reset-keep-
+  // data escape all remain — no soft-lock).
+  //
+  // Guards:
+  //  - unlockAutoAttempted gates the attempt to exactly once per gate open
+  //    (reset in cancelUnlockGate), so a re-render cannot re-fire it.
+  //  - We SKIP entirely when the resume effect owns the gate (it sets
+  //    unlockingViaProvider before opening it), so the ?sharingUnlock path is
+  //    never double-handled.
+  //  - We only run when there is a sealed identity needing unlock AND provider-
+  //    unlock is actually offered (claimed + online + not already in recovery
+  //    mode). Anything else keeps the manual gate exactly as today.
+  //  - While the attempt is in flight we reuse the SAME unlockingViaProvider
+  //    loading affordance the resume effect uses, so the user sees a neutral
+  //    "Confirming your sign-in..." state, NOT the full provider modal that then
+  //    auto-dismisses (no flash).
+  const unlockAutoAttempted = useRef(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!unlockGate) return;
+    // The resume effect (?sharingUnlock return) owns the gate when it handled a
+    // redirect: it both turns on unlockingViaProvider AND sets unlockResumeHandled.
+    // The predicate also covers: already-attempted, in-flight, recovery mode, and
+    // provider-unlock not actually on offer (unclaimed or offline). Any false here
+    // leaves the manual gate exactly as today.
+    if (
+      !shouldAttemptSilentUnlock({
+        username: unlockGate.username,
+        claimed: claimedUsers.has(unlockGate.username),
+        isOnline,
+        recoveryMode,
+        resumeHandled: unlockResumeHandled.current,
+        inFlight: unlockingViaProvider,
+        alreadyAttempted: unlockAutoAttempted.current,
+      })
+    ) {
+      return;
+    }
+
+    unlockAutoAttempted.current = true;
+    const target = unlockGate.username;
+    setUnlockingViaProvider(true);
+    setError(null);
+
+    (async () => {
+      try {
+        const [sessionRes, sidecar] = await Promise.all([
+          fetch("/api/auth/session", {
+            headers: { accept: "application/json" },
+          }),
+          readSharingIdentity(target),
+        ]);
+        const sessionData = (await sessionRes.json()) as {
+          user?: { email?: string | null } | null;
+        } | null;
+
+        // Same pure, unit-tested rule as the resume effect: the verified
+        // session email must match the email this identity was claimed under.
+        // A non-matching or absent session falls through to the manual doors.
+        const match = evaluateUnlockMatch(
+          sessionData?.user?.email ?? null,
+          sidecar?.email ?? null,
+        );
+        if (!match.ok) {
+          // No silent unlock — reveal the manual gate exactly as today (provider
+          // buttons, recovery code, reset-keep-data). No error message: the user
+          // never asked for the silent attempt, so nothing failed from their
+          // perspective; they simply see their normal unlock options.
+          setUnlockingViaProvider(false);
+          return;
+        }
+        // Verified session email matches the claimed identity: unlock now, no
+        // second OAuth round-trip.
+        setUnlockGate(null);
+        setUnlockingViaProvider(false);
+        await performLogin(target);
+      } catch {
+        // Could not confirm the existing session — fall back to the manual gate
+        // silently. The user keeps every offline/online door.
+        setUnlockingViaProvider(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unlockGate, claimedUsers, isOnline, recoveryMode, unlockingViaProvider]);
+
   // Focus input when entering edit mode
   useEffect(() => {
     if (editingUser && editInputRef.current) {
@@ -1025,6 +1154,10 @@ export default function UserLoginScreen({ onLogin }: UserLoginScreenProps) {
     setResetting(false);
     setLoggingIn(null);
     setError(null);
+    // Allow the silent auto-unlock to run again next time the gate opens (e.g.
+    // the user cancels, then clicks a different account, or the same one after
+    // signing in elsewhere).
+    unlockAutoAttempted.current = false;
   };
 
   // Offline fallback door, the recovery code (or 12 words). Unwraps the
