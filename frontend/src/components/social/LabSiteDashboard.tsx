@@ -2288,6 +2288,7 @@ export default function LabSiteDashboard({
       title="Lab site"
       gateHeading="Sign in to manage your lab site"
       tagline="Claim your lab's slug, write companion-site pages in markdown, and publish when ready. Your account is the cloud part; your research data stays local on your own computer."
+      wide
     >
       <LabSiteShell slug={site?.slug ?? null}>{body}</LabSiteShell>
     </PortalShell>
