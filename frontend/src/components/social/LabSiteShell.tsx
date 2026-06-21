@@ -8,9 +8,11 @@
 // This wraps the dashboard body in a real two-pane layout: a persistent left
 // rail (lab-site identity + primary navigation, including a clear EXIT back to
 // the app and to account settings, plus a View public site jump when the slug is
-// claimed) next to a wide main content area. The frame fills the laptop width
-// (max-w-6xl) instead of clamping to a phone-width column, and the rail collapses
-// above the content on narrow screens so it stays usable on a phone.
+// claimed) next to a wide main content area. The frame FILLS the laptop width
+// (no max-width cap, just comfortable gutters) instead of clamping to a fixed box,
+// matching the full-width header above it; the fixed-width rail stays put while
+// the main column grows into the reclaimed space. The rail collapses above the
+// content on narrow screens so it stays usable on a phone.
 //
 // House style: no em-dashes, no emojis, no mid-sentence colons. Icons via <Icon>.
 
@@ -73,7 +75,7 @@ export default function LabSiteShell({
 }: LabSiteShellProps) {
   const publicUrl = slug ? labSiteOrigin(slug) : null;
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-6 sm:px-6">
+    <div className="w-full px-4 py-6 sm:px-6 lg:px-10">
       <div className="grid gap-6 lg:grid-cols-[224px_minmax(0,1fr)] lg:items-start">
         {/* Left rail: identity + primary nav + clear exits. */}
         <aside className="lg:sticky lg:top-6">
