@@ -39,6 +39,7 @@ import {
   resolveByoServePath,
 } from "@/lib/social/lab-byo";
 import { isLabByoSitesEnabled } from "@/lib/social/config";
+import { bumpLabSiteView } from "@/lib/social/lab-site-analytics";
 
 export const runtime = "nodejs";
 
@@ -109,6 +110,12 @@ export async function GET(request: Request): Promise<Response> {
   // Prefer the stored Content-Type from R2; fall back to the per-extension type so
   // the response is never an unexpected default.
   const contentType = file.contentType ?? contentTypeForPath(relPath);
+
+  // Part 3 analytics: count this BYO site view. Fire-and-forget -- a Neon
+  // outage must never block or error the file serve response. The site_key
+  // convention for BYO sites is "byo" (one counter for the whole uploaded site,
+  // not per-file, matching the one-lump BYO billing model).
+  void bumpLabSiteView(labSite.labOwnerKey, "byo");
 
   // Copy into a fresh detached buffer for a clean BodyInit.
   const out = file.bytes.slice();
