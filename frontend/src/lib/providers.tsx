@@ -661,15 +661,14 @@ function AppContent({ children }: { children: ReactNode }) {
   // reconnect -> app transition and never flashes /account in the middle. Skipped
   // in fixture (demo / wiki-capture) modes, which seed their own connected state.
   const [reconnectIntent, setReconnectIntent] = useState<ReconnectIntent | null>(
-    null,
+    // Fixture modes (demo / wiki-capture) never reconnect a real handle, so seed
+    // the intent resolved-as-none up front. This keeps the hold below inert and
+    // the fixture connected-state rendering, with no synchronous setState in the
+    // effect. A real (non-fixture) load starts null and resolves in the effect.
+    () => (isDemoOrWikiCapture() ? { kind: "none" } : null),
   );
   useEffect(() => {
-    if (isDemoOrWikiCapture()) {
-      // Fixture modes never reconnect a real handle; mark resolved-as-none so the
-      // hold below is inert and the fixture connected-state renders.
-      setReconnectIntent({ kind: "none" });
-      return;
-    }
+    if (isDemoOrWikiCapture()) return;
     let alive = true;
     void resolveReconnectIntent()
       .then((intent) => {
