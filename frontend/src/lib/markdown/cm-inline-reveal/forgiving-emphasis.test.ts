@@ -1,5 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { markdownLanguage } from "@codemirror/lang-markdown";
+import type { MarkdownParser } from "@lezer/markdown";
+import type { SyntaxNodeRef } from "@lezer/common";
 import {
   forgivingEmphasis,
   __resetBuiltinEmphasisCacheForTest,
@@ -19,14 +21,18 @@ import {
  * (it stays literal text), even with the forgiving relaxation active.
  */
 
-const parser = markdownLanguage.parser.configure(forgivingEmphasis);
+// markdownLanguage.parser is a MarkdownParser at runtime; the lang-markdown types
+// widen it to the common Parser, so cast to reach .configure.
+const parser = (markdownLanguage.parser as unknown as MarkdownParser).configure(
+  forgivingEmphasis,
+);
 
 /** Collect every node of the given name as [from, to] pairs. */
 function nodesNamed(src: string, name: string): Array<[number, number]> {
   const tree = parser.parse(src);
   const out: Array<[number, number]> = [];
   tree.iterate({
-    enter: (n) => {
+    enter: (n: SyntaxNodeRef) => {
       if (n.name === name) out.push([n.from, n.to]);
     },
   });

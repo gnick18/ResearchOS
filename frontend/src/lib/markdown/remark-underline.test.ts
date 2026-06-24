@@ -111,3 +111,34 @@ describe("remarkUnderline — underscore renders as <u>", () => {
     expect(html).toMatch(/snake_case identifiers/);
   });
 });
+
+describe("thematic break (HR) renders full-width while inline underscores stay inline (bug C)", () => {
+  // A standalone `___` / `---` / `***` line must render a full-width <hr> in the
+  // Preview view, NOT be swallowed by the underscore-underline rewrite. The
+  // underline plugin only ever rewrites an `emphasis` mdast node, and a thematic
+  // break is its own `thematicBreak` node, so the two never collide.
+  for (const rule of ["___", "---", "***"]) {
+    it(`renders a standalone ${rule} as <hr>`, async () => {
+      const html = await render(`above\n\n${rule}\n\nbelow`);
+      expect(html).toMatch(/<hr\s*\/?>/);
+      // The rule did not leak its characters into the surrounding text.
+      expect(html).toMatch(/above/);
+      expect(html).toMatch(/below/);
+    });
+  }
+
+  it("keeps inline __x__ as <strong> (not an HR) on its own line is bold, ___ is a rule", async () => {
+    const bold = await render("__under__");
+    expect(bold).toMatch(/<strong>under<\/strong>/);
+    expect(bold).not.toMatch(/<hr/);
+
+    const rule = await render("___");
+    expect(rule).toMatch(/<hr\s*\/?>/);
+  });
+
+  it("keeps inline _x_ underline working alongside a thematic break in the same doc", async () => {
+    const html = await render("intro with _underline_\n\n---\n\nmore text");
+    expect(html).toMatch(/<u>underline<\/u>/);
+    expect(html).toMatch(/<hr\s*\/?>/);
+  });
+});

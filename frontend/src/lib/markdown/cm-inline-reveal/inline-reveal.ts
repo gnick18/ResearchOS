@@ -45,7 +45,7 @@ import {
 } from "./marker-taxonomy";
 import { selectionTouchesNode } from "./selection-touches";
 import { inlineRevealTheme } from "./theme";
-import { TableWidget, FencedCodeWidget } from "./block-widgets";
+import { TableWidget, FencedCodeWidget, HrWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
 import { EmbedWidget, parseLoneEmbedLink } from "./embed-widget";
 import type { EmbedPinContext } from "@/components/embeds/ObjectEmbed";
@@ -414,6 +414,22 @@ export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
           widget: new EmbedWidget(lone.descriptor, lone.caption, imageBasePath, pinContext),
           block: true,
         });
+        blockRanges.push({ from: node.from, to: node.to, deco });
+        atomicRanges.push({ from: node.from, to: node.to, deco });
+        return false;
+      }
+
+      // HorizontalRule: a standalone `___` / `---` / `***` line. The grammar
+      // already parses it into a HorizontalRule node; without a widget it shows
+      // as raw source. When the caret is not on the rule line, collapse it into a
+      // full-width <hr> (bug C). A touched rule reveals the raw source for editing,
+      // the same reveal contract as the table / fenced-code widgets. Inline
+      // `__underline__` is unaffected: it parses inside a Paragraph as Emphasis,
+      // never as a HorizontalRule, so this branch never fires for it.
+      if (name === "HorizontalRule") {
+        const touchedHr = selectionTouchesNode(sel, node.from, node.to);
+        if (touchedHr || node.to <= node.from) return false;
+        const deco = Decoration.replace({ widget: new HrWidget(), block: true });
         blockRanges.push({ from: node.from, to: node.to, deco });
         atomicRanges.push({ from: node.from, to: node.to, deco });
         return false;

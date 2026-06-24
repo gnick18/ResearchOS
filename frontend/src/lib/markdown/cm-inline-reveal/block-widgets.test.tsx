@@ -5,6 +5,7 @@ import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { forceParsing } from "@codemirror/language";
 
 import { buildBlockDeco, buildDeco } from "./inline-reveal";
+import { HrWidget } from "./block-widgets";
 
 /**
  * Block + image widget tests (Typora editor chip 2b). A Table / FencedCode /
@@ -151,6 +152,58 @@ describe("block widgets: Table / FencedCode collapse when caret is OUT", () => {
     // The sanitize-routed render keeps the cell text.
     expect(dom.textContent).toContain("Sample");
     expect(dom.textContent).toContain("22.4");
+  });
+});
+
+describe("thematic break (HR) widget (bug C)", () => {
+  // A standalone `___` / `---` / `***` line collapses into a full-width <hr>
+  // when the caret is not on it, and reveals the raw source when the caret is in.
+  for (const rule of ["___", "---", "***"]) {
+    it(`collapses a standalone ${rule} into an HR block widget when the caret is OUT`, () => {
+      const doc = `above\n\n${rule}\n\nbelow`;
+      const hrFrom = doc.indexOf(rule);
+      const hrTo = hrFrom + rule.length;
+      const v = mount(doc, 0); // caret at the top, off the rule line
+      const { combined, atomic } = buildBlockDeco(v.state);
+
+      const block = widgetRanges(combined).find(
+        (r) => r.from === hrFrom && r.to === hrTo,
+      );
+      expect(block).toBeDefined();
+      expect(block?.block).toBe(true);
+      expect(block?.widget).toBeInstanceOf(HrWidget);
+
+      // Atomic so the caret jumps over the collapsed source.
+      expect(
+        widgetRanges(atomic).some((r) => r.from === hrFrom && r.to === hrTo),
+      ).toBe(true);
+
+      // The widget DOM is a real <hr>.
+      const dom = (block?.widget as WidgetType).toDOM(v);
+      expect(dom.querySelector("hr")).not.toBeNull();
+    });
+  }
+
+  it("drops the HR widget when the caret is ON the rule (raw source reveals)", () => {
+    const doc = "above\n\n___\n\nbelow";
+    const hrFrom = doc.indexOf("___");
+    const v = mount(doc, hrFrom + 1); // caret inside the ___ run
+    const { combined, atomic } = buildBlockDeco(v.state);
+    expect(widgetRanges(combined).some((r) => r.from === hrFrom && r.block)).toBe(
+      false,
+    );
+    expect(widgetRanges(atomic).some((r) => r.from === hrFrom)).toBe(false);
+  });
+
+  it("does NOT treat inline __underline__ as a thematic break", () => {
+    // Inline `__x__` parses inside a Paragraph as Emphasis, never a
+    // HorizontalRule, so no HR block widget is emitted for it.
+    const doc = "this is __under__ here";
+    const v = mount(doc, 0);
+    const { combined } = buildBlockDeco(v.state);
+    expect(
+      widgetRanges(combined).some((r) => r.widget instanceof HrWidget),
+    ).toBe(false);
   });
 });
 

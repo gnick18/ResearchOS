@@ -90,6 +90,17 @@ export const inlineRevealTheme = EditorView.baseTheme({
     fontSize: "0.9em",
     color: "#e5e7eb",
   },
+  // Thematic break widget (bug C): a standalone `___` / `---` / `***` line that
+  // the caret is not on collapses into a full-width <hr>. Mild vertical breathing
+  // room so the rule reads as a section divider, matching the Preview <hr>.
+  ".cm-inline-hr": {
+    padding: "0.3em 0",
+  },
+  ".cm-inline-hr hr": {
+    border: "none",
+    borderTop: "1px solid var(--cm-rule, #d1d5db)",
+    margin: "0",
+  },
   // Inline image widget (chip 2b): the resolved <img> for an untouched Image
   // node. Constrained so a large figure does not blow out the writing column.
   ".cm-inline-image img": {
