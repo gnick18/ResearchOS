@@ -42,6 +42,7 @@ import { fileToAvatarDataUrl } from "@/lib/account/avatar-image";
 import PlanBillingCard from "@/components/account/PlanBillingCard";
 import RunALabModal from "@/components/account/RunALabModal";
 import { useModelAStatus } from "@/hooks/useModelAStatus";
+import { returnDestinationLabel } from "@/lib/account/return-destination-label";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -571,7 +572,7 @@ export default function AccountHub() {
           <>
             {fromRoute && (
               <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-meta text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                <b>{fromRoute}</b> needs your data, which lives in a folder on your computer.
+                <b>{returnDestinationLabel(fromRoute)}</b> needs your data, which lives in a folder on your computer.
                 Point us to it below to continue.
               </p>
             )}

@@ -34,6 +34,7 @@ import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
 import FileDropzone from "@/components/ui/FileDropzone";
 import { fileToAvatarDataUrl } from "@/lib/account/avatar-image";
+import { returnDestinationLabel } from "@/lib/account/return-destination-label";
 
 interface AccountProfile {
   handle: string;
@@ -557,7 +558,7 @@ export default function AccountHome() {
           <>
             {fromRoute && (
               <p className="mb-2 rounded-lg bg-amber-50 px-3 py-2 text-meta text-amber-800 dark:bg-amber-500/15 dark:text-amber-300">
-                <b>{fromRoute}</b> needs your data, which lives in a folder on your
+                <b>{returnDestinationLabel(fromRoute)}</b> needs your data, which lives in a folder on your
                 computer. Point us to it below to continue.
               </p>
             )}
