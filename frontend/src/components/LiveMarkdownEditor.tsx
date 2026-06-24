@@ -1989,7 +1989,10 @@ export default function LiveMarkdownEditor({
     { key: "plot", label: "Plot or figure", icon: "chart", onClick: () => openReferencePicker("datahub") },
     { key: "sequence", label: "Sequence", icon: "sequence", onClick: () => openReferencePicker("sequences") },
     { key: "molecule", label: "Molecule", icon: "moleculeCircular", onClick: () => openReferencePicker("molecules") },
-    { key: "image", label: "Image or file", icon: "attach", onClick: () => { setInsertMenuOpen(false); handleAddImageClick(); } },
+    // Inline file insert moved OUT of the INSERT rail (2026-06-23 dedupe, Grant).
+    // It now lives inside the Attachments panel as a single clearly-labeled
+    // "Insert a file" action next to the attached-files list, so one panel both
+    // shows attached files and drops a new one inline at the caret.
   ];
   // The never-overlap gate: opted-in surface, edit mode (insert-at-caret has no
   // meaning in Preview / read-only), and a measured gutter wide enough to clear
@@ -3156,13 +3159,19 @@ export default function LiveMarkdownEditor({
                           >
                             Files
                           </button>
+                          {/* Single inline-insert action (the former INSERT-rail
+                              "Image or file" lives here now). Calls the same
+                              caret-insert as before so this one panel both shows
+                              attached files and drops a new file inline. */}
                           <button
                             type="button"
-                            aria-label="Add attachment"
+                            aria-label="Insert a file"
                             onClick={() => handleAddImageClick()}
-                            className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                            data-testid="editor-attachments-insert-file"
+                            className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-meta text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
                           >
                             <Icon name="plus" className="h-3.5 w-3.5" />
+                            Insert a file
                           </button>
                         </div>
                         <div className="min-h-0 overflow-auto">
@@ -3229,11 +3238,23 @@ export default function LiveMarkdownEditor({
             >
               Files
             </button>
+            {/* Same single inline-insert action as the rail flyout, so the
+                docked fallback panel can also drop a new file inline. */}
+            <button
+              type="button"
+              aria-label="Insert a file"
+              onClick={() => handleAddImageClick()}
+              data-testid="editor-attachments-fallback-insert-file"
+              className="ml-auto flex items-center gap-1 rounded px-2 py-1 text-meta text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+            >
+              <Icon name="plus" className="h-3.5 w-3.5" />
+              Insert a file
+            </button>
             <button
               type="button"
               aria-label="Hide attachments"
               onClick={() => setContextFlyout(null)}
-              className="ml-auto flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-foreground-muted/15 hover:text-foreground"
+              className="flex h-6 w-6 items-center justify-center rounded text-foreground-muted transition-colors hover:bg-foreground-muted/15 hover:text-foreground"
             >
               <Icon name="close" className="h-3.5 w-3.5" />
             </button>
