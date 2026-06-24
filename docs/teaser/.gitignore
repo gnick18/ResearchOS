@@ -1,4 +1,0 @@
-frames/
-render-tooling/node_modules/
-render-tooling/package-lock.json
-out/*.mp4

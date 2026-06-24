@@ -87,3 +87,6 @@ scripts/activity-report/_milestones_block.txt
 # Business/financial reconciliation scripts (repo is public): one-off ledger
 # and reimbursement helpers operate on private LLC accounting. Keep them out.
 frontend/scripts/reimburse-*.mjs
+
+# Teaser trailer lives in ~/Documents/ResearchOS_LLC/teaser-trailer (marketing, not code)
+docs/teaser/
