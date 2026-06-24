@@ -1,0 +1,281 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Auto-claim on folder entry — proposal</title>
+<style>
+  :root{
+    --bg:#f6f8fc; --card:#ffffff; --ink:#111827; --muted:#5b6573;
+    --line:#e3e8f0; --line-strong:#cbd5e1;
+    --action:#1283C9; --sky:#1AA0E6; --purple:#5B47D6;
+    --ok:#15803d; --ok-bg:#ecfdf3; --no:#b42318; --no-bg:#fef3f2;
+    --warn:#b45309; --warn-bg:#fffaeb;
+    --shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:920px;margin:0 auto;padding:32px 20px 120px}
+  header.h{margin-bottom:8px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:14px}
+  .pill{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:linear-gradient(90deg,var(--action),var(--purple));
+    padding:2px 9px;border-radius:999px;vertical-align:middle;margin-left:8px}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow);
+    padding:20px 22px;margin:18px 0}
+  h2{font-size:17px;font-weight:750;margin:0 0 10px}
+  h3{font-size:14px;font-weight:700;margin:18px 0 6px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+  p{margin:8px 0}
+  code{background:#eef2f8;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .muted{color:var(--muted)}
+  .grid{display:grid;grid-template-columns:1fr;gap:0;border:1px solid var(--line);border-radius:12px;overflow:hidden;margin-top:8px}
+  .row{display:grid;grid-template-columns:210px 1fr;gap:0;border-top:1px solid var(--line)}
+  .row:first-child{border-top:none}
+  .row .k{background:#f8fafc;padding:12px 14px;font-weight:650;border-right:1px solid var(--line);font-size:13.5px}
+  .row .v{padding:12px 14px}
+  .tag{display:inline-block;font-size:11.5px;font-weight:700;padding:1px 8px;border-radius:999px;margin-right:6px}
+  .tag.now{background:#eef2ff;color:#3730a3}
+  .tag.new{background:var(--ok-bg);color:var(--ok)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+  .dec{border:1px solid var(--line);border-radius:12px;padding:16px 18px;margin:14px 0;background:#fff}
+  .dec.approved{border-color:#bbf7d0;background:linear-gradient(0deg,var(--ok-bg),#fff)}
+  .dec.declined{border-color:#fecaca;background:linear-gradient(0deg,var(--no-bg),#fff)}
+  .dec .id{font-size:12px;font-weight:800;color:var(--action);letter-spacing:.03em}
+  .dec h4{font-size:15.5px;font-weight:750;margin:4px 0 6px}
+  .btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;align-items:center}
+  button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-strong);background:#fff;
+    padding:7px 13px;font-weight:650;color:var(--ink)}
+  button:hover{border-color:var(--action)}
+  button.yes[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+  button.no[aria-pressed="true"]{background:var(--no);border-color:var(--no);color:#fff}
+  textarea{width:100%;margin-top:10px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
+    font:13.5px/1.5 inherit;resize:vertical;min-height:38px;background:#fcfdff}
+  .verdict{margin-left:auto;font-size:12.5px;font-weight:700;color:var(--muted)}
+  .bar{position:fixed;left:0;right:0;bottom:0;background:rgba(255,255,255,.92);backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);padding:12px 20px;display:flex;gap:12px;align-items:center;justify-content:center}
+  .bar button.primary{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:none;padding:9px 18px}
+  .count{font-size:13px;color:var(--muted)}
+  ul.tight{margin:6px 0 6px 18px;padding:0}
+  ul.tight li{margin:3px 0}
+  .callout{border-left:3px solid var(--action);background:#f4f9fe;border-radius:0 10px 10px 0;padding:10px 14px;margin:12px 0}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="h">
+    <h1>Auto-claim your account on folder entry <span class="pill">proposal</span></h1>
+    <div class="sub">2026-06-19 &middot; Billing / orchestrator lane &middot; mark each decision Approve or Disapprove, add notes, then Export and paste back into chat. Saved to your browser as you go.</div>
+  </header>
+
+  <section>
+    <h2>Why this exists</h2>
+    <p>You signed in, opened a fresh folder, and the Share button never appeared. The cause is two correct-on-their-own pieces colliding.</p>
+    <ul class="tight">
+      <li><b>Deferred mint (by design).</b> Under the multi-folder identity model, a signed-in user entering a fresh folder enters with <b>no keypair on purpose</b>. The code comment (<code>UserLoginScreen.tsx</code> step 8) says the keypair is "minted on demand at the first sharing action... which surfaces the recovery code then." The intent was good, never mint a recovery-locked identity the user never saw the code for.</li>
+      <li><b>Share is gated on identity-ready.</b> Every Share button checks <code>canShare</code>, which is true only once the identity is ready. With the mint deferred, <code>canShare</code> is false, so the Share button is <b>hidden</b>.</li>
+    </ul>
+    <div class="callout"><b>The dead zone.</b> The "first sharing action" that was supposed to mint the key can never be reached, because the affordance that would trigger it is hidden until the key exists. The only escape is a buried Settings card ("Finish setting up your account"). A signed-in user is silently unable to share and is not told why on the surface where they tried.</div>
+    <p class="muted">Your direction: claiming should happen automatically when a signed-in user enters a folder, and if the folder was claimed by a different account, warn and let the user decide whether to take ownership.</p>
+  </section>
+
+  <section>
+    <h2>Proposed flow: signed-in user enters a folder</h2>
+    <p class="muted">One branch per folder-claim state. "Claimed" is read from the identity sidecar (<code>fingerprint</code> + optional bound <code>email</code>) and compared against the signed-in account's directory record.</p>
+    <div class="grid">
+      <div class="row"><div class="k">S1 &middot; Unclaimed<br><span class="muted" style="font-weight:400">no identity sidecar</span></div><div class="v">
+        <span class="tag new">new</span> Auto-establish the identity on entry (mint keypair, bind to the signed-in account, publish the findable profile), then show a one-time recovery-code card. No manual button. <code>canShare</code> true immediately.
+        <div class="muted" style="margin-top:6px">Today: enters with no key, Share hidden, setup only via Settings.</div>
+      </div></div>
+      <div class="row"><div class="k">S2 &middot; Mine, key on this device</div><div class="v">
+        <span class="tag now">unchanged</span> Reuse the on-device keypair silently (a reference sidecar). Already works. <code>canShare</code> true.
+      </div></div>
+      <div class="row"><div class="k">S3 &middot; Mine, key not here<br><span class="muted" style="font-weight:400">published from another device</span></div><div class="v">
+        <span class="tag now">exists, make automatic</span> Auto-open the cross-device restore gate (enter recovery code), unwrap the canonical keypair, write a reference sidecar. The restore path exists today; ensure it fires automatically on entry rather than dead-ending.
+      </div></div>
+      <div class="row"><div class="k">S4 &middot; Claimed by a different account</div><div class="v">
+        <span class="tag warn">new</span> Warn clearly: "This folder was set up by <code>@other</code>. You are signed in as <code>@you</code>." Offer <b>Take ownership</b> (re-key the folder to your account), <b>Use a different folder</b>, and <b>Continue without sharing</b>. Never silently re-key.
+        <div class="muted" style="margin-top:6px">Today: a non-matching local key silently falls through to minting a fresh per-folder key, no warning, no choice.</div>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Shared-file handling on takeover (S4)</h2>
+    <p class="muted">Grant's requirement. When a different OAuth account takes over a folder, the new account does not hold the keys or permission for files that were <b>shared to the prior identity</b>. Those shares were encrypted and addressed to the old account, so the new account genuinely cannot decrypt or view them. Retaining another account's shared documents is both a privacy and a correctness problem, so takeover must detect, count, warn, and on confirm remove the local copies. The user's own (non-shared) files are never touched.</p>
+
+    <h3>How shared files land today (audit)</h3>
+    <p>There are two distinct delivery paths, and only one is recipient-encrypted. The takeover removal targets only the recipient-encrypted one.</p>
+    <div class="grid">
+      <div class="row"><div class="k">Cross-boundary share<br><span class="muted" style="font-weight:400">relay + R2, sealed</span></div><div class="v">
+        A bundle is sealed to the recipient's X25519 public key with <code>sealToRecipient()</code> and opened with <code>openSealed()</code> (<code>frontend/src/lib/sharing/encryption.ts</code>), fetched via <code>receiveRawShare()</code> (<code>frontend/src/lib/sharing/relay/client.ts</code>), then imported into the recipient's own folders as records under <code>users/&lt;currentUser&gt;/{notes,projects,methods,experiments,tasks,sequences}/&lt;id&gt;.json</code>. The import stamps three provenance fields, <code>received_from</code>, <code>received_from_fingerprint</code>, and <code>received_at</code> (<code>note-transfer.ts:376</code>, <code>sequence-transfer.ts:246</code>, <code>import/apply.ts:56</code>; typed in <code>types.ts:697/1142/3166/3855/3917</code>). <b>This is the recipient-permissioned set.</b> It was sealed to the prior identity's keypair; the new account cannot decrypt a re-fetch, and is not the intended recipient.
+      </div></div>
+      <div class="row"><div class="k">Intra-lab share<br><span class="muted" style="font-weight:400">same folder, by reference</span></div><div class="v">
+        <code>users/&lt;u&gt;/_shared_with_me.json</code> (<code>SharedManifest</code>: <code>version</code> + <code>projects</code>/<code>tasks</code>/<code>methods</code> entry arrays; read/write at <code>local-api.ts:8111</code>/<code>8122</code>) points at records that physically live in <b>another user's</b> directory inside the same folder. These are not sealed to a keypair; they are plain cross-user references within one lab folder. <b>Not in scope for removal</b>: they belong to the folder's other members, not to the prior owning account, and the takeover is about the per-folder identity, not lab membership.
+      </div></div>
+    </div>
+
+    <h3>Detection + count</h3>
+    <p>The "files you do not have permission to view" set is the cross-boundary received records, the ones carrying a <code>received_from_fingerprint</code>, since those were sealed and addressed to the prior identity. After takeover the new identity's <code>openSealed()</code> can no longer decrypt them and the new account is not the named recipient.</p>
+    <ul class="tight">
+      <li>Scan <code>users/&lt;currentUser&gt;/{notes,projects,methods,experiments,tasks,sequences}</code> for records where <code>received_from_fingerprint</code> is present (cross-boundary inbound shares).</li>
+      <li>These are foreign-recipient by definition: the bundle was sealed to the prior account's X25519 key, not the taking-over account's. Count them as <code>X</code>. (Belt-and-suspenders: an <code>openSealed()</code> attempt against any retained sealed blob with the new key will throw, confirming undecryptability, but the provenance stamp alone is sufficient and cheaper.)</li>
+      <li><b>Exclusion guard</b>: a record with no <code>received_from_fingerprint</code> is the user's own authored content and is never counted or removed. Intra-lab <code>_shared_with_me.json</code> references are also excluded.</li>
+    </ul>
+
+    <h3>Warning copy (Grant's words)</h3>
+    <div class="callout warn">
+      <p style="margin:0">There are <b>X</b> shared files that you do not have permission to view. Taking over this folder will mean the local copies of those shared documents will be removed from this folder.</p>
+    </div>
+    <p class="muted">Shown as part of the S4 "Take ownership" confirm, before any re-key, with the count resolved from the detection scan. If <code>X</code> is 0 the line is omitted. Honors the no-soft-lock rule: the user can still pick "Use a different folder" or "Continue without sharing" instead of confirming.</p>
+
+    <h3>Safe removal on confirm</h3>
+    <ul class="tight">
+      <li>On confirm only, delete the local copies of the detected records (the <code>&lt;id&gt;.json</code> plus any per-record attachment subfolder, e.g. <code>notes/&lt;id&gt;/Images/</code>). Trash-not-delete where the folder's delete convention supports it.</li>
+      <li>Drop any matching entries from the intra-lab manifests so no dangling references remain, but do not remove records that the manifest points at in <b>other</b> users' directories (those are not the prior account's sealed shares).</li>
+      <li><b>Untouched</b>: every record with no <code>received_from_fingerprint</code>. The new account's own authored notes, tasks, methods, projects, experiments, and sequences are strictly preserved. The previous owner's published directory profile and their devices are also untouched (consistent with the S4 security note).</li>
+      <li>Re-key the folder identity sidecar (<code>users/&lt;username&gt;/_sharing_identity.json</code>, read via <code>readSharingIdentity()</code> in <code>identity/sidecar.ts</code>) to the taking-over account as the final step.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Gap-audit checklist</h2>
+    <p class="muted">What exists today versus what this proposal adds, with rough sizes and the files each item touches. Approve the shape, not the line counts.</p>
+    <div class="grid">
+      <div class="row"><div class="k">Auto-mint on entry (S1)</div><div class="v">
+        <span class="tag warn">gap</span> Replace deferred-to-first-share mint with mint-on-entry + recovery card. <span class="muted">~M. <code>UserLoginScreen.tsx</code>, identity <code>provision.ts</code>/<code>setup.ts</code>, the share-gate <code>canShare</code> source.</span>
+      </div></div>
+      <div class="row"><div class="k">Cross-device restore on entry (S3)</div><div class="v">
+        <span class="tag now">exists</span> Restore gate exists; wire it to fire on entry. <span class="muted">~S. <code>identity/recovery-code.ts</code>, <code>identity/storage.ts</code>.</span>
+      </div></div>
+      <div class="row"><div class="k">Foreign-account warn + Take ownership (S4)</div><div class="v">
+        <span class="tag warn">gap</span> Stop silent per-folder mint; show warn + 3 options. <span class="muted">~M. entry flow, <code>identity/sidecar.ts</code>, new warn modal.</span>
+      </div></div>
+      <div class="row"><div class="k">Detect foreign-recipient shares</div><div class="v">
+        <span class="tag warn">gap</span> Scan the six received-record stores for <code>received_from_fingerprint</code>, count <code>X</code>; exclude own + intra-lab references. <span class="muted">~S. new helper reading <code>users/&lt;u&gt;/{notes,projects,methods,experiments,tasks,sequences}</code>; provenance fields already in <code>types.ts</code>.</span>
+      </div></div>
+      <div class="row"><div class="k">Takeover warning UX (count + copy)</div><div class="v">
+        <span class="tag warn">gap</span> Render the "X shared files you do not have permission to view" line inside the S4 confirm; omit when X is 0. <span class="muted">~S. the S4 warn modal component.</span>
+      </div></div>
+      <div class="row"><div class="k">Safe removal of foreign shares</div><div class="v">
+        <span class="tag warn">gap</span> On confirm only, trash the detected <code>&lt;id&gt;.json</code> + attachments, drop dangling manifest entries, strictly skip own content. <span class="muted">~M. per-type delete via <code>local-api.ts</code> stores + <code>_shared_with_me.json</code> writer at <code>local-api.ts:8122</code>.</span>
+      </div></div>
+      <div class="row"><div class="k">Re-key folder identity sidecar</div><div class="v">
+        <span class="tag warn">gap</span> Final step of takeover; write the new account's keypair to <code>_sharing_identity.json</code>. <span class="muted">~S. <code>identity/sidecar.ts</code>, <code>provision.ts</code>.</span>
+      </div></div>
+      <div class="row"><div class="k">Share affordance never a dead control (S5/D7)</div><div class="v">
+        <span class="tag warn">gap</span> Replace hidden Share with a "set up sharing" prompt when identity is not ready. <span class="muted">~S. share-button gating site.</span>
+      </div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Decisions</h2>
+    <p class="muted">These are the calls I need from you before building. Approve / Disapprove each, leave a note where you want a change.</p>
+    <div id="decisions"></div>
+  </section>
+
+  <section>
+    <h2>Security note on "Take ownership" (S4)</h2>
+    <div class="callout warn">
+      <p style="margin-top:0">ResearchOS is local-first, so whoever holds the folder on disk and is signed in can already read and rewrite everything in it. Re-keying the folder identity to their account is consistent with that reality, not a new exposure. But it must be an explicit, clearly-worded choice, and it must NOT touch the other account's identity anywhere else.</p>
+      <ul class="tight" style="margin-bottom:0">
+        <li>Taking ownership re-keys <b>this folder's</b> identity sidecar to the current account. The previous owner's published directory profile and their keypair on their own devices are untouched.</li>
+        <li>This connects to the provider-rebind spec (<code>2026-06-19-account-provider-rebind.html</code>), which is the broader "change the login bound to an identity" problem. S4 is the folder-local case of it.</li>
+      </ul>
+    </div>
+  </section>
+</div>
+
+<div class="bar">
+  <span class="count" id="count">0 of 0 decided</span>
+  <button class="primary" onclick="exportDecisions()">Copy decisions to clipboard</button>
+  <button onclick="downloadDecisions()">Download .md</button>
+  <button onclick="resetAll()">Reset</button>
+</div>
+
+<script>
+const DECISIONS = [
+  {id:"D1", h:"Auto-mint on entry for an unclaimed folder",
+   body:"Replace the deferred-to-first-share mint with an automatic mint the moment a signed-in user enters an unclaimed folder. The Share affordance is then live everywhere with no setup detour."},
+  {id:"D2", h:"Show the recovery code at the auto-claim moment",
+   body:"Preserve the original concern: when the key is minted on entry, immediately show a one-time recovery-code card the user must acknowledge ('I saved it') before continuing. This keeps the 'never mint a code the user never saw' guarantee while removing the manual step."},
+  {id:"D3", h:"Claim silently with the existing session (no second OAuth redirect)",
+   body:"Since the user is already signed in, bind and publish using the live session token. No bounce back through the OAuth provider just to set up the folder."},
+  {id:"D4", h:"Foreign-account folder: warn and offer Take ownership",
+   body:"When the folder's identity is bound to a different account, stop and warn instead of silently minting a divergent per-folder key. Offer Take ownership (re-key this folder to the current account)."},
+  {id:"D5", h:"Foreign-account folder: always offer an escape, never a soft-lock",
+   body:"Alongside Take ownership, always show Use a different folder and Continue without sharing (work locally, do not re-key). No state traps the user."},
+  {id:"D6", h:"After auto-claim, Settings is a status view, not the only setup path",
+   body:"Once entry establishes the identity, the buried 'Finish setting up your account' card is no longer the sole way in. Keep Settings as a place to view and manage identity, not the required gate."},
+  {id:"D7", h:"When identity genuinely cannot be established, show a prompt, not a hidden button",
+   body:"If auto-claim cannot complete (offline, the user declines the code, a restore is pending), the share surfaces should show a gentle 'set up sharing' prompt rather than silently hiding the Share button. Honors the 'never a dead control' rule that the dead zone violated."},
+  {id:"D8", h:"On takeover, detect and count files shared to the prior identity",
+   body:"Define the foreign-recipient set as cross-boundary received records carrying received_from_fingerprint (sealed/addressed to the prior account, so the taking-over account cannot decrypt or view them). Scan the six received-record stores, count X, and strictly exclude the user's own authored content and intra-lab _shared_with_me references. The provenance stamp is the detector; an openSealed throw is optional confirmation."},
+  {id:"D9", h:"Warn before binding with the count and Grant's copy",
+   body:"Inside the S4 Take ownership confirm, before any re-key, show: 'There are X shared files that you do not have permission to view. Taking over this folder will mean the local copies of those shared documents will be removed from this folder.' Omit the line when X is 0. The three escapes (Take ownership / Use a different folder / Continue without sharing) remain."},
+  {id:"D10", h:"On confirm, remove only the foreign shares; never touch own data",
+   body:"On confirm only, trash the local copies of the detected records (id.json plus attachment subfolders) and drop dangling manifest entries, then re-key the folder identity sidecar to the taking-over account. Every record with no received_from_fingerprint, all of the new account's own content, is strictly preserved, and the prior owner's directory profile and devices are untouched."},
+];
+
+const KEY="ros-auto-claim-decisions-v1";
+let state=JSON.parse(localStorage.getItem(KEY)||"{}");
+
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+function setV(id,v){const cur=state[id]||{};cur.v=(cur.v===v?null:v);state[id]=cur;save();}
+function setNote(id,t){const cur=state[id]||{};cur.note=t;state[id]=cur;localStorage.setItem(KEY,JSON.stringify(state));updateCount();}
+
+function render(){
+  const root=document.getElementById("decisions");
+  root.innerHTML="";
+  DECISIONS.forEach(d=>{
+    const s=state[d.id]||{};
+    const div=document.createElement("div");
+    div.className="dec"+(s.v==="approve"?" approved":s.v==="disapprove"?" declined":"");
+    div.innerHTML=`
+      <div class="id">${d.id}</div>
+      <h4>${d.h}</h4>
+      <div class="muted">${d.body}</div>
+      <div class="btns">
+        <button class="yes" aria-pressed="${s.v==="approve"}" onclick="setV('${d.id}','approve')">Approve</button>
+        <button class="no" aria-pressed="${s.v==="disapprove"}" onclick="setV('${d.id}','disapprove')">Disapprove</button>
+        <span class="verdict">${s.v==="approve"?"Approved":s.v==="disapprove"?"Disapproved":"Undecided"}</span>
+      </div>
+      <textarea placeholder="Notes / changes for ${d.id} (optional)" oninput="setNote('${d.id}',this.value)">${s.note||""}</textarea>
+    `;
+    root.appendChild(div);
+  });
+  updateCount();
+}
+function updateCount(){
+  const n=DECISIONS.filter(d=>state[d.id]&&state[d.id].v).length;
+  document.getElementById("count").textContent=`${n} of ${DECISIONS.length} decided`;
+}
+function buildMd(){
+  let out="# Auto-claim on folder entry — decisions\n\n";
+  DECISIONS.forEach(d=>{
+    const s=state[d.id]||{};
+    const v=s.v==="approve"?"APPROVE":s.v==="disapprove"?"DISAPPROVE":"undecided";
+    out+=`- **${d.id} ${v}** — ${d.h}\n`;
+    if(s.note&&s.note.trim())out+=`    - note: ${s.note.trim()}\n`;
+  });
+  return out;
+}
+function exportDecisions(){
+  const md=buildMd();
+  navigator.clipboard.writeText(md).then(()=>{
+    const b=event.target;const t=b.textContent;b.textContent="Copied";setTimeout(()=>b.textContent=t,1200);
+  });
+}
+function downloadDecisions(){
+  const blob=new Blob([buildMd()],{type:"text/markdown"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="auto-claim-decisions.md";a.click();
+}
+function resetAll(){if(confirm("Clear all verdicts and notes?")){state={};save();}}
+render();
+</script>
+</body>
+</html>

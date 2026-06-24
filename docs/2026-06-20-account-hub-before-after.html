@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Account hub — before / after</title>
+<style>
+  /* Real ResearchOS tokens from frontend/src/app/globals.css.
+     Light is the default; .dark on <body> swaps to the dark token set. */
+  :root{
+    --bg:#f8fafc; --surface:#ffffff; --overlay:#ffffff; --sunken:#f1f5f9;
+    --ink:#171717; --muted:#6b7080; --subtle:#94a3b8;
+    --line:#e5e7eb; --line-strong:#cbd5e1;
+    --action:#1283c9; --sky:#1aa0e6; --purple:#5b47d6;
+    --lead:#a16207; --teach:#0f766e; --learn:#be123c;
+    --accent-soft:#eff6ff;
+    --ok:#15803d; --ok-bg:#ecfdf3; --ok-line:#bbf7d0;
+    --no:#b42318; --no-bg:#fef3f2; --no-line:#fecaca;
+    --warn:#b45309; --warn-bg:#fffbeb; --warn-line:#fde68a;
+    --page-shadow:0 1px 2px rgba(16,24,40,.05),0 8px 24px rgba(16,24,40,.06);
+    --raise:0 1px 0 rgba(16,24,40,.04),0 2px 6px rgba(16,24,40,.08);
+  }
+  body.dark{
+    --bg:#0a0e1a; --surface:#1c2638; --overlay:#28344c; --sunken:#0d1424;
+    --ink:#f1f5f9; --muted:#b4bfd0; --subtle:#8595ad;
+    --line:rgba(255,255,255,.16); --line-strong:rgba(255,255,255,.28);
+    --action:#38bdf8; --sky:#38bdf8; --purple:#a796ff;
+    --lead:#e3b341; --teach:#5ed0c0; --learn:#fda4af;
+    --accent-soft:rgba(56,189,248,.14);
+    --ok:#4ade80; --ok-bg:rgba(34,197,94,.12); --ok-line:rgba(34,197,94,.4);
+    --no:#fca5a5; --no-bg:rgba(239,68,68,.12); --no-line:rgba(239,68,68,.4);
+    --warn:#fcd34d; --warn-bg:rgba(245,158,11,.12); --warn-line:rgba(245,158,11,.4);
+    --page-shadow:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.5);
+    --raise:0 1px 0 rgba(0,0,0,.3),0 4px 10px rgba(0,0,0,.45);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;}
+  .wrap{max-width:1140px;margin:0 auto;padding:30px 22px 130px}
+  header.h{margin-bottom:6px}
+  h1{font-size:26px;font-weight:800;letter-spacing:-.01em;margin:0 0 6px}
+  .sub{color:var(--muted);font-size:13.5px;max-width:860px}
+  .pill{display:inline-block;font-size:12px;font-weight:700;color:#fff;
+    background:linear-gradient(90deg,var(--action),var(--purple));
+    padding:2px 9px;border-radius:999px;vertical-align:middle;margin-left:8px}
+  section.block{background:var(--surface);border:1px solid var(--line);border-radius:14px;
+    box-shadow:var(--page-shadow);padding:20px 22px;margin:18px 0}
+  h2{font-size:18px;font-weight:760;margin:0 0 4px}
+  h2 .n{color:var(--action);font-weight:800;margin-right:8px}
+  .lead{color:var(--muted);font-size:13.5px;margin:2px 0 4px}
+  code{background:var(--sunken);border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:12.5px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+  .muted{color:var(--muted)}
+
+  /* ── side-by-side rendered UI ─────────────────────────────── */
+  .compare{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-top:14px}
+  @media (max-width:880px){.compare{grid-template-columns:1fr}}
+  .pane{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--bg)}
+  .pane .cap{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line);
+    font-size:12px;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);background:var(--surface)}
+  .cap .dot{width:8px;height:8px;border-radius:50%}
+  .cap.before .dot{background:var(--subtle)}
+  .cap.after .dot{background:var(--action)}
+  .screen{padding:16px;display:flex;flex-direction:column;gap:12px}
+  /* the simulated account cards */
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;box-shadow:var(--raise)}
+  .card.accent{border-color:color-mix(in srgb,var(--action) 35%,transparent);
+    background:color-mix(in srgb,var(--action) 6%,var(--surface))}
+  .card.purpleband{border-color:color-mix(in srgb,var(--purple) 35%,transparent);
+    background:color-mix(in srgb,var(--purple) 6%,var(--surface))}
+  .card.head{border-color:color-mix(in srgb,var(--lead) 40%,transparent);
+    background:color-mix(in srgb,var(--lead) 8%,var(--surface))}
+  .row{display:flex;align-items:center;gap:12px}
+  .av{width:46px;height:46px;border-radius:50%;flex:none;display:grid;place-items:center;color:#fff;font-weight:800;font-size:16px;
+    background:linear-gradient(135deg,var(--sky),var(--purple))}
+  .nm{font-weight:800;font-size:15px}
+  .hd{font-size:12.5px;font-weight:700;color:var(--purple)}
+  .aff{font-size:12px;color:var(--muted)}
+  .ttl{font-weight:800;font-size:14.5px;margin:0 0 3px}
+  .txt{font-size:12.5px;color:var(--muted);margin:2px 0}
+  .btn{display:inline-block;font-size:12.5px;font-weight:700;border-radius:9px;padding:7px 12px;border:1px solid var(--line-strong);
+    background:var(--surface);color:var(--ink);cursor:default;box-shadow:var(--raise)}
+  .btn.primary{background:var(--action);border-color:var(--action);color:#fff}
+  .btn.lead{background:var(--lead);border-color:var(--lead);color:#fff}
+  .btn.ghost{background:transparent;box-shadow:none}
+  .btn.sm{font-size:11.5px;padding:5px 9px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:800;padding:2px 9px;border-radius:999px;letter-spacing:.02em}
+  .chip.free{background:var(--sunken);color:var(--muted)}
+  .chip.solo{background:var(--accent-soft);color:var(--action)}
+  .chip.trial{background:var(--warn-bg);color:var(--warn);border:1px solid var(--warn-line)}
+  .chip.comped{background:color-mix(in srgb,var(--purple) 14%,transparent);color:var(--purple)}
+  .chip.active{background:var(--ok-bg);color:var(--ok);border:1px solid var(--ok-line)}
+  .chip.head{background:color-mix(in srgb,var(--lead) 16%,transparent);color:var(--lead)}
+  .chip.action{background:var(--no-bg);color:var(--no);border:1px solid var(--no-line)}
+  .between{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .meter{height:7px;border-radius:6px;background:var(--sunken);overflow:hidden;margin:7px 0 3px}
+  .meter > i{display:block;height:100%;background:linear-gradient(90deg,var(--action),var(--sky))}
+  .kv{display:flex;justify-content:space-between;font-size:12px;padding:5px 0;border-top:1px dashed var(--line)}
+  .kv:first-of-type{border-top:none}
+  .kv b{font-weight:700}
+  .tagrow{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+  .ph-link{font-size:12.5px;color:var(--action);font-weight:700}
+  .crumbs{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+  .crumb{font-size:11px;color:var(--subtle);background:var(--sunken);border-radius:6px;padding:3px 7px}
+  .dashed{border:1.5px dashed var(--line-strong);background:transparent;box-shadow:none}
+
+  /* ── annotation tags ─────────────── */
+  .tag{display:inline-block;font-size:11px;font-weight:800;padding:1px 8px;border-radius:999px;margin-right:6px}
+  .tag.now{background:var(--accent-soft);color:var(--action)}
+  .tag.new{background:var(--ok-bg);color:var(--ok)}
+  .tag.reuse{background:color-mix(in srgb,var(--purple) 14%,transparent);color:var(--purple)}
+  .tag.warn{background:var(--warn-bg);color:var(--warn)}
+
+  /* ── flow stepper ───────────────── */
+  .steps{display:flex;gap:8px;flex-wrap:wrap;margin:6px 0 14px}
+  .stepbtn{font:inherit;cursor:pointer;font-size:12.5px;font-weight:700;border-radius:999px;padding:6px 13px;
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--muted)}
+  .stepbtn[aria-current="true"]{background:var(--action);border-color:var(--action);color:#fff}
+  .stage{display:none;border:1px solid var(--line);border-radius:14px;padding:16px;background:var(--bg)}
+  .stage.on{display:block}
+  .stage .modal{max-width:430px;margin:0 auto;background:var(--surface);border:1px solid var(--line);
+    border-radius:16px;box-shadow:var(--page-shadow);padding:18px}
+  .field{margin:9px 0}
+  .field label{display:block;font-size:11.5px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+  .input{width:100%;border:1px solid var(--line);background:var(--sunken);border-radius:9px;padding:8px 10px;font:13px inherit;color:var(--ink)}
+  .choice{border:1px solid var(--line);border-radius:11px;padding:11px 12px;margin:8px 0;background:var(--surface);cursor:pointer;display:flex;gap:10px;align-items:flex-start}
+  .choice.sel{border-color:var(--action);background:var(--accent-soft);box-shadow:0 0 0 2px color-mix(in srgb,var(--action) 30%,transparent)}
+  .choice .radio{width:16px;height:16px;border-radius:50%;border:2px solid var(--line-strong);flex:none;margin-top:2px}
+  .choice.sel .radio{border-color:var(--action);background:radial-gradient(circle at center,var(--action) 0 5px,transparent 6px)}
+  .choice .ct b{font-size:13px}
+  .choice .ct .d{font-size:12px;color:var(--muted);margin-top:2px}
+  .recommend{font-size:10.5px;font-weight:800;color:var(--ok);background:var(--ok-bg);border-radius:6px;padding:1px 6px;margin-left:6px}
+  .callout{border-left:3px solid var(--action);background:var(--accent-soft);border-radius:0 10px 10px 0;padding:10px 13px;margin:12px 0;font-size:13px}
+  .callout.warn{border-left-color:var(--warn);background:var(--warn-bg)}
+
+  /* ── decisions ─────────────── */
+  .dec{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:12px 0;background:var(--surface)}
+  .dec.agree{border-color:var(--ok-line);background:linear-gradient(0deg,var(--ok-bg),var(--surface))}
+  .dec.keep{border-color:var(--line-strong)}
+  .dec.discuss{border-color:var(--warn-line);background:linear-gradient(0deg,var(--warn-bg),var(--surface))}
+  .dec .id{font-size:11.5px;font-weight:800;color:var(--action);letter-spacing:.04em}
+  .dec h4{font-size:15px;font-weight:760;margin:3px 0 5px}
+  .dec .rec{font-size:12px;color:var(--muted);margin-top:6px}
+  .dec .rec b{color:var(--ink)}
+  .btns{display:flex;gap:8px;margin-top:11px;flex-wrap:wrap;align-items:center}
+  button.v{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);
+    padding:7px 13px;font-weight:700;color:var(--ink);font-size:13px}
+  button.v:hover{border-color:var(--action)}
+  button.agree[aria-pressed="true"]{background:var(--ok);border-color:var(--ok);color:#fff}
+  button.keep[aria-pressed="true"]{background:var(--action);border-color:var(--action);color:#fff}
+  button.discuss[aria-pressed="true"]{background:var(--warn);border-color:var(--warn);color:#111}
+  .verdict{margin-left:auto;font-size:12px;font-weight:800;color:var(--muted)}
+  textarea{width:100%;margin-top:9px;border:1px solid var(--line);border-radius:9px;padding:8px 10px;
+    font:13px/1.5 inherit;resize:vertical;min-height:36px;background:var(--sunken);color:var(--ink)}
+
+  .bar{position:fixed;left:0;right:0;bottom:0;background:color-mix(in srgb,var(--surface) 92%,transparent);
+    backdrop-filter:blur(8px);border-top:1px solid var(--line);padding:11px 20px;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap}
+  .bar button{font:inherit;cursor:pointer;border-radius:9px;border:1px solid var(--line-strong);background:var(--surface);padding:8px 14px;font-weight:700;color:var(--ink)}
+  .bar button.primary{background:linear-gradient(90deg,var(--action),var(--purple));color:#fff;border:none;padding:9px 18px}
+  .count{font-size:13px;color:var(--muted)}
+  .toggle{position:fixed;top:14px;right:16px;z-index:5}
+  .toggle button{font:inherit;cursor:pointer;font-size:12.5px;font-weight:700;border-radius:999px;padding:7px 13px;
+    border:1px solid var(--line-strong);background:var(--surface);color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="toggle"><button onclick="document.body.classList.toggle('dark')">Toggle light / dark</button></div>
+<div class="wrap">
+  <header class="h">
+    <h1>Account hub <span class="pill">before / after</span></h1>
+    <div class="sub">2026-06-20 &middot; account-hub design lane &middot; The bare <code>/account</code> becomes a hub that shows your plan and entitlement state, manages billing, and lets a Solo or Free user become a lab head with guided folder handling. Mark each decision Agree / Keep as-is / Discuss, add notes, then Copy to clipboard and paste back into chat. Saved in your browser as you go. Companion write-up: <code>docs/proposals/2026-06-20-account-hub-tier-billing-switch.md</code>.</div>
+  </header>
+
+  <!-- ── 1. BEFORE / AFTER ───────────────────────────── -->
+  <section class="block">
+    <h2><span class="n">1</span>The page, today vs proposed</h2>
+    <p class="lead">Left is the live <code>/account</code> (<code>AccountHome.tsx</code>). Right is the proposed hub. Same shell (<code>PortalShell</code>), reordered so billing sits under identity, with two new cards.</p>
+    <div class="compare">
+      <!-- BEFORE -->
+      <div class="pane">
+        <div class="cap before"><span class="dot"></span>Today</div>
+        <div class="screen">
+          <div class="card">
+            <div class="row">
+              <div class="av">JR</div>
+              <div style="flex:1;min-width:0">
+                <div class="nm">Dr. Jane Researcher</div>
+                <div class="hd">@jresearcher</div>
+                <div class="aff">University of Wisconsin-Madison</div>
+              </div>
+              <span class="btn sm">Edit</span>
+            </div>
+          </div>
+          <div class="card accent">
+            <div class="ttl">Welcome back, Jane</div>
+            <div class="txt">Your research data lives in a folder on your computer, not on our servers. Point us to it to pick up where you left off.</div>
+            <div style="margin-top:9px"><span class="btn primary">Open my ResearchOS folder</span> <span class="txt" style="display:inline">or drag a folder here</span></div>
+          </div>
+          <div class="card">
+            <div class="txt" style="font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:11px">Your account</div>
+            <div class="card dashed" style="margin-top:8px">
+              <b style="font-size:13px">Researcher directory &rarr;</b>
+              <div class="txt">Find researchers and share with them.</div>
+            </div>
+          </div>
+          <div class="callout warn" style="margin:4px 2px 0">No plan shown. No billing. No way to become a lab head.</div>
+        </div>
+      </div>
+      <!-- AFTER -->
+      <div class="pane">
+        <div class="cap after"><span class="dot"></span>Proposed hub</div>
+        <div class="screen">
+          <!-- identity + role chip -->
+          <div class="card">
+            <div class="row">
+              <div class="av">JR</div>
+              <div style="flex:1;min-width:0">
+                <div class="nm">Dr. Jane Researcher</div>
+                <div class="hd">@jresearcher</div>
+                <div class="aff">University of Wisconsin-Madison</div>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:6px;align-items:flex-end">
+                <span class="chip solo">SOLO</span>
+                <span class="btn sm">Edit</span>
+              </div>
+            </div>
+          </div>
+          <!-- NEW: plan & billing summary -->
+          <div class="card">
+            <div class="between">
+              <div class="ttl" style="margin:0">Plan &amp; billing <span class="tag new">new</span></div>
+              <span class="chip active">Active</span>
+            </div>
+            <div class="kv"><span class="muted">Solo</span><b>$3/mo + usage at 5x cost</b></div>
+            <div class="kv"><span class="muted">This period accrued</span><b>$0.00 (free during beta)</b></div>
+            <div class="kv"><span class="muted">Card on file</span><b>Visa ending 4242</b></div>
+            <div class="kv"><span class="muted">Renews</span><b>Jul 20, 2026</b></div>
+            <div class="tagrow">
+              <span class="btn primary sm">Manage billing</span>
+              <span class="btn sm">Update card</span>
+              <span class="btn lead sm">Upgrade to a lab</span>
+            </div>
+            <div class="txt" style="margin-top:7px">Deep controls (cap, storage, lab roster) open in Settings &rarr; Plan &amp; storage. <span class="tag reuse">reuses ModelABilling</span></div>
+          </div>
+          <!-- data folder (existing) -->
+          <div class="card accent">
+            <div class="ttl">Welcome back, Jane</div>
+            <div class="txt">Your data folder is on this computer. Jump back into your work.</div>
+            <div style="margin-top:9px"><span class="btn primary">Open my ResearchOS folder</span></div>
+          </div>
+          <!-- NEW: run a lab -->
+          <div class="card head">
+            <div class="between">
+              <div class="ttl" style="margin:0">Run a lab <span class="tag new">new</span></div>
+              <span class="chip head">PI</span>
+            </div>
+            <div class="txt">Invite researchers, pool storage and budget, host your lab's web home, and run the dashboard. Your personal notes stay yours. $25/mo founding rate, billing off during beta.</div>
+            <div style="margin-top:9px"><span class="btn lead">Become a lab head</span></div>
+          </div>
+          <div class="card">
+            <div class="txt" style="font-weight:800;text-transform:uppercase;letter-spacing:.05em;font-size:11px">Your account</div>
+            <div class="card dashed" style="margin-top:8px">
+              <b style="font-size:13px">Researcher directory &rarr;</b>
+              <div class="txt">Find researchers and share with them.</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 2. ENTITLEMENT STATES ───────────────────────── -->
+  <section class="block">
+    <h2><span class="n">2</span>The state pill, every case</h2>
+    <p class="lead">Card 2's pill + secondary line are computed from <code>ModelAStatus</code> + <code>getActiveCompedTier</code>. No new endpoint; same read Settings uses. <span class="tag reuse">reuses /api/billing/model-a/status</span></p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+      <div class="card"><div class="between"><b>Free</b><span class="chip free">FREE</span></div><div class="txt">Upgrade to unlock send, co-edit, the companion app.</div></div>
+      <div class="card"><div class="between"><b>Solo, trialing</b><span class="chip trial">Trial, 12 days left</span></div><div class="txt">Renews Jul 2. <code>trialPhase==="trialing"</code></div></div>
+      <div class="card"><div class="between"><b>Comped</b><span class="chip comped">Comped by ResearchOS</span></div><div class="txt">Gift tier from <code>getActiveCompedTier</code>, with expiry if set.</div></div>
+      <div class="card"><div class="between"><b>Covered member</b><span class="chip comped">Covered by Gluck-Thaler Lab</span></div><div class="txt">Reuses <code>CoverageBanner</code>. <code>sponsoringLab</code> set.</div></div>
+      <div class="card"><div class="between"><b>Lab head, paid</b><span class="chip active">Active</span></div><div class="txt">$25/mo founding + usage. Dashboard in Settings.</div></div>
+      <div class="card"><div class="between"><b>Trial ended, no card</b><span class="chip action">Action needed</span></div><div class="txt">Add a card to keep paid features. <code>ended_no_card</code></div></div>
+    </div>
+  </section>
+
+  <!-- ── 3. THE SWITCH FLOW ──────────────────────────── -->
+  <section class="block">
+    <h2><span class="n">3</span>Become a lab head, the self-serve switch</h2>
+    <p class="lead">A third door, distinct from operator staging (<code>LabProvisionResume</code>) and fresh-OAuth signup (<code>LabCreateResume</code>). In-session conversion for a signed-in Free or Solo user. Click the steps. <span class="tag reuse">reuses createLabLocal + publishLabRemote</span></p>
+    <div class="steps">
+      <button class="stepbtn" aria-current="true" onclick="showStage(0)">1. What changes</button>
+      <button class="stepbtn" onclick="showStage(1)">2. Lab details</button>
+      <button class="stepbtn" onclick="showStage(2)">3. Folder handling</button>
+      <button class="stepbtn" onclick="showStage(3)">4. Confirm &amp; create</button>
+    </div>
+
+    <div class="stage on" id="stage0">
+      <div class="modal">
+        <div class="ttl" style="font-size:16px">Run a lab on ResearchOS</div>
+        <div class="txt">A lab-head account lets you invite researchers, pool storage and budget, run the lab dashboard, and host your lab's web home. Your personal notes stay yours. You can start now and invite people later.</div>
+        <div class="kv" style="margin-top:8px"><span class="muted">Lab price</span><b>$25/mo founding lock-in + usage at 7x</b></div>
+        <div class="kv"><span class="muted">During beta</span><b>Free, no card charged</b></div>
+        <div class="callout">No surprise charges. You can dismiss this at any step. Nothing is created until the final confirm.</div>
+        <div style="margin-top:10px"><span class="btn lead">Continue</span> <span class="btn ghost">Maybe later</span></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage1">
+      <div class="modal">
+        <div class="ttl" style="font-size:16px">Your lab</div>
+        <div class="field"><label>Lab name</label><div class="input">Researcher Lab</div></div>
+        <div class="field"><label>Institution</label><div class="input">University of Wisconsin-Madison <span class="muted">(prefilled from profile)</span></div></div>
+        <div class="field"><label>Your title (optional)</label><div class="input">Principal Investigator</div></div>
+        <div class="field"><label>Display name (optional)</label><div class="input">Dr. Jane Researcher <span class="muted">(prefilled)</span></div></div>
+        <div class="txt" style="margin-top:4px">These feed <code>createLabLocal</code>. An OAuth email is required to bind the head; ORCID-only sessions get the same email-OTP gate <code>LabCreateResume</code> uses, inline.</div>
+        <div style="margin-top:10px"><span class="btn lead">Next, folder handling</span> <span class="btn ghost">Back</span></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage2">
+      <div class="modal" style="max-width:480px">
+        <div class="ttl" style="font-size:16px">Where does the lab live?</div>
+        <div class="txt">The app can act on folders it has a handle for. Pick one, or point us at another. Folder mode is derived from your lab-head status, so no data is moved and the on-disk format never changes.</div>
+
+        <div class="choice sel"><div class="radio"></div><div class="ct"><b>Start the lab in a fresh folder<span class="recommend">recommended</span></b><div class="d">Your current solo folder stays exactly as it is, personal and untouched. We create and seal a new ResearchOS folder for the lab. <span class="tag reuse">reuses connect() + initializeFolder()</span></div></div></div>
+
+        <div class="choice"><div class="radio"></div><div class="ct"><b>Convert this connected folder in place</b><div class="d">Make your currently connected folder the lab folder. Its existing notes become the lab head's notes inside a lab-mode folder. No data move, this is a derivation flip.<div class="crumbs"><span class="crumb">1 user</span><span class="crumb">48 notes</span><span class="crumb">12 experiments</span></div></div></div></div>
+
+        <div class="choice"><div class="radio"></div><div class="ct"><b>Keep solo here, point me at a different folder</b><div class="d">Opens the OS folder picker. An empty folder is initialized as the lab; an existing ResearchOS folder uses the convert-in-place semantics. <span class="tag reuse">reuses connect()</span></div></div></div>
+
+        <div class="callout warn">If the connected folder already has multiple users, the switch links to the existing <code>MigrateToSoloModal</code> to split your personal data out first, then start the lab there. The iron-clad migration path stays the one and only data-mover.</div>
+        <div style="margin-top:10px"><span class="btn lead">Review &amp; create</span> <span class="btn ghost">Back</span></div>
+      </div>
+    </div>
+
+    <div class="stage" id="stage3">
+      <div class="modal">
+        <div class="ttl" style="font-size:16px">Confirm</div>
+        <div class="kv"><span class="muted">Lab</span><b>Researcher Lab</b></div>
+        <div class="kv"><span class="muted">Head</span><b>Dr. Jane Researcher (@jresearcher)</b></div>
+        <div class="kv"><span class="muted">Folder</span><b>New folder for the lab</b></div>
+        <div class="callout">On confirm we run the existing sequence, no new genesis logic:
+          <div style="margin-top:6px;font-size:12.5px">
+            1. <code>createLabLocal(...)</code> on-device, instant.<br>
+            2. <code>patchUserSettings({ account_type:"lab_head", lab_id })</code>.<br>
+            3. <code>publishLabRemote(...)</code> retryably (resumes if the relay is flaky).<br>
+            4. The folder action you chose runs.
+          </div>
+        </div>
+        <div class="callout warn"><b>Permanent.</b> A lab is created and published to the directory. Not permanent, you can leave the lab folder solo and create more folders. No live charge while billing is off in beta.</div>
+        <div style="margin-top:10px"><span class="btn lead">Create my lab</span> <span class="btn ghost">Back</span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── 4. DECISIONS ────────────────────────────────── -->
+  <section class="block">
+    <h2><span class="n">4</span>Decisions</h2>
+    <p class="lead">Agree, Keep as-is (do not change today), or Discuss. Notes optional. These map to the open forks in the proposal.</p>
+    <div id="decisions"></div>
+  </section>
+</div>
+
+<div class="bar">
+  <span class="count" id="count">0 of 0 decided</span>
+  <button class="primary" onclick="exportDecisions()">Copy decisions to clipboard</button>
+  <button onclick="downloadDecisions()">Download .md</button>
+  <button onclick="resetAll()">Reset</button>
+</div>
+
+<script>
+function showStage(i){
+  document.querySelectorAll('.stage').forEach((s,n)=>s.classList.toggle('on',n===i));
+  document.querySelectorAll('.steps .stepbtn').forEach((b,n)=>b.setAttribute('aria-current',n===i?'true':'false'));
+}
+// click-to-select the folder choices for feel
+document.addEventListener('click',e=>{
+  const c=e.target.closest('#stage2 .choice');
+  if(c){document.querySelectorAll('#stage2 .choice').forEach(x=>x.classList.remove('sel'));c.classList.add('sel');}
+});
+
+const DECISIONS=[
+  {id:"D1", h:"Plan & billing is a compact summary on /account that deep-links to Settings",
+   rec:"Recommended. Card 2 reads the same ModelAStatus Settings uses (one shared read hook), shows tier + state + accrued + card + renewal, and links the deep controls (cap, storage, roster) to Settings -> Plan & storage. Only the add/update-card action is surfaced inline because it is a single existing endpoint. Fork A."},
+  {id:"D2", h:"Do NOT build a Stripe customer-portal route in this pass",
+   rec:"Recommended. 'Manage billing' points at Settings for now. A real cancel / change-plan / invoices portal needs POST /api/billing/model-a/portal, which does not exist yet. Leave it as a follow-up flagged for the billing lane. Fork B."},
+  {id:"D3", h:"Add a self-serve 'Become a lab head' door on /account",
+   rec:"Recommended. A third path beside operator staging and fresh-OAuth signup. It calls the same createLabLocal + patchUserSettings(lab_head) + publishLabRemote sequence in-session. No new genesis logic."},
+  {id:"D4", h:"Default folder choice on conversion is a FRESH lab folder (non-destructive)",
+   rec:"Recommended. 'My personal stuff stays mine, the lab is a new shared space.' The alternative default is convert-the-connected-folder in place, better for the solo researcher who simply IS the lab and wants existing notes as the lab's start. Fork C."},
+  {id:"D5", h:"Reuse MigrateToSoloModal for the split, never a new data-mover",
+   rec:"Recommended. When the connected folder is multi-user and the user wants their data out first, link to the existing iron-clad migrate-to-solo path. The switch flow itself moves no data."},
+  {id:"D6", h:"In-place conversion states permanence only; lab-leave is a separate concern",
+   rec:"Recommended. The confirm step states what is permanent (a published lab) and what is not (folders stay flexible). We do not add a one-click lab-delete or 'reversible by leaving' affordance here. Fork D."},
+  {id:"D7", h:"Show 'Run a lab' for BOTH Free and Solo users (not Solo-only)",
+   rec:"Recommended. Lab is its own paid unit; do not force a Solo detour before someone can start a lab. The card hides only when the user is already a lab head. Fork E."},
+  {id:"D8", h:"Reorder /account so Plan & billing sits directly under identity",
+   rec:"Recommended. Billing is the new headline answer to 'what am I on and is anything wrong.' Data-folder, key cards, and account links follow. All existing cards are kept, just reordered."},
+];
+
+const KEY="ros-account-hub-decisions-v1";
+let state=JSON.parse(localStorage.getItem(KEY)||"{}");
+function save(){localStorage.setItem(KEY,JSON.stringify(state));render();}
+function setV(id,v){const c=state[id]||{};c.v=(c.v===v?null:v);state[id]=c;save();}
+function setNote(id,t){const c=state[id]||{};c.note=t;state[id]=c;localStorage.setItem(KEY,JSON.stringify(state));updateCount();}
+function render(){
+  const root=document.getElementById("decisions");root.innerHTML="";
+  DECISIONS.forEach(d=>{
+    const s=state[d.id]||{};
+    const div=document.createElement("div");
+    div.className="dec"+(s.v==="agree"?" agree":s.v==="keep"?" keep":s.v==="discuss"?" discuss":"");
+    div.innerHTML=`
+      <div class="id">${d.id}</div>
+      <h4>${d.h}</h4>
+      <div class="rec">${d.rec}</div>
+      <div class="btns">
+        <button class="v agree" aria-pressed="${s.v==="agree"}" onclick="setV('${d.id}','agree')">Agree</button>
+        <button class="v keep" aria-pressed="${s.v==="keep"}" onclick="setV('${d.id}','keep')">Keep as-is</button>
+        <button class="v discuss" aria-pressed="${s.v==="discuss"}" onclick="setV('${d.id}','discuss')">Discuss</button>
+        <span class="verdict">${s.v?({agree:"Agree",keep:"Keep as-is",discuss:"Discuss"})[s.v]:"Undecided"}</span>
+      </div>
+      <textarea placeholder="Notes for ${d.id} (optional)" oninput="setNote('${d.id}',this.value)">${s.note||""}</textarea>
+    `;
+    root.appendChild(div);
+  });
+  updateCount();
+}
+function updateCount(){
+  const n=DECISIONS.filter(d=>state[d.id]&&state[d.id].v).length;
+  document.getElementById("count").textContent=`${n} of ${DECISIONS.length} decided`;
+}
+function buildMd(){
+  let out="# Account hub — decisions\n\n";
+  DECISIONS.forEach(d=>{
+    const s=state[d.id]||{};
+    const v=s.v?({agree:"AGREE",keep:"KEEP AS-IS",discuss:"DISCUSS"})[s.v]:"undecided";
+    out+=`- **${d.id} ${v}** — ${d.h}\n`;
+    if(s.note&&s.note.trim())out+=`    - note: ${s.note.trim()}\n`;
+  });
+  return out;
+}
+function exportDecisions(){
+  navigator.clipboard.writeText(buildMd()).then(()=>{
+    const b=event.target,t=b.textContent;b.textContent="Copied";setTimeout(()=>b.textContent=t,1200);
+  });
+}
+function downloadDecisions(){
+  const blob=new Blob([buildMd()],{type:"text/markdown"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="account-hub-decisions.md";a.click();
+}
+function resetAll(){if(confirm("Clear all verdicts and notes?")){state={};save();}}
+render();
+</script>
+</body>
+</html>

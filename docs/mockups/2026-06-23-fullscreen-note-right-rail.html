@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Full-screen note: right-rail consolidation</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+<style>
+  :root{
+    --color-background-primary:#ffffff;
+    --color-background-secondary:#f4f3ee;
+    --color-background-tertiary:#faf9f5;
+    --color-background-info:#E6F1FB;
+    --color-text-primary:#1f1e1c;
+    --color-text-secondary:#5F5E5A;
+    --color-text-tertiary:#888780;
+    --color-text-info:#185FA5;
+    --color-border-tertiary:rgba(0,0,0,0.12);
+    --color-border-secondary:rgba(0,0,0,0.22);
+    --color-border-info:#378ADD;
+    --color-border-danger:#E24B4A;
+    --border-radius-md:8px;
+    --border-radius-lg:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;}
+  .page{max-width:760px;margin:0 auto;padding:28px 20px 48px;}
+  h1{font-size:22px;font-weight:500;margin:0 0 16px;}
+  .tg{padding:6px 16px;border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);background:transparent;cursor:pointer;font-size:13px;font-family:inherit;}
+  .tg.on{background:var(--color-background-info);color:var(--color-text-info);border-color:var(--color-border-info);}
+  .rail-i{width:30px;height:30px;border-radius:var(--border-radius-md);display:flex;align-items:center;justify-content:center;color:var(--color-text-secondary);font-size:17px;}
+  .note{font-size:11px;color:var(--color-text-tertiary);text-align:center;margin-top:8px;line-height:1.5;}
+  .dup{outline:1.5px solid var(--color-border-danger);outline-offset:1px;border-radius:var(--border-radius-md);}
+  .new{background:var(--color-background-info);color:var(--color-text-info);}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Full-screen note: right-rail consolidation</h1>
+  <div style="display:flex; gap:8px; margin-bottom:12px;">
+    <button id="b-before" class="tg">Before</button>
+    <button id="b-after" class="tg">After</button>
+  </div>
+  <div id="stage" style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding:14px;"></div>
+</div>
+
+<script>
+const INSERT = ['ti-book','ti-table','ti-chart-bar','ti-abc','ti-circle','ti-paperclip'];
+function frame(after){
+  const rail = after
+    ? '<div style="display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 6px;border-left:0.5px solid var(--color-border-tertiary);">'
+        +'<div style="display:flex;flex-direction:column;background:var(--color-background-secondary);border-radius:var(--border-radius-md);padding:2px;margin-bottom:4px;">'
+          +'<div class="rail-i new" style="font-size:11px;width:auto;height:auto;padding:4px 6px;">Edit</div>'
+          +'<div class="rail-i" style="font-size:11px;width:auto;height:auto;padding:4px 6px;">Preview</div>'
+        +'</div>'
+        +'<div class="rail-i new" title="Insert"><i class="ti ti-plus"></i></div>'
+        +'<div class="rail-i" title="Attach (single)"><i class="ti ti-paperclip"></i></div>'
+        +'<div class="rail-i" title="Outline"><i class="ti ti-list"></i></div>'
+        +'<div class="rail-i" title="Focus target"><i class="ti ti-target"></i></div>'
+        +'<div class="rail-i" title="Help"><i class="ti ti-help"></i></div>'
+        +'<div class="rail-i new" title="Exit full screen" style="margin-top:auto;"><i class="ti ti-arrows-minimize"></i></div>'
+      +'</div>'
+    : '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;border-left:0.5px solid var(--color-border-tertiary);">'
+        +'<div style="font-size:9px;letter-spacing:.06em;color:var(--color-text-tertiary);">DOC</div>'
+        +'<div class="rail-i" title="Outline"><i class="ti ti-list"></i></div>'
+        +'<div class="rail-i" title="Focus target"><i class="ti ti-target"></i></div>'
+        +'<div class="rail-i dup" title="Attach (duplicate)"><i class="ti ti-paperclip"></i></div>'
+        +'<div class="rail-i" title="Help"><i class="ti ti-help"></i></div>'
+      +'</div>';
+
+  const insertRail = '<div style="display:flex;flex-direction:column;align-items:center;gap:8px;padding:14px 6px;border-right:0.5px solid var(--color-border-tertiary);">'
+    +'<div style="font-size:9px;letter-spacing:.06em;color:var(--color-text-tertiary);">INSERT</div>'
+    + INSERT.map(i=> '<div class="rail-i'+(i==='ti-paperclip'&&!after?' dup':'')+'"><i class="ti '+i+'"></i></div>').join('')
+    +'</div>';
+
+  const floatBar = after ? '' :
+    '<div style="position:absolute;top:14px;left:50%;transform:translateX(-50%);display:flex;align-items:center;gap:6px;background:var(--color-background-primary);border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:5px 8px;z-index:2;">'
+      +'<span style="background:var(--color-background-secondary);border-radius:6px;padding:3px 9px;font-size:12px;">Edit</span><span style="font-size:12px;color:var(--color-text-secondary);padding:3px 4px;">Preview</span>'
+      +'<span style="color:var(--color-border-secondary);">|</span>'
+      +'<i class="ti ti-plus" style="font-size:15px;"></i><i class="ti ti-paperclip dup" style="font-size:15px;"></i><i class="ti ti-arrows-maximize" style="font-size:15px;"></i>'
+    +'</div>';
+
+  const body = after
+    ? '<div style="flex:1;display:flex;flex-direction:column;padding:16px 20px;"><div style="font-weight:500;font-size:14px;margin-bottom:8px;">Paola Ramos</div><div style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;">They ran a thermotolerant experiment where they evolved thermotolerance in a fungal strain...</div><div style="flex:1;"></div><div style="font-size:11px;color:var(--color-text-tertiary);">Content fills the full height, top to bottom.</div></div>'
+    : '<div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;"><div style="width:100%;max-width:330px;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:14px;"><div style="font-weight:500;font-size:14px;margin-bottom:6px;">Paola Ramos</div><div style="font-size:12px;color:var(--color-text-secondary);line-height:1.6;">They ran a thermotolerant experiment...</div></div></div>';
+
+  return '<div style="position:relative;display:flex;background:var(--color-background-primary);border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-lg);height:320px;overflow:hidden;">'
+    + insertRail
+    + '<div style="flex:1;display:flex;flex-direction:column;position:relative;">'+floatBar+body+'</div>'
+    + rail
+    + '</div>'
+    + '<div class="note">'+(after
+        ? 'Page fills top to bottom. Edit / Preview and the controls live in one right rail. A single attach icon, no duplicates.'
+        : 'Content floats centered with dead space. Edit / Preview sits in a floating top bar. Attach appears 3 times (outlined red).')+'</div>';
+}
+function set(after){
+  document.getElementById('stage').innerHTML = frame(after);
+  document.getElementById('b-after').classList.toggle('on', after);
+  document.getElementById('b-before').classList.toggle('on', !after);
+}
+document.getElementById('b-before').addEventListener('click',()=>set(false));
+document.getElementById('b-after').addEventListener('click',()=>set(true));
+set(true);
+</script>
+</body>
+</html>

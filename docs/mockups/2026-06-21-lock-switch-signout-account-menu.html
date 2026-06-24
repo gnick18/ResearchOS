@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Lock / Switch / Sign out - account menu mockup</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.31.0/dist/tabler-icons.min.css" />
+<style>
+  :root{
+    --color-background-primary:#ffffff;
+    --color-background-secondary:#f4f3ee;
+    --color-background-tertiary:#faf9f5;
+    --color-background-info:#E6F1FB;
+    --color-text-primary:#1f1e1c;
+    --color-text-secondary:#5F5E5A;
+    --color-text-tertiary:#888780;
+    --color-text-info:#185FA5;
+    --color-text-danger:#A32D2D;
+    --color-border-tertiary:rgba(0,0,0,0.12);
+    --color-border-secondary:rgba(0,0,0,0.22);
+    --border-radius-md:8px;
+    --border-radius-lg:12px;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;background:var(--color-background-tertiary);color:var(--color-text-primary);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;line-height:1.6;}
+  .page{max-width:720px;margin:0 auto;padding:28px 20px 48px;}
+  h1{font-size:22px;font-weight:500;margin:0 0 4px;}
+  .sub{font-size:14px;color:var(--color-text-secondary);margin:0 0 22px;}
+  .mi:hover{background:var(--color-background-secondary)!important;}
+</style>
+</head>
+<body>
+<div class="page">
+  <h1>Account menu: Lock / Switch / Sign out</h1>
+  <p class="sub">Click each item to preview what it leads to next time you open the app. Lock remembers your folder (one-click unlock); Sign out forgets it on this device (shared-computer-safe).</p>
+
+  <div style="background: var(--color-background-secondary); border-radius: var(--border-radius-lg); padding: 1.25rem;">
+
+    <div style="display:flex; justify-content:space-between; align-items:center; background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-md); padding:8px 12px; margin-bottom:14px;">
+      <div style="display:flex; align-items:center; gap:8px; font-weight:500;"><i class="ti ti-flask" aria-hidden="true"></i> ResearchOS</div>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <span style="font-size:13px; color:var(--color-text-secondary); display:flex; align-items:center; gap:6px;"><i class="ti ti-folder" aria-hidden="true"></i> ROS-testhub</span>
+        <div style="width:30px;height:30px;border-radius:50%;background:var(--color-background-info);color:var(--color-text-info);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:500;">D</div>
+      </div>
+    </div>
+
+    <div style="display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:14px; align-items:start;">
+
+      <div style="background:var(--color-background-primary); border:0.5px solid var(--color-border-secondary); border-radius:var(--border-radius-lg); overflow:hidden;">
+        <div style="padding:11px 14px; border-bottom:0.5px solid var(--color-border-tertiary);">
+          <div style="font-weight:500; font-size:14px;">Dr Grant tester</div>
+          <div style="font-size:12px;color:var(--color-text-secondary);">gnick317@gmail.com</div>
+        </div>
+        <button class="mi" data-k="lock" style="width:100%; text-align:left; border:none; border-bottom:0.5px solid var(--color-border-tertiary); background:transparent; padding:11px 14px; cursor:pointer; display:flex; gap:10px; align-items:flex-start; font:inherit; color:inherit;">
+          <i class="ti ti-lock" style="font-size:18px; margin-top:2px;" aria-hidden="true"></i>
+          <span><span style="display:block; font-size:14px; font-weight:500;">Lock</span><span style="display:block; font-size:12px; color:var(--color-text-secondary); line-height:1.5;">Stay signed in. Folder stays connected.</span></span>
+        </button>
+        <button class="mi" data-k="switch" style="width:100%; text-align:left; border:none; border-bottom:0.5px solid var(--color-border-tertiary); background:transparent; padding:11px 14px; cursor:pointer; display:flex; gap:10px; align-items:flex-start; font:inherit; color:inherit;">
+          <i class="ti ti-arrows-left-right" style="font-size:18px; margin-top:2px;" aria-hidden="true"></i>
+          <span><span style="display:block; font-size:14px; font-weight:500;">Switch account or folder</span><span style="display:block; font-size:12px; color:var(--color-text-secondary); line-height:1.5;">Open a different folder or account.</span></span>
+        </button>
+        <button class="mi" data-k="signout" style="width:100%; text-align:left; border:none; background:transparent; padding:11px 14px; cursor:pointer; display:flex; gap:10px; align-items:flex-start; font:inherit; color:inherit;">
+          <i class="ti ti-logout" style="font-size:18px; margin-top:2px; color:var(--color-text-danger);" aria-hidden="true"></i>
+          <span><span style="display:block; font-size:14px; font-weight:500; color:var(--color-text-danger);">Sign out</span><span style="display:block; font-size:12px; color:var(--color-text-secondary); line-height:1.5;">Full logout. Forgets this folder here.</span></span>
+        </button>
+      </div>
+
+      <div>
+        <div style="font-size:12px; color:var(--color-text-tertiary); margin-bottom:6px; padding-left:2px;">Next time you open the app:</div>
+        <div id="preview" style="background:var(--color-background-primary); border:0.5px solid var(--color-border-tertiary); border-radius:var(--border-radius-lg); padding:18px 16px; min-height:228px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center;"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+const P = {
+  lock: '<div style="width:46px;height:46px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-lock" style="font-size:24px;color:var(--color-text-secondary);" aria-hidden="true"></i></div><div style="font-size:15px;font-weight:500;">Welcome back, Dr Grant tester</div><div style="font-size:13px;color:var(--color-text-secondary);margin:4px 0 14px;display:flex;align-items:center;gap:6px;"><i class="ti ti-folder" aria-hidden="true"></i> ROS-testhub still connected</div><div style="background:var(--color-background-info);color:var(--color-text-info);font-weight:500;font-size:14px;padding:9px 22px;border-radius:var(--border-radius-md);">Unlock</div><div style="font-size:12px;color:var(--color-text-tertiary);margin-top:12px;line-height:1.5;">One click. Folder remembered on this device.</div>',
+  switch: '<div style="width:46px;height:46px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-arrows-left-right" style="font-size:24px;color:var(--color-text-secondary);" aria-hidden="true"></i></div><div style="font-size:15px;font-weight:500;margin-bottom:12px;">Choose a folder</div><div style="width:100%;max-width:230px;display:flex;flex-direction:column;gap:7px;"><div style="border:0.5px solid var(--color-border-secondary);border-radius:var(--border-radius-md);padding:8px 11px;font-size:13px;display:flex;align-items:center;gap:7px;"><i class="ti ti-folder" aria-hidden="true"></i> ROS-testhub <span style="margin-left:auto;color:var(--color-text-tertiary);">recent</span></div><div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 11px;font-size:13px;display:flex;align-items:center;gap:7px;color:var(--color-text-secondary);"><i class="ti ti-folder-plus" aria-hidden="true"></i> Open another folder</div><div style="border:0.5px solid var(--color-border-tertiary);border-radius:var(--border-radius-md);padding:8px 11px;font-size:13px;display:flex;align-items:center;gap:7px;color:var(--color-text-secondary);"><i class="ti ti-user" aria-hidden="true"></i> Sign in as someone else</div></div>',
+  signout: '<div style="width:46px;height:46px;border-radius:50%;background:var(--color-background-secondary);display:flex;align-items:center;justify-content:center;margin-bottom:12px;"><i class="ti ti-flask" style="font-size:24px;color:var(--color-text-secondary);" aria-hidden="true"></i></div><div style="font-size:17px;font-weight:500;">ResearchOS</div><div style="font-size:13px;color:var(--color-text-secondary);margin:3px 0 14px;">Own your research</div><div style="display:flex;gap:8px;"><div style="background:var(--color-background-info);color:var(--color-text-info);font-weight:500;font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);">Create account</div><div style="border:0.5px solid var(--color-border-secondary);font-size:13px;padding:8px 16px;border-radius:var(--border-radius-md);">Sign in</div></div><div style="font-size:12px;color:var(--color-text-tertiary);margin-top:13px;line-height:1.5;">Folder forgotten here. You re-pick it next time.<br>Safe for shared computers.</div>'
+};
+function sel(k){
+  document.getElementById('preview').innerHTML = P[k];
+  document.querySelectorAll('.mi').forEach(b=>{ b.style.background = b.dataset.k===k ? 'var(--color-background-secondary)' : 'transparent'; });
+}
+document.querySelectorAll('.mi').forEach(b=> b.addEventListener('click', ()=> sel(b.dataset.k)) );
+sel('lock');
+</script>
+</body>
+</html>
