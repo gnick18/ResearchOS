@@ -97,3 +97,34 @@ export class FencedCodeWidget extends BlockWidget {
     return "cm-inline-block cm-inline-fenced";
   }
 }
+
+/**
+ * A thematic break (`___` / `---` / `***` on its own line) rendered as a real
+ * full-width <hr>, matching the Preview view (bug C). The @lezer/markdown grammar
+ * already parses a standalone delimiter line into a HorizontalRule node, but
+ * without a widget it renders as the raw `___` source text in the inline editor.
+ * When the caret is not on the rule line this widget collapses it to an <hr>; the
+ * caret entering the (atomic) range reveals the raw source for editing, the same
+ * reveal contract as the table / fenced-code widgets.
+ *
+ * This widget renders NO markdown HTML (it is a single static <hr>), so it does
+ * not extend BlockWidget; its DOM never depends on the source beyond the
+ * memoization key, which is constant.
+ */
+export class HrWidget extends WidgetType {
+  eq(other: WidgetType): boolean {
+    return other instanceof HrWidget;
+  }
+
+  toDOM(): HTMLElement {
+    const wrap = document.createElement("div");
+    wrap.className = "cm-inline-block cm-inline-hr";
+    wrap.contentEditable = "false";
+    wrap.appendChild(document.createElement("hr"));
+    return wrap;
+  }
+
+  ignoreEvent(): boolean {
+    return false;
+  }
+}

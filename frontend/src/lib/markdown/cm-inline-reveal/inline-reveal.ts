@@ -45,13 +45,20 @@ import {
 } from "./marker-taxonomy";
 import { selectionTouchesNode } from "./selection-touches";
 import { inlineRevealTheme } from "./theme";
-import { TableWidget, FencedCodeWidget } from "./block-widgets";
+import { TableWidget, FencedCodeWidget, HrWidget } from "./block-widgets";
 import { ImageWidget } from "./image-widget";
 import { EmbedWidget, parseLoneEmbedLink } from "./embed-widget";
 import type { EmbedPinContext } from "@/components/embeds/ObjectEmbed";
 import { ObjectChipWidget, parseObjectLink } from "./object-chip-widget";
 import { markdownKeymap } from "./markdown-keymap";
 import { stampHideExtension } from "./stamp-hide";
+
+// Re-export the forgiving-emphasis MarkdownConfig so the editor can spread it
+// into markdown({ base, extensions }) from the same dynamic-import chunk as the
+// inline-reveal layer (bug A: a single space adjacent to a `*` / `_` delimiter
+// still renders emphasis). It is a parser config, not a view extension, so it is
+// passed to markdown() rather than added to inlineRevealExtension.
+export { forgivingEmphasis } from "./forgiving-emphasis";
 
 /**
  * The image base path used by the inline image widget to resolve relative srcs
@@ -407,6 +414,22 @@ export function buildBlockDeco(state: EditorState): InlineRevealDecorations {
           widget: new EmbedWidget(lone.descriptor, lone.caption, imageBasePath, pinContext),
           block: true,
         });
+        blockRanges.push({ from: node.from, to: node.to, deco });
+        atomicRanges.push({ from: node.from, to: node.to, deco });
+        return false;
+      }
+
+      // HorizontalRule: a standalone `___` / `---` / `***` line. The grammar
+      // already parses it into a HorizontalRule node; without a widget it shows
+      // as raw source. When the caret is not on the rule line, collapse it into a
+      // full-width <hr> (bug C). A touched rule reveals the raw source for editing,
+      // the same reveal contract as the table / fenced-code widgets. Inline
+      // `__underline__` is unaffected: it parses inside a Paragraph as Emphasis,
+      // never as a HorizontalRule, so this branch never fires for it.
+      if (name === "HorizontalRule") {
+        const touchedHr = selectionTouchesNode(sel, node.from, node.to);
+        if (touchedHr || node.to <= node.from) return false;
+        const deco = Decoration.replace({ widget: new HrWidget(), block: true });
         blockRanges.push({ from: node.from, to: node.to, deco });
         atomicRanges.push({ from: node.from, to: node.to, deco });
         return false;
