@@ -596,7 +596,7 @@ export default function FolderSwitcher({
           className="flex w-full items-center gap-2 border-t border-border px-3 py-2 text-left text-sm text-foreground-muted hover:bg-surface-sunken hover:text-foreground disabled:opacity-50"
         >
           <Icon name="plus" className="h-4 w-4 shrink-0" />
-          <span>Open another folder</span>
+          <span>Add folder</span>
         </button>
         {/* Class Mode (CM-P2A). Offered to ANY account (the multi-folder
             substrate is account-agnostic, so a solo user can hold a class folder
