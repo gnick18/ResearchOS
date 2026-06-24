@@ -51,6 +51,11 @@ import { Icon } from "@/components/icons";
 import type { IconName } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import { returnDestinationLabel } from "@/lib/account/return-destination-label";
+import {
+  folderKindIcon,
+  folderKindBadge,
+  folderDisplayName,
+} from "@/lib/file-system/folder-lab-label";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -64,6 +69,17 @@ interface AccountProfile {
 }
 
 type Section = "overview" | "identity" | "billing" | "labs" | "security";
+
+// Static token -> text-color class lookup for the folder-kind badge label.
+// Spelled out (not interpolated) so Tailwind statically detects each class and
+// does not purge it. Mirrors FolderSwitcher's KIND_PILL_CLASS approach.
+const KIND_TEXT_CLASS: Record<string, string> = {
+  "brand-ink": "text-brand-ink",
+  "brand-lead": "text-brand-lead",
+  "brand-purple": "text-brand-purple",
+  "brand-teach": "text-brand-teach",
+  "brand-learn": "text-brand-learn",
+};
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -211,6 +227,9 @@ export default function AccountHubShell() {
     reconnectWithStoredHandle,
     initializeFolder,
     currentUser,
+    rememberedFolders,
+    directoryName,
+    switchFolder,
   } = useFileSystem();
   const router = useRouter();
 
@@ -218,6 +237,9 @@ export default function AccountHubShell() {
   const [section, setSection] = useState<Section>("overview");
 
   const [connecting, setConnecting] = useState(false);
+
+  // Folders section: per-row switch busy guard.
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
 
   // Drag-and-drop state (for the Connect section, mirrors AccountHome).
   const [isDragOver, setIsDragOver] = useState(false);
@@ -447,6 +469,38 @@ export default function AccountHubShell() {
     }
   };
 
+  // Click "Add folder" -> OS picker via connect(). Opens the app once attached.
+  const onAddFolder = async () => {
+    setConnecting(true);
+    try {
+      const ok = await connect();
+      if (ok) {
+        router.push("/");
+        return;
+      }
+      const initialized = await initializeFolder();
+      if (initialized) {
+        router.push("/");
+        return;
+      }
+      setConnecting(false);
+    } catch {
+      setConnecting(false);
+    }
+  };
+
+  // Click a remembered-folder row -> switch to it, then open the app.
+  const onSwitchFolder = async (id: string) => {
+    if (switchingId) return;
+    setSwitchingId(id);
+    try {
+      const ok = await switchFolder(id);
+      if (ok) router.push("/");
+    } finally {
+      setSwitchingId(null);
+    }
+  };
+
   const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
@@ -639,7 +693,7 @@ export default function AccountHubShell() {
           <StatCard
             label="Labs"
             value={
-              accountType === "lab_head"
+              isLabHead
                 ? "Lab head"
                 : accountType === "member"
                   ? "Member"
@@ -676,6 +730,107 @@ export default function AccountHubShell() {
               </a>
             </div>
           </div>
+        </div>
+
+        {/* Linked folders: list + add via click-to-add or drag-and-drop */}
+        <div className="rounded-xl border border-border bg-surface p-4">
+          <p className="text-body font-semibold text-foreground">Folders</p>
+          <p className="mt-0.5 text-meta text-foreground-muted">
+            {rememberedFolders.length > 0
+              ? "Research folders linked on this computer. Open one to switch into it, or add another."
+              : "Link a research folder on this computer to start working. Your data stays on your machine, never on our servers."}
+          </p>
+
+          {rememberedFolders.length > 0 && (
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {rememberedFolders.map((f) => {
+                const isActive = !!directoryName && f.name === directoryName;
+                const badge = folderKindBadge(f);
+                return (
+                  <li key={f.id}>
+                    <button
+                      type="button"
+                      onClick={() => void onSwitchFolder(f.id)}
+                      disabled={!!switchingId}
+                      aria-current={isActive || undefined}
+                      className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-60 ${
+                        isActive
+                          ? "border-brand-action/40 bg-brand-action/5"
+                          : "border-border bg-surface hover:border-brand-action"
+                      }`}
+                    >
+                      <Icon
+                        name={folderKindIcon(f)}
+                        className="h-5 w-5 flex-none text-foreground-muted"
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-meta font-semibold text-foreground">
+                          {folderDisplayName(f)}
+                        </span>
+                        <span
+                          className={`text-meta font-medium ${
+                            KIND_TEXT_CLASS[badge.token] ?? "text-foreground-muted"
+                          }`}
+                        >
+                          {badge.label}
+                        </span>
+                      </span>
+                      {isActive ? (
+                        <span className="flex flex-none items-center gap-1 text-meta font-semibold text-brand-action">
+                          <Icon name="check" className="h-3.5 w-3.5" />
+                          Active
+                        </span>
+                      ) : switchingId === f.id ? (
+                        <span className="flex-none text-meta text-foreground-muted">
+                          Opening&hellip;
+                        </span>
+                      ) : null}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          {/* Add affordance: a click button AND a drop target. Reuses the
+              existing connect drag-drop handlers. */}
+          <div
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => void handleDrop(e)}
+            className={`mt-3 flex flex-col items-start gap-2 rounded-xl border border-dashed p-4 transition-all ${
+              isDragOver
+                ? "border-2 border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+                : "border-border bg-surface-sunken"
+            }`}
+          >
+            {isDragOver ? (
+              <p className="text-meta font-semibold text-blue-700 dark:text-blue-100">
+                Release to link this folder
+              </p>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void onAddFolder()}
+                  disabled={connecting}
+                  className="ros-btn-raise inline-flex items-center gap-2 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+                >
+                  <Icon name="plus" className="h-4 w-4" />
+                  {connecting ? "Opening…" : "Add folder"}
+                </button>
+                <span className="text-meta text-foreground-subtle">
+                  or drag a folder here
+                </span>
+              </>
+            )}
+          </div>
+          {dropError && (
+            <p role="alert" className="mt-2 text-meta text-red-600 dark:text-red-300">
+              {dropError}
+            </p>
+          )}
         </div>
 
         {/* Quick section shortcuts */}
