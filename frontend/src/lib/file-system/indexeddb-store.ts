@@ -397,7 +397,17 @@ export async function evictBlobCacheUntil(
 }
 
 export async function storeDirectoryHandle(
-  handle: FileSystemDirectoryHandle
+  handle: FileSystemDirectoryHandle,
+  /**
+   * The connecting account's signing-key fingerprint, when an OAuth / session
+   * identity is unlocked at connect time. Persisted into the handle meta so the
+   * boot-time silent reconnect can be GATED on account match (seamless-reconnect,
+   * 2026-06-20): a different account signing in on this device must never silently
+   * open the previous account's folder. Omitted (left null) when the folder was
+   * connected with no account (the local-first, no-account case), where there is
+   * no identity to mismatch and the silent reconnect proceeds.
+   */
+  accountFingerprint?: string | null,
 ): Promise<void> {
   // Per-tab demo isolation. In a demo tab, keep the (fake) handle live for
   // THIS tab only via the in-process cache + a per-tab sessionStorage flag,
@@ -429,9 +439,32 @@ export async function storeDirectoryHandle(
   }
 
   try {
+    // Preserve a previously stored account fingerprint when the current connect
+    // carries none (a locked-identity reconnect, or a no-account local connect),
+    // so the account-match gate is not silently dropped just because the handle
+    // was re-stored without an unlocked session. A caller that genuinely wants to
+    // clear the association passes accountFingerprint === null explicitly is NOT
+    // distinguishable here from "absent", so absence preserves and the only way to
+    // forget the folder->account binding is clearDirectoryHandle (a full forget).
+    let fingerprintToWrite: string | null = accountFingerprint ?? null;
+    if (fingerprintToWrite === null) {
+      try {
+        const existing = await get<{
+          name: string;
+          grantedAt: number;
+          accountFingerprint?: string | null;
+        }>(DIRECTORY_HANDLE_KEY + "-meta");
+        if (existing?.accountFingerprint) {
+          fingerprintToWrite = existing.accountFingerprint;
+        }
+      } catch {
+        // Ignore: fall back to null (no association recorded).
+      }
+    }
     await set(DIRECTORY_HANDLE_KEY + "-meta", {
       name: handle.name,
       grantedAt: Date.now(),
+      accountFingerprint: fingerprintToWrite,
     });
   } catch {
     // Ignore keyval errors
@@ -500,9 +533,22 @@ export async function getStoredDirectoryHandle(): Promise<FileSystemDirectoryHan
   }
 }
 
-export async function getStoredDirectoryMeta(): Promise<{ name: string; grantedAt: number } | null> {
+export async function getStoredDirectoryMeta(): Promise<{
+  name: string;
+  grantedAt: number;
+  /** The account that connected this folder, for the boot-time account-match
+   *  gate. Absent on folders connected before this field shipped, or connected
+   *  with no account; treated as "no association" (silent reconnect allowed). */
+  accountFingerprint?: string | null;
+} | null> {
   try {
-    return (await get<{ name: string; grantedAt: number }>(DIRECTORY_HANDLE_KEY + "-meta")) || null;
+    return (
+      (await get<{
+        name: string;
+        grantedAt: number;
+        accountFingerprint?: string | null;
+      }>(DIRECTORY_HANDLE_KEY + "-meta")) || null
+    );
   } catch {
     return null;
   }
