@@ -79,6 +79,10 @@ type CMModules = {
   // keymap; the plugin stays view-only (the keymap is the only doc-dispatching
   // member, on a user keypress), so the round-trip + save contract are untouched.
   inlineRevealExtension: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").inlineRevealExtension;
+  // Bug A: the forgiving-emphasis @lezer/markdown config, spread into the
+  // markdown() base so a single space adjacent to a `*` / `_` delimiter still
+  // renders emphasis (Notion / Bear feel). Parser config, not a view extension.
+  forgivingEmphasis: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").forgivingEmphasis;
   // Chip 2b: configures the image widget's relative-src -> blob-URL resolution
   // with the editor base path, matching the LiveMarkdownEditor preview.
   imageBasePathExt: typeof import("@/lib/markdown/cm-inline-reveal/inline-reveal").imageBasePathExt;
@@ -303,6 +307,7 @@ function buildExtensions(
     HighlightStyle,
     tags,
     inlineRevealExtension,
+    forgivingEmphasis,
     imageBasePathExt,
     embedPinContextExt,
     spellcheckExtension,
@@ -366,7 +371,11 @@ function buildExtensions(
     highlightActiveLine(),
     // GFM base so the inline-reveal walk sees Strikethrough / Table nodes.
     // markdown() never rewrites the doc, so the round-trip stays byte-exact.
-    markdown({ base: markdownLanguage }),
+    // forgivingEmphasis (bug A) relaxes the flanking test for a single space
+    // adjacent to a `*` / `_` delimiter; it is parser config only (no doc
+    // mutation) and never widens the matching scope, so an unmatched `**` still
+    // cannot bleed across a paragraph (bug B).
+    markdown({ base: markdownLanguage, extensions: [forgivingEmphasis] }),
     syntaxHighlighting(highlightStyle),
     // Chip 2a + 2b: caret-aware marker hide/reveal (decorations + atomicRanges +
     // theme) plus the block / image widgets and the markdown keymap. Spread
@@ -849,6 +858,7 @@ export default function InlineMarkdownEditor({
         HighlightStyle: languageMod.HighlightStyle,
         tags: highlightMod.tags,
         inlineRevealExtension: inlineRevealMod.inlineRevealExtension,
+        forgivingEmphasis: inlineRevealMod.forgivingEmphasis,
         imageBasePathExt: inlineRevealMod.imageBasePathExt,
         embedPinContextExt: inlineRevealMod.embedPinContextExt,
         spellcheckExtension: spellcheckMod.spellcheckExtension,

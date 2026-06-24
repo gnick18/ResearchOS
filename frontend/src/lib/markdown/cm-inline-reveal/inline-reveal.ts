@@ -53,6 +53,13 @@ import { ObjectChipWidget, parseObjectLink } from "./object-chip-widget";
 import { markdownKeymap } from "./markdown-keymap";
 import { stampHideExtension } from "./stamp-hide";
 
+// Re-export the forgiving-emphasis MarkdownConfig so the editor can spread it
+// into markdown({ base, extensions }) from the same dynamic-import chunk as the
+// inline-reveal layer (bug A: a single space adjacent to a `*` / `_` delimiter
+// still renders emphasis). It is a parser config, not a view extension, so it is
+// passed to markdown() rather than added to inlineRevealExtension.
+export { forgivingEmphasis } from "./forgiving-emphasis";
+
 /**
  * The image base path used by the inline image widget to resolve relative srcs
  * (Images/...) to blob URLs, matching the LiveMarkdownEditor preview. The editor
