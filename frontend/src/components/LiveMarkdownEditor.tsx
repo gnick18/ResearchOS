@@ -2076,11 +2076,16 @@ export default function LiveMarkdownEditor({
       // Capture runs top-down before that stop, so we always reset on drop.
       onDropCapture={handleWrapperDrop}
     >
-      {/* Toolbar: the quiet contextual strip. Always rendered when showToolbar
-          is set; at fullscreen it self-effaces (dozes ~2.5s into writing, wakes
-          on pointer-move / keypress) via `chromeDozing` below, but the markup is
-          unchanged across docked and fullscreen. */}
-      {showToolbar && (
+      {/* Toolbar: the quiet contextual strip. DOCKED renders the full strip
+          (Edit/Preview · ＋ · / to insert · trailing). FULLSCREEN (2026-06-23
+          consolidation, Grant): the floating top-center toolbar is RETIRED — the
+          Edit/Preview toggle, the ＋ insert menu, and the collapse (exit
+          fullscreen) control now live at the TOP of the right DOC rail (below).
+          The only reason the bar still mounts at fullscreen is to host a parent's
+          `toolbarTrailing` (the experiment popup's sub-tab switcher + Save); when
+          a surface supplies none (notes), the bar is gone entirely at fullscreen.
+          At fullscreen the self-effacing doze still applies. */}
+      {showToolbar && (!expanded || toolbarTrailing) && (
         // L1 quiet contextual toolbar. The heavy permanent toolbar collapses
         // into a calm, low-contrast strip: Edit / Preview + Focus stay visible;
         // the secondary insert actions (Add File / Browse / Insert ref / Number
@@ -2102,6 +2107,11 @@ export default function LiveMarkdownEditor({
             chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
           }`}
         >
+          {/* DOCKED left cluster. At fullscreen these controls move into the
+              right DOC rail (Edit/Preview · ＋ · collapse · focus), so the
+              floating bar only carries the parent's trailing slot. */}
+          {!expanded && (
+          <>
           {/* Two-way mode toggle: Edit | Preview. The inline CodeMirror 6
               surface is now the sole editor ("Edit"); Hybrid was retired from
               the UI (its code stays as a dormant fallback). The Edit pill maps
@@ -2243,15 +2253,14 @@ export default function LiveMarkdownEditor({
                   </>
                 )}
 
-                {/* Attachments (docked home). The standalone Attachments toolbar
-                    button now only renders at fullscreen (the pill's paperclip);
-                    docked, Attachments folds in here as a menu item so the bar
-                    stays slim (Edit|Preview · ＋ · / to insert). Same handler as
-                    the toolbar button — opens the Attachments flyout in the
-                    Context rail. Honors hideAttachments. Keeps the same
-                    aria-label ("Toggle attachments") as the fullscreen pill
-                    button so name-based queries resolve, plus a docked-specific
-                    testid (editor-insert-attachments). */}
+                {/* Attachments — folds into the ＋ insert menu as a quiet item
+                    so the docked bar stays slim (Edit|Preview · ＋ · / to
+                    insert). Opens the Attachments flyout in the right Context
+                    rail (the single home of the former bottom strip). At
+                    fullscreen the rail's own Attachments tab is the visible
+                    attach; the floating-bar paperclip was removed in the
+                    2026-06-23 dedupe. Honors hideAttachments; testid
+                    editor-insert-attachments. */}
                 {!hideAttachments && (
                   <button
                     type="button"
@@ -2299,49 +2308,12 @@ export default function LiveMarkdownEditor({
             )}
           </div>
 
-          {/* Attachments toggle (kept quiet). Opens the Attachments flyout in
-              the right Context rail, which is the NEW home of the former bottom
-              Images / Files strip: same ImageStrip / FileStrip + tab bar, just
-              relocated off the bottom edge and into the gutter. Carries the
-              paperclip glyph (Grant-approved) beside the quiet label. Hidden
-              when the surface suppresses attachments (hideAttachments).
-
-              DOCKED SLIMMING (2026-06-14): this standalone button now renders
-              ONLY at fullscreen (`expanded`) — it stays the Writing-Room pill's
-              📎 paperclip. Docked, Attachments folds into the ＋ insert menu
-              above (data-testid editor-insert-attachments) so the docked bar is
-              just Edit|Preview · ＋ · / to insert. */}
-          {!hideAttachments && expanded && (
-            <Tooltip
-              label={
-                contextFlyout === "files"
-                  ? "Hide attachments"
-                  : "Every image and file attached to this experiment - drag a tile into the body to insert it"
-              }
-              placement="bottom"
-            >
-              <button
-                type="button"
-                aria-label="Toggle attachments"
-                aria-pressed={contextFlyout === "files"}
-                onClick={() =>
-                  setContextFlyout((v) => (v === "files" ? null : "files"))
-                }
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
-                  contextFlyout === "files"
-                    ? "bg-brand-action/12 text-brand-action font-medium"
-                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
-                }`}
-              >
-                <Icon name="attach" className="w-3.5 h-3.5" />
-                {/* Icon-only at fullscreen to match the Writing-Room pill's
-                    glyph row. The Tooltip label, handler, and aria all stay, so
-                    the toggle is unchanged for a11y. (This button now only
-                    renders when `expanded`; docked, Attachments lives in the ＋
-                    insert menu — editor-insert-attachments.) */}
-              </button>
-            </Tooltip>
-          )}
+          {/* Fullscreen Attachments paperclip REMOVED (2026-06-23 dedupe, Grant
+              ITEM 4): the floating-bar attach toggle was redundant with the
+              right DOC rail's Attachments tab (the consolidated single attach,
+              same `files` flyout). At fullscreen attachments are reached via the
+              rail's Attachments tab; docked keeps the ＋ insert menu's
+              Attachments item (editor-insert-attachments). */}
 
           {/* Focus (expand) affordance lives in the HOST popup header now, not
               here (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, "one focus control").
@@ -2372,128 +2344,7 @@ export default function LiveMarkdownEditor({
             </span>
           )}
 
-          {/* Writing-surface WIDTH control moved OUT of the pill and INTO the
-              "Writing focus" popover below (fullscreen-chrome slim) so the
-              fullscreen pill stays minimal (Edit/Preview · ＋ · 📎 · ⊙focus).
-              The 4 segmented measure glyphs + applyWidthPreset + per-preset
-              testids now live as a "Writing width" section inside the focus
-              menu; width stays reachable via the ⊙ control at fullscreen.
-              Docked never rendered this (it was already gated on `expanded`). */}
-
-          {/* Focus behaviors (UNIFIED_EDITOR_SURFACE_DESIGN.md §3A, U5 toggles).
-              A small quiet popover, shown ONLY when the host popup is EXPANDED
-              (fullscreen) — these comfort behaviors only matter at the dedicated
-              writing scale, and they are double-gated (pref AND expanded) before
-              reaching the editor. Each toggle persists immediately (localStorage
-              mirror + durable settings) and takes effect live via the editor's
-              reconfigure compartment. Both default off (the design's amber
-              decision). The popover ALSO hosts the writing-width presets (moved
-              here from the pill). */}
-          {expanded && (
-            <div ref={focusMenuRef} className="relative">
-              <Tooltip label="Writing focus" placement="bottom">
-                <button
-                  type="button"
-                  data-testid="hybrid-editor-focus-menu"
-                  aria-haspopup="menu"
-                  aria-expanded={focusMenuOpen}
-                  aria-label="Writing focus options"
-                  onClick={() => setFocusMenuOpen((v) => !v)}
-                  className={`p-1.5 rounded-md transition-colors ${
-                    focusMenuOpen || typewriterPref || dimmingPref
-                      ? "bg-surface-raised text-foreground shadow-sm"
-                      : "text-foreground-muted hover:text-foreground"
-                  }`}
-                >
-                  <Icon name="focus" className="h-4 w-4" />
-                </button>
-              </Tooltip>
-              {focusMenuOpen && focusMenuPos && createPortal(
-                <div
-                  ref={focusMenuPanelRef}
-                  role="menu"
-                  data-testid="hybrid-editor-focus-popover"
-                  // Portaled to document.body and fixed under the trigger: the
-                  // menu must escape the editor's stacking context. The fullscreen
-                  // pill's backdrop-blur and the document body sit in contexts that
-                  // otherwise paint over an in-tree menu (doc text bled through,
-                  // confirmed via elementFromPoint). As a top-level layer with an
-                  // opaque --surface-overlay fill it always renders solid above the
-                  // popup.
-                  style={{
-                    position: "fixed",
-                    top: focusMenuPos.top,
-                    right: focusMenuPos.right,
-                    zIndex: 500,
-                    backgroundColor: "var(--surface-overlay)",
-                  }}
-                  className="min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
-                >
-                  <FocusToggleRow
-                    icon="align"
-                    label="Typewriter scroll"
-                    description="Hold the active line near the middle of the screen."
-                    checked={typewriterPref}
-                    testId="hybrid-editor-typewriter-toggle"
-                    onChange={applyTypewriterPref}
-                  />
-                  <FocusToggleRow
-                    icon="focus"
-                    label="Dim other lines"
-                    description="Fade everything except the line you're writing, while focused."
-                    checked={dimmingPref}
-                    testId="hybrid-editor-dimming-toggle"
-                    onChange={applyDimmingPref}
-                  />
-
-                  {/* Writing-width presets (relocated from the pill —
-                      fullscreen-chrome slim). Same segmented measure glyphs,
-                      applyWidthPreset handler, and per-preset testids
-                      (hybrid-editor-width-*) so the moved control is still
-                      covered by the existing tests; the group testid
-                      hybrid-editor-width-control is preserved too. */}
-                  <div className="my-1 h-px bg-border" aria-hidden="true" />
-                  <div className="px-2 pt-0.5 pb-1.5">
-                    <div className="mb-1 text-xs font-medium text-foreground-muted">
-                      Writing width
-                    </div>
-                    <div
-                      role="group"
-                      aria-label="Writing width"
-                      data-testid="hybrid-editor-width-control"
-                      className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
-                    >
-                      {EDITOR_WIDTH_PRESETS.map((preset) => {
-                        const active = widthPreset === preset;
-                        return (
-                          <Tooltip
-                            key={preset}
-                            label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
-                            placement="bottom"
-                          >
-                            <button
-                              type="button"
-                              data-testid={`hybrid-editor-width-${preset}`}
-                              aria-pressed={active}
-                              aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
-                              onClick={() => applyWidthPreset(preset)}
-                              className={`p-1.5 rounded-md transition-colors ${
-                                active
-                                  ? "bg-surface-raised text-foreground shadow-sm"
-                                  : "text-foreground-muted hover:text-foreground"
-                              }`}
-                            >
-                              <WidthPresetGlyph preset={preset} />
-                            </button>
-                          </Tooltip>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>,
-                document.body,
-              )}
-            </div>
+          </>
           )}
 
           <input
@@ -2515,6 +2366,83 @@ export default function LiveMarkdownEditor({
             </>
           )}
         </div>
+      )}
+
+      {/* Writing-focus popover panel (typewriter / dim / writing-width). Portaled
+          to document.body and anchored under its trigger (the focus button now in
+          the fullscreen DOC-rail control cluster). Rendered at the editor-tree top
+          level so it is independent of the retired floating toolbar; the trigger,
+          focusMenuRef, focusMenuOpen, and focusMenuPos are shared. */}
+      {focusMenuOpen && focusMenuPos && createPortal(
+        <div
+          ref={focusMenuPanelRef}
+          role="menu"
+          data-testid="hybrid-editor-focus-popover"
+          style={{
+            position: "fixed",
+            top: focusMenuPos.top,
+            right: focusMenuPos.right,
+            zIndex: 500,
+            backgroundColor: "var(--surface-overlay)",
+          }}
+          className="min-w-[15rem] p-1.5 rounded-lg border border-border bg-surface-overlay shadow-lg"
+        >
+          <FocusToggleRow
+            icon="align"
+            label="Typewriter scroll"
+            description="Hold the active line near the middle of the screen."
+            checked={typewriterPref}
+            testId="hybrid-editor-typewriter-toggle"
+            onChange={applyTypewriterPref}
+          />
+          <FocusToggleRow
+            icon="focus"
+            label="Dim other lines"
+            description="Fade everything except the line you're writing, while focused."
+            checked={dimmingPref}
+            testId="hybrid-editor-dimming-toggle"
+            onChange={applyDimmingPref}
+          />
+          <div className="my-1 h-px bg-border" aria-hidden="true" />
+          <div className="px-2 pt-0.5 pb-1.5">
+            <div className="mb-1 text-xs font-medium text-foreground-muted">
+              Writing width
+            </div>
+            <div
+              role="group"
+              aria-label="Writing width"
+              data-testid="hybrid-editor-width-control"
+              className="flex items-center bg-surface-sunken/70 rounded-lg p-0.5"
+            >
+              {EDITOR_WIDTH_PRESETS.map((preset) => {
+                const active = widthPreset === preset;
+                return (
+                  <Tooltip
+                    key={preset}
+                    label={EDITOR_WIDTH_PRESET_DESCRIPTIONS[preset]}
+                    placement="bottom"
+                  >
+                    <button
+                      type="button"
+                      data-testid={`hybrid-editor-width-${preset}`}
+                      aria-pressed={active}
+                      aria-label={`Set writing width to ${EDITOR_WIDTH_PRESET_LABELS[preset]}`}
+                      onClick={() => applyWidthPreset(preset)}
+                      className={`p-1.5 rounded-md transition-colors ${
+                        active
+                          ? "bg-surface-raised text-foreground shadow-sm"
+                          : "text-foreground-muted hover:text-foreground"
+                      }`}
+                    >
+                      <WidthPresetGlyph preset={preset} />
+                    </button>
+                  </Tooltip>
+                );
+              })}
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {/* Main content area with helper panel and editor */}
@@ -2691,8 +2619,210 @@ export default function LiveMarkdownEditor({
       >
         {/* Editor / Preview — `min-h-0` lets the flex slot shrink below
             its content's natural size so we scroll INSIDE this column
-            instead of bursting out of a small popup. */}
-        <div className="flex-1 min-h-0 cursor-text overflow-hidden flex flex-col">
+            instead of bursting out of a small popup. `relative` anchors the
+            fullscreen control cluster (the retired floating toolbar's
+            Edit/Preview · ＋ · focus · collapse, now the head of the right rail)
+            which renders in BOTH edit and preview modes so the toggle is never
+            lost (no soft-lock). */}
+        <div className="relative flex-1 min-h-0 cursor-text overflow-hidden flex flex-col">
+          {/* Fullscreen control cluster — the HEAD of the right DOC rail
+              (2026-06-23 consolidation, Grant). Holds the retired floating
+              top-center toolbar's primary controls: the Edit/Preview toggle
+              (top), the ＋ insert menu, the Writing-focus menu, and the collapse
+              (exit fullscreen) control. Shown whenever the host popup is
+              `expanded`, in BOTH edit and preview modes and INDEPENDENT of the
+              never-overlap gutter gate, so the Edit/Preview toggle is never lost
+              even at the Full-bleed width preset or in Preview. Dozes with the
+              chrome. */}
+          {expanded && (
+            <div
+              data-testid="editor-fullscreen-controls"
+              className={`absolute right-3 top-3 z-[6] flex flex-col items-center gap-1.5 rounded-2xl border border-border bg-surface-overlay/85 px-1.5 py-2 ros-popover-shadow backdrop-blur transition-opacity duration-500 ${
+                chromeDozing ? "opacity-0 pointer-events-none" : "opacity-100"
+              }`}
+            >
+              {/* Edit | Preview — vertical segmented toggle at the rail head.
+                  Same setMode handlers + testid as the docked bar. */}
+              <div className="flex flex-col items-stretch bg-surface-sunken rounded-lg p-0.5 border border-border ros-seg-track">
+                <Tooltip label="Write in a single live editing surface" placement="left">
+                  <button
+                    type="button"
+                    data-testid="editor-mode-inline"
+                    onClick={() => setMode("inline")}
+                    disabled={disabled}
+                    className={`px-2 py-1 text-[10px] rounded-md transition-colors ${
+                      currentMode !== "preview"
+                        ? "bg-surface-raised text-foreground font-medium ros-seg-active"
+                        : "text-foreground-muted hover:text-foreground"
+                    } disabled:opacity-50`}
+                  >
+                    Edit
+                  </button>
+                </Tooltip>
+                <Tooltip label="Read-only rendered preview" placement="left">
+                  <button
+                    type="button"
+                    onClick={() => setMode("preview")}
+                    disabled={disabled}
+                    className={`px-2 py-1 text-[10px] rounded-md transition-colors ${
+                      currentMode === "preview"
+                        ? "bg-surface-raised text-foreground font-medium ros-seg-active"
+                        : "text-foreground-muted hover:text-foreground"
+                    } disabled:opacity-50`}
+                  >
+                    Preview
+                  </button>
+                </Tooltip>
+              </div>
+
+              {/* ＋ Insert overflow menu — same insertMenuOpen state + menu body
+                  as docked; anchored to this rail head. The menu opens to the
+                  LEFT (right-full) so it never sits over the text column. */}
+              <div className="relative" ref={insertMenuRef}>
+                <Tooltip label="Insert" placement="left">
+                  <button
+                    type="button"
+                    aria-label="Insert"
+                    aria-haspopup="menu"
+                    aria-expanded={insertMenuOpen}
+                    onClick={() => setInsertMenuOpen((v) => !v)}
+                    disabled={disabled}
+                    className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:opacity-50 ${
+                      insertMenuOpen
+                        ? "bg-brand-action/12 text-brand-action border border-brand-action/30"
+                        : "text-foreground-muted hover:bg-brand-action/12 hover:text-brand-action"
+                    }`}
+                  >
+                    <Icon name="plus" className="w-4 h-4" />
+                  </button>
+                </Tooltip>
+                {insertMenuOpen && (
+                  <div
+                    role="menu"
+                    className="absolute top-0 right-full mr-1 z-30 min-w-[11rem] py-1 rounded-lg border border-border bg-surface-overlay ros-popover-shadow"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setInsertMenuOpen(false);
+                        handleAddImageClick();
+                      }}
+                      disabled={disabled}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                    >
+                      <Icon name="plus" className="w-4 h-4 text-foreground-muted" />
+                      {allowAnyFileType ? "Add File" : "Add Image"}
+                    </button>
+                    {onBrowseImages && (
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setInsertMenuOpen(false);
+                          onBrowseImages();
+                        }}
+                        disabled={disabled}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors disabled:opacity-50"
+                      >
+                        <Icon name="search" className="w-4 h-4 text-foreground-muted" />
+                        Browse
+                      </button>
+                    )}
+                    {enableReferencePicker && !disabled && (
+                      <>
+                        <div className="my-1 h-px bg-border" aria-hidden="true" />
+                        {railInsertItems
+                          .filter((item) => item.key !== "image")
+                          .map((item) => (
+                            <button
+                              key={item.key}
+                              type="button"
+                              role="menuitem"
+                              aria-label={item.label}
+                              onClick={item.onClick}
+                              className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                            >
+                              <Icon name={item.icon} className="w-4 h-4 text-foreground-muted" />
+                              {item.label}
+                            </button>
+                          ))}
+                      </>
+                    )}
+                    {enableReferencePicker && !disabled && (
+                      <button
+                        type="button"
+                        role="menuitemcheckbox"
+                        aria-checked={FIGURE_DIRECTIVE.test(value)}
+                        aria-label="Number figures"
+                        onClick={() => {
+                          const on = FIGURE_DIRECTIVE.test(value);
+                          const next = on
+                            ? value.replace(/^[^\n]*<!--\s*ros:number-figures\s*-->[^\n]*\n?/m, "")
+                            : `<!-- ros:number-figures -->\n${value}`;
+                          onChange(next);
+                          setInsertMenuOpen(false);
+                        }}
+                        className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-meta text-foreground hover:bg-foreground-muted/10 transition-colors"
+                      >
+                        <Icon
+                          name={FIGURE_DIRECTIVE.test(value) ? "check" : "list"}
+                          className={`w-4 h-4 ${FIGURE_DIRECTIVE.test(value) ? "text-brand-action" : "text-foreground-muted"}`}
+                        />
+                        Number figures
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Writing-focus menu (typewriter / dim / width). Same focusMenuRef
+                  + portaled panel as before; relocated here from the retired
+                  floating bar. Carries the `align` glyph (line-alignment /
+                  typewriter scroll) so it does not clash with the `focus` glyph
+                  the collapse control below uses for the app's established
+                  enter/exit-focus meaning. */}
+              <div ref={focusMenuRef} className="relative">
+                <Tooltip label="Writing focus" placement="left">
+                  <button
+                    type="button"
+                    data-testid="hybrid-editor-focus-menu"
+                    aria-haspopup="menu"
+                    aria-expanded={focusMenuOpen}
+                    aria-label="Writing focus options"
+                    onClick={() => setFocusMenuOpen((v) => !v)}
+                    className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                      focusMenuOpen || typewriterPref || dimmingPref
+                        ? "bg-surface-raised text-foreground shadow-sm"
+                        : "text-foreground-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Icon name="align" className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              </div>
+
+              {/* Collapse (exit fullscreen) — routes through the host's expand
+                  toggle via onRequestExpand (same seam the header's Focus control
+                  + Cmd/Ctrl+Shift+F use). Carries the app's canonical `focus`
+                  enter/exit-focus glyph. Only rendered when the host wired the
+                  seam; otherwise there is nothing to collapse. */}
+              {onRequestExpand && (
+                <Tooltip label="Exit full screen" placement="left">
+                  <button
+                    type="button"
+                    data-testid="editor-collapse-fullscreen"
+                    aria-label="Exit full screen"
+                    onClick={requestExpandToggle}
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
+                  >
+                    <Icon name="focus" className="h-4 w-4" />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          )}
+
           {currentMode === "preview" ? (
             // Read-render: center the prose in the same FLUID ch-based measure
             // (Phase 1) instead of edge-to-edge `max-w-none`, so long lines
@@ -2703,7 +2833,7 @@ export default function LiveMarkdownEditor({
               {previewValue.trim() ? (
                 <div
                   className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised ${
-                    expanded ? "ros-page-shadow" : ""
+                    expanded ? "ros-page-shadow-y" : ""
                   }`}
                   style={{ lineHeight: "1.7" }}
                 >
@@ -2851,7 +2981,10 @@ export default function LiveMarkdownEditor({
                     bottom strip), and BeakerBot. Same measured never-overlap
                     gate as the Insert rail; dozes with the chrome. The BeakerBot
                     tab only renders when a BeakerSearch provider is present
-                    above us (it stays inert on the constrained mounts). */}
+                    above us (it stays inert on the constrained mounts). At
+                    fullscreen this tabs rail sits BELOW the control cluster head
+                    (top-3 + the cluster's height), so add top padding so they
+                    never overlap. */}
                 {contextRailVisible && (
                   <div
                     ref={contextRailRef}
