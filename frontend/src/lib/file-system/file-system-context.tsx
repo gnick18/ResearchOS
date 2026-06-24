@@ -546,7 +546,14 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
           return false;
         }
 
-        await storeDirectoryHandle(handle);
+        // Record the connecting account on the handle meta so the boot-time
+        // silent reconnect can be gated on account match (seamless-reconnect,
+        // 2026-06-20). currentAccountFingerprint() is null when no identity is
+        // unlocked (a local-first connect, or a locked-identity reconnect), in
+        // which case storeDirectoryHandle preserves any prior association rather
+        // than clearing it. This is the WRITE side of the account-match gate; the
+        // READ side is resolveReconnectIntent at boot.
+        await storeDirectoryHandle(handle, currentAccountFingerprint());
 
         // Multi-folder (Phase A): add this folder to the remembered set and make
         // it the active one, keeping the legacy single key (written just above)
@@ -1299,7 +1306,10 @@ export function FileSystemProvider({ children }: { children: React.ReactNode }) 
       }
 
       const initHandle = fileService.getDirectoryHandle()!;
-      await storeDirectoryHandle(initHandle);
+      // Record the connecting account on the just-initialized folder too, so the
+      // account-match gate (seamless-reconnect) has an association from the very
+      // first connect, not only after a later reconnect.
+      await storeDirectoryHandle(initHandle, currentAccountFingerprint());
 
       // Multi-folder (Phase A): remember the just-initialized folder as active.
       let initFolders: RememberedFolder[] = [];

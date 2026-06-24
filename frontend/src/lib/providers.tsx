@@ -13,6 +13,11 @@ import { appQueryClient } from "@/lib/query-client";
 import { usePathname } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
+  resolveReconnectIntent,
+  type ReconnectIntent,
+} from "@/lib/file-system/reconnect-intent";
+import ReconnectCard from "@/components/onboarding/ReconnectCard";
+import {
   isDemoOrWikiCapture,
 } from "@/lib/file-system/wiki-capture-mock";
 import FolderConnectGate from "@/components/onboarding/FolderConnectGate";
@@ -634,6 +639,60 @@ function AppContent({ children }: { children: ReactNode }) {
   // unconditionally (rules of hooks) but is cheap and inert otherwise.
   const hasCloudSession = useHasCloudSession();
 
+  // Seamless folder reconnect (seamless-reconnect on login, 2026-06-20). Resolve
+  // the boot-time reconnect intent ONCE, BEFORE the account-first /account
+  // redirect can fire, so a returning user with a stored folder on this device
+  // lands back in the app under the splash rather than being dumped on the folder-
+  // connect screen every login. The intent is account-gated (resolveReconnectIntent
+  // compares the folder's recorded account to the signed-in account), so a
+  // different person signing in never silently opens the previous account's folder.
+  //   - "silent": permission still granted. The file-system boot effect already
+  //     runs the silent reconnect (isLoading holds the splash through it); we only
+  //     need to keep the account-first redirect from preempting that window.
+  //   - "lapsed": grant dropped. Render the focused one-click ReconnectCard INSTEAD
+  //     of routing to /account.
+  //   - "mismatch" / "none": fall through to the normal entry flow (/account, the
+  //     picker, the landing), unchanged.
+  // null = not yet resolved. We hold the splash while it resolves AND while a
+  // silent reconnect is in flight, so the brand moment covers the whole login ->
+  // reconnect -> app transition and never flashes /account in the middle. Skipped
+  // in fixture (demo / wiki-capture) modes, which seed their own connected state.
+  const [reconnectIntent, setReconnectIntent] = useState<ReconnectIntent | null>(
+    null,
+  );
+  useEffect(() => {
+    if (isDemoOrWikiCapture()) {
+      // Fixture modes never reconnect a real handle; mark resolved-as-none so the
+      // hold below is inert and the fixture connected-state renders.
+      setReconnectIntent({ kind: "none" });
+      return;
+    }
+    let alive = true;
+    void resolveReconnectIntent()
+      .then((intent) => {
+        if (alive) setReconnectIntent(intent);
+      })
+      .catch(() => {
+        if (alive) setReconnectIntent({ kind: "none" });
+      });
+    return () => {
+      alive = false;
+    };
+    // Resolve once on mount. The session fingerprint can land a tick later than
+    // the handle, but the account-match gate fails CLOSED (mismatch -> /account),
+    // and the dependency is intentionally the cloud-session signal so a late
+    // sign-in re-resolves the gate rather than reading a stale "no session".
+  }, [hasCloudSession]);
+
+  // True while the boot-time reconnect decision is still pending. The hold below
+  // keeps the splash up during this window so the account-first redirect cannot
+  // win the race and flash /account before we know there is a folder to reopen.
+  const reconnectUnresolved = reconnectIntent === null && !isDemoOrWikiCapture();
+  // A reconnectable folder exists for this account (silent or one-click). The
+  // account-first redirect must NOT fire in either case.
+  const hasReconnectableFolder =
+    reconnectIntent?.kind === "silent" || reconnectIntent?.kind === "lapsed";
+
   // Login-splash minimum-display floor (splash-every-login). A LOGIN return is a
   // post-OAuth landing on "/?sharingClaim=1" (sharingClaimReturn) or a "Sign in
   // with <provider>" intent in flight (?signIn, signInInFlight). The cloud-session
@@ -1119,6 +1178,74 @@ function AppContent({ children }: { children: ReactNode }) {
     );
   }
 
+  // Seamless reconnect HOLD + one-click card (seamless-reconnect, 2026-06-20).
+  // This sits ABOVE the post-OAuth hold AND the account-first /account redirect so
+  // a device with a stored folder reconnects (silently, or with one click) BEFORE
+  // a folderless-looking session is ever routed to /account. The whole point of
+  // the build: the account-first redirect used to fire the instant the cloud
+  // session resolved and preempt the reconnect, so every login re-picked the
+  // folder. Now the reconnect decision wins first.
+  //
+  // Placement guarantees (why this is correct ABOVE the redirect):
+  //   - Every fixture / unsupported / wizard / ORCID branch has already returned,
+  //     and resolveReconnectIntent itself early-returns "none" in demo/wiki-capture
+  //     modes, so this never touches those flows.
+  //   - It only acts while the visitor is not yet in the app (not connected, no
+  //     current user, no empty-folder init). Once the silent reconnect flips
+  //     isConnected, this stops matching and the app renders.
+  //
+  // Two cases hold here:
+  //   (a) reconnectUnresolved OR a silent reconnect is the resolved intent: hold on
+  //       the StagedLoadingScreen splash. The file-system boot effect runs the
+  //       actual silent reconnect (it keeps isLoading true through finishConnect,
+  //       so the higher isLoading branch holds the splash too); this branch closes
+  //       the gap AFTER isLoading briefly settles but BEFORE isConnected flips, so
+  //       the account-first redirect cannot sneak in. We also respect the
+  //       LOGIN_SPLASH_MIN_MS floor via loginSplashFloorActive so a fast reconnect
+  //       still reads as a deliberate brand moment, not a sub-second flash.
+  //   (b) the resolved intent is "lapsed": Chrome dropped the grant. Render the
+  //       focused one-click ReconnectCard INSTEAD of /account. The Allow click is
+  //       the user gesture requestPermission needs; on grant isConnected flips and
+  //       the app renders in place (client nav, no reload).
+  // A "mismatch" or "none" intent matches neither case and falls through to the
+  // normal entry flow (the account-first redirect / picker / landing), so a wrong-
+  // account device or a genuinely folderless session is unaffected.
+  if (
+    (reconnectUnresolved || hasReconnectableFolder) &&
+    !isConnected &&
+    !currentUser &&
+    !needsInitialization &&
+    !isDemoOrWikiCapture()
+  ) {
+    // Lapsed grant: a single Allow re-permissions the stored handle. Show the
+    // focused card, not the generic /account screen. The escape hatch routes to
+    // /account (client nav) so a stale or wrong handle never traps the user.
+    if (reconnectIntent?.kind === "lapsed" && reconnectIntent.folderName) {
+      return (
+        <QueryClientProvider client={queryClient}>
+          <ReconnectCard
+            folderName={reconnectIntent.folderName}
+            onUseAnotherFolder={() => {
+              // Client nav to the full account / folder-connect screen, the
+              // deliberate place to pick a different folder or sign in as someone
+              // else. A soft nav (not a reload) keeps the SPA warm.
+              window.history.pushState({}, "", "/account");
+              window.dispatchEvent(new PopStateEvent("popstate"));
+            }}
+          />
+        </QueryClientProvider>
+      );
+    }
+    // Unresolved, or a silent reconnect is underway: hold the brand splash across
+    // the whole login -> reconnect -> app transition.
+    return (
+      <StagedLoadingScreen
+        stage={loadingStage}
+        onPickDifferentFolder={() => void disconnect()}
+      />
+    );
+  }
+
   // Post-OAuth HOLD (login-flash fix, 2026-06-20). The account-first redirect just
   // below requires hasCloudSession === true, but useHasCloudSession starts at null
   // and resolves a tick later (it calls getSession() in an effect). On the OAuth
@@ -1186,7 +1313,14 @@ function AppContent({ children }: { children: ReactNode }) {
     // "Initialize New Folder" prompt below.
     !needsInitialization &&
     !isDemoOrWikiCapture() &&
-    !signInInFlight
+    !signInInFlight &&
+    // seamless-reconnect: never preempt a pending or available folder reconnect.
+    // The hold branch above already returns first in those cases, but guarding
+    // here makes the precedence explicit and survives any future reordering: the
+    // /account redirect only wins when there is genuinely no reconnectable folder
+    // (intent resolved to "mismatch" or "none").
+    !reconnectUnresolved &&
+    !hasReconnectableFolder
   ) {
     // Signed in with no folder: route to the folderless account home. A null
     // (still-checking) or false (logged out) session falls through to the normal
