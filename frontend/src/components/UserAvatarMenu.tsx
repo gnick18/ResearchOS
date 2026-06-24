@@ -21,6 +21,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
 import { fullSignOut } from "@/lib/auth/full-sign-out";
+import { lockApp } from "@/lib/auth/lock-session";
 
 import Link from "@/components/FixtureLink";
 import Tooltip from "@/components/Tooltip";
@@ -452,13 +453,39 @@ export default function UserAvatarMenu({
             {!inDemo && (
               <>
                 <div className="my-1 h-px bg-border" />
-                {/* Switch folder: a DISTINCT action from sign-out. It keeps the
-                    account session and opens the OS folder picker so the user
-                    can change to a different folder / lab without logging out.
-                    Reuses connect(), the same primitive the header folder
-                    switcher's "Open another folder" uses. Cancelling the OS
-                    picker is a safe no-op (the current folder stays connected),
-                    so this can never trap the user. */}
+                {/* Lock / Switch / Sign out split (seamless-reconnect, 2026-06-20).
+                    Ordering matches the mockup: Lock, then Switch, then Sign out.
+
+                    Lock: like locking a screen. It KEEPS the stored folder handle
+                    AND the cloud session on this device, ends the in-app session,
+                    and hard-navs to "/" so the next entry is the one-click / silent
+                    reconnect (the Phase 1 splash flow), not a re-pick of the folder.
+                    Distinct from Sign out, which FORGETS the folder here. */}
+                <DropdownItem
+                  onClick={(e) => {
+                    e.preventDefault();
+                    close();
+                    lockApp();
+                  }}
+                >
+                  <Icon
+                    name="lock"
+                    className="h-4 w-4 shrink-0 text-foreground-muted"
+                  />
+                  <span className="flex flex-col">
+                    <span>Lock</span>
+                    <span className="text-meta text-foreground-muted">
+                      Stay signed in. Folder stays connected.
+                    </span>
+                  </span>
+                </DropdownItem>
+                {/* Switch account or folder: a DISTINCT action from sign-out. It
+                    keeps the account session and opens the OS folder picker so the
+                    user can change to a different folder / lab without logging out.
+                    Reuses connect(), the same primitive the header folder switcher's
+                    "Open another folder" uses. Cancelling the OS picker is a safe
+                    no-op (the current folder stays connected), so this never traps
+                    the user. */}
                 <DropdownItem
                   onClick={(e) => {
                     e.preventDefault();
@@ -470,7 +497,7 @@ export default function UserAvatarMenu({
                     name="folder"
                     className="h-4 w-4 shrink-0 text-foreground-muted"
                   />
-                  Switch folder
+                  Switch account or folder
                 </DropdownItem>
                 <div className="my-1 h-px bg-border" />
                 <DropdownItem
@@ -480,7 +507,8 @@ export default function UserAvatarMenu({
                     // hard-reload to the welcome/login landing (never the folder
                     // picker). The deterministic ordering lives in fullSignOut so
                     // every "Sign out" button behaves identically. See its file
-                    // for the next-auth v5 race this avoids.
+                    // for the next-auth v5 race this avoids. Distinct from Lock,
+                    // which keeps the folder for a one-click return.
                     void fullSignOut({ disconnect });
                   }}
                 >
