@@ -2253,15 +2253,14 @@ export default function LiveMarkdownEditor({
                   </>
                 )}
 
-                {/* Attachments (docked home). The standalone Attachments toolbar
-                    button now only renders at fullscreen (the pill's paperclip);
-                    docked, Attachments folds in here as a menu item so the bar
-                    stays slim (Edit|Preview · ＋ · / to insert). Same handler as
-                    the toolbar button — opens the Attachments flyout in the
-                    Context rail. Honors hideAttachments. Keeps the same
-                    aria-label ("Toggle attachments") as the fullscreen pill
-                    button so name-based queries resolve, plus a docked-specific
-                    testid (editor-insert-attachments). */}
+                {/* Attachments — folds into the ＋ insert menu as a quiet item
+                    so the docked bar stays slim (Edit|Preview · ＋ · / to
+                    insert). Opens the Attachments flyout in the right Context
+                    rail (the single home of the former bottom strip). At
+                    fullscreen the rail's own Attachments tab is the visible
+                    attach; the floating-bar paperclip was removed in the
+                    2026-06-23 dedupe. Honors hideAttachments; testid
+                    editor-insert-attachments. */}
                 {!hideAttachments && (
                   <button
                     type="button"
@@ -2309,49 +2308,12 @@ export default function LiveMarkdownEditor({
             )}
           </div>
 
-          {/* Attachments toggle (kept quiet). Opens the Attachments flyout in
-              the right Context rail, which is the NEW home of the former bottom
-              Images / Files strip: same ImageStrip / FileStrip + tab bar, just
-              relocated off the bottom edge and into the gutter. Carries the
-              paperclip glyph (Grant-approved) beside the quiet label. Hidden
-              when the surface suppresses attachments (hideAttachments).
-
-              DOCKED SLIMMING (2026-06-14): this standalone button now renders
-              ONLY at fullscreen (`expanded`) — it stays the Writing-Room pill's
-              📎 paperclip. Docked, Attachments folds into the ＋ insert menu
-              above (data-testid editor-insert-attachments) so the docked bar is
-              just Edit|Preview · ＋ · / to insert. */}
-          {!hideAttachments && expanded && (
-            <Tooltip
-              label={
-                contextFlyout === "files"
-                  ? "Hide attachments"
-                  : "Every image and file attached to this experiment - drag a tile into the body to insert it"
-              }
-              placement="bottom"
-            >
-              <button
-                type="button"
-                aria-label="Toggle attachments"
-                aria-pressed={contextFlyout === "files"}
-                onClick={() =>
-                  setContextFlyout((v) => (v === "files" ? null : "files"))
-                }
-                className={`flex items-center gap-1.5 px-2.5 py-1 text-meta rounded-lg transition-colors ${
-                  contextFlyout === "files"
-                    ? "bg-brand-action/12 text-brand-action font-medium"
-                    : "text-foreground-muted hover:bg-foreground-muted/15 hover:text-foreground"
-                }`}
-              >
-                <Icon name="attach" className="w-3.5 h-3.5" />
-                {/* Icon-only at fullscreen to match the Writing-Room pill's
-                    glyph row. The Tooltip label, handler, and aria all stay, so
-                    the toggle is unchanged for a11y. (This button now only
-                    renders when `expanded`; docked, Attachments lives in the ＋
-                    insert menu — editor-insert-attachments.) */}
-              </button>
-            </Tooltip>
-          )}
+          {/* Fullscreen Attachments paperclip REMOVED (2026-06-23 dedupe, Grant
+              ITEM 4): the floating-bar attach toggle was redundant with the
+              right DOC rail's Attachments tab (the consolidated single attach,
+              same `files` flyout). At fullscreen attachments are reached via the
+              rail's Attachments tab; docked keeps the ＋ insert menu's
+              Attachments item (editor-insert-attachments). */}
 
           {/* Focus (expand) affordance lives in the HOST popup header now, not
               here (UNIFIED_EDITOR_SURFACE_DESIGN.md §9, "one focus control").
@@ -2381,14 +2343,6 @@ export default function LiveMarkdownEditor({
               to insert
             </span>
           )}
-
-          {/* Writing-surface WIDTH control moved OUT of the pill and INTO the
-              "Writing focus" popover below (fullscreen-chrome slim) so the
-              fullscreen pill stays minimal (Edit/Preview · ＋ · 📎 · ⊙focus).
-              The 4 segmented measure glyphs + applyWidthPreset + per-preset
-              testids now live as a "Writing width" section inside the focus
-              menu; width stays reachable via the ⊙ control at fullscreen.
-              Docked never rendered this (it was already gated on `expanded`). */}
 
           </>
           )}
