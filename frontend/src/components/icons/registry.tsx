@@ -596,6 +596,27 @@ const ICONS_RAW = {
       />
     ),
   },
+  // Exit full screen / minimize. The mirror of `focus` (arrows OUTWARD =
+  // enter/fullscreen): four arrows pointing INWARD toward the center. Distinct
+  // meaning from `focus` so the note editor's right rail can carry the
+  // Writing-focus menu on `focus` and the collapse control on `minimize`
+  // without two same-glyph buttons. Tabler ti-arrows-minimize shape. Grant
+  // sign-off 2026-06-23.
+  minimize: {
+    concept: "Exit full screen / minimize (arrows inward)",
+    body: (
+      <>
+        <path d="M5 9h4V5" />
+        <path d="M3 3l6 6" />
+        <path d="M5 15h4v4" />
+        <path d="M3 21l6 -6" />
+        <path d="M19 9h-4V5" />
+        <path d="M15 9l6 -6" />
+        <path d="M19 15h-4v4" />
+        <path d="M15 15l6 6" />
+      </>
+    ),
+  },
   share: {
     concept: "Share",
     body: (

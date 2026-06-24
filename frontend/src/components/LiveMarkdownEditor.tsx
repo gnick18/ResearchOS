@@ -2781,10 +2781,10 @@ export default function LiveMarkdownEditor({
 
               {/* Writing-focus menu (typewriter / dim / width). Same focusMenuRef
                   + portaled panel as before; relocated here from the retired
-                  floating bar. Carries the `align` glyph (line-alignment /
-                  typewriter scroll) so it does not clash with the `focus` glyph
-                  the collapse control below uses for the app's established
-                  enter/exit-focus meaning. */}
+                  floating bar. Carries its canonical `focus` glyph (its
+                  pre-redesign icon). The collapse control below now uses the
+                  dedicated `minimize` glyph, so there is no longer a glyph clash
+                  in the rail. */}
               <div ref={focusMenuRef} className="relative">
                 <Tooltip label="Writing focus" placement="left">
                   <button
@@ -2800,16 +2800,17 @@ export default function LiveMarkdownEditor({
                         : "text-foreground-muted hover:text-foreground"
                     }`}
                   >
-                    <Icon name="align" className="h-4 w-4" />
+                    <Icon name="focus" className="h-4 w-4" />
                   </button>
                 </Tooltip>
               </div>
 
               {/* Collapse (exit fullscreen) — routes through the host's expand
                   toggle via onRequestExpand (same seam the header's Focus control
-                  + Cmd/Ctrl+Shift+F use). Carries the app's canonical `focus`
-                  enter/exit-focus glyph. Only rendered when the host wired the
-                  seam; otherwise there is nothing to collapse. */}
+                  + Cmd/Ctrl+Shift+F use). Carries the dedicated `minimize`
+                  (arrows-inward) glyph, the mirror of the `focus` enter-fullscreen
+                  arrows. Only rendered when the host wired the seam; otherwise
+                  there is nothing to collapse. */}
               {onRequestExpand && (
                 <Tooltip label="Exit full screen" placement="left">
                   <button
@@ -2819,7 +2820,7 @@ export default function LiveMarkdownEditor({
                     onClick={requestExpandToggle}
                     className="flex h-8 w-8 items-center justify-center rounded-lg text-foreground-muted transition-colors hover:bg-brand-action/12 hover:text-brand-action"
                   >
-                    <Icon name="focus" className="h-4 w-4" />
+                    <Icon name="minimize" className="h-4 w-4" />
                   </button>
                 </Tooltip>
               )}
