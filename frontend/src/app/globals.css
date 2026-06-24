@@ -1066,6 +1066,18 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -10px rgba(190, 205, 235, 0.12);
 }
 
+/* Fullscreen vertical-fill (2026-06-23): at fullscreen the CM edit host is a
+ * flex child that fills the available height (`flex-1 min-h-0`). CodeMirror's
+ * own `.cm-editor` / `.cm-scroller` default to content-height, so without this
+ * they would not stretch and the paper would still float short. Make the inner
+ * editor fill the host so the writing surface spans top-to-bottom. Width is
+ * untouched (the column measure owns horizontal). Docked is unaffected (no
+ * `.cm-inline-editor-fill`). */
+.cm-inline-editor-fill,
+.cm-inline-editor-fill .cm-editor {
+  height: 100%;
+}
+
 /* Hide the native scrollbar on a viewport that uses the custom overlay thumb
  * (ScrollArea). The component draws its own pill thumb on top. */
 .ros-hide-native-scroll { scrollbar-width: none; }

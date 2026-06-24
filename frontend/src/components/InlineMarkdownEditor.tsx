@@ -1188,13 +1188,19 @@ export default function InlineMarkdownEditor({
   }, [typewriterScroll, focusDimming, loaded]);
 
   return (
-    <div className="h-full overflow-y-auto p-4">
-      <div className={measureClass ?? "w-full"}>
+    <div className={`overflow-y-auto p-4 ${expanded ? "h-full flex flex-col" : "h-full"}`}>
+      {/* Fullscreen vertical-fill (2026-06-23): at fullscreen the writing column
+          grows to fill the available height (flex-1) so the paper spans the
+          surface top-to-bottom instead of floating as a short card in empty
+          space. The horizontal measure (max-w-[Nch] mx-auto) is untouched, so
+          the paper WIDTH is unchanged — only the vertical extent fills. Docked
+          keeps its content-height card. */}
+      <div className={`${measureClass ?? "w-full"} ${expanded ? "flex-1 flex flex-col min-h-0" : ""}`}>
         <div
           ref={hostRef}
           data-testid="inline-markdown-editor"
-          className={`cm-inline-editor light-scope min-h-[12rem] rounded-md border border-border bg-surface-raised ${
-            expanded ? "ros-page-shadow" : ""
+          className={`cm-inline-editor light-scope rounded-md border border-border bg-surface-raised ${
+            expanded ? "cm-inline-editor-fill ros-page-shadow flex-1 min-h-0" : "min-h-[12rem]"
           }`}
         />
         {!loaded && (
