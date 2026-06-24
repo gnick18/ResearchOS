@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { appQueryClient } from "@/lib/query-client";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { FileSystemProvider, useFileSystem, isFileSystemAccessSupported } from "@/lib/file-system/file-system-context";
 import {
   resolveReconnectIntent,
@@ -468,6 +468,9 @@ let entryActionThisLoad: EntryAction | null = null;
 
 function AppContent({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  // Client router for the lapsed-grant card's escape hatch (route to /account
+  // without a full reload). Same primitive AccountFirstRedirect uses.
+  const router = useRouter();
   // The wiki must render before sign-in so new users can read the setup
   // guide and the browser-requirements page on their first visit. Skip
   // every gate below — loading, browser-support, folder-connect — when
@@ -1220,7 +1223,17 @@ function AppContent({ children }: { children: ReactNode }) {
     // Lapsed grant: a single Allow re-permissions the stored handle. Show the
     // focused card, not the generic /account screen. The escape hatch routes to
     // /account (client nav) so a stale or wrong handle never traps the user.
-    if (reconnectIntent?.kind === "lapsed" && reconnectIntent.folderName) {
+    //
+    // Floor compose: on a FRESH OAuth return (?sharingClaim / ?signIn) the login
+    // splash floor is still running for its LOGIN_SPLASH_MIN_MS brand moment. Hold
+    // the splash until the floor elapses, THEN reveal the card, so a fast return
+    // does not flash the card a sub-second before the splash. A plain reload (no
+    // return marker) arms no floor, so the card appears immediately as expected.
+    if (
+      reconnectIntent?.kind === "lapsed" &&
+      reconnectIntent.folderName &&
+      !loginSplashFloorActive
+    ) {
       return (
         <QueryClientProvider client={queryClient}>
           <ReconnectCard
@@ -1228,16 +1241,16 @@ function AppContent({ children }: { children: ReactNode }) {
             onUseAnotherFolder={() => {
               // Client nav to the full account / folder-connect screen, the
               // deliberate place to pick a different folder or sign in as someone
-              // else. A soft nav (not a reload) keeps the SPA warm.
-              window.history.pushState({}, "", "/account");
-              window.dispatchEvent(new PopStateEvent("popstate"));
+              // else. A soft router.push (not a reload) keeps the SPA warm.
+              router.push("/account");
             }}
           />
         </QueryClientProvider>
       );
     }
-    // Unresolved, or a silent reconnect is underway: hold the brand splash across
-    // the whole login -> reconnect -> app transition.
+    // Unresolved, a silent reconnect is underway, or the login splash floor is
+    // still running before a lapsed card: hold the brand splash across the whole
+    // login -> reconnect -> app transition.
     return (
       <StagedLoadingScreen
         stage={loadingStage}
