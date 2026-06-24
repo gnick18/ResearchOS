@@ -1200,7 +1200,7 @@ export default function InlineMarkdownEditor({
           ref={hostRef}
           data-testid="inline-markdown-editor"
           className={`cm-inline-editor light-scope rounded-md border border-border bg-surface-raised ${
-            expanded ? "cm-inline-editor-fill ros-page-shadow flex-1 min-h-0" : "min-h-[12rem]"
+            expanded ? "cm-inline-editor-fill ros-page-shadow-y flex-1 min-h-0" : "min-h-[12rem]"
           }`}
         />
         {!loaded && (

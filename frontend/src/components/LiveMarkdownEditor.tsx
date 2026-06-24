@@ -2703,7 +2703,7 @@ export default function LiveMarkdownEditor({
               {previewValue.trim() ? (
                 <div
                   className={`ros-editor-preview-card light-scope prose prose-sm prose-gray ${measureClass} px-6 py-4 rounded-md border border-border bg-surface-raised ${
-                    expanded ? "ros-page-shadow" : ""
+                    expanded ? "ros-page-shadow-y" : ""
                   }`}
                   style={{ lineHeight: "1.7" }}
                 >

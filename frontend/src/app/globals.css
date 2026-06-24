@@ -1066,6 +1066,23 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 14px 36px -10px rgba(190, 205, 235, 0.12);
 }
 
+/* .ros-page-shadow-y: the TOP/BOTTOM-only sibling of .ros-page-shadow. Grant's
+ * note (2026-06-23): move the paper's raised framing off the LEFT/RIGHT edges and
+ * onto the TOP/BOTTOM edges. A 0-x-offset shadow with a tight blur reads as a
+ * crisp edge on the horizontal sides (top + bottom) and casts ~nothing on the
+ * vertical sides, so the centered column is framed up-and-down, not left-right.
+ * Dark recolors to the same bluish-white edge as .ros-page-shadow. */
+.ros-page-shadow-y {
+  box-shadow:
+    0 -10px 22px -14px rgba(15, 23, 42, 0.22),
+    0 12px 26px -12px rgba(15, 23, 42, 0.22);
+}
+[data-theme="dark"] .ros-page-shadow-y {
+  box-shadow:
+    0 -10px 22px -14px rgba(190, 205, 235, 0.14),
+    0 12px 26px -12px rgba(190, 205, 235, 0.14);
+}
+
 /* Fullscreen vertical-fill (2026-06-23): at fullscreen the CM edit host is a
  * flex child that fills the available height (`flex-1 min-h-0`). CodeMirror's
  * own `.cm-editor` / `.cm-scroller` default to content-height, so without this
