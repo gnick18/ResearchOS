@@ -87,6 +87,7 @@ import {
 import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
+import { SETTINGS_FOLDERLESS_ENABLED } from "@/lib/settings/settings-folderless-config";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -358,6 +359,32 @@ function SettingsBodyInner({
     },
     [currentUser, settings, hydrateFromSettings, queryClient],
   );
+
+  // Phase 1 of the thin-account-settings-home refactor
+  // (docs/proposals/2026-06-24-thin-account-settings-home.md). Behind a flag
+  // (default OFF), a signed-in user with NO data folder still reaches /settings
+  // and sees only the cloud-safe sections (billing + security), plus one calm
+  // card to connect a folder for the workspace, data, and lab settings that need
+  // one. This is a SEPARATE branch that triggers ONLY on flag-on AND not
+  // connected, so when the flag is off OR a folder is connected the page below
+  // is byte identical to today. The folder-scoped section components are not
+  // mounted at all here, so their folder-reading hooks never run.
+  if (SETTINGS_FOLDERLESS_ENABLED && !isConnected) {
+    // Same billing-visibility rule the connected page uses, computed inline here
+    // because this branch runs before the connected page's `canSeeBilling`
+    // const. A claimed local identity OR a cloud (OAuth) session may see billing.
+    const folderlessCanSeeBilling =
+      caps.mode === "account" || hasCloudSession === true;
+    return (
+      <FolderlessSettingsBody
+        canSeeBilling={folderlessCanSeeBilling}
+        disconnect={disconnect}
+        onConnectFolder={() => setShowDataSetup(true)}
+        showDataSetup={showDataSetup}
+        onCloseDataSetup={() => setShowDataSetup(false)}
+      />
+    );
+  }
 
   if (!isConnected || !currentUser) {
     return (
@@ -984,6 +1011,115 @@ function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySa
   if (saving) return <span className="text-meta text-foreground-muted">Saving…</span>;
   if (recentlySaved) return <span className="text-meta text-emerald-600 dark:text-emerald-300">Saved</span>;
   return null;
+}
+
+// ── Folderless Settings (Phase 1, thin-account-settings-home) ────────────────
+//
+// Rendered ONLY when SETTINGS_FOLDERLESS_ENABLED is on AND no data folder is
+// connected (a signed-in user with a cloud session but no folder). It mounts
+// just the CLOUD-SAFE sections (the Usage & billing group, which only hits the
+// /api/billing/* endpoints and the cloud account session, never the folder),
+// gated by canSeeBilling exactly as the connected page gates them. Above them
+// sits one calm card explaining that the workspace, data, and lab settings need
+// a connected folder, with a button that opens the same DataSetupScreen the
+// connected page uses.
+//
+// The folder-scoped section components (Profile, the in-app password Security,
+// Workspace, Data, Lab) are intentionally NOT mounted here, so none of their
+// folder-reading hooks run. The genuine cloud researcher-profile + device-key
+// editor lives inside ProfileSettingsContent, which also reads the folder for
+// its appearance settings and only renders a "connect a folder" placeholder
+// without one, so it is excluded from P1 rather than hacked.
+function FolderlessSettingsBody({
+  canSeeBilling,
+  disconnect,
+  onConnectFolder,
+  showDataSetup,
+  onCloseDataSetup,
+}: {
+  canSeeBilling: boolean;
+  disconnect: () => Promise<void>;
+  onConnectFolder: () => void;
+  showDataSetup: boolean;
+  onCloseDataSetup: () => void;
+}) {
+  return (
+    <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6 md:py-10">
+          {/* Slim header, mirrors the connected page's top bar so the surface
+              feels like the same Settings, just without a folder. */}
+          <div className="mb-6 flex items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <h1 className="text-title font-bold text-foreground">Settings</h1>
+              <VersionBadge />
+            </div>
+            <Tooltip label="Sign out of your account" placement="bottom">
+              <button
+                type="button"
+                onClick={() => void fullSignOut({ disconnect })}
+                className="flex items-center gap-1.5 rounded-lg border border-border px-2.5 py-1.5 text-meta text-foreground-muted transition hover:border-border-strong hover:text-foreground"
+              >
+                <Icon name="logout" className="h-3.5 w-3.5 shrink-0" />
+                <span>Log out</span>
+              </button>
+            </Tooltip>
+          </div>
+
+          {/* The single calm info card. Folder-scoped settings (workspace, data,
+              lab, profile) need a connected folder, so we say so plainly and
+              offer the same connect screen the connected page uses. */}
+          <div className="mb-6 rounded-xl border border-border bg-surface-raised ros-seam p-6">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-foreground-muted">
+                <Icon name="folder" className="h-4.5 w-4.5" />
+              </span>
+              <div className="min-w-0 flex-1">
+                <h2 className="text-title font-semibold text-foreground">
+                  Connect a data folder to configure your workspace, data, and lab settings
+                </h2>
+                <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+                  Your account settings below work without a folder. Appearance,
+                  defaults, your research folder, and lab settings live in a data
+                  folder on your disk. Connect one to manage them.
+                </p>
+                <button
+                  type="button"
+                  onClick={onConnectFolder}
+                  className="ros-btn-raise mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-action px-3 py-2 text-body font-semibold text-white hover:bg-brand-action/90"
+                >
+                  <Icon name="folder" className="h-4 w-4" />
+                  Connect a data folder
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Cloud-safe sections. The Usage & billing group is the only set that
+              renders identically with no folder (pure /api/billing/* + the
+              cloud session). Gated by canSeeBilling, same as the connected page,
+              so a true solo user with no cloud billing sees only the card above
+              plus the rail footer. */}
+          {canSeeBilling ? (
+            <div className="space-y-4">
+              <AiUsageSection />
+              <ModelABilling />
+              <CloudStorageUsageSection />
+              <BillingForecastSection />
+            </div>
+          ) : null}
+
+          <div className="mt-8">
+            <SettingsRailFooter />
+          </div>
+        </div>
+      </div>
+
+      {/* Same connect screen the connected page uses, so connecting from the
+          card drops the user straight onto the full connected Settings. */}
+      <DataSetupScreen isOpen={showDataSetup} onClose={onCloseDataSetup} />
+    </div>
+  );
 }
 
 /**
