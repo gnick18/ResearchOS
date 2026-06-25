@@ -36,8 +36,25 @@ import {
   isRequireAccountEnabled,
   isStandaloneLocalKeypairCreateVisible,
 } from "@/lib/account/require-account";
+import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
 
-export default function ProfileSettingsContent() {
+export interface ProfileSettingsContentProps {
+  /**
+   * Profile consolidation (P2b). When true, this body is rendered as the
+   * RESIDUAL inside the consolidated Settings Profile composition, which mounts
+   * the cloud ProfileEditor and the directory ProfileEditorCard itself. So this
+   * body drops its OWN directory ProfileEditorCard (no double render) and, for a
+   * cloud account, strips the now-duplicate local display-name + ORCID fields
+   * from AppearanceCard. Default false leaves every editor in place, so the
+   * standalone callers (ProfileSettingsModal) are unchanged and solo / no-cloud
+   * users keep their local fields.
+   */
+  omitDirectoryEditor?: boolean;
+}
+
+export default function ProfileSettingsContent({
+  omitDirectoryEditor = false,
+}: ProfileSettingsContentProps = {}) {
   const { currentUser, isConnected } = useFileSystem();
   const sharing = useSharingIdentity();
   // Capability gates (account/cloud/inbox) route through the unified model;
@@ -176,8 +193,11 @@ export default function ProfileSettingsContent() {
 
       {/* Researcher profile (public) leads when the key is on this device, it
           is the friendly thing people edit most. The technical "Account and
-          keys" identity, inbox, and storage sit below it. */}
-      {caps.mode === "account" && <ProfileEditorCard />}
+          keys" identity, inbox, and storage sit below it.
+          P2b: when this body is the residual inside the consolidated Profile
+          composition, that composition mounts the directory ProfileEditorCard
+          itself, so we drop ours here to avoid a double render. */}
+      {caps.mode === "account" && !omitDirectoryEditor && <ProfileEditorCard />}
 
       {/* Cloud storage glance + entry into the consolidated billing popup, right
           under your profile, above the technical account/keys section. The popup
@@ -266,6 +286,15 @@ export default function ProfileSettingsContent() {
           currentUser={currentUser}
           settings={settings}
           update={update}
+          // P2b: inside the consolidated Profile composition, the cloud
+          // ProfileEditor owns display name + ORCID, so strip the duplicate
+          // local fields here for a cloud account. Solo / no-cloud users
+          // (caps.mode !== "account") keep them so they are not stranded.
+          omitIdentityFields={
+            PROFILE_CONSOLIDATION_ENABLED &&
+            omitDirectoryEditor &&
+            caps.mode === "account"
+          }
         />
       )}
 
