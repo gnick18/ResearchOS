@@ -91,12 +91,12 @@ export default function PortalShell({
             {title}
           </span>
           {auth === "in" && email ? (
-            <div className="ml-auto flex items-center gap-2 text-meta text-foreground-muted">
-              <span className="hidden sm:inline">{email}</span>
+            <div className="ml-auto flex min-w-0 items-center gap-3 text-meta text-foreground-muted">
+              <span className="hidden max-w-[38vw] truncate sm:inline">{email}</span>
               <button
                 type="button"
                 onClick={() => void fullSignOut()}
-                className="rounded-lg border border-border bg-surface px-2.5 py-1 text-meta font-semibold text-foreground hover:border-brand-action"
+                className="flex-none rounded-lg border border-border bg-surface px-2.5 py-1 text-meta font-semibold text-foreground hover:border-brand-action"
               >
                 Sign out
               </button>

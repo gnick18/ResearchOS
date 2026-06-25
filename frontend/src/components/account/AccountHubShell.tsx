@@ -1240,8 +1240,8 @@ export default function AccountHubShell() {
           </div>
         )}
 
-        {/* Lab site link (when lab sites are enabled) */}
-        {LAB_SITES_ENABLED && (
+        {/* Lab companion site: lab heads only (they own a lab site). */}
+        {LAB_SITES_ENABLED && isLabHead && (
           <div className="rounded-xl border border-border bg-surface p-4">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-3">
@@ -1456,7 +1456,7 @@ export default function AccountHubShell() {
               Go to
             </p>
             <div className="flex flex-col gap-0.5">
-              {LAB_SITES_ENABLED && (
+              {LAB_SITES_ENABLED && isLabHead && (
                 <RailLink
                   href="/account/lab-site"
                   icon="globe"
