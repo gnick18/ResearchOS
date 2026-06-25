@@ -102,6 +102,10 @@ async function readFolderPrefs(
     prefs.animationType = s.animationType;
     prefs.beakerBotAnimations = s.beakerBotAnimations;
     prefs.coloredHeader = s.coloredHeader;
+    prefs.color = s.color;
+    // colorSecondary defaults to null (solid avatar); only carry a real second
+    // stop so a null never seeds the account or spuriously triggers the popup.
+    if (s.colorSecondary) prefs.colorSecondary = s.colorSecondary;
     prefs.dateFormat = s.dateFormat;
     prefs.timeFormat = s.timeFormat;
     prefs.professionalMode = s.professionalMode;

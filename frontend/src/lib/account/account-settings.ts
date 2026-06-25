@@ -107,6 +107,16 @@ export function mergeAccountOverFolder(
   if (account.coloredHeader !== undefined) {
     next.coloredHeader = account.coloredHeader;
   }
+  // color is a non-null hex on the folder side; only let a real account hex win
+  // (a null / absent account color keeps the folder value).
+  if (account.color != null) {
+    next.color = account.color;
+  }
+  // colorSecondary is nullable on both sides; account null is a deliberate "solid,
+  // no second stop", so it wins when the blob carries the field at all.
+  if (account.colorSecondary !== undefined) {
+    next.colorSecondary = account.colorSecondary;
+  }
   if (account.dateFormat !== undefined) {
     next.dateFormat = account.dateFormat as UserSettings["dateFormat"];
   }
@@ -180,6 +190,8 @@ export interface FolderAccountScopablePrefs {
   animationType?: string;
   beakerBotAnimations?: boolean;
   coloredHeader?: boolean;
+  color?: string | null;
+  colorSecondary?: string | null;
   dateFormat?: string;
   timeFormat?: string;
   professionalMode?: boolean;
@@ -254,6 +266,8 @@ export function liftFolderIntoAccount(
   seedIfAbsent(next, "animationType", folderPrefs.animationType);
   seedIfAbsent(next, "beakerBotAnimations", folderPrefs.beakerBotAnimations);
   seedIfAbsent(next, "coloredHeader", folderPrefs.coloredHeader);
+  seedIfAbsent(next, "color", folderPrefs.color);
+  seedIfAbsent(next, "colorSecondary", folderPrefs.colorSecondary);
   seedIfAbsent(next, "dateFormat", folderPrefs.dateFormat);
   seedIfAbsent(next, "timeFormat", folderPrefs.timeFormat);
   seedIfAbsent(next, "professionalMode", folderPrefs.professionalMode);
@@ -307,6 +321,8 @@ const OPTIONAL_PREF_KEYS = [
   "animationType",
   "beakerBotAnimations",
   "coloredHeader",
+  "color",
+  "colorSecondary",
   "dateFormat",
   "timeFormat",
   "professionalMode",
