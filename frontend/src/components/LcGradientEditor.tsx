@@ -12,6 +12,7 @@ import {
   YAxis,
 } from "recharts";
 import Tooltip from "@/components/Tooltip";
+import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import {
   ADDED_ROW_CLASSES,
   MODIFIED_BADGE_CLASSES,
@@ -445,17 +446,23 @@ export function LcGradientEditor(props: LcGradientEditorProps) {
             Description
           </h4>
           {editable && onDescriptionChange ? (
-            <textarea
-              value={description ?? ""}
-              onChange={(e) => onDescriptionChange(e.target.value || null)}
-              rows={2}
-              placeholder="Optional notes about the method (sample type, expected analytes, references)…"
-              className={`w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            <div
+              className={`rounded-lg border border-border ${
                 originalDescription !== undefined && (description ?? "") !== (originalDescription ?? "")
                   ? MODIFIED_CELL_CLASSES
                   : ""
               }`}
-            />
+            >
+              <LiveMarkdownEditor
+                value={description ?? ""}
+                onChange={(v) => onDescriptionChange(v || null)}
+                placeholder="Optional notes about the method (sample type, expected analytes, references)…"
+                showToolbar={false}
+                showShortcutsHelper={false}
+                compact={true}
+                hideAttachments={true}
+              />
+            </div>
           ) : (
             <p className="text-body text-foreground-muted whitespace-pre-wrap">{description}</p>
           )}

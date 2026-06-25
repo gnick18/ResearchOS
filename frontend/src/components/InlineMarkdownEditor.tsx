@@ -169,6 +169,10 @@ interface InlineMarkdownEditorProps {
    *  column onto a page shadow so it reads as a sheet; the docked editor keeps
    *  its flat box. */
   expanded?: boolean;
+  /** Compact height: shrinks the editor's empty min-height from 12rem to ~4rem
+   *  for small note fields (variation notes, optional object notes) so the box
+   *  is the tiny size of the textarea it replaced, not a full-page editor. */
+  compact?: boolean;
   /** Chip 2b: the directory a relative image src (Images/...) resolves against,
    *  so the inline image widget mints the same blob URL the preview does. When
    *  unset the blobUrlResolver falls back to the data root (wrapper parity). */
@@ -418,6 +422,7 @@ export default function InlineMarkdownEditor({
   onDirtyChange,
   measureClass,
   expanded = false,
+  compact = false,
   imageBasePath,
   embedPinContext,
   loroHandle,
@@ -1200,7 +1205,7 @@ export default function InlineMarkdownEditor({
           ref={hostRef}
           data-testid="inline-markdown-editor"
           className={`cm-inline-editor light-scope rounded-md border border-border bg-surface-raised ${
-            expanded ? "cm-inline-editor-fill ros-page-shadow-y flex-1 min-h-0" : "min-h-[12rem]"
+            expanded ? "cm-inline-editor-fill ros-page-shadow-y flex-1 min-h-0" : compact ? "min-h-[4rem]" : "min-h-[12rem]"
           }`}
         />
         {!loaded && (

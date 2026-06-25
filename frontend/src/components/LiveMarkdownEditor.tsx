@@ -156,6 +156,10 @@ interface LiveMarkdownEditorProps {
   disabled?: boolean;
   /** Whether to show the keyboard shortcuts helper panel */
   showShortcutsHelper?: boolean;
+  /** Compact height for small note fields: shrinks the empty editor's min-height
+   *  so it matches the tiny textarea it replaces instead of a 12rem editor.
+   *  Pair with showToolbar={false} + showShortcutsHelper={false} for a bare box. */
+  compact?: boolean;
   /** Whether to suppress the bottom Images / Files attachment manager strip
    *  entirely (the tab bar, the ImageStrip / FileStrip, and the trash drop
    *  zones). Surfaces that are pure editor space with no file attachments (the
@@ -287,6 +291,7 @@ export default function LiveMarkdownEditor({
   onBrowseImages,
   disabled = false,
   showShortcutsHelper = true,
+  compact = false,
   hideAttachments = false,
   allowAnyFileType = false,
   mode = "inline",
@@ -2914,6 +2919,7 @@ export default function LiveMarkdownEditor({
                   onDirtyChange={onDirtyChange}
                   measureClass={measureClass}
                   expanded={expanded}
+                  compact={compact}
                   imageBasePath={imageBasePath}
                   loroHandle={loroHandle}
                   loroEntryIndex={loroEntryIndex}

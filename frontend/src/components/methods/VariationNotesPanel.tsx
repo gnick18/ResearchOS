@@ -235,6 +235,13 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
   const [isColumnCollapsed, setIsColumnCollapsed] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [content, setContent] = useState(variationNotes || "");
+  // The editor is a small floating popup (not the inline full editor it used to
+  // be, which crammed a toolbar + shortcuts legend into the narrow column and
+  // looked heavy for a quick note). editorPos anchors the popup to the LEFT of
+  // the column (the column hugs the right edge of the pane), reusing the same
+  // open-left placement as the hover summary. panelRef gives us that anchor rect.
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [editorPos, setEditorPos] = useState<{ left: number; top: number } | null>(null);
   // Card whose full note is currently shown in the hover summary popup, plus
   // the on-screen anchor for it.
   const [hoveredEntryIndex, setHoveredEntryIndex] = useState<number | null>(null);
@@ -400,13 +407,20 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
     return `${dateStr} ${timeStr}`;
   };
 
+  // Anchor the editor popup to the left of the column, just under the header.
+  const openEditorPopup = useCallback(() => {
+    const r = panelRef.current?.getBoundingClientRect();
+    setEditorPos(r ? { left: r.left, top: r.top + 40 } : null);
+    setIsEditing(true);
+  }, []);
+
   // Add a new note entry
   const handleAddNote = useCallback(() => {
     const timestamp = generateTimestamp();
     const newEntry = `### Variation - ${timestamp}\n\n`;
     setContent(prev => newEntry + prev);
-    setIsEditing(true);
-  }, []);
+    openEditorPopup();
+  }, [openEditorPopup]);
 
   // Cancel editing — explicit revert to last-saved baseline. Cancels any
   // pending debounced autosave so the just-reverted content isn't
@@ -420,6 +434,17 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
     setIsEditing(false);
     setSaveStatus("idle");
   }, [lastSavedContent]);
+
+  // Escape closes the editor popup (edits are already autosaved). Bound only
+  // while editing so it never swallows Escape elsewhere.
+  useEffect(() => {
+    if (!isEditing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setIsEditing(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isEditing]);
 
   // Delete a single variation entry (in-place; no Edit All needed).
   // Bypasses the debounce — destructive actions should be immediate.
@@ -480,6 +505,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
 
   return (
     <div
+      ref={panelRef}
       className="flex w-[248px] flex-shrink-0 flex-col border-l border-border bg-surface-secondary"
       data-tour-target="experiment-variation-notes"
     >
@@ -522,41 +548,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
 
       {/* Body: editor (when editing) or the scrollable list of entry cards. */}
       <div className="flex-1 overflow-y-auto p-2">
-        {isEditing ? (
-          <div className="space-y-2">
-            <LiveMarkdownEditor
-              value={content}
-              onChange={setContent}
-              placeholder="Write your variation notes in markdown..."
-              showToolbar={true}
-              allowAnyFileType={true}
-              onFileDrop={() => showDropWarning()}
-            />
-            <div className="flex flex-wrap items-center justify-end gap-2">
-              {/* Autosave status indicator. Input is debounced-persisted
-                  (700ms) — the label is the only visible save affordance. */}
-              <SaveStatusIndicator status={saveStatus} hasUnsavedChanges={hasUnsavedChanges} />
-              <Tooltip label="Revert to last saved value">
-                <button
-                  onClick={handleCancel}
-                  disabled={saving}
-                  className="rounded-lg px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </Tooltip>
-              <Tooltip label="Close the editor (your edits are saved automatically)">
-                <button
-                  onClick={() => setIsEditing(false)}
-                  disabled={saving}
-                  className="ros-btn-raise rounded-lg bg-brand-action px-3 py-1.5 text-meta text-white hover:bg-brand-action/90 disabled:opacity-50"
-                >
-                  Done
-                </button>
-              </Tooltip>
-            </div>
-          </div>
-        ) : variationNotes && entries.length > 0 ? (
+        {variationNotes && entries.length > 0 ? (
           <div className="space-y-1.5">
             {entries.map((entry, idx) => {
               // Heading-less leading prologue (legacy data) — no delete button.
@@ -607,7 +599,7 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
             })}
             {variationNotes && !readOnly && (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={openEditorPopup}
                 className="w-full rounded-md px-3 py-1.5 text-meta text-foreground-muted transition-colors hover:bg-surface-raised hover:text-foreground"
               >
                 Edit all
@@ -632,6 +624,76 @@ export default function VariationNotesPanel({ task, methodId, variationNotes, on
           </div>
         )}
       </div>
+
+      {/* Variation-note editor: a small floating popup that is JUST the box (no
+          toolbar, no shortcuts legend), opening to the left of the column. Reuses
+          the living-markdown engine, only stripped down. Edits autosave; closing
+          (Done / backdrop / Escape) keeps them. */}
+      {isEditing && (
+        <>
+          <div
+            className="fixed inset-0 z-40"
+            onClick={() => setIsEditing(false)}
+            aria-hidden="true"
+          />
+          <div
+            className="fixed z-50 w-[300px] rounded-lg border border-border bg-surface-raised shadow-xl"
+            style={
+              editorPos
+                ? { left: `calc(${editorPos.left}px - 312px)`, top: `${editorPos.top}px` }
+                : { left: "50%", top: "18%", transform: "translateX(-50%)" }
+            }
+          >
+            <div className="flex items-center gap-1.5 border-b border-border px-3 py-1.5">
+              <Icon name="pencil" className="h-3.5 w-3.5 text-foreground-muted" />
+              <span className="text-meta font-medium text-foreground">Variation note</span>
+              <Tooltip label="Close (saved automatically)">
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="ml-auto rounded p-1 text-foreground-muted hover:bg-surface-sunken hover:text-foreground"
+                  aria-label="Close note editor"
+                >
+                  <Icon name="x" className="h-3.5 w-3.5" />
+                </button>
+              </Tooltip>
+            </div>
+            <div className="p-2">
+              <LiveMarkdownEditor
+                value={content}
+                onChange={setContent}
+                placeholder="Type a note..."
+                showToolbar={false}
+                showShortcutsHelper={false}
+                compact={true}
+                allowAnyFileType={true}
+                onFileDrop={() => showDropWarning()}
+              />
+              <div className="mt-2 flex items-center gap-2">
+                <SaveStatusIndicator status={saveStatus} hasUnsavedChanges={hasUnsavedChanges} />
+                <Tooltip label="Revert to last saved value">
+                  <button
+                    onClick={handleCancel}
+                    disabled={saving}
+                    className="ml-auto rounded-lg px-2.5 py-1 text-meta text-foreground-muted hover:bg-surface-sunken disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </Tooltip>
+                <Tooltip label="Close (your edits are saved automatically)">
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    disabled={saving}
+                    className="ros-btn-raise rounded-lg bg-brand-action px-3 py-1 text-meta text-white hover:bg-brand-action/90 disabled:opacity-50"
+                  >
+                    Done
+                  </button>
+                </Tooltip>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Hover summary popup — full note text next to the hovered card. */}
       {!isEditing && hoveredEntry && (

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Tooltip from "@/components/Tooltip";
+import LiveMarkdownEditor from "@/components/LiveMarkdownEditor";
 import GridCanvas, {
   rowLabel,
   wellId,
@@ -625,17 +626,23 @@ export default function PlateLayoutEditor(props: PlateLayoutEditorProps) {
             Description
           </h4>
           {editable && onDescriptionChange ? (
-            <textarea
-              value={description ?? ""}
-              onChange={(e) => onDescriptionChange(e.target.value || null)}
-              rows={2}
-              placeholder="Optional notes about the plate (assay type, expected readout, references)…"
-              className={`w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+            <div
+              className={`rounded-lg border border-border ${
                 originalDescription !== undefined && (description ?? "") !== (originalDescription ?? "")
                   ? MODIFIED_CELL_CLASSES
                   : ""
               }`}
-            />
+            >
+              <LiveMarkdownEditor
+                value={description ?? ""}
+                onChange={(v) => onDescriptionChange(v || null)}
+                placeholder="Optional notes about the plate (assay type, expected readout, references)…"
+                showToolbar={false}
+                showShortcutsHelper={false}
+                compact={true}
+                hideAttachments={true}
+              />
+            </div>
           ) : (
             <p className="text-body text-foreground-muted whitespace-pre-wrap">{description}</p>
           )}

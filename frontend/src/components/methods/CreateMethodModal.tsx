@@ -1279,13 +1279,17 @@ export function CreateMethodModal({
                   <h4 className="text-body font-semibold text-foreground mb-2">
                     Notes (optional)
                   </h4>
-                  <textarea
-                    value={pcrNotes}
-                    onChange={(e) => setPcrNotes(e.target.value)}
-                    rows={2}
-                    className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    placeholder="Any additional notes..."
-                  />
+                  <div className="rounded-lg border border-border">
+                    <LiveMarkdownEditor
+                      value={pcrNotes}
+                      onChange={setPcrNotes}
+                      placeholder="Any additional notes..."
+                      showToolbar={false}
+                      showShortcutsHelper={false}
+                      compact={true}
+                      hideAttachments={true}
+                    />
+                  </div>
                 </div>
               </div>
             )}

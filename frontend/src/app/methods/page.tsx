@@ -2988,13 +2988,17 @@ function PcrViewer({
                     Notes
                   </h4>
                 </div>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                  className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="Any additional notes..."
-                />
+                <div className="rounded-lg border border-border">
+                  <LiveMarkdownEditor
+                    value={notes}
+                    onChange={setNotes}
+                    placeholder="Any additional notes..."
+                    showToolbar={false}
+                    showShortcutsHelper={false}
+                    compact={true}
+                    hideAttachments={true}
+                  />
+                </div>
               </div>
             </div>
           ) : null}
