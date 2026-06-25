@@ -200,14 +200,6 @@ export default function MigrationGate() {
   // lab head (one user) is deliberately excluded, see useIsMultiUserFolder.
   if (!currentUser || !isMultiUser) return null;
 
-  // A chosen flow takes over (its own confirm + progress + result).
-  if (mode === "convert") {
-    return <MigrateToSoloModal primaryUser={currentUser} onClose={() => setMode(null)} onComplete={onComplete} />;
-  }
-  if (mode === "selfexport") {
-    return <SelfExportModal username={currentUser} onClose={() => setMode(null)} onComplete={onComplete} />;
-  }
-
   // Flag OFF: the legacy unlimited-dismiss boolean suppresses the gate forever
   // (byte-identical to before). Flag ON (phase-out): IGNORE the legacy boolean so
   // a user who dismissed the old always-dismissible gate BEFORE the flag flip is
@@ -215,25 +207,56 @@ export default function MigrationGate() {
   // out of the forced migration (the exact existing-folder population the
   // phase-out targets). Grace, started fresh by the effect above when no grace
   // key exists yet, then governs whether the "Keep it shared for now" dismiss is
-  // offered. The blocking state and the disconnect escape are unchanged.
-  if (dismissed && !SINGLE_USER_FOLDERS_ENABLED) return null;
+  // offered. The blocking state and the disconnect escape are unchanged. A flow
+  // already in progress (mode set) is never short-circuited to null here.
+  if (dismissed && !SINGLE_USER_FOLDERS_ENABLED && mode === null) return null;
 
   // No designated main user => treat the connecting user as the owner so the
   // folder can always be converted by someone.
   const isOwner = mainUser == null || currentUser === mainUser;
 
+  // ONE living popup hosts the whole flow. The nudge AND the chosen flow's
+  // preview + confirm + progress render as a continuous swap inside the SAME
+  // LivingPopup, so the user never sees a close-then-reopen or a double entrance
+  // animation (Grant 2026-06-25: "the convert to single user popup twice"). The
+  // chromeless modal hands back just its body; the gate keeps owning the blocking
+  // chrome, and its inner Cancel returns here to the nudge rather than closing.
+  const livingLabel =
+    mode === "convert"
+      ? "Convert this folder to single-user"
+      : mode === "selfexport"
+        ? "Take your data to your own folder"
+        : isOwner
+          ? "Make this your own folder"
+          : "This is a shared lab folder";
+
   return (
     <LivingPopup
       open
       onClose={() => {}}
-      label={isOwner ? "Make this your own folder" : "This is a shared lab folder"}
-      widthClassName="max-w-xl"
+      label={livingLabel}
+      widthClassName={mode === null ? "max-w-xl" : "max-w-2xl"}
       padded
       elevated
       showClose={false}
       closeOnEscape={false}
       closeOnScrimClick={false}
     >
+      {mode === "convert" ? (
+        <MigrateToSoloModal
+          chromeless
+          primaryUser={currentUser}
+          onClose={() => setMode(null)}
+          onComplete={onComplete}
+        />
+      ) : mode === "selfexport" ? (
+        <SelfExportModal
+          chromeless
+          username={currentUser}
+          onClose={() => setMode(null)}
+          onComplete={onComplete}
+        />
+      ) : (
       <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <span className="text-brand-sky">
@@ -265,14 +288,12 @@ export default function MigrationGate() {
 
         {isOwner ? (
           <>
+            {/* Just the choice here. The preview screen that opens on Convert
+                spells out exactly what moves, so the gate no longer repeats it. */}
             <p className="text-body text-foreground">
               ResearchOS now works best as one folder per person, and this folder is still set up for several people.
-              You can convert it into your own single-user folder, which is faster and simpler to work in.
-            </p>
-            <p className="text-meta text-foreground-muted">
-              Everyone else is packaged into a portable copy you can hand them, their originals move to a recoverable
-              Trash, and your own data is untouched. You will see exactly what moves before anything happens, and
-              nothing is deleted.
+              You can convert it into your own single-user folder, which is faster and simpler to work in. You will see
+              exactly what moves before anything happens, and nothing is deleted.
             </p>
             {SINGLE_USER_FOLDERS_ENABLED && dismissible && (
               <p className="text-meta text-foreground-muted">
@@ -299,13 +320,12 @@ export default function MigrationGate() {
           </>
         ) : (
           <>
+            {/* Just the choice here. The preview screen that opens on Take-my-data
+                spells out exactly what moves, so the gate no longer repeats it. */}
             <p className="text-body text-foreground">
               ResearchOS now works best as one folder per person, and you are sharing this folder with others. You
               can take your own data into your own folder to work solo, and everyone else keeps this folder as it is.
-            </p>
-            <p className="text-meta text-foreground-muted">
-              Your data is copied into a portable folder you open as your own workspace, and your originals move to a
-              recoverable Trash here. You will see exactly what moves before anything happens, and nothing is deleted.
+              You will see exactly what moves before anything happens, and nothing is deleted.
             </p>
             {SINGLE_USER_FOLDERS_ENABLED && dismissible && (
               <p className="text-meta text-foreground-muted">
@@ -344,6 +364,7 @@ export default function MigrationGate() {
           </button>
         </div>
       </div>
+      )}
     </LivingPopup>
   );
 }
