@@ -28,6 +28,7 @@ import {
 } from "@/lib/file-system/drop-folder";
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { LAB_SITES_ENABLED } from "@/lib/social/config";
+import { THIN_ACCOUNT_ENABLED } from "@/lib/account/thin-account-config";
 import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
 import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
@@ -1454,6 +1455,242 @@ export default function AccountHubShell() {
     { id: "labs", icon: "vial", label: "Your labs" },
     { id: "security", icon: "lock", label: "Security" },
   ];
+
+  // ---------------------------------------------------------------------------
+  // Thin launcher (Phase 4, behind THIN_ACCOUNT_ENABLED).
+  //
+  // Now that Settings owns identity, billing, and security, the Account hub
+  // becomes a single-column LAUNCHER. It reuses the same hooks/state/handlers as
+  // the full shell (currentUser, profile, billingStatus, rememberedFolders /
+  // directoryName / onSwitchFolder, the connect drag-drop handlers, isConnected
+  // / enterApp, isLabHead, networkProfileUrl, LAB_SITES_ENABLED). It renders
+  // ONLY a display-only identity header, the Folders card, a compact Go-to list,
+  // and the lab companion card for heads. Everything else moved to Settings.
+  //
+  // NOTE: there is intentionally no security / key-setup affordance here (that
+  // lands in Settings in P3, not yet built), so this flag must only be flipped
+  // together with P1 + P2 + P3.
+  if (THIN_ACCOUNT_ENABLED) {
+    return (
+      <div className="w-full px-4 py-6 sm:px-6 lg:px-10">
+        <div className="mx-auto w-full max-w-2xl space-y-6">
+          {/* 1. Identity header, display only (edit lives in Settings) */}
+          <div className="rounded-2xl border border-border bg-surface p-5">
+            <div className="flex items-center gap-4">
+              <ProfileAvatar
+                avatarUrl={profile?.avatarUrl ?? null}
+                name={profile?.displayName ?? profile?.handle ?? welcomeName}
+                sizePx={56}
+              />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="truncate text-title font-bold text-foreground">
+                    {profile?.displayName ??
+                      (profile?.handle
+                        ? `@${profile.handle}`
+                        : (welcomeName ?? "Your account"))}
+                  </span>
+                  <RoleChip role={deriveRoleChip()} />
+                </div>
+                {profile?.handle && (
+                  <span className="block truncate text-meta font-semibold text-brand-purple">
+                    @{profile.handle}
+                  </span>
+                )}
+              </div>
+            </div>
+            <Link
+              href="/settings"
+              className="mt-4 inline-flex items-center gap-2 text-meta font-semibold text-brand-action hover:underline"
+            >
+              <Icon name="gauge" className="h-4 w-4" />
+              Edit your profile, plan, and security in Settings
+            </Link>
+          </div>
+
+          {/* 2. Folders card (primary action). Lifted from renderOverview:
+              linked-folders list + Add-folder click + drag-drop zone, plus the
+              existing Open ResearchOS enter-the-app action when connected. */}
+          <div className="rounded-xl border border-border bg-surface p-4">
+            <p className="text-body font-semibold text-foreground">Folders</p>
+            <p className="mt-0.5 text-meta text-foreground-muted">
+              {rememberedFolders.length > 0
+                ? "Research folders linked on this computer. Open one to switch into it, or add another."
+                : "Link a research folder on this computer to start working. Your data stays on your machine, never on our servers."}
+            </p>
+
+            {rememberedFolders.length > 0 && (
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {rememberedFolders.map((f) => {
+                  const isActive =
+                    !!directoryName && f.name === directoryName;
+                  const badge = folderKindBadge(f);
+                  return (
+                    <li key={f.id}>
+                      <button
+                        type="button"
+                        onClick={() => void onSwitchFolder(f.id)}
+                        disabled={!!switchingId}
+                        aria-current={isActive || undefined}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors disabled:opacity-60 ${
+                          isActive
+                            ? "border-brand-action/40 bg-brand-action/5"
+                            : "border-border bg-surface hover:border-brand-action"
+                        }`}
+                      >
+                        <Icon
+                          name={folderKindIcon(f)}
+                          className="h-5 w-5 flex-none text-foreground-muted"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-meta font-semibold text-foreground">
+                            {folderDisplayName(f)}
+                          </span>
+                          <span
+                            className={`text-meta font-medium ${
+                              KIND_TEXT_CLASS[badge.token] ??
+                              "text-foreground-muted"
+                            }`}
+                          >
+                            {badge.label}
+                          </span>
+                        </span>
+                        {isActive ? (
+                          <span className="flex flex-none items-center gap-1 text-meta font-semibold text-brand-action">
+                            <Icon name="check" className="h-3.5 w-3.5" />
+                            Active
+                          </span>
+                        ) : switchingId === f.id ? (
+                          <span className="flex-none text-meta text-foreground-muted">
+                            Opening&hellip;
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+
+            {/* Add affordance: click button AND drop target. Reuses the connect
+                drag-drop handlers. */}
+            <div
+              onDragEnter={handleDragEnter}
+              onDragOver={handleDragOver}
+              onDragLeave={handleDragLeave}
+              onDrop={(e) => void handleDrop(e)}
+              className={`mt-3 flex flex-col items-start gap-2 rounded-xl border border-dashed p-4 transition-all ${
+                isDragOver
+                  ? "border-2 border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+                  : "border-border bg-surface-sunken"
+              }`}
+            >
+              {isDragOver ? (
+                <p className="text-meta font-semibold text-blue-700 dark:text-blue-100">
+                  Release to link this folder
+                </p>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void onAddFolder()}
+                    disabled={connecting}
+                    className="ros-btn-raise inline-flex items-center gap-2 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
+                  >
+                    <Icon name="plus" className="h-4 w-4" />
+                    {connecting ? "Opening…" : "Add folder"}
+                  </button>
+                  <span className="text-meta text-foreground-subtle">
+                    or drag a folder here
+                  </span>
+                </>
+              )}
+            </div>
+            {dropError && (
+              <p
+                role="alert"
+                className="mt-2 text-meta text-red-600 dark:text-red-300"
+              >
+                {dropError}
+              </p>
+            )}
+
+            {/* Enter-the-app action surfaced when a folder is already connected. */}
+            {isConnected && (
+              <button
+                type="button"
+                onClick={() => enterApp()}
+                className="ros-btn-raise mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
+              >
+                <Icon name="library" className="h-4 w-4" />
+                Open ResearchOS
+              </button>
+            )}
+          </div>
+
+          {/* 3. Go-to links (reuses the existing RailLink targets) */}
+          <div className="rounded-xl border border-border bg-surface p-3">
+            <p className="mb-1 px-2.5 text-[10.5px] font-semibold uppercase tracking-wide text-foreground-muted">
+              Go to
+            </p>
+            <div className="flex flex-col gap-0.5">
+              <RailLink href="/settings" icon="gauge" label="Settings" />
+              <Tooltip
+                label={
+                  profile?.handle
+                    ? `Your public profile at /u/${profile.handle}`
+                    : "Researcher directory"
+                }
+              >
+                <RailLink
+                  href={networkProfileUrl}
+                  icon="network"
+                  label="Network profile"
+                  external={!!profile?.handle}
+                />
+              </Tooltip>
+              {LAB_SITES_ENABLED && isLabHead && (
+                <RailLink
+                  href="/account/lab-site"
+                  icon="globe"
+                  label="Lab site"
+                />
+              )}
+              <RailLink href="/" icon="library" label="Back to app" />
+            </div>
+          </div>
+
+          {/* 4. Lab companion site card (lab heads only). Lifted from renderLabs. */}
+          {LAB_SITES_ENABLED && isLabHead && (
+            <div className="rounded-xl border border-border bg-surface p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <Icon
+                    name="globe"
+                    className="h-5 w-5 shrink-0 text-brand-action"
+                  />
+                  <div>
+                    <p className="text-body font-semibold text-foreground">
+                      Lab companion site
+                    </p>
+                    <p className="text-meta text-foreground-muted">
+                      Your lab&apos;s public page on research-os.com.
+                    </p>
+                  </div>
+                </div>
+                <Link
+                  href="/account/lab-site"
+                  className="flex-none rounded-lg border border-border px-3 py-1.5 text-meta font-semibold text-foreground hover:border-brand-action"
+                >
+                  Manage
+                </Link>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="w-full px-4 py-6 sm:px-6 lg:px-10">
