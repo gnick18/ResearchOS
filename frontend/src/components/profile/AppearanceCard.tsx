@@ -22,10 +22,19 @@ export default function AppearanceCard({
   currentUser,
   settings,
   update,
+  omitIdentityFields = false,
 }: {
   currentUser: string;
   settings: UserSettings;
   update: (patch: Partial<UserSettings>) => Promise<void>;
+  /**
+   * Profile consolidation (P2b). When true, the local display-name editor row
+   * and the local ORCID field are dropped from this card because the cloud
+   * ProfileEditor now owns those identity fields. The color picker and header
+   * tint stay, so this card is still the home of pure appearance. Default false
+   * keeps both fields so solo / no-cloud users are never stranded.
+   */
+  omitIdentityFields?: boolean;
 }) {
   const [draftName, setDraftName] = useState(settings.displayName ?? "");
 
@@ -71,39 +80,41 @@ export default function AppearanceCard({
           </div>
         </div>
 
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <label className="text-meta font-medium text-foreground">
-              Display name
-            </label>
-            {nameOver > 0 && (
-              <span className="text-meta text-red-600 dark:text-red-400" role="alert">
-                {nameOver} over limit
-              </span>
-            )}
+        {!omitIdentityFields && (
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <label className="text-meta font-medium text-foreground">
+                Display name
+              </label>
+              {nameOver > 0 && (
+                <span className="text-meta text-red-600 dark:text-red-400" role="alert">
+                  {nameOver} over limit
+                </span>
+              )}
+            </div>
+            <input
+              type="text"
+              value={draftName}
+              placeholder={currentUser}
+              maxLength={MAX_LENGTH_NAME + 20}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitName}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+              }}
+              className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                nameOver > 0
+                  ? "border-red-400 focus:ring-red-300"
+                  : "border-border"
+              }`}
+            />
+            <p className="text-meta text-foreground-muted mt-1">
+              Leave blank to use your folder name ({currentUser}). Max {MAX_LENGTH_NAME} characters.
+            </p>
           </div>
-          <input
-            type="text"
-            value={draftName}
-            placeholder={currentUser}
-            maxLength={MAX_LENGTH_NAME + 20}
-            onChange={(e) => setDraftName(e.target.value)}
-            onBlur={commitName}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-            }}
-            className={`w-full px-3 py-2 border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              nameOver > 0
-                ? "border-red-400 focus:ring-red-300"
-                : "border-border"
-            }`}
-          />
-          <p className="text-meta text-foreground-muted mt-1">
-            Leave blank to use your folder name ({currentUser}). Max {MAX_LENGTH_NAME} characters.
-          </p>
-        </div>
+        )}
 
-        <OrcidField currentUser={currentUser} />
+        {!omitIdentityFields && <OrcidField currentUser={currentUser} />}
 
         <ColorPickerRows
           currentUser={currentUser}

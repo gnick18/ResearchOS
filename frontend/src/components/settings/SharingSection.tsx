@@ -953,7 +953,16 @@ function isValidOrcid(v: string): boolean {
 // The researcher profile editor, now rendered on the dedicated /profile page
 // (2026-06-05). Exported for that page. Gate on a ready identity at the call
 // site, the editor assumes a published identity exists.
-export function ProfileEditorCard() {
+export function ProfileEditorCard({
+  title = "Your researcher profile",
+  description = "This is your profile on ResearchOS. Other researchers can find you by name or institution, and you control what it shows.",
+}: {
+  /** Card heading. The consolidated Profile composition (P2b) relabels this to
+   *  "Researcher directory listing" so it reads as the directory entry next to
+   *  the cloud ProfileEditor, which owns the canonical identity. */
+  title?: string;
+  description?: string;
+} = {}) {
   const [editing, setEditing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -1108,8 +1117,8 @@ export function ProfileEditorCard() {
   return (
     <Card
       id="researcher-profile"
-      title="Your researcher profile"
-      description="This is your profile on ResearchOS. Other researchers can find you by name or institution, and you control what it shows."
+      title={title}
+      description={description}
     >
       {loading && (
         <p className="text-body text-foreground-muted">Loading your profile…</p>

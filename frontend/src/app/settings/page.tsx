@@ -88,10 +88,16 @@ import { useSharingIdentity } from "@/hooks/useSharingIdentity";
 import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import { SETTINGS_FOLDERLESS_ENABLED } from "@/lib/settings/settings-folderless-config";
+import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
 import ProfileSettingsContent from "@/components/profile/ProfileSettingsContent";
+import ProfileEditor from "@/components/profile/ProfileEditor";
+import { ProfileEditorCard } from "@/components/settings/SharingSection";
+import { getUserMetadata } from "@/lib/file-system/user-metadata";
+import { fetchMyProfile } from "@/lib/sharing/profile";
+import type { AccountCapabilities } from "@/hooks/useAccountCapabilities";
 import AiUsageSection from "@/components/settings/sections/AiUsageSection";
 import CloudStorageUsageSection from "@/components/settings/sections/CloudStorageUsageSection";
 import BillingForecastSection from "@/components/settings/sections/BillingForecastSection";
@@ -375,9 +381,17 @@ function SettingsBodyInner({
     // const. A claimed local identity OR a cloud (OAuth) session may see billing.
     const folderlessCanSeeBilling =
       caps.mode === "account" || hasCloudSession === true;
+    // P2b: the consolidated cloud Profile editor is folder-free, so it can sit
+    // on the folderless surface above billing for any signed-in user (a cloud
+    // OAuth session OR a claimed local account). Flag-gated; OFF leaves the
+    // folderless body billing-only exactly as P1 shipped it.
+    const folderlessShowProfile =
+      PROFILE_CONSOLIDATION_ENABLED &&
+      (hasCloudSession === true || caps.mode === "account");
     return (
       <FolderlessSettingsBody
         canSeeBilling={folderlessCanSeeBilling}
+        showProfile={folderlessShowProfile}
         disconnect={disconnect}
         onConnectFolder={() => setShowDataSetup(true)}
         showDataSetup={showDataSetup}
@@ -444,7 +458,18 @@ function SettingsBodyInner({
           // Folds the old /profile page fully in (appearance, researcher
           // profile, public-profile card, account and keys). Same component the
           // /profile route renders, so all of its flows are preserved.
-          render: () => <ProfileSettingsContent />,
+          //
+          // P2b (profile consolidation, flag-gated): when ON, the cloud account
+          // identity gets its own ProfileEditor at the top, the directory listing
+          // sits next to it (relabeled), and the residual ProfileSettingsContent
+          // drops its own directory card + the duplicate local identity fields.
+          // When OFF this is byte-identical to ProfileSettingsContent alone.
+          render: () =>
+            PROFILE_CONSOLIDATION_ENABLED ? (
+              <ConsolidatedProfileSection caps={caps} />
+            ) : (
+              <ProfileSettingsContent />
+            ),
         },
         {
           id: "account",
@@ -1032,12 +1057,15 @@ function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySa
 // without one, so it is excluded from P1 rather than hacked.
 function FolderlessSettingsBody({
   canSeeBilling,
+  showProfile,
   disconnect,
   onConnectFolder,
   showDataSetup,
   onCloseDataSetup,
 }: {
   canSeeBilling: boolean;
+  /** P2b: render the folder-free cloud Profile block above billing. */
+  showProfile: boolean;
   disconnect: () => Promise<void>;
   onConnectFolder: () => void;
   showDataSetup: boolean;
@@ -1095,6 +1123,26 @@ function FolderlessSettingsBody({
             </div>
           </div>
 
+          {/* P2b: the cloud Profile block, above billing. ProfileEditor is fully
+              folder-free (reads + writes only /api/account/profile), and the
+              directory ProfileEditorCard is folder-free apart from a guarded,
+              caught badge-metrics read. We only show the directory card here when
+              a listing already exists (never auto-create on the folderless
+              surface), so a signed-in user can edit their identity without a
+              folder. Flag-gated by showProfile. */}
+          {showProfile ? (
+            <div className="mb-6 space-y-4">
+              <ProfileEditor />
+              <FolderlessDirectoryListing />
+              {/* One-time idempotent ORCID up-migration. Folder-free here (it
+                  reads no local metadata when no folder is connected), so it is a
+                  safe no-op on the folderless surface and only does real work on
+                  the connected surface. Mounted for symmetry with the connected
+                  composition. */}
+              <ProfileOrcidUpMigration />
+            </div>
+          ) : null}
+
           {/* Cloud-safe sections. The Usage & billing group is the only set that
               renders identically with no folder (pure /api/billing/* + the
               cloud session). Gated by canSeeBilling, same as the connected page,
@@ -1120,6 +1168,148 @@ function FolderlessSettingsBody({
       <DataSetupScreen isOpen={showDataSetup} onClose={onCloseDataSetup} />
     </div>
   );
+}
+
+// ── Consolidated Profile (P2b, flag-gated) ──────────────────────────────────
+//
+// The connected Settings "Profile & appearance" section, recomposed when
+// PROFILE_CONSOLIDATION_ENABLED is on. The cloud account identity gets its own
+// folder-free ProfileEditor at the top (the canonical store that drives
+// /u/<handle>). The older directory listing (PublishedProfile, edited by
+// ProfileEditorCard) sits next to it, relabeled, for cloud accounts only. The
+// residual ProfileSettingsContent renders below with its OWN directory card +
+// duplicate local identity fields omitted, so nothing double-renders and a solo
+// / no-cloud user still keeps their local ORCID + display-name editors.
+//
+// `caps` is threaded in from the page so the directory listing + identity-field
+// stripping gate on the same caps.mode the rest of the page reads.
+function ConsolidatedProfileSection({
+  caps,
+}: {
+  caps: AccountCapabilities;
+}) {
+  return (
+    <div className="space-y-6">
+      {/* The canonical cloud identity. Folder-free, so it loads + saves the same
+          way regardless of the connected folder. */}
+      <ProfileEditor />
+
+      {/* The directory listing (the separate, older PublishedProfile that powers
+          /researchers search). Relabeled so it reads as the directory entry next
+          to the identity editor above. Cloud-account only, mirroring the gate the
+          residual body used for this exact card. */}
+      {caps.mode === "account" && (
+        <ProfileEditorCard
+          title="Researcher directory listing"
+          description="Your entry in the ResearchOS researcher directory. Other researchers can find you by name or institution, and you control what it shows."
+        />
+      )}
+
+      {/* The rest of the old Profile body (color, header tint, account + keys,
+          inbox, storage), with its own directory card + the now-duplicate local
+          display-name + ORCID fields omitted for a cloud account. */}
+      <ProfileSettingsContent omitDirectoryEditor />
+
+      {/* One-time idempotent ORCID up-migration (Step 6). Mounts here so it runs
+          when the consolidated Profile section is shown on the connected surface. */}
+      <ProfileOrcidUpMigration />
+    </div>
+  );
+}
+
+// ── Folderless directory listing (P2b) ──────────────────────────────────────
+//
+// On the folderless surface we render the directory ProfileEditorCard ONLY when
+// a listing already exists, never auto-creating one. This probes fetchMyProfile
+// once and renders the card (which self-loads again) when a listing is found.
+function FolderlessDirectoryListing() {
+  const [hasListing, setHasListing] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void fetchMyProfile().then((p) => {
+      if (alive) setHasListing(p !== null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  if (hasListing !== true) return null;
+  return (
+    <ProfileEditorCard
+      title="Researcher directory listing"
+      description="Your entry in the ResearchOS researcher directory. Other researchers can find you by name or institution, and you control what it shows."
+    />
+  );
+}
+
+// ── ORCID up-migration (Step 6, P2b, flag-gated) ────────────────────────────
+//
+// One-time, idempotent. On mount, when a cloud account exists AND its
+// account_profiles.links.orcid is EMPTY AND the local _user_metadata.json orcid
+// is set, POST the local value up to /api/account/profile so a user's
+// already-entered ORCID flows into the canonical cloud store. Guarded on
+// cloud-empty so it never overwrites a cloud ORCID (idempotent), and TRASH-NOT-
+// DELETE: the local value is left in place as the offline fallback. Any failure
+// (offline, signed out, no folder) is swallowed; this never throws and never
+// blocks the surface. The flag gate lives at the call sites (this only mounts
+// when the consolidated Profile is shown).
+function ProfileOrcidUpMigration() {
+  const { currentUser } = useFileSystem();
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        // Read the cloud profile. No account / unreachable -> bail (nothing to
+        // migrate into).
+        const res = await fetch("/api/account/profile");
+        if (!alive || !res.ok) return;
+        const data = (await res.json().catch(() => ({}))) as {
+          profile?: {
+            handle?: string;
+            displayName?: string | null;
+            affiliation?: string | null;
+            links?: Record<string, string | null> | null;
+          } | null;
+        };
+        const profile = data.profile;
+        // No claimed account row yet -> nothing to up-migrate into. (We never
+        // auto-claim a handle from a migration.)
+        if (!alive || !profile || !profile.handle) return;
+        const cloudOrcid = profile.links?.orcid;
+        // Cloud-empty guard: only fill when the cloud has no ORCID. Idempotent,
+        // a second run finds the value set and no-ops.
+        if (typeof cloudOrcid === "string" && cloudOrcid.trim()) return;
+
+        // Read the local value. No folder connected (folderless) -> getUserMetadata
+        // returns null and we no-op, which is the right behavior there.
+        if (!currentUser) return;
+        const entry = await getUserMetadata(currentUser);
+        const localOrcid = entry?.orcid;
+        if (!alive || typeof localOrcid !== "string" || !localOrcid.trim()) {
+          return;
+        }
+
+        // Up-migrate: POST links merged so we never clobber researchgate / website.
+        await fetch("/api/account/profile", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            handle: profile.handle,
+            displayName: profile.displayName ?? "",
+            affiliation: profile.affiliation ?? "",
+            links: { ...(profile.links ?? {}), orcid: localOrcid.trim() },
+          }),
+        });
+        // TRASH-NOT-DELETE: leave the local _user_metadata.json orcid in place.
+      } catch {
+        // Migration is best-effort; failures fall back to the existing behavior.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [currentUser]);
+  return null;
 }
 
 /**

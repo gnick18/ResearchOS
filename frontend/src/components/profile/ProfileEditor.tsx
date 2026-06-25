@@ -35,6 +35,12 @@ import {
   BIO_MAX_CHARS,
   type ProfileLinks,
 } from "@/lib/account/account-profile-validation";
+import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
+import {
+  fetchMyProfile,
+  publishProfile,
+  type ProfileData,
+} from "@/lib/sharing/profile";
 
 // Local mirror of the cloud profile shape so this client component reads the
 // /api/account/profile JSON without importing the Neon-backed account-profile.ts
@@ -90,6 +96,11 @@ export default function ProfileEditor({
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Soft, non-blocking notice. Used by the Option A directory auto-republish
+  // (P2b step 7): the account_profiles save succeeded but mirroring the new
+  // identity fields into the directory listing failed. The save is NOT rolled
+  // back; we just tell the user the directory will catch up on its next edit.
+  const [notice, setNotice] = useState<string | null>(null);
 
   // Self-load from the cloud profile on mount. When the row is unclaimed the
   // route returns a suggested handle, which we seed so a first save can claim it.
@@ -141,8 +152,53 @@ export default function ProfileEditor({
     }
   };
 
+  // Option A directory auto-republish (P2b step 7). Mirrors the just-saved
+  // identity (display name / affiliation / ORCID) from the canonical account
+  // profile into the EXISTING directory listing, if one exists. Gated on the
+  // consolidation flag so it only runs in the consolidated flow (it also no-ops
+  // when there is no listing, so it is always safe). NEVER auto-creates a
+  // listing, and NEVER clobbers a directory-only field: the payload is the
+  // fetched listing spread, with ONLY the 3 identity fields overridden.
+  const republishDirectoryListing = async (saved: AccountProfile) => {
+    if (!PROFILE_CONSOLIDATION_ENABLED) return;
+    try {
+      const listing = await fetchMyProfile();
+      // No listing -> do nothing (never auto-create).
+      if (!listing) return;
+      // Carry EVERY directory-only field forward verbatim by spreading the
+      // re-fetched listing, then override ONLY the 3 identity fields from the
+      // canonical save. fetchMyProfile already coerces notifyOnCollabInvite to a
+      // default; the optional badge id lists default to [] so the wire payload +
+      // signature stay byte-stable. fingerprint / affiliationDomain / updatedAt
+      // live on PublishedProfile but not on ProfileData, so they are naturally
+      // dropped (the server recomputes them), never sent stale.
+      const payload: ProfileData = {
+        ...listing,
+        displayName: saved.displayName ?? listing.displayName,
+        affiliation: saved.affiliation ?? null,
+        orcid: saved.links.orcid ?? null,
+        notifyOnCollabInvite: listing.notifyOnCollabInvite ?? true,
+        earnedBadgeIds: listing.earnedBadgeIds ?? [],
+        pinnedBadgeIds: listing.pinnedBadgeIds ?? [],
+      };
+      const result = await publishProfile(payload);
+      if (!result.ok) {
+        setNotice(
+          "Profile saved. Your directory listing will update on your next edit.",
+        );
+      }
+    } catch {
+      // Best-effort mirror. The canonical save already succeeded, so a directory
+      // hiccup is a soft notice, never a rollback.
+      setNotice(
+        "Profile saved. Your directory listing will update on your next edit.",
+      );
+    }
+  };
+
   const save = async () => {
     setError(null);
+    setNotice(null);
 
     // Client-side pre-gates, reusing the same pure validators the server runs.
     const bioErr = validateBio(bio.trim());
@@ -192,6 +248,15 @@ export default function ProfileEditor({
         setProfile(data.profile);
         setAvatarDraft(undefined);
         setAvatarError(null);
+        // Option A directory auto-republish (P2b step 7). The canonical account
+        // profile is the source of truth, but the SEPARATE, older directory
+        // listing (PublishedProfile, what powers /researchers search) carries
+        // its own copy of display name / affiliation / ORCID. When a listing
+        // already exists, mirror just those 3 fields into it so a name change
+        // here shows up in search, carrying EVERY directory-only field forward
+        // verbatim. Never auto-creates a listing, and a failure here never rolls
+        // back the account_profiles save above.
+        await republishDirectoryListing(data.profile);
         onSaved?.();
       } else {
         setError(data.error ?? `Could not save (HTTP ${res.status})`);
@@ -367,6 +432,15 @@ export default function ProfileEditor({
       {error && (
         <p className="w-full text-left text-xs text-red-600" role="alert">
           {error}
+        </p>
+      )}
+
+      {notice && (
+        <p
+          className="w-full text-left text-xs text-foreground-muted"
+          role="status"
+        >
+          {notice}
         </p>
       )}
 
