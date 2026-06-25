@@ -26,6 +26,7 @@ import AccountFirstRedirect, {
   useHasCloudSession,
 } from "@/components/account/AccountFirstRedirect";
 import { isAccountFirstEnabled } from "@/lib/account/account-first";
+import { SETTINGS_FOLDERLESS_ENABLED } from "@/lib/settings/settings-folderless-config";
 import WelcomePage from "@/components/welcome/WelcomePage";
 import { signIn } from "next-auth/react";
 import { fullSignOut } from "@/lib/auth/full-sign-out";
@@ -555,6 +556,12 @@ function AppContent({ children }: { children: ReactNode }) {
     pathname?.startsWith("/institution") ||
     pathname?.startsWith("/dept/") ||
     pathname?.startsWith("/u/") ||
+    // Phase 1 of the thin-account-settings-home refactor. Behind a flag (default
+    // OFF), /settings becomes a folderless cloud surface so a signed-in user with
+    // no data folder can reach their cloud-safe settings (the Usage & billing
+    // group). When the flag is off this OR-term is constant false, so /settings
+    // still requires a folder exactly as it does today.
+    (SETTINGS_FOLDERLESS_ENABLED && pathname?.startsWith("/settings")) ||
     pathname?.startsWith("/lab/join");
 
   // QueryClient is a module-level singleton (see `appQueryClient` below)
