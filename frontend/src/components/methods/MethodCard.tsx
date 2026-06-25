@@ -89,6 +89,21 @@ export interface MethodCardProps {
   tourTarget?: string;
   /** True when the method's fork-parent is absent from the picker list. */
   orphanFork?: boolean;
+  /**
+   * Multi-attach (keep-open) mode: the whole card toggles a pending selection
+   * instead of attaching immediately, and the per-card Attach button is
+   * suppressed. Single-link mode leaves this false and behaves exactly as
+   * before (highlight on click + the Attach action).
+   */
+  selectable?: boolean;
+  /**
+   * In selectable mode, the composite keys currently pending (toggled on).
+   * Passed as a set (not a single bool) so nested fork cards can derive their
+   * own pending state from the same source the picker owns.
+   */
+  pendingKeys?: Set<string>;
+  /** In selectable mode, the toggle handler (select / unselect). */
+  onToggleSelect?: (method: Method) => void;
   onAttach: (method: Method) => void;
   onHighlight: (method: Method) => void;
   onToggleForks: (method: Method) => void;
@@ -157,6 +172,9 @@ export default function MethodCard({
   tabIndex,
   tourTarget,
   orphanFork = false,
+  selectable = false,
+  pendingKeys,
+  onToggleSelect,
   onAttach,
   onHighlight,
   onToggleForks,
@@ -165,6 +183,7 @@ export default function MethodCard({
 }: MethodCardProps) {
   const key = methodKey(method);
   const isAttached = attachedKeys.has(key);
+  const isPending = pendingKeys?.has(key) ?? false;
   const children = forkChildren.get(method.id) ?? [];
   const hasForks = children.length > 0;
   const forksOpen = expandedForks.has(key);
@@ -231,6 +250,52 @@ export default function MethodCard({
         </>
       ) : (
         "Attach"
+      )}
+    </button>
+  );
+
+  // Multi-attach (selectable) mode: the whole card is the toggle, so there is
+  // no per-card Attach button. The action corner shows state instead. Already
+  // attached methods get a muted, NON-interactive "Added" badge (the picker is
+  // add-only; detach happens from the components list, not here). Pending and
+  // resting methods get a toggle button that mirrors the card-level toggle, so
+  // clicking either the badge or the card body flips the selection. Because the
+  // SelectorCard action slot stops click propagation, the badge calls
+  // onToggleSelect itself.
+  const handleToggle = () => {
+    if (isAttached) return; // add-only: already-added cards never toggle
+    onToggleSelect?.(method);
+  };
+  const selectableIndicator = isAttached ? (
+    <span
+      aria-label={`${method.name} already added`}
+      className="inline-flex cursor-default items-center gap-1 rounded-md bg-surface-sunken px-2 py-1 text-meta font-medium text-foreground-muted ring-1 ring-border"
+    >
+      <CheckIcon className="h-3.5 w-3.5" />
+      Added
+    </span>
+  ) : (
+    <button
+      type="button"
+      onClick={handleToggle}
+      aria-pressed={isPending}
+      aria-label={
+        isPending ? `Unselect ${method.name}` : `Select ${method.name}`
+      }
+      className={[
+        "inline-flex items-center gap-1 rounded-md px-2 py-1 text-meta font-medium transition-colors",
+        isPending
+          ? "bg-blue-50 dark:bg-blue-500/10 text-blue-600 dark:text-blue-300 ring-1 ring-blue-300"
+          : "border border-dashed border-border text-foreground-muted hover:bg-surface-sunken",
+      ].join(" ")}
+    >
+      {isPending ? (
+        <>
+          <CheckIcon className="h-3.5 w-3.5" />
+          Selected
+        </>
+      ) : (
+        "Select"
       )}
     </button>
   );
@@ -328,16 +393,39 @@ export default function MethodCard({
       <SelectorCard
         ref={(el) => registerRef?.(key, el)}
         data-tour-target={tourTarget}
-        aria-label={`${method.name}${isAttached ? " (attached)" : ""}`}
+        aria-label={`${method.name}${
+          selectable
+            ? isAttached
+              ? " (added)"
+              : isPending
+                ? " (selected)"
+                : ""
+            : isAttached
+              ? " (attached)"
+              : ""
+        }`}
         title={method.name}
         subtitle={subtitle}
         badges={badges}
-        action={attachAction}
+        action={selectable ? selectableIndicator : attachAction}
         footer={footer}
-        selected={isAttached || isHighlighted}
+        selected={
+          selectable
+            ? isPending || isHighlighted
+            : isAttached || isHighlighted
+        }
         dimmed={isAttached}
         tabIndex={tabIndex}
-        onClick={() => onHighlight(method)}
+        // In selectable (multi-attach) mode the whole card toggles the pending
+        // selection (and still previews via the picker's onToggleSelect, which
+        // also sets the highlight). In single-link mode it only highlights, as
+        // before. Already-added cards never toggle (add-only picker); we still
+        // let them highlight to preview.
+        onClick={
+          selectable
+            ? () => (isAttached ? onHighlight(method) : handleToggle())
+            : () => onHighlight(method)
+        }
         onMouseEnter={() => onHighlight(method)}
         onKeyDown={onKeyDown}
       />
@@ -358,6 +446,11 @@ export default function MethodCard({
               depth={depth + 1}
               // Nested cards enter the tab order only while expanded.
               tabIndex={-1}
+              // Forks toggle too in selectable mode, deriving their own pending
+              // state from the shared set.
+              selectable={selectable}
+              pendingKeys={pendingKeys}
+              onToggleSelect={onToggleSelect}
               onAttach={onAttach}
               onHighlight={onHighlight}
               onToggleForks={onToggleForks}
