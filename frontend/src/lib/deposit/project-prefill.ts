@@ -25,6 +25,7 @@ import { tasksApi, notesApi, purchasesApi } from "@/lib/local-api";
 import { readUserSettings } from "@/lib/settings/user-settings";
 import { getUserMetadata } from "@/lib/file-system/user-metadata";
 import { loadChargedGrants, type ChargedGrants } from "@/lib/funding/charged-grants";
+import { resolveOwnerOrcid } from "./owner-orcid";
 
 /**
  * Everything the project-level deposit dialog prefills from. The experiment +
@@ -121,12 +122,17 @@ export async function loadProjectDepositPrefill(
       (b.updated_at ?? "").localeCompare(a.updated_at ?? ""),
     );
 
+  // ORCID is cloud-preferred (account_profiles.links.orcid) with the local
+  // _user_metadata.json value as the fallback, so a cloud-set ORCID applies
+  // across folders while offline / solo deposits keep the same local value.
+  const ownerOrcid = await resolveOwnerOrcid(ownerEntry?.orcid);
+
   return {
     project,
     experiments,
     notes: ownerNotes,
     ownerDisplayName,
-    ownerOrcid: ownerEntry?.orcid ?? null,
+    ownerOrcid,
     primaryFundingAccount,
     chargedGrants,
     defaultPublicationDate: new Date().toISOString().slice(0, 10),

@@ -24,6 +24,7 @@ import { buildExperimentPayload } from "@/lib/export/extract";
 import { methodsApi, filesApi } from "@/lib/local-api";
 import { extractUserContent } from "@/lib/stamp-utils";
 import { deriveAbstract } from "./datacite";
+import { resolveOwnerOrcid } from "./owner-orcid";
 import type { ExperimentExportPayload } from "@/lib/export/types";
 
 /**
@@ -99,10 +100,15 @@ export async function loadDepositPrefill(
     extractUserContent(payload.notesMarkdown),
   );
 
+  // ORCID is cloud-preferred (account_profiles.links.orcid) with the local
+  // _user_metadata.json value as the fallback, so a cloud-set ORCID applies
+  // across folders while offline / solo deposits keep the same local value.
+  const ownerOrcid = await resolveOwnerOrcid(ownerEntry?.orcid);
+
   return {
     payload,
     ownerDisplayName,
-    ownerOrcid: ownerEntry?.orcid ?? null,
+    ownerOrcid,
     fundingAccount,
     suggestedAbstract,
     defaultPublicationDate: new Date().toISOString().slice(0, 10),
