@@ -51,11 +51,17 @@ export default function SelfExportModal({
   onClose,
   onComplete,
   username,
+  chromeless = false,
 }: {
   onClose: () => void;
   /** Called once the export succeeds (just before the disconnect). */
   onComplete?: () => void;
   username: string;
+  /** Render just the inner content WITHOUT the LivingPopup wrapper, so the
+   *  on-connect MigrationGate can host this body inside its own single,
+   *  continuous popup instead of opening a second one. Standalone callers leave
+   *  this off and keep their own popup chrome. */
+  chromeless?: boolean;
 }) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [plan, setPlan] = useState<SelfExportPlan | null>(null);
@@ -112,18 +118,8 @@ export default function SelfExportModal({
     }
   };
 
-  return (
-    <LivingPopup
-      open
-      onClose={phase === "running" ? () => {} : onClose}
-      label="Take your data to your own folder"
-      widthClassName="max-w-2xl"
-      padded
-      showClose={phase !== "running"}
-      closeOnEscape={phase !== "running"}
-      closeOnScrimClick={phase !== "running"}
-    >
-      <div className="flex flex-col gap-5">
+  const body = (
+    <div className="flex flex-col gap-5">
         <div className="flex items-center gap-3">
           <span className="text-brand-sky">
             <Icon name="download" className="h-6 w-6" />
@@ -206,6 +202,25 @@ export default function SelfExportModal({
           </>
         )}
       </div>
+  );
+
+  // Hosted inside the gate's single, continuous popup: hand back just the body so
+  // there is no second LivingPopup and no close-then-reopen animation. The gate
+  // owns the surrounding chrome and its blocking close behavior.
+  if (chromeless) return body;
+
+  return (
+    <LivingPopup
+      open
+      onClose={phase === "running" ? () => {} : onClose}
+      label="Take your data to your own folder"
+      widthClassName="max-w-2xl"
+      padded
+      showClose={phase !== "running"}
+      closeOnEscape={phase !== "running"}
+      closeOnScrimClick={phase !== "running"}
+    >
+      {body}
     </LivingPopup>
   );
 }
