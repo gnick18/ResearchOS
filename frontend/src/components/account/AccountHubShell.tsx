@@ -19,7 +19,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { getSession } from "next-auth/react";
 
 import { useFileSystem } from "@/lib/file-system/file-system-context";
@@ -231,7 +230,17 @@ export default function AccountHubShell() {
     directoryName,
     switchFolder,
   } = useFileSystem();
-  const router = useRouter();
+  // Entering the real app from this folderless account surface needs a HARD
+  // navigation, not a client-side router.push. /account is in the providers
+  // folderless bypass (isFolderlessAccountRoute), which short-circuits the
+  // app-shell + folder gate entirely, so a soft push to "/" never re-engages the
+  // boot + reconnect and the visitor appears stuck on /account ("Open ResearchOS
+  // did nothing"). A full load re-runs the boot and lands in the app. The folder
+  // handle is already persisted + granted after connect/reconnect, so the reload
+  // reconnects silently. Same reason demo entry must hard-nav.
+  const enterApp = () => {
+    if (typeof window !== "undefined") window.location.assign("/");
+  };
 
   // Active section state.
   const [section, setSection] = useState<Section>("overview");
@@ -455,12 +464,12 @@ export default function AccountHubShell() {
         ? await reconnectWithStoredHandle()
         : await connect();
       if (ok) {
-        router.push("/");
+        enterApp();
         return;
       }
       const initialized = await initializeFolder();
       if (initialized) {
-        router.push("/");
+        enterApp();
         return;
       }
       setConnecting(false);
@@ -475,12 +484,12 @@ export default function AccountHubShell() {
     try {
       const ok = await connect();
       if (ok) {
-        router.push("/");
+        enterApp();
         return;
       }
       const initialized = await initializeFolder();
       if (initialized) {
-        router.push("/");
+        enterApp();
         return;
       }
       setConnecting(false);
@@ -495,7 +504,7 @@ export default function AccountHubShell() {
     setSwitchingId(id);
     try {
       const ok = await switchFolder(id);
-      if (ok) router.push("/");
+      if (ok) enterApp();
     } finally {
       setSwitchingId(null);
     }
@@ -534,12 +543,12 @@ export default function AccountHubShell() {
       try {
         const ok = await connectWithHandle(result.handle);
         if (ok) {
-          router.push("/");
+          enterApp();
           return;
         }
         const initialized = await initializeFolder();
         if (initialized) {
-          router.push("/");
+          enterApp();
           return;
         }
       } finally {
@@ -1165,7 +1174,7 @@ export default function AccountHubShell() {
               </p>
               <button
                 type="button"
-                onClick={() => router.push("/")}
+                onClick={() => enterApp()}
                 className="ros-btn-raise mt-3 inline-block rounded-lg bg-brand-action px-4 py-2 text-meta font-semibold text-white"
               >
                 Open ResearchOS
