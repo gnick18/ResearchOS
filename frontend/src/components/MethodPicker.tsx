@@ -200,6 +200,11 @@ export default function MethodPicker({
   const [expandedForks, setExpandedForks] = useState<Set<string>>(
     () => new Set(),
   );
+  // Multi-attach (keep-open) mode: pending selections keyed by composite
+  // method key. The user toggles cards into this map, then a single bottom
+  // "Done" button commits them all and closes. Single-link mode never touches
+  // this — it attaches immediately via the per-card Attach button as before.
+  const [pending, setPending] = useState<Map<string, Method>>(() => new Map());
   const inputRef = useRef<HTMLInputElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const cardRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
@@ -214,6 +219,7 @@ export default function MethodPicker({
       setQuery("");
       setHighlightedKey(null);
       setExpandedForks(new Set());
+      setPending(new Map());
     }
   }
 
@@ -481,7 +487,14 @@ export default function MethodPicker({
       moveHighlight(-1);
     } else if (e.key === "Enter") {
       e.preventDefault();
-      attachHighlighted();
+      if (keepOpenOnSelect) {
+        // Multi-attach mode: Enter toggles the highlighted card's pending
+        // selection; Cmd/Ctrl+Enter commits all pending and closes (Done).
+        if (e.metaKey || e.ctrlKey) commitPending();
+        else toggleHighlighted();
+      } else {
+        attachHighlighted();
+      }
     } else if (e.key === "Escape") {
       e.preventDefault();
       // Stop the Escape from bubbling to the parent popup (TaskDetailPopup has a
@@ -498,6 +511,38 @@ export default function MethodPicker({
   // closes as before.
   const handleAttach = (m: Method) => {
     void onSelect(m.id, m.owner);
+  };
+
+  // Multi-attach toggle: flip a method in/out of the pending map and move the
+  // preview highlight to it so the right-hand pane still updates on click.
+  // Already-attached methods are add-only and never enter the map (the card
+  // itself guards this, but we double-check here too).
+  const pendingKeys = useMemo(() => new Set(pending.keys()), [pending]);
+  const togglePending = (m: Method) => {
+    const k = methodKey(m);
+    setHighlightedKey(k);
+    if (attachedKeys.has(`${m.owner}:${m.id}`)) return;
+    setPending((prev) => {
+      const next = new Map(prev);
+      if (next.has(k)) next.delete(k);
+      else next.set(k, m);
+      return next;
+    });
+  };
+
+  // Commit every pending method via the same per-method onSelect the caller
+  // already wires to handleAddMethod, then close. Used by the Done button and
+  // Cmd/Ctrl+Enter.
+  const commitPending = () => {
+    for (const m of pending.values()) {
+      void onSelect(m.id, m.owner);
+    }
+    onClose();
+  };
+
+  // Toggle the currently highlighted card in selectable mode (Enter key).
+  const toggleHighlighted = () => {
+    if (highlightedMethod) togglePending(highlightedMethod);
   };
 
   const toggleForks = (m: Method) => {
@@ -641,6 +686,9 @@ export default function MethodPicker({
                       tabIndex={highlightedKey === key ? 0 : -1}
                       tourTarget={tourTarget}
                       orphanFork={isOrphanFork}
+                      selectable={keepOpenOnSelect}
+                      pendingKeys={pendingKeys}
+                      onToggleSelect={togglePending}
                       onAttach={handleAttach}
                       onHighlight={(hm) => setHighlightedKey(methodKey(hm))}
                       onToggleForks={toggleForks}
@@ -658,29 +706,80 @@ export default function MethodPicker({
         </div>
         </div>
 
-        <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-meta text-foreground-muted bg-surface-sunken">
-          <span>
-            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
-              ↑
-            </kbd>
-            <kbd className="ml-0.5 px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
-              ↓
-            </kbd>{" "}
-            navigate
-          </span>
-          <span>
-            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
-              ↵
-            </kbd>{" "}
-            select
-          </span>
-          <span>
-            <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
-              esc
-            </kbd>{" "}
-            close
-          </span>
-        </div>
+        {keepOpenOnSelect ? (
+          // Multi-attach footer: keyboard hints on the left, a single
+          // bottom-right primary commit ("Add N methods" when any are pending,
+          // otherwise "Done") plus a secondary Cancel. The whole toggle-then-
+          // commit flow funnels through this one button.
+          <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-meta text-foreground-muted bg-surface-sunken">
+            <span className="hidden sm:inline">
+              <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↑
+              </kbd>
+              <kbd className="ml-0.5 px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↓
+              </kbd>{" "}
+              navigate
+            </span>
+            <span className="hidden sm:inline">
+              <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↵
+              </kbd>{" "}
+              select
+            </span>
+            <span className="ml-auto flex items-center gap-2">
+              <button
+                onClick={onClose}
+                className="rounded-md border border-border bg-surface-raised px-3 py-1.5 text-meta font-medium text-foreground-muted transition-colors hover:bg-border"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={commitPending}
+                disabled={pending.size === 0}
+                aria-label={
+                  pending.size > 0
+                    ? `Add ${pending.size} method${pending.size === 1 ? "" : "s"}`
+                    : "Close picker"
+                }
+                className={[
+                  "rounded-md px-3 py-1.5 text-meta font-semibold transition-colors",
+                  pending.size > 0
+                    ? "bg-brand-action text-white hover:bg-brand-action/90"
+                    : "bg-surface-raised border border-border text-foreground-muted cursor-default",
+                ].join(" ")}
+              >
+                {pending.size > 0
+                  ? `Add ${pending.size} method${pending.size === 1 ? "" : "s"}`
+                  : "Done"}
+              </button>
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-meta text-foreground-muted bg-surface-sunken">
+            <span>
+              <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↑
+              </kbd>
+              <kbd className="ml-0.5 px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↓
+              </kbd>{" "}
+              navigate
+            </span>
+            <span>
+              <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                ↵
+              </kbd>{" "}
+              select
+            </span>
+            <span>
+              <kbd className="px-1 py-0.5 bg-surface-raised border border-border rounded text-foreground-muted">
+                esc
+              </kbd>{" "}
+              close
+            </span>
+          </div>
+        )}
       </div>
     </LivingPopup>
   );
