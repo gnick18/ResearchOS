@@ -679,29 +679,55 @@ export default function AccountHubShell() {
           </p>
         </div>
 
-        {/* Stat-card row */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <StatCard label="Plan" value={planLabel()} />
-          <StatCard
-            label="Storage"
-            value={
-              billingStatus
-                ? `${billingStatus.accruedCents > 0 ? `$${(billingStatus.accruedCents / 100).toFixed(2)} accrued` : "No usage"}`
-                : null
-            }
-          />
-          <StatCard
-            label="Labs"
-            value={
-              isLabHead
-                ? "Lab head"
-                : accountType === "member"
-                  ? "Member"
+        {/* Stat-card row. Cards that do not apply to this user type are
+            omitted (no dead "-" cells), and the grid width tracks the count so
+            the remaining cards always fill the row evenly. */}
+        {(() => {
+          const isMember = accountType === "member";
+          const cards: React.ReactNode[] = [
+            <StatCard key="plan" label="Plan" value={planLabel()} />,
+            <StatCard
+              key="storage"
+              label="Storage"
+              value={
+                billingStatus
+                  ? billingStatus.accruedCents > 0
+                    ? `$${(billingStatus.accruedCents / 100).toFixed(2)} accrued`
+                    : "No usage"
                   : null
-            }
-          />
-          <StatCard label="Next bill" value={nextBillLabel()} />
-        </div>
+              }
+            />,
+          ];
+          // Labs applies only to lab heads and lab members.
+          if (isLabHead || isMember) {
+            cards.push(
+              <StatCard
+                key="labs"
+                label="Labs"
+                value={isLabHead ? "Lab head" : "Member"}
+              />,
+            );
+          }
+          // Next bill applies only to paid plans (Free has no bill).
+          if (billingStatus && billingStatus.planId !== "free") {
+            cards.push(
+              <StatCard
+                key="bill"
+                label="Next bill"
+                value={nextBillLabel()}
+              />,
+            );
+          }
+          const cols =
+            cards.length >= 4
+              ? "sm:grid-cols-4"
+              : cards.length === 3
+                ? "sm:grid-cols-3"
+                : "sm:grid-cols-2";
+          return (
+            <div className={`grid grid-cols-2 gap-3 ${cols}`}>{cards}</div>
+          );
+        })()}
 
         {/* Public profile callout */}
         <div className="rounded-xl border border-border bg-surface p-4">
