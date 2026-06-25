@@ -19,7 +19,7 @@ import { useLabSession } from "@/hooks/useLabSession";
 import { LAB_PENDING_REQUESTS_QUERY_KEY } from "@/hooks/useLabPendingRequests";
 import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
 import { isRealSharingEnabled } from "@/lib/sharing/oauth-availability";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import { readEffectiveUserSettings } from "@/lib/settings/user-settings";
 import { canonicalAppOrigin } from "@/lib/app-origin";
 import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
@@ -169,7 +169,10 @@ export default function LabMembershipPanel() {
     let cancelled = false;
     (async () => {
       try {
-        const settings = await readUserSettings(currentUser);
+        // The SELF user's invite sender label. Account-elevated so it matches
+        // the cloud account identity across folders; fails closed to the folder
+        // value when the account-settings flag is off / offline.
+        const settings = await readEffectiveUserSettings(currentUser);
         if (cancelled) return;
         const label = settings.displayName?.trim() || currentUser;
         setSenderLabel(label);

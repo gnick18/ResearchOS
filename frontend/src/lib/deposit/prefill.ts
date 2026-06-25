@@ -18,7 +18,10 @@
 
 import type { FundingAccount, Task } from "@/lib/types";
 import { purchasesApi, projectsApi } from "@/lib/local-api";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import {
+  readEffectiveUserSettings,
+  readUserSettings,
+} from "@/lib/settings/user-settings";
 import { getUserMetadata } from "@/lib/file-system/user-metadata";
 import { buildExperimentPayload } from "@/lib/export/extract";
 import { methodsApi, filesApi } from "@/lib/local-api";
@@ -61,13 +64,27 @@ export async function resolvePrimaryFundingAccount(
 }
 
 /**
- * Resolve the owner's display name: settings.json#displayName when set,
- * otherwise the folder username. Never throws (a missing/broken settings
- * file falls back to the username).
+ * Resolve the owner's display name: the account-elevated displayName when set,
+ * otherwise the folder username. Never throws (a missing/broken settings file
+ * falls back to the username).
+ *
+ * For the SELF user (owner === currentUser) the account-elevated read is used so
+ * a deposit is attributed by the cloud account identity, consistent across every
+ * folder. For ANOTHER user (a shared-lab owner) the folder-cached value is THEIR
+ * identity, not this account's, so the folder-only read is kept. When currentUser
+ * is absent we fall back to the folder-only read. readEffectiveUserSettings fails
+ * closed to the folder value when the account-settings flag is off / offline, so
+ * the flag-off path is unchanged.
  */
-export async function resolveOwnerDisplayName(owner: string): Promise<string> {
+export async function resolveOwnerDisplayName(
+  owner: string,
+  currentUser?: string | null,
+): Promise<string> {
   try {
-    const settings = await readUserSettings(owner);
+    const settings =
+      currentUser && owner === currentUser
+        ? await readEffectiveUserSettings(owner)
+        : await readUserSettings(owner);
     const dn = (settings.displayName ?? "").trim();
     return dn.length > 0 ? dn : owner;
   } catch {
@@ -88,7 +105,7 @@ export async function loadDepositPrefill(
   const payload = await buildExperimentPayload(task, currentUser, deps);
 
   const [ownerDisplayName, ownerEntry, fundingAccount] = await Promise.all([
-    resolveOwnerDisplayName(task.owner),
+    resolveOwnerDisplayName(task.owner, currentUser),
     getUserMetadata(task.owner),
     resolvePrimaryFundingAccount(task),
   ]);

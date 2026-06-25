@@ -36,7 +36,7 @@ import {
 } from "@/lib/mobile-relay/client";
 import { loadUserCaptureKeys } from "@/lib/mobile-relay/keys";
 import { triggerUpgradeNudge } from "@/lib/billing/upgrade-nudge";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import { readEffectiveUserSettings } from "@/lib/settings/user-settings";
 import { runCaptureInboxPoll } from "@/lib/mobile-relay/poll";
 import { publishTodayToAllDevices } from "@/lib/mobile-relay/today-snapshot";
 import { publishInventoryToAllDevices } from "@/lib/mobile-relay/inventory-snapshot";
@@ -302,14 +302,18 @@ export default function DevicesSection({
       }
       const list = (await refreshDevices()) ?? [];
       baselineKeysRef.current = new Set(list.map((d) => d.devicePubkey));
-      // Resolve a display name so the phone can greet by name (settings.json
-      // #displayName when set, otherwise the folder username). Never blocks
-      // pairing: any failure just omits the name and the phone greets by time
-      // of day alone.
+      // Resolve a display name so the phone can greet by name (the account-
+      // elevated displayName when set, otherwise the folder username). The
+      // viewer is always the SELF user here, so the account value is the right
+      // identity; readEffectiveUserSettings fails closed to the folder value
+      // when the account-settings flag is off / offline. Never blocks pairing:
+      // any failure just omits the name and the phone greets by time of day.
       let userName: string | undefined;
       if (currentUser) {
         try {
-          const dn = (await readUserSettings(currentUser)).displayName?.trim();
+          const dn = (
+            await readEffectiveUserSettings(currentUser)
+          ).displayName?.trim();
           userName = dn && dn.length > 0 ? dn : currentUser;
         } catch {
           userName = currentUser;
