@@ -627,6 +627,15 @@ function AppContent({ children }: { children: ReactNode }) {
   const [preferredName, setPreferredName] = useState<string | undefined>(
     undefined,
   );
+  // The account-elevated display name for the launch splash. Sourced from the
+  // SAME effective read as preferredName so the greeting honors the cloud
+  // account name (set on a different folder, or before any folder connected)
+  // instead of the folder-scoped username. undefined until resolved; the splash
+  // then falls back to the folder username (currentUser) so the flag-off /
+  // offline / no-account path is byte-identical to today.
+  const [splashDisplayName, setSplashDisplayName] = useState<
+    string | undefined
+  >(undefined);
 
   // Onboarding wizard (NEXT_PUBLIC_ONBOARDING_WIZARD): when on, the chooser's
   // bottom-zone org-admin entry routes into the standalone, folderless org
@@ -766,6 +775,7 @@ function AppContent({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!currentUser) {
       setPreferredName(undefined);
+      setSplashDisplayName(undefined);
       return;
     }
     let alive = true;
@@ -775,7 +785,15 @@ function AppContent({ children }: { children: ReactNode }) {
           "@/lib/settings/user-settings"
         );
         const s = await readEffectiveUserSettings(currentUser);
-        if (alive) setPreferredName(s.preferredName ?? undefined);
+        if (alive) {
+          setPreferredName(s.preferredName ?? undefined);
+          // Account-elevated display name. readEffectiveUserSettings merges the
+          // account blob OVER the folder and fails closed to the folder value
+          // when there is no account / the flag is off, so this is undefined
+          // only when the folder itself has no display name. The splash then
+          // falls back to the folder username at the prop site.
+          setSplashDisplayName(s.displayName ?? undefined);
+        }
       } catch {
         // Settings unreadable: leave undefined, splash falls back to first name.
       }
@@ -1700,7 +1718,7 @@ function AppContent({ children }: { children: ReactNode }) {
         {(!splashSeen || (!!researchWizardReturn && isConnected)) &&
           !isDemoOrWikiCapture() && (
           <Splash
-            userName={currentUser ?? undefined}
+            userName={splashDisplayName ?? currentUser ?? undefined}
             preferredName={preferredName}
             onComplete={() => {
               try {
