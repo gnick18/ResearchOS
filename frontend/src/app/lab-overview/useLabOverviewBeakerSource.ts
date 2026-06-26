@@ -474,8 +474,9 @@ export function useLabOverviewBeakerSource(
       openApprovalOnPurchases: () => args.router.push("/purchases"),
       openPurchasesApprovalQueue: () => args.router.push("/purchases"),
       openLabInbox: () => args.router.push("/lab-inbox"),
-      openLabExperiments: () => args.router.push("/lab-experiments"),
-      openLabNotes: () => args.router.push("/lab-notes"),
+      openLabExperiments: () =>
+        args.router.push("/lab-work?tab=experiments"),
+      openLabNotes: () => args.router.push("/lab-work?tab=notes"),
 
       reopenRecentAction: () => args.router.push("/purchases"),
     };
