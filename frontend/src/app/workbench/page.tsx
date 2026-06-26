@@ -17,6 +17,7 @@ import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
 import WorkbenchProjectsPanel from "@/components/workbench/WorkbenchProjectsPanel";
 import WorkbenchOneOnOnePanel from "@/components/workbench/WorkbenchOneOnOnePanel";
 import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
+import ProjectCreateModal from "@/components/lab-overview/ProjectCreateModal";
 import { shouldShowOneOnOneTab } from "@/components/workbench/oneOnOneGate";
 import { oneOnOneTabLabel } from "@/lib/one-on-one/label";
 import { Icon } from "@/components/icons";
@@ -56,10 +57,17 @@ export default function WorkbenchPage() {
   // lets the gate work without coupling Workbench's routing to the
   // onboarding system — the planned Lists-tab redesign can route
   // however it wants and this gate keeps working.
-  // Projects is the default landing view (workbench-projects bot, Phase 3a):
-  // a member arriving at /workbench browses their projects first. The other
-  // tabs and their `?tab=...` deep-links (see the effect below) are unchanged.
-  const [activeTab, setActiveTab] = useState<TabType>("projects");
+  // Experiments is the default landing view (workbench IA redesign, 2026-06-25).
+  // 9 of 10 times a member arrives at /workbench to edit an experiment or a
+  // note, not to browse the projects grid, so the page opens on the tab people
+  // actually want. Projects left the subtab row for a compact header control
+  // (the "Projects" + "New project" buttons in the header band below); its tab,
+  // its render branch, and the `?tab=projects` deep-link are all intact. The
+  // class-dashboard forced landing and the `?tab=`/`?note=` deep-links run on
+  // mount and still win over this default.
+  const [activeTab, setActiveTab] = useState<TabType>("experiments");
+  // Create-project modal, opened from the header "New project" control.
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Shared Notebooks Phase 4 (notebooks-phase4-widget sub-bot, 2026-06-02):
   // the Shared Notebook home/dashboard widget deep-links here with
@@ -334,22 +342,11 @@ export default function WorkbenchPage() {
             )}
           </button>
           )}
-          {tabIsAllowed("projects") && (
-          <button
-            onClick={() => setActiveTab("projects")}
-            data-tour-target="workbench-projects-tab"
-            className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
-              activeTab === "projects"
-                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
-                : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-            }`}
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
-            </svg>
-            Projects
-          </button>
-          )}
+          {/* Projects is no longer a peer subtab. It moved to the compact
+              header control group (the "Projects" + "New project" buttons in
+              the header band, ml-auto), so this row slims to Experiments /
+              Notes / Lists. The "projects" tab, its render branch, and the
+              `?tab=projects` deep-link are unchanged. */}
           {tabIsAllowed("experiments") && (
           <button
             onClick={() => setActiveTab("experiments")}
@@ -412,6 +409,41 @@ export default function WorkbenchPage() {
               {oneOnOneLabelText}
             </button>
           )}
+          </div>
+          {/* Projects control group (ml-auto, right edge of the header band).
+              The everyday project FILTER lives in each panel's own sidebar;
+              these two are the occasional MANAGE + CREATE entry points that
+              replaced the removed Projects subtab. "Projects" carries the
+              workbench-projects-tab anchor the removed button used to host. */}
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => setActiveTab("projects")}
+              data-tour-target="workbench-projects-tab"
+              className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+                activeTab === "projects"
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              <Icon name="folder" className="w-4 h-4" />
+              Projects
+            </button>
+            {currentUser && (
+              <button
+                onClick={() => {
+                  setCreateOpen(true);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(
+                      new CustomEvent("tour:home-create-modal-opened"),
+                    );
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 text-brand-action hover:bg-surface-sunken"
+              >
+                <Icon name="plus" className="w-4 h-4" />
+                New project
+              </button>
+            )}
           </div>
         </div>
 
@@ -479,6 +511,17 @@ export default function WorkbenchPage() {
             }
             onInitialOpenConsumed={consumePendingOpen}
             onSelectionChange={reportSelection}
+          />
+        )}
+        {/* Create-project modal, opened from the header "New project" control.
+            Reuses the same modal NewProjectButton opens; the modal invalidates
+            the ["projects"] query and closes itself, so a new project appears
+            in place with no navigation. */}
+        {createOpen && currentUser && (
+          <ProjectCreateModal
+            username={currentUser}
+            onClose={() => setCreateOpen(false)}
+            onCreated={() => setCreateOpen(false)}
           />
         )}
       </div>
