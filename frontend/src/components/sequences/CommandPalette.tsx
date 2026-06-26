@@ -1138,8 +1138,8 @@ export function CommandPalette({
           maxWidth:
             askMode === "ask"
               ? canvasDocked
-                ? "min(1200px, calc(100vw - 40px))"
-                : "min(820px, calc(100vw - 40px))"
+                ? "min(1320px, calc(100vw - 40px))"
+                : "min(1080px, calc(100vw - 40px))"
               : undefined,
           // Fluid morph (fun pass, 2026-06-12). A springy ease-out
           // (cubic-bezier(.22,1,.36,1)) gives the size + corner glide a single

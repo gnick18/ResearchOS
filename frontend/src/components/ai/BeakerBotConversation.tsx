@@ -192,8 +192,11 @@ const ASSISTANT_MD_COMPONENTS: Components = {
   // inside a div, which is invalid HTML and tripped a hydration error whenever
   // BeakerBot rendered a markdown table in chat.
   table: ({ children }) => (
+    // Let the table use the full width of its text column (the prose wrapper is
+    // max-w-none), bumped to text-sm for readability now that the chat panel is
+    // wider. overflow-x-auto stays as the fallback for very wide tables.
     <div className="overflow-x-auto">
-      <table className="text-xs">{children}</table>
+      <table className="w-full text-sm">{children}</table>
     </div>
   ),
 };
@@ -1383,7 +1386,7 @@ export default function BeakerBotConversation({
         ref={listRef}
         onScroll={handleListScroll}
         data-testid="beakerbot-messages"
-        className="flex flex-1 flex-col gap-3 overflow-y-auto px-4 py-4"
+        className="flex flex-1 flex-col gap-3 overflow-y-auto px-3 py-4"
       >
         {messages.length === 0 ? (
           <div className="m-auto max-w-xs text-center text-meta text-foreground-muted">
@@ -1431,8 +1434,13 @@ export default function BeakerBotConversation({
                   }
                   className={
                     m.role === "user"
-                      ? "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
-                      : "self-start max-w-[85%] rounded-lg bg-surface-raised px-3 py-2 text-body text-foreground"
+                      ? // User bubbles are short; keep them right-aligned + capped.
+                        "self-end max-w-[85%] rounded-lg bg-brand px-3 py-2 text-body text-white"
+                      : // Assistant TEXT keeps a comfortable reading measure (~72ch)
+                        // so prose lines don't stretch across the now-wider panel.
+                        // WIDGETS render as full-width siblings BELOW (not nested
+                        // here), so they escape this cap and fill the chat column.
+                        "self-start w-full max-w-[72ch] rounded-lg bg-surface-raised px-2.5 py-2 text-body text-foreground"
                   }
                 >
                   {m.role === "assistant" ? (
