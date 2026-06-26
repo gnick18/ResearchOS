@@ -43,7 +43,13 @@ export default function ColorPickerRows({
   // dependency means we re-read whenever a peer's metadata could have
   // changed (multi-tab scenarios) without extra polling.
   const queryClient = useQueryClient();
-  const colorMapState = queryClient.getQueryState(USER_COLOR_QUERY_KEY);
+  // The color-map query key now carries the current user (the SELF avatar color
+  // comes from the account blob), so read the exact per-user key here. Prefix
+  // invalidation of USER_COLOR_QUERY_KEY still refreshes it.
+  const colorMapState = queryClient.getQueryState([
+    ...USER_COLOR_QUERY_KEY,
+    currentUser,
+  ]);
   const cacheVersion = colorMapState?.dataUpdatedAt ?? 0;
   const [otherUsers, setOtherUsers] = useState<
     Awaited<ReturnType<typeof otherUsersOnlyAsync>>
