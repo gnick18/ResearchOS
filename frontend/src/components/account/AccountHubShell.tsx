@@ -367,12 +367,16 @@ export default function AccountHubShell() {
     };
   }, [currentUser]);
 
-  // Derive role chip tier.
+  // Derive role chip tier. Prefer the lab-head signal so the chip agrees with
+  // isLabHead (which gates the lab-site affordances). A Lab plan means lab head
+  // even when the connected folder's account_type still reads member, so check
+  // it before the folder member role to avoid a "Member" chip next to a visible
+  // Lab site link.
   function deriveRoleChip(): "free" | "solo" | "lab_head" | "member" {
-    if (accountType === "lab_head") return "lab_head";
+    if (accountType === "lab_head" || billingStatus?.planId === "lab")
+      return "lab_head";
     if (accountType === "member") return "member";
     if (billingStatus?.planId === "solo") return "solo";
-    if (billingStatus?.planId === "lab") return "lab_head";
     return "free";
   }
 

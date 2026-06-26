@@ -68,6 +68,7 @@ const NAV: { key: RailSection; label: string; icon: IconName }[] = [
 ];
 
 export default function FigureLeftRail({
+  iconLibraryEnabled = true,
   tool,
   setTool,
   textVariant,
@@ -87,6 +88,9 @@ export default function FigureLeftRail({
   onAddShape,
   onUseTemplate,
 }: {
+  /** When false, the icon (asset library) section is hidden; the rest of the rail
+      (Figures, Text, Shapes, Connect, Templates, Layers) stays fully available. */
+  iconLibraryEnabled?: boolean;
   tool: null | "text" | "arrow" | "bracket" | "connect";
   setTool: (t: null | "text" | "arrow" | "bracket" | "connect") => void;
   textVariant: TextVariant;
@@ -106,13 +110,20 @@ export default function FigureLeftRail({
   onAddShape: (kind: ShapeKind) => void;
   onUseTemplate: (t: FigureTemplate) => void;
 }) {
-  // Default to Icons (the library is the headline of this rail).
-  const [section, setSection] = useState<RailSection>("icons");
+  // Default to Icons when the library is on (it's the headline of this rail);
+  // otherwise open on Figures, since that is the core add-a-figure path.
+  const [section, setSection] = useState<RailSection>(
+    iconLibraryEnabled ? "icons" : "figures",
+  );
+
+  // Drop the Icons nav entry entirely when the asset library is off, so the rail
+  // never offers a door to a hidden panel.
+  const nav = iconLibraryEnabled ? NAV : NAV.filter((n) => n.key !== "icons");
 
   return (
     <div className="flex shrink-0 overflow-hidden rounded-2xl border border-border bg-surface">
       <div className="flex w-[52px] flex-col items-center gap-1 border-r border-border bg-surface-sunken py-2">
-        {NAV.map((n) => (
+        {nav.map((n) => (
           <button
             key={n.key}
             type="button"
@@ -131,7 +142,7 @@ export default function FigureLeftRail({
       </div>
 
       <div className="flex w-60 min-w-0 flex-col p-3">
-        {section === "icons" && <IconsPanel onPick={onPickIcon} />}
+        {iconLibraryEnabled && section === "icons" && <IconsPanel onPick={onPickIcon} />}
         {section === "figures" && (
           <FiguresPanel
             pages={pages}
