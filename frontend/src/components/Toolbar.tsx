@@ -6,6 +6,7 @@ import { useAppStore } from "@/lib/store";
 import { encodeFilterKey, parseFilterKey, STANDALONE_FILTER_KEY } from "@/lib/search/filterKey";
 import type { Project, ViewMode } from "@/lib/types";
 import Tooltip from "@/components/Tooltip";
+import { Icon } from "@/components/icons";
 
 const VIEW_MODES: { label: string; value: ViewMode }[] = [
   { label: "1W", value: "1week" },
@@ -90,6 +91,16 @@ export default function Toolbar({
   const [projectFilterQuery, setProjectFilterQuery] = useState("");
   const projectFilterRef = useRef<HTMLDivElement | null>(null);
 
+  // UX-clawback (2026-06-26): the secondary filters (Shared + Tags) used to sit
+  // inline and helped the toolbar wrap into 2-3 rows. They now live behind a
+  // single "Filters" overflow popover. Same store-backed handlers, just folded
+  // out of the always-on row. The trigger carries a dot when any of them is
+  // active so the user knows a filter is in effect without opening it.
+  const [showFilters, setShowFilters] = useState(false);
+  const filtersRef = useRef<HTMLDivElement | null>(null);
+  const activeSecondaryFilterCount =
+    (showShared ? 1 : 0) + selectedTags.length;
+
   // Deep-link hooks. `/gantt?createGoal=1` fires the create-goal flow.
   // `/gantt?project=<owner>:<id>` initializes the project filter to
   // that single project (used by the Project Surface "View timeline →"
@@ -139,6 +150,27 @@ export default function Toolbar({
       document.removeEventListener("keydown", onKey);
     };
   }, [showProjectFilter]);
+
+  // Close the Filters overflow popover on outside click / Escape. Mirrors the
+  // project-filter dropdown handler above.
+  useEffect(() => {
+    if (!showFilters) return;
+    const onMouseDown = (e: MouseEvent) => {
+      const root = filtersRef.current;
+      if (root && !root.contains(e.target as Node)) {
+        setShowFilters(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowFilters(false);
+    };
+    document.addEventListener("mousedown", onMouseDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onMouseDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [showFilters]);
 
   // Derived: the visible rows in the dropdown body. Filtered by the
   // search query (case-insensitive substring on the project name).
@@ -478,55 +510,102 @@ export default function Toolbar({
         )}
       </div>
 
-      {/* Tag filter pills */}
-      {allTags.length > 0 && (
-        <div className="flex items-center gap-1.5">
-          <span className="text-meta text-foreground-muted font-medium mr-1">Tags:</span>
-          {allTags.map((tag) => {
-            const isSelected = selectedTags.includes(tag);
-            return (
-              <button
-                key={tag}
-                onClick={() => toggleTag(tag)}
-                className={`
-                  px-2.5 py-1 text-meta rounded-full transition-colors
-                  ${
-                    isSelected
-                      ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium"
-                      : "bg-surface-sunken text-foreground-muted"
-                  }
-                `}
-              >
-                #{tag}
-              </button>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Shared filter button */}
-      <div className="flex items-center gap-1.5">
+      {/* Filters overflow (UX-clawback 2026-06-26): the secondary Shared toggle
+          and Tag pills moved off the always-on row into a single popover so the
+          toolbar stops wrapping. Reuses the exact same store handlers; only the
+          chrome moved. A dot on the trigger flags any active secondary filter. */}
+      <div className="relative" ref={filtersRef}>
         <button
-          onClick={() => setShowShared(!showShared)}
+          type="button"
+          onClick={() => setShowFilters((v) => !v)}
+          aria-expanded={showFilters}
+          aria-haspopup="dialog"
           className={`
-            px-2.5 py-1 text-meta rounded-full transition-colors flex items-center gap-1
+            px-2.5 py-1.5 text-meta rounded-lg border transition-colors flex items-center gap-1.5
             ${
-              showShared
-                ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-medium"
-                : "bg-surface-sunken text-foreground-muted"
+              activeSecondaryFilterCount > 0
+                ? "border-blue-300 dark:border-blue-500/30 bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-300"
+                : "border-border bg-surface-raised text-foreground hover:border-border"
             }
           `}
-          title="Toggle visibility of shared experiments"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="18" cy="5" r="3"/>
-            <circle cx="6" cy="12" r="3"/>
-            <circle cx="18" cy="19" r="3"/>
-            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
-            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-          </svg>
-          Shared
+          <Icon name="filter" className="w-3.5 h-3.5" />
+          <span className="font-medium">Filters</span>
+          {activeSecondaryFilterCount > 0 && (
+            <span
+              className="inline-flex items-center justify-center min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-brand-action text-white text-[0.625rem] font-semibold"
+              aria-label={`${activeSecondaryFilterCount} active`}
+            >
+              {activeSecondaryFilterCount}
+            </span>
+          )}
+          <Icon
+            name="chevronDown"
+            className={`w-3 h-3 transition-transform ${showFilters ? "rotate-180" : ""}`}
+          />
         </button>
+
+        {showFilters && (
+          <div
+            role="dialog"
+            aria-label="Gantt filters"
+            className="absolute top-full left-0 mt-1 w-72 bg-surface-raised border border-border rounded-lg shadow-lg z-30 p-3 space-y-3"
+          >
+            {/* Shared toggle */}
+            <div>
+              <span className="text-meta font-medium text-foreground-muted uppercase tracking-wide">
+                Sharing
+              </span>
+              <div className="mt-1.5">
+                <button
+                  onClick={() => setShowShared(!showShared)}
+                  className={`
+                    px-2.5 py-1 text-meta rounded-full transition-colors flex items-center gap-1
+                    ${
+                      showShared
+                        ? "bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 font-medium"
+                        : "bg-surface-sunken text-foreground-muted"
+                    }
+                  `}
+                  title="Toggle visibility of shared experiments"
+                >
+                  <Icon name="share" className="w-3 h-3" />
+                  Shared
+                </button>
+              </div>
+            </div>
+
+            {/* Tag pills */}
+            {allTags.length > 0 && (
+              <div>
+                <span className="text-meta font-medium text-foreground-muted uppercase tracking-wide">
+                  Tags
+                </span>
+                <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
+                  {allTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    return (
+                      <button
+                        key={tag}
+                        onClick={() => toggleTag(tag)}
+                        className={`
+                          px-2.5 py-1 text-meta rounded-full transition-colors
+                          ${
+                            isSelected
+                              ? "bg-emerald-100 dark:bg-emerald-500/20 text-emerald-700 dark:text-emerald-300 font-medium"
+                              : "bg-surface-sunken text-foreground-muted"
+                          }
+                        `}
+                      >
+                        #{tag}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Right-side controls grouped so they wrap together as a unit (not

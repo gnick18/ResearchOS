@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState, useEffect } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { goalsApi, dependenciesApi, fetchAllTasksIncludingShared, fetchAllProjectsIncludingShared, labApi } from "@/lib/local-api";
@@ -8,7 +8,6 @@ import { useCurrentUser } from "@/hooks/useCurrentUser";
 import { useIsLabHead } from "@/hooks/useIsLabHead";
 import { useIsClassMode } from "@/hooks/useIsClassMode";
 import { useIsClassStudent } from "@/hooks/useIsClassStudent";
-import { usePiViewMode } from "@/hooks/usePiViewMode";
 import { useAppStore } from "@/lib/store";
 import AppShell from "@/components/AppShell";
 import GanttChart from "@/components/GanttChart";
@@ -18,6 +17,8 @@ import TaskModal from "@/components/TaskModal";
 import TaskDetailPopup from "@/components/TaskDetailPopup";
 import HighLevelGoalModal from "@/components/HighLevelGoalModal";
 import HighLevelGoalSidebar from "@/components/HighLevelGoalSidebar";
+import { Icon } from "@/components/icons";
+import Tooltip from "@/components/Tooltip";
 import { matchesAnyProjectFilter } from "@/lib/search/filterKey";
 import { taskKey } from "@/lib/types";
 import type { HighLevelGoal, Project, Task } from "@/lib/types";
@@ -79,10 +80,17 @@ export default function Home() {
   const currentUser = providerCurrentUser ?? "";
 
   // RS-2: a PI can view the lab-wide rollup (every member's tasks on one
-  // timeline) and flip back to their own. Defaults to the lab view once, when the
-  // lab lens resolves (ref-guarded so it never fights a manual switch). The lab
-  // view is READ-ONLY: GanttChart's lab mode disables every drag/resize handler,
-  // and a click opens the task read-only (edit-as-lab-head lives in the popup).
+  // timeline) and flip back to their own. The lab view is READ-ONLY: GanttChart's
+  // lab mode disables every drag/resize handler, and a click opens the task
+  // read-only (edit-as-lab-head lives in the popup).
+  //
+  // UX-clawback (2026-06-26): a PI now lands on their OWN editable timeline by
+  // default so the first thing they see is a surface they can actually drag and
+  // schedule on. They flip to "Lab rollup" via the in-page scope toggle below
+  // whenever they want the cross-member overview. This is the Gantt's own view
+  // default and is intentionally NOT wired to the global piViewMode lens (the
+  // header Lab / My-work toggle): the read-only rollup was a poor first landing
+  // even for a PI whose header lens reads "lab".
   const isLabHead = useIsLabHead(currentUser || null) === true;
   // CT-6: any class folder (instructor OR student). High-level lab goals have no
   // classroom meaning, so the goals sidebar + create button + goal markers are
@@ -91,16 +99,11 @@ export default function Home() {
   const isClassInstructor = useIsClassMode(currentUser || null) === true;
   const isClassStudent = useIsClassStudent(currentUser || null) === true;
   const inClass = isClassInstructor || isClassStudent;
-  const { mode: piViewMode } = usePiViewMode();
-  const labLensDefault = isLabHead && piViewMode === "lab";
+  // Always start on the personal (editable) timeline. The PI opts into the lab
+  // rollup with the in-page scope toggle. (Previously this auto-flipped to "lab"
+  // when the global piViewMode lens resolved to "lab", which dumped PIs onto a
+  // read-only surface on arrival.)
   const [ganttScope, setGanttScope] = useState<"mine" | "lab">("mine");
-  const appliedLabScope = useRef(false);
-  useEffect(() => {
-    if (labLensDefault && !appliedLabScope.current) {
-      appliedLabScope.current = true;
-      setGanttScope("lab");
-    }
-  }, [labLensDefault]);
   const labMode = isLabHead && ganttScope === "lab";
 
   // Personal data (own + shared-with-me), the default source.
@@ -395,6 +398,33 @@ export default function Home() {
         </div>
       ) : (
         <>
+          {/* UX-clawback purpose cue (2026-06-26): name the page's differentiator
+              up front and make the dependency-link capability discoverable. The
+              link itself is performed by dragging one experiment bar onto another
+              (handleDropOnTask in GanttChart); that gesture was undiscoverable, so
+              this one-liner plus the hover tip surface it without building a new
+              dependency system. */}
+          <div className="flex items-center gap-2 border-b border-border bg-surface px-4 py-2">
+            <Icon
+              name="connector"
+              className="h-4 w-4 shrink-0 text-brand-action"
+            />
+            <p className="text-meta text-foreground-muted">
+              Schedule dependency-linked tasks: drag one experiment bar onto
+              another to link them, and rescheduling a task cascades to everything
+              downstream.
+            </p>
+            <Tooltip
+              label="Drag an experiment bar and drop it on another experiment to link them. You then pick how they schedule (start together, or one after the other). Moving a linked task shifts its dependents automatically."
+              placement="bottom"
+            >
+              <span className="ml-auto inline-flex shrink-0 items-center gap-1 rounded-full border border-border bg-surface-raised px-2.5 py-1 text-meta font-medium text-foreground">
+                <Icon name="connector" className="h-3.5 w-3.5" />
+                Link tasks
+              </span>
+            </Tooltip>
+          </div>
+
           <Toolbar
             projects={activeProjects}
             allTags={allTags}
