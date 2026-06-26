@@ -18,6 +18,7 @@ import {
   recordUsage,
 } from "../ai-ledger";
 import { seedStarterGrant } from "../seed-grant";
+import { ownerKeyForEmail } from "../owner";
 
 interface LedgerRow {
   id: number;
@@ -431,6 +432,36 @@ describe("ai-ledger giftTokens (operator comp, no Stripe)", () => {
     const { sql } = makeMockSql();
     const after = await giftTokens("owner-a", -5, sql);
     expect(after).toBe(0);
+  });
+
+  it("a gift to ownerKeyForEmail(email) is visible on that exact key (the key ai-status / ai-chat use)", async () => {
+    // The whole point of the email-based /api/admin/ai-credit route, gift to the
+    // peppered email hash and the SAME getOrGrantBalance the chat path reads then
+    // reflects the comp. We derive the key the real way (ownerKeyForEmail with a
+    // test pepper) so this pins the route-to-ledger key contract, not a stand-in.
+    const prevPepper = process.env.DIRECTORY_HMAC_PEPPER;
+    process.env.DIRECTORY_HMAC_PEPPER = "test-pepper-for-owner-key";
+    try {
+      const { sql } = makeMockSql();
+      const ownerKey = ownerKeyForEmail("Gnick317@Gmail.com");
+
+      // The operator route would call giftTokens(ownerKeyForEmail(email), tokens).
+      const afterGift = await giftTokens(ownerKey, 1_000_000, sql);
+      expect(afterGift).toBe(1_000_000);
+
+      // The chat / ai-status path reads getOrGrantBalance on the SAME derived key.
+      // It sees the gifted balance and does NOT re-mint the starter grant on top
+      // (the row already exists), so the comp is what clears the user's dry 403.
+      const seen = await getOrGrantBalance(ownerKey, sql);
+      expect(seen).toBe(1_000_000);
+
+      // Canonicalization holds, the same email in a different case derives the
+      // same key, so the operator typing it in any case credits the right owner.
+      expect(ownerKeyForEmail("gnick317@gmail.com")).toBe(ownerKey);
+    } finally {
+      if (prevPepper === undefined) delete process.env.DIRECTORY_HMAC_PEPPER;
+      else process.env.DIRECTORY_HMAC_PEPPER = prevPepper;
+    }
   });
 });
 
