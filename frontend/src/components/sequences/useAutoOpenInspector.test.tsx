@@ -96,11 +96,15 @@ describe("useAutoOpenInspector", () => {
     expect(setActiveOp).not.toHaveBeenCalled();
   });
 
-  it("a primer selection auto-opens Primers", () => {
+  it("a primer selection does NOT auto-open Primers (the rail op shimmers instead)", () => {
+    // Phase-3 follow-up (commit 8b21b2253): a single primer click no longer
+    // yanks the Primers panel open. It selects the primer and shimmers the rail
+    // op to invite a deliberate click (double-click opens it), matching the CDS
+    // case above. So the auto-open hook never fires for a primer pick.
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
     click(container, "select-primer");
-    expect(setActiveOp).toHaveBeenLastCalledWith("primers");
+    expect(setActiveOp).not.toHaveBeenCalled();
   });
 
   it("clearing the selection does NOT open / close / move the inspector", () => {
@@ -112,24 +116,26 @@ describe("useAutoOpenInspector", () => {
     expect(setActiveOp).not.toHaveBeenCalled();
   });
 
-  it("does not thrash on a SAME-selection re-render", () => {
+  it("stays inert across a SAME-selection re-render (never spuriously fires)", () => {
+    // Every selection kind shimmers its rail op instead of auto-opening today,
+    // so the hook stays silent on a primer pick, and a same-identity re-render
+    // must never spuriously call setActiveOp.
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
     click(container, "select-primer");
-    expect(setActiveOp).toHaveBeenCalledTimes(1);
-    // A re-render that does NOT change the selection identity must not re-open.
     click(container, "bump");
     click(container, "bump");
-    expect(setActiveOp).toHaveBeenCalledTimes(1);
+    expect(setActiveOp).not.toHaveBeenCalled();
   });
 
-  it("re-opens when the selection identity genuinely changes", () => {
+  it("never auto-opens as the selection identity changes between shimmer-only kinds", () => {
+    // With no kind auto-opening, changing the selection identity (region ->
+    // primer) still never opens a rail op. The identity-tracking machinery is
+    // dormant until a future kind opts back into auto-open.
     const setActiveOp = vi.fn();
     const { container } = render(<Harness setActiveOp={setActiveOp} />);
     click(container, "select-region");
     click(container, "select-primer");
-    // Region does not auto-open, so only the primer pick fires the hook.
-    expect(setActiveOp).toHaveBeenCalledTimes(1);
-    expect(setActiveOp).toHaveBeenLastCalledWith("primers");
+    expect(setActiveOp).not.toHaveBeenCalled();
   });
 });
