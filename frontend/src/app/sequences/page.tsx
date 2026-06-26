@@ -315,8 +315,10 @@ export default function SequencesPage() {
   usePreloadOnIdle(() => import("@/vendor/seqviz"));
   const [collection, setCollection] = useState<Collection>("all");
   const [search, setSearch] = useState("");
-  const [sortKey, setSortKey] = useState<SortKey>("name");
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // UX clawback (minimalism): default to Added (newest first) so the most
+  // recently created / imported sequences sit at the top, rather than Name A→Z.
+  const [sortKey, setSortKey] = useState<SortKey>("added");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   // Whether the open editor has unsaved edits. Lifted from SequenceEditView so a
   // user-initiated switch to another sequence can confirm before discarding.
@@ -375,12 +377,18 @@ export default function SequencesPage() {
   // Transient status line under the toolbar (import counts / parse errors).
   const [status, setStatus] = useState<{ text: string; tone: "ok" | "error" } | null>(null);
   const [importMenuOpen, setImportMenuOpen] = useState(false);
+  // UX clawback (minimalism): the sidebar header's secondary actions (Align,
+  // Assemble, Download from NCBI, and the Import submenu) collapse behind ONE
+  // "More" overflow so the narrow rail no longer wraps a five-button toolbar
+  // before anything is selected. New stays the lone primary; the rest live here.
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false);
   // "Import into" chooser request, set when an import target is ambiguous
   // (All Sequences / Unfiled). Null when no chooser is open.
   const [importTarget, setImportTarget] = useState<ImportTargetRequest | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const importMenuRef = useRef<HTMLDivElement>(null);
+  const moreMenuRef = useRef<HTMLDivElement>(null);
 
   // Split layout: the shared resizable + collapse-to-focus + width-persisted
   // shell, the same one Chemistry / Data Hub / Tree Studio use. Focus mode
@@ -1373,6 +1381,26 @@ export default function SequencesPage() {
     };
   }, [importMenuOpen]);
 
+  // Close the "More" overflow menu on outside click / Escape (same pattern as
+  // the Import submenu above).
+  useEffect(() => {
+    if (!moreMenuOpen) return;
+    const onPointer = (e: MouseEvent) => {
+      if (!moreMenuRef.current?.contains(e.target as Node)) {
+        setMoreMenuOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMoreMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [moreMenuOpen]);
+
   // Escape exits focus mode, but only when it is "free" — never while the user
   // types in a field / contenteditable, and never when a dialog or the import
   // menu is open (those own Escape). Mirrors the markdown editor's guarded
@@ -1383,8 +1411,16 @@ export default function SequencesPage() {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
       if (e.metaKey || e.ctrlKey || e.altKey || e.shiftKey) return;
-      // A dialog or the import dropdown owns Escape while open.
-      if (newOpen || assembleOpen || compareOpen || importMenuOpen || importTarget) return;
+      // A dialog or an open dropdown (import / more) owns Escape while open.
+      if (
+        newOpen ||
+        assembleOpen ||
+        compareOpen ||
+        importMenuOpen ||
+        moreMenuOpen ||
+        importTarget
+      )
+        return;
       const active = document.activeElement as HTMLElement | null;
       const typing =
         !!active &&
@@ -1409,6 +1445,7 @@ export default function SequencesPage() {
     assembleOpen,
     compareOpen,
     importMenuOpen,
+    moreMenuOpen,
     importTarget,
   ]);
 
@@ -1654,6 +1691,17 @@ export default function SequencesPage() {
                   </p>
                 </div>
               )}
+              {/* UX clawback (minimalism): the narrow rail header carries ONE
+                  primary action (New) plus a compact Import split-menu and a
+                  single "More" overflow for the secondary tools — never the old
+                  five-button toolbar that wrapped. When NO sequence is open the
+                  SequencesLauncher in the right pane already lays out the full
+                  set of actions (New / Assemble / Align / Import / NCBI +
+                  taxonomy), so the rail thins to just New + Import to avoid
+                  duplicating the same actions at full weight in two places.
+                  When a sequence IS open the launcher is gone, so the rail's
+                  "More" menu becomes the single home for Align / Assemble /
+                  Download from NCBI. */}
               <div className="flex flex-wrap items-center gap-1.5">
                 <button
                   type="button"
@@ -1663,34 +1711,10 @@ export default function SequencesPage() {
                   <PlusIcon className="h-3.5 w-3.5" />
                   New
                 </button>
-                {/* Assemble: open the standalone cloning workspace (overlap /
-                    Gibson, restriction + ligation, Golden Gate, Gateway).
-                    Combines several library sequences into a new construct. */}
-                <Tooltip label="Assemble a new construct from fragments (Gibson overlap, restriction, Golden Gate, or Gateway).">
-                  <button
-                    type="button"
-                    onClick={() => setAssembleOpen(true)}
-                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
-                  >
-                    <AssembleIcon className="h-3.5 w-3.5" />
-                    Assemble
-                  </button>
-                </Tooltip>
-                {/* Compare: align two library sequences and see their percent
-                    identity, mismatches, gaps, and a k-mer dotplot. */}
-                <Tooltip label="Align two sequences and see percent identity, mismatches, gaps, and a dotplot.">
-                  <button
-                    type="button"
-                    onClick={() => setCompareOpen(true)}
-                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
-                  >
-                    <AlignIcon className="h-3.5 w-3.5" />
-                    Align
-                  </button>
-                </Tooltip>
                 {/* Import split-menu: pick files, or pick a whole folder
                     (e.g. a SnapGene collection). Drag-and-drop also works
-                    anywhere on the library. */}
+                    anywhere on the library. Stays a direct rail button in both
+                    states — it is the second-most-common action. */}
                 <div className="relative" ref={importMenuRef}>
                   <Tooltip label="Import files or a whole folder. You can also drag files or a folder onto the library.">
                     <button
@@ -1738,18 +1762,78 @@ export default function SequencesPage() {
                     </div>
                   ) : null}
                 </div>
-                {/* Download from NCBI: pull a gene / genome / accession straight
-                    from the NCBI Datasets API into the active collection. */}
-                <Tooltip label="Download a gene or genome from NCBI straight into your collection.">
-                  <button
-                    type="button"
-                    onClick={() => setNcbiOpen(true)}
-                    className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
-                  >
-                    <NcbiCloudIcon className="h-3.5 w-3.5" />
-                    Download from NCBI
-                  </button>
-                </Tooltip>
+                {/* "More" overflow — only when a sequence IS open. With the
+                    launcher hidden, this is the single home for Assemble / Align
+                    / Download from NCBI (which the launcher would otherwise own).
+                    Hidden when the launcher is showing so the same actions never
+                    appear at full weight in two places at once. */}
+                {selected ? (
+                  <div className="relative" ref={moreMenuRef}>
+                    <Tooltip label="More sequence tools — assemble a construct, align two sequences, or download from NCBI.">
+                      <button
+                        type="button"
+                        onClick={() => setMoreMenuOpen((o) => !o)}
+                        aria-haspopup="menu"
+                        aria-expanded={moreMenuOpen}
+                        className="ros-btn-neutral flex items-center gap-1 px-2.5 py-1.5 text-meta font-medium"
+                      >
+                        <Icon name="more" className="h-3.5 w-3.5" />
+                        More
+                        <ChevronDownIcon className="h-3 w-3 text-foreground-muted" />
+                      </button>
+                    </Tooltip>
+                    {moreMenuOpen ? (
+                      <div
+                        role="menu"
+                        className="absolute left-0 z-30 mt-1 w-56 overflow-hidden rounded-md border border-border bg-surface-raised py-1 shadow-lg"
+                      >
+                        {/* Assemble: open the standalone cloning workspace
+                            (Gibson overlap, restriction + ligation, Golden Gate,
+                            Gateway). Combines library sequences into a construct. */}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreMenuOpen(false);
+                            setAssembleOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-foreground hover:bg-surface-sunken"
+                        >
+                          <AssembleIcon className="h-3.5 w-3.5 text-foreground-muted" />
+                          Assemble a construct
+                        </button>
+                        {/* Align: compare two library sequences (percent
+                            identity, mismatches, gaps, dotplot). */}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreMenuOpen(false);
+                            setCompareOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-foreground hover:bg-surface-sunken"
+                        >
+                          <AlignIcon className="h-3.5 w-3.5 text-foreground-muted" />
+                          Align two sequences
+                        </button>
+                        {/* Download from NCBI: pull a gene / genome / accession
+                            from the NCBI Datasets API into the active collection. */}
+                        <button
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMoreMenuOpen(false);
+                            setNcbiOpen(true);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-2 text-left text-meta font-medium text-foreground hover:bg-surface-sunken"
+                        >
+                          <NcbiCloudIcon className="h-3.5 w-3.5 text-foreground-muted" />
+                          Download from NCBI
+                        </button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             </div>
             {status ? (
