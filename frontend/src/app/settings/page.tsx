@@ -390,10 +390,19 @@ function SettingsBodyInner({
     const folderlessShowProfile =
       PROFILE_CONSOLIDATION_ENABLED &&
       (hasCloudSession === true || caps.mode === "account");
+    // P3: the folder-free device-key block (SecurityKeysPanel) so a no-folder
+    // user can still set up or unlock their E2E key. Implicitly P1 && P3 (this
+    // branch already requires SETTINGS_FOLDERLESS). The folder-scoped block
+    // (app password + user switch) is OMITTED folderless. Same signed-in gate
+    // as showProfile.
+    const folderlessShowSecurity =
+      SECURITY_CONSOLIDATION_ENABLED &&
+      (hasCloudSession === true || caps.mode === "account");
     return (
       <FolderlessSettingsBody
         canSeeBilling={folderlessCanSeeBilling}
         showProfile={folderlessShowProfile}
+        showSecurity={folderlessShowSecurity}
         disconnect={disconnect}
         onConnectFolder={() => setShowDataSetup(true)}
         showDataSetup={showDataSetup}
@@ -1089,6 +1098,7 @@ function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySa
 function FolderlessSettingsBody({
   canSeeBilling,
   showProfile,
+  showSecurity,
   disconnect,
   onConnectFolder,
   showDataSetup,
@@ -1097,6 +1107,8 @@ function FolderlessSettingsBody({
   canSeeBilling: boolean;
   /** P2b: render the folder-free cloud Profile block above billing. */
   showProfile: boolean;
+  /** P3: render the folder-free Security & keys (device-key) block. */
+  showSecurity: boolean;
   disconnect: () => Promise<void>;
   onConnectFolder: () => void;
   showDataSetup: boolean;
@@ -1171,6 +1183,18 @@ function FolderlessSettingsBody({
                   the connected surface. Mounted for symmetry with the connected
                   composition. */}
               <ProfileOrcidUpMigration />
+            </div>
+          ) : null}
+
+          {/* P3: the folder-free Security & keys block. SecurityKeysPanel is
+              fully folder-free (sign-in email + the device-key provision /
+              unlock / recovery state machine), so a no-folder user can set up or
+              unlock their E2E key here. The folder-scoped controls (app
+              password, user switch) are intentionally omitted folderless.
+              Flag-gated by showSecurity. */}
+          {showSecurity ? (
+            <div className="mb-6 rounded-xl border border-border bg-surface-raised ros-seam p-6">
+              <SecurityKeysPanel />
             </div>
           ) : null}
 
