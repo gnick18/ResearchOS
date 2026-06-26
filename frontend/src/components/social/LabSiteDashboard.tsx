@@ -1115,6 +1115,9 @@ export default function LabSiteDashboard({
   const [editorBody, setEditorBody] = useState("");
   const [editorBusy, setEditorBusy] = useState(false);
   const [editorMsg, setEditorMsg] = useState<string | null>(null);
+  // The path currently being deleted (null when no delete is in flight). Used to
+  // disable the matching row/editor delete control + show its busy state.
+  const [deleteBusyPath, setDeleteBusyPath] = useState<string | null>(null);
   // The "/" insert picker (reused from the note/method editors). Inserts the
   // picked reference markdown at the cursor in the body textarea.
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -1708,6 +1711,56 @@ export default function LabSiteDashboard({
     }
   }, [editorPath, siteOwnerKeyProp, refresh, loadHistory]);
 
+  // Delete a page entirely (live row + version history + hosted-storage
+  // footprint). Confirms first because the action is destructive and permanent
+  // (deploy history is removed too, so it cannot be restored afterward). Works
+  // from both the page list and the open editor; closes the editor if the
+  // deleted page was the one open. window.alert on failure so the error is
+  // visible regardless of whether the editor is open.
+  const handleDeletePage = useCallback(
+    async (path: string, label: string) => {
+      if (demoReadOnly) {
+        setEditorMsg(DEMO_EDIT_NOTE);
+        return;
+      }
+      const isHome = path === "";
+      const confirmMsg = isHome
+        ? `Delete the home page "${label}"?\n\nThis removes it from your public site and deletes its version history. This cannot be undone. You can build a new home page afterward from the section editor.`
+        : `Delete "${label}"?\n\nThis removes the page from your public site and its navigation, and deletes its version history. This cannot be undone.`;
+      if (!window.confirm(confirmMsg)) return;
+
+      setDeleteBusyPath(path);
+      try {
+        const res = await fetch("/api/social/lab-site/page", {
+          method: "DELETE",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            path,
+            ...(siteOwnerKeyProp ? { siteOwnerKey: siteOwnerKeyProp } : {}),
+          }),
+        });
+        if (!res.ok) {
+          window.alert(
+            res.status === 404
+              ? "That page no longer exists. The list will refresh."
+              : "Could not delete that page right now.",
+          );
+          // A 404 means it is already gone; refresh so the stale row disappears.
+          if (res.status === 404) await refresh();
+          return;
+        }
+        // If the deleted page is the one open in the editor, close it.
+        if (editorPath === path) setEditorPath(null);
+        await refresh();
+      } catch {
+        window.alert("Could not delete that page right now.");
+      } finally {
+        setDeleteBusyPath(null);
+      }
+    },
+    [demoReadOnly, siteOwnerKeyProp, editorPath, refresh],
+  );
+
   const body = (
     <>
         <header className="mb-8">
@@ -2038,13 +2091,34 @@ export default function LabSiteDashboard({
                               {pathLabel(p.path)} . {p.status}
                             </p>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => void openEditor(p)}
-                            className="ros-btn-neutral rounded-lg px-3 py-1 text-xs"
-                          >
-                            Edit
-                          </button>
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void openEditor(p)}
+                              className="ros-btn-neutral rounded-lg px-3 py-1 text-xs"
+                            >
+                              Edit
+                            </button>
+                            {!demoReadOnly && (
+                              <Tooltip label="Delete this page and its version history">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    void handleDeletePage(
+                                      p.path,
+                                      p.title || pathLabel(p.path),
+                                    )
+                                  }
+                                  disabled={deleteBusyPath !== null}
+                                  aria-label={`Delete ${p.title || pathLabel(p.path)}`}
+                                  className="inline-flex items-center gap-1 rounded-lg border border-rose-200 px-2.5 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
+                                >
+                                  <Icon name="trash" className="h-3.5 w-3.5" />
+                                  {deleteBusyPath === p.path ? "Deleting." : "Delete"}
+                                </button>
+                              </Tooltip>
+                            )}
+                          </div>
                         </li>
                       ))}
                     </ul>
@@ -2225,6 +2299,28 @@ export default function LabSiteDashboard({
                         >
                           Close
                         </button>
+                        {/* Delete is offered only for an existing saved page (not a
+                            brand-new unsaved draft, which has nothing to delete) and
+                            never in demo mode. Pushed to the right so it sits apart
+                            from the save/publish actions. */}
+                        {!demoReadOnly && editorPath !== "__new__" && (
+                          <button
+                            type="button"
+                            disabled={editorBusy || deleteBusyPath !== null}
+                            onClick={() =>
+                              void handleDeletePage(
+                                editorPath,
+                                editorTitle || pathLabel(editorPath),
+                              )
+                            }
+                            className="ml-auto inline-flex items-center gap-2 rounded-lg border border-rose-200 px-3 py-1.5 text-sm font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900 dark:text-rose-400 dark:hover:bg-rose-950"
+                          >
+                            <Icon name="trash" className="h-4 w-4" />
+                            {deleteBusyPath === editorPath
+                              ? "Deleting."
+                              : "Delete page"}
+                          </button>
+                        )}
                         {editorMsg && (
                           <span className="text-xs text-muted-foreground">
                             {editorMsg}

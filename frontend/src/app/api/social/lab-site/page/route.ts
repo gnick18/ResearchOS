@@ -10,6 +10,12 @@
 //   PUT  /api/social/lab-site/page  -> publish a page. Body: { path,
 //                                      siteOwnerKey? }. The page must already exist
 //                                      as a draft.
+//   DELETE /api/social/lab-site/page -> delete a page entirely (live row + version
+//                                      history + hosted-storage footprint). Body:
+//                                      { path, siteOwnerKey? }. path may be "" (the
+//                                      home page). Idempotent: deleting a missing
+//                                      page returns 404 so a stale UI is told the
+//                                      page is already gone.
 //
 // AUTHZ (every write, fail closed):
 //   1. flag        isLabSitesEnabled() true, else 404.
@@ -38,6 +44,7 @@ import {
   parseUpsertPageBody,
 } from "@/lib/social/lab-site-authoring";
 import {
+  deletePage,
   getSiteByOwner,
   publishPage,
   upsertPage,
@@ -238,4 +245,52 @@ export async function PUT(request: Request): Promise<Response> {
       updatedAt: page.updatedAt,
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// DELETE — delete a page entirely
+// ---------------------------------------------------------------------------
+
+export async function DELETE(request: Request): Promise<Response> {
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    body = null;
+  }
+  const record =
+    body && typeof body === "object" && !Array.isArray(body)
+      ? (body as Record<string, unknown>)
+      : null;
+  const siteOwnerKeyFromBody = record?.siteOwnerKey as string | undefined;
+
+  const gate = await authorizePageWrite(
+    typeof siteOwnerKeyFromBody === "string" ? siteOwnerKeyFromBody : null,
+  );
+  if (!gate.ok) return gate.response;
+  const { ownerKey } = gate;
+
+  // path may be "" (the home page), so validate the TYPE, not truthiness. The DB
+  // layer normalizes traversal/edge cases via normalizePagePath.
+  const path = record?.path;
+  if (typeof path !== "string") return json(400, { error: "invalid request" });
+
+  let site;
+  try {
+    site = await getSiteByOwner(ownerKey);
+  } catch {
+    return json(503, { error: "store unavailable" });
+  }
+  if (!site) return json(409, { error: "no site" });
+
+  let removed: boolean;
+  try {
+    removed = await deletePage(ownerKey, path);
+  } catch {
+    return json(503, { error: "store unavailable" });
+  }
+  // No live row existed: report 404 so a stale list / double-click learns the
+  // page is already gone, rather than a misleading success.
+  if (!removed) return json(404, { error: "page not found" });
+  return json(200, { ok: true, path });
 }

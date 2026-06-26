@@ -26,9 +26,9 @@
 
 import { neon, type NeonQueryFunction } from "@neondatabase/serverless";
 
-import { setHostedAssetBytes } from "@/lib/collab/server/db";
+import { removeHostedAsset, setHostedAssetBytes } from "@/lib/collab/server/db";
 import { normalizePagePath, type PageStatus } from "./lab-site";
-import { hostedAssetId } from "./lab-site-hosted";
+import { hostedAssetId, parseHostedManifest } from "./lab-site-hosted";
 import {
   ensureSlugRegistrySchema,
   reserveSlug,
@@ -1035,4 +1035,103 @@ export async function restorePageVersion(
     historical.snapshotsJson,
     historical.hostedJson,
   );
+}
+
+// ---------------------------------------------------------------------------
+// Page delete (Phase delete-page: prune a companion page)
+// ---------------------------------------------------------------------------
+
+/**
+ * Best-effort cleanup of the storage + billing footprint left behind by a deleted
+ * page. NEVER throws (a billing/R2 blip must not fail or roll back the delete):
+ *
+ *   1. The native-page meter row keyed by pageNativeAssetId (the page's own stored
+ *      bytes, reported on every publish via meterNativePage). Dropped so the page
+ *      no longer counts toward the lab's hosted-storage total.
+ *   2. Each hosted dataset asset referenced by the page's CURRENT manifest: the
+ *      Parquet object in R2 and its billing row. assetIds are stable per
+ *      (lab, path, href), so the live manifest covers the assets a re-publish would
+ *      have reused; assets only ever referenced by an older version are left to the
+ *      Phase 4b lifecycle GC (this is documented, not silently dropped).
+ *
+ * The R2 client (lab-site-asset-store) is a Node-only aws-sdk module, so it is
+ * imported dynamically here to keep it out of this module's static import graph.
+ */
+async function cleanupDeletedPageAssets(
+  labOwnerKey: string,
+  pagePath: string,
+  hostedJson: string | null,
+): Promise<void> {
+  // 1. Native-page meter row.
+  try {
+    await removeHostedAsset(pageNativeAssetId(labOwnerKey, pagePath));
+  } catch {
+    // best effort
+  }
+
+  // 2. Hosted dataset assets from the current manifest.
+  const assets = Object.values(parseHostedManifest(hostedJson).assets);
+  if (assets.length === 0) return;
+
+  let deleteAsset: ((id: string) => Promise<boolean>) | null = null;
+  try {
+    ({ deleteAsset } = await import("./lab-site-asset-store"));
+  } catch {
+    deleteAsset = null;
+  }
+  for (const asset of assets) {
+    try {
+      if (deleteAsset) await deleteAsset(asset.assetId);
+      await removeHostedAsset(asset.assetId);
+    } catch {
+      // best effort per asset; one failure must not strand the rest
+    }
+  }
+}
+
+/**
+ * Deletes a page entirely: the live lab_site_pages row, all of its
+ * lab_site_page_versions history, and (best-effort) its hosted-storage +
+ * billing footprint. The page is gone from the public site and its nav.
+ *
+ * Returns true when a live row was actually removed, false when no such page
+ * existed (an idempotent no-op delete, so a double-click or a stale list does not
+ * error). Deleting a missing page is therefore safe.
+ *
+ * The home page (path "") is a valid target: the owner may prune it and rebuild
+ * one later from the section editor. The caller (route) owns the authorization
+ * and confirmation gates; this layer only enforces the data semantics.
+ */
+export async function deletePage(
+  labOwnerKey: string,
+  path: string,
+): Promise<boolean> {
+  if (!labOwnerKey) return false;
+  await ensureLabSiteSchema();
+  const p = normalizePagePath(path);
+  const sql = getSql();
+
+  // Read the page first so the asset-cleanup pass can see its hosted manifest.
+  // A null page means there is nothing to delete (return false below).
+  const page = await getPage(labOwnerKey, p);
+
+  // Remove the live row. RETURNING confirms whether a row actually existed.
+  const removed = (await sql`
+    DELETE FROM lab_site_pages
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+    RETURNING lab_owner_key
+  `) as Array<{ lab_owner_key: string }>;
+
+  // Remove the full version history for this path. Done unconditionally so a row
+  // with orphaned history (live row already gone) is still fully cleaned up.
+  await sql`
+    DELETE FROM lab_site_page_versions
+    WHERE lab_owner_key = ${labOwnerKey} AND path = ${p}
+  `;
+
+  // Storage + billing cleanup is fire-and-forget so a slow R2/billing call never
+  // delays the delete response; it swallows its own failures.
+  void cleanupDeletedPageAssets(labOwnerKey, p, page?.hostedJson ?? null);
+
+  return removed.length > 0;
 }
