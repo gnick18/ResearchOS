@@ -13,6 +13,8 @@ import {
   creditTokens,
   getOrGrantBalance,
   getRecentTasks,
+  giftTokens,
+  MAX_GIFT_TOKENS,
   recordUsage,
 } from "../ai-ledger";
 import { seedStarterGrant } from "../seed-grant";
@@ -138,7 +140,31 @@ function makeMockSql() {
       return Promise.resolve([{ id }]);
     }
 
-    // creditTokens step 2: upsert the balance by the credited amount.
+    // giftTokens step 1: append the standalone 'gift' ledger row (no
+    // stripe_event_id, not preceded by an ai_balances insert in the same stmt).
+    if (
+      /INSERT INTO ai_ledger/i.test(text) &&
+      /'gift'/i.test(text) &&
+      !/INSERT INTO ai_balances/i.test(text)
+    ) {
+      const ownerKey = values[0] as string;
+      const add = values[1] as number;
+      ledger.push({
+        id: nextId++,
+        owner_key: ownerKey,
+        kind: "gift",
+        tokens_delta: add,
+        task_id: null,
+        prompt_tokens: null,
+        completion_tokens: null,
+        usd_micros: 0,
+        stripe_event_id: null,
+        created_at: clock++,
+      });
+      return Promise.resolve([]);
+    }
+
+    // creditTokens / giftTokens step 2: upsert the balance by the credited amount.
     if (
       /INSERT INTO ai_balances/i.test(text) &&
       /ON CONFLICT \(owner_key\) DO UPDATE/i.test(text)
@@ -358,6 +384,53 @@ describe("ai-ledger creditTokens idempotency", () => {
     await creditTokens("owner-a", 100_000, "evt_1", sql);
     const after = await creditTokens("owner-a", 50_000, "evt_2", sql);
     expect(after).toBe(STARTER_GRANT_TOKENS + 150_000);
+  });
+});
+
+describe("ai-ledger giftTokens (operator comp, no Stripe)", () => {
+  beforeEach(() => __resetAiSchemaCacheForTests());
+
+  it("grants tokens and bumps the balance, logging a usd-free gift row", async () => {
+    const { sql, ledger } = makeMockSql();
+    await getOrGrantBalance("owner-a", sql);
+
+    const after = await giftTokens("owner-a", 1_000_000, sql);
+    expect(after).toBe(STARTER_GRANT_TOKENS + 1_000_000);
+
+    const gifts = ledger.filter((r) => r.kind === "gift");
+    expect(gifts).toHaveLength(1);
+    expect(gifts[0].tokens_delta).toBe(1_000_000);
+    expect(gifts[0].usd_micros).toBe(0);
+    expect(gifts[0].stripe_event_id).toBeNull();
+  });
+
+  it("creates the balance row for an owner who has none yet", async () => {
+    const { sql, balances } = makeMockSql();
+    expect(balances.has("fresh")).toBe(false);
+
+    const after = await giftTokens("fresh", 250_000, sql);
+    expect(after).toBe(250_000);
+    expect(balances.get("fresh")?.tokens_remaining).toBe(250_000);
+  });
+
+  it("is repeatable, each gift stacks (no idempotency guard)", async () => {
+    const { sql, ledger } = makeMockSql();
+    await giftTokens("owner-a", 100_000, sql);
+    const after = await giftTokens("owner-a", 100_000, sql);
+    expect(after).toBe(200_000);
+    expect(ledger.filter((r) => r.kind === "gift")).toHaveLength(2);
+  });
+
+  it("clamps an over-max amount to MAX_GIFT_TOKENS", async () => {
+    const { sql } = makeMockSql();
+    const after = await giftTokens("owner-a", MAX_GIFT_TOKENS * 10, sql);
+    expect(after).toBe(MAX_GIFT_TOKENS);
+  });
+
+  it("treats a non-positive amount as a zero gift", async () => {
+    const { sql } = makeMockSql();
+    const after = await giftTokens("owner-a", -5, sql);
+    expect(after).toBe(0);
   });
 });
 

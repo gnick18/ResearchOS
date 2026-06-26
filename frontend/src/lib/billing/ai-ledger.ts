@@ -164,6 +164,51 @@ export async function creditTokens(
   return Number(rows[0]?.tokens_remaining ?? 0);
 }
 
+/**
+ * The most an operator gift can add in one click, a guardrail against a fat-finger
+ * typo turning into an unbounded grant. 100M tokens is ~$15 of our pricing and far
+ * above any sensible comp (the sign-up gift is ~1.63M), so it bounds the blast
+ * radius without getting in the way of legitimate multi-pack gifts.
+ */
+export const MAX_GIFT_TOKENS = 100_000_000;
+
+/**
+ * Operator gift of AI tokens to an account, NO Stripe. Appends a 'gift' journal
+ * row (usd_micros 0, this is a comp not a sale) and bumps the balance by that
+ * amount, mirroring creditTokens's proven upsert SQL but without the Stripe-event
+ * idempotency guard, a manual operator click is a deliberate, repeatable grant.
+ * The amount is clamped to a positive integer no greater than MAX_GIFT_TOKENS.
+ * Returns the resulting balance. The whole flow is operator-gated at the route, so
+ * this function trusts its caller to have authorized the gift.
+ */
+export async function giftTokens(
+  ownerKey: string,
+  tokens: number,
+  sql: Sql = getSql(),
+): Promise<number> {
+  await ensureAiBillingSchema(sql);
+  const add = Math.min(MAX_GIFT_TOKENS, Math.max(0, Math.floor(tokens || 0)));
+
+  // Record the gift in the journal. usd_micros is 0 because a comp has no sale
+  // value, it costs us inference but is not revenue.
+  await sql`
+    INSERT INTO ai_ledger (owner_key, kind, tokens_delta, usd_micros)
+    VALUES (${ownerKey}, 'gift', ${add}, 0)
+  `;
+
+  // Bump the balance, creating the row if the owner has none yet. Mirrors
+  // creditTokens's balance upsert so the two credit paths share the proven SQL.
+  const rows = (await sql`
+    INSERT INTO ai_balances (owner_key, tokens_remaining, gift_granted, updated_at)
+    VALUES (${ownerKey}, ${add}, false, now())
+    ON CONFLICT (owner_key) DO UPDATE SET
+      tokens_remaining = ai_balances.tokens_remaining + ${add},
+      updated_at = now()
+    RETURNING tokens_remaining
+  `) as BalanceRow[];
+  return Number(rows[0]?.tokens_remaining ?? 0);
+}
+
 /** A recent task's summed usage, name-less (the UI labels it). */
 export interface RecentTask {
   taskId: string;
