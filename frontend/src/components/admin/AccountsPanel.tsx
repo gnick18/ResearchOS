@@ -26,8 +26,34 @@ import { Icon } from "@/components/icons";
 import Tooltip from "@/components/Tooltip";
 import LivingPopup from "@/components/ui/LivingPopup";
 import { StatCard } from "@/components/admin/AdminMetrics";
+import { STARTER_GRANT_TOKENS } from "@/lib/billing/ai-config";
 
 type GiftTier = "solo" | "lab" | "dept";
+
+/** What the row-level AI-credit picker needs (scoped to one account's key). */
+interface CreditTarget {
+  ownerKey: string;
+  label: string;
+}
+
+/** A short human label for a token count, e.g. 1_630_000 -> "1.6M tokens". */
+function fmtTokens(n: number): string {
+  if (n >= 1_000_000) {
+    const m = n / 1_000_000;
+    return `${m >= 10 ? Math.round(m) : m.toFixed(1)}M tokens`;
+  }
+  if (n >= 1_000) return `${Math.round(n / 1_000)}K tokens`;
+  return `${n} tokens`;
+}
+
+/**
+ * Preset gift sizes, multiples of the one-time sign-up gift so the amounts track
+ * our real cost basis (1x is what a brand-new account gets free). The operator can
+ * also type a custom amount.
+ */
+const CREDIT_PRESETS: { multiplier: number; tokens: number }[] = [1, 5, 10].map(
+  (multiplier) => ({ multiplier, tokens: STARTER_GRANT_TOKENS * multiplier }),
+);
 
 interface SoloRow {
   ownerKey: string;
@@ -103,6 +129,7 @@ export default function AccountsPanel() {
   const [loadError, setLoadError] = useState(false);
   const [wipeTarget, setWipeTarget] = useState<WipeKey | null>(null);
   const [giftTarget, setGiftTarget] = useState<GiftTarget | null>(null);
+  const [creditTarget, setCreditTarget] = useState<CreditTarget | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -168,9 +195,11 @@ export default function AccountsPanel() {
           hasCard: r.hasCard,
           wipeKey: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
           giftTarget: { ownerKey: r.ownerKey, label: r.label, defaultTier: "solo" as GiftTier },
+          creditTarget: { ownerKey: r.ownerKey, label: r.label },
         }))}
         onWipe={setWipeTarget}
         onGift={setGiftTarget}
+        onCredit={setCreditTarget}
       />
 
       <RosterTable
@@ -184,9 +213,11 @@ export default function AccountsPanel() {
           hasCard: r.hasCard,
           wipeKey: { kind: "owner", ownerKey: r.ownerKey, label: r.label } as WipeKey,
           giftTarget: { ownerKey: r.ownerKey, label: r.label, defaultTier: "lab" as GiftTier },
+          creditTarget: { ownerKey: r.ownerKey, label: r.label },
         }))}
         onWipe={setWipeTarget}
         onGift={setGiftTarget}
+        onCredit={setCreditTarget}
       />
 
       <RosterTable
@@ -202,9 +233,11 @@ export default function AccountsPanel() {
             ? { kind: "dept", deptId: r.id, label: r.label }
             : { kind: "institution", institutionId: r.id, label: r.label }) as WipeKey,
           giftTarget: { ownerKey: r.id, label: r.label, defaultTier: "dept" as GiftTier },
+          creditTarget: { ownerKey: r.id, label: r.label },
         }))}
         onWipe={setWipeTarget}
         onGift={setGiftTarget}
+        onCredit={setCreditTarget}
       />
 
       <WipeConfirm
@@ -216,6 +249,11 @@ export default function AccountsPanel() {
       <RowGiftPopup
         target={giftTarget}
         onClose={() => setGiftTarget(null)}
+      />
+
+      <RowCreditPopup
+        target={creditTarget}
+        onClose={() => setCreditTarget(null)}
       />
     </div>
   );
@@ -230,6 +268,7 @@ interface DisplayRow {
   hasCard: boolean;
   wipeKey: WipeKey;
   giftTarget: GiftTarget;
+  creditTarget: CreditTarget;
 }
 
 function RosterTable({
@@ -239,6 +278,7 @@ function RosterTable({
   rows,
   onWipe,
   onGift,
+  onCredit,
 }: {
   title: string;
   icon: "users" | "labTree" | "library";
@@ -246,6 +286,7 @@ function RosterTable({
   rows: DisplayRow[];
   onWipe: (key: WipeKey) => void;
   onGift: (target: GiftTarget) => void;
+  onCredit: (target: CreditTarget) => void;
 }) {
   return (
     <section className="rounded-2xl border border-border bg-surface-raised p-5">
@@ -273,7 +314,8 @@ function RosterTable({
                 </p>
               </div>
 
-              {/* Row-level operator actions: gift (primary) + wipe (muted). */}
+              {/* Row-level operator actions: gift premium + gift AI credit +
+                  wipe (muted). */}
               <div className="flex shrink-0 items-center gap-1">
                 {/* Gift premium: opens the tier+months picker for this row. */}
                 <Tooltip label="Gift premium" placement="top">
@@ -283,6 +325,19 @@ function RosterTable({
                     className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-violet-50 hover:text-violet-700"
                   >
                     <Icon name="star" className="h-3.5 w-3.5" />
+                  </button>
+                </Tooltip>
+
+                {/* Gift AI credit: adds BeakerBot tokens to this account's AI
+                    balance. The bolt glyph is the established BeakerBot-tokens
+                    mark (it heads the Settings AI usage section). */}
+                <Tooltip label="Gift AI credit" placement="top">
+                  <button
+                    type="button"
+                    onClick={() => onCredit(r.creditTarget)}
+                    className="inline-flex h-7 w-7 items-center justify-center rounded-md text-foreground-muted transition-colors hover:bg-blue-50 hover:text-blue-700"
+                  >
+                    <Icon name="bolt" className="h-3.5 w-3.5" />
                   </button>
                 </Tooltip>
 
@@ -779,6 +834,229 @@ function RowGiftPopup({
                     </>
                   ) : (
                     "Issue gift"
+                  )}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </LivingPopup>
+  );
+}
+
+// ── Per-row AI-credit gift picker ─────────────────────────────────────────────
+
+type CreditPhase =
+  | { state: "idle" }
+  | { state: "busy" }
+  | { state: "done"; balance: number }
+  | { state: "error"; message: string };
+
+/**
+ * Operator gift of BeakerBot AI tokens to one account, NO Stripe. Offers a few
+ * preset amounts (multiples of the sign-up gift) plus a custom field, posts the
+ * chosen token count by ownerKey to the operator-gated /api/admin/ai-credit route,
+ * and surfaces the resulting balance. This is the only way to put AI credit on an
+ * existing account, the sign-up gift is one-time per owner.
+ */
+function RowCreditPopup({
+  target,
+  onClose,
+}: {
+  target: CreditTarget | null;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<number>(CREDIT_PRESETS[0].tokens);
+  const [custom, setCustom] = useState("");
+  const [phase, setPhase] = useState<CreditPhase>({ state: "idle" });
+
+  // Reset whenever a new row opens the picker (keyed on ownerKey so reopening the
+  // same row is a no-op and does not wipe an in-progress custom amount).
+  const targetKey = target?.ownerKey ?? null;
+  useEffect(() => {
+    if (!target) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- resetting form fields when a new roster row opens this operator-only popup
+    setSelected(CREDIT_PRESETS[0].tokens);
+    setCustom("");
+    setPhase({ state: "idle" });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally keyed on targetKey, not the full target object
+  }, [targetKey]);
+
+  // A custom amount, when present and valid, overrides the selected preset.
+  const customTokens = custom.trim() ? Math.floor(Number(custom)) : 0;
+  const customValid = custom.trim() === "" || (Number.isFinite(customTokens) && customTokens > 0);
+  const tokens = custom.trim() ? customTokens : selected;
+  const canIssue =
+    target !== null &&
+    customValid &&
+    tokens > 0 &&
+    phase.state !== "busy";
+
+  const issue = useCallback(async () => {
+    if (!target || tokens <= 0) return;
+    setPhase({ state: "busy" });
+    try {
+      const res = await fetch("/api/admin/ai-credit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ownerKey: target.ownerKey, tokens }),
+      });
+      if (!res.ok) {
+        const j = (await res.json().catch(() => ({}))) as { error?: string };
+        setPhase({ state: "error", message: j.error ?? "Gift failed." });
+        return;
+      }
+      const j = (await res.json()) as { balance?: number };
+      setPhase({ state: "done", balance: Number(j.balance ?? 0) });
+    } catch {
+      setPhase({ state: "error", message: "Gift failed. Try again." });
+    }
+  }, [target, tokens]);
+
+  const open = target !== null;
+
+  return (
+    <LivingPopup
+      open={open}
+      onClose={onClose}
+      label="Gift AI credit"
+      widthClassName="max-w-sm"
+      card
+      padded
+      blur
+    >
+      {target && (
+        <div>
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+              <Icon name="bolt" className="h-4 w-4" />
+            </span>
+            <div className="min-w-0">
+              <h2 className="text-title font-semibold text-foreground">
+                Gift AI credit
+              </h2>
+              <p className="truncate text-meta text-foreground-muted">
+                {target.label}
+              </p>
+            </div>
+          </div>
+
+          {phase.state === "done" ? (
+            <>
+              <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <p className="text-body font-semibold text-emerald-800">
+                  Credit added
+                </p>
+                <p className="mt-1 text-meta text-emerald-700">
+                  Granted {fmtTokens(tokens)} to {target.label}. Their balance is
+                  now {fmtTokens(phase.balance)}.
+                </p>
+              </div>
+              <div className="mt-5 flex justify-end">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="rounded-lg bg-foreground px-3.5 py-2 text-body font-semibold text-surface-raised transition-colors hover:opacity-90"
+                >
+                  Done
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="mt-3 text-meta text-foreground-muted leading-relaxed">
+                Adds BeakerBot tokens to this account&apos;s AI balance. No Stripe,
+                this is an operator comp. Presets are multiples of the one-time
+                sign-up gift.
+              </p>
+
+              <div className="mt-4 space-y-3">
+                {/* Preset amounts. */}
+                <div className="grid grid-cols-3 gap-2">
+                  {CREDIT_PRESETS.map((p) => {
+                    const active = custom.trim() === "" && selected === p.tokens;
+                    return (
+                      <button
+                        key={p.multiplier}
+                        type="button"
+                        disabled={phase.state === "busy"}
+                        onClick={() => {
+                          setSelected(p.tokens);
+                          setCustom("");
+                          if (phase.state === "error") setPhase({ state: "idle" });
+                        }}
+                        className={`rounded-lg border px-2 py-2 text-center transition-colors disabled:opacity-60 ${
+                          active
+                            ? "border-blue-400 bg-blue-50 text-blue-800"
+                            : "border-border bg-surface-sunken text-foreground hover:bg-surface-raised"
+                        }`}
+                      >
+                        <span className="block text-body font-semibold">
+                          {p.multiplier}x
+                        </span>
+                        <span className="block text-meta text-foreground-muted">
+                          {fmtTokens(p.tokens)}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Custom amount (overrides the preset when filled). */}
+                <label className="block text-meta text-foreground-muted">
+                  <span className="block font-medium uppercase tracking-wide">
+                    Custom tokens
+                  </span>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={custom}
+                    disabled={phase.state === "busy"}
+                    onChange={(e) => {
+                      setCustom(e.target.value);
+                      if (phase.state === "error") setPhase({ state: "idle" });
+                    }}
+                    placeholder="optional, overrides the preset"
+                    className={`mt-1 w-full rounded-lg border bg-surface-sunken px-3 py-2 text-body text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      customValid ? "border-border" : "border-red-400"
+                    }`}
+                  />
+                  {!customValid && (
+                    <p className="mt-1 text-meta text-red-600">
+                      Enter a positive whole number of tokens.
+                    </p>
+                  )}
+                </label>
+              </div>
+
+              {phase.state === "error" && (
+                <p className="mt-3 text-meta text-rose-700">{phase.message}</p>
+              )}
+
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  disabled={phase.state === "busy"}
+                  className="rounded-lg border border-border bg-surface-raised px-3.5 py-2 text-body font-medium text-foreground transition-colors hover:bg-surface-sunken disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={issue}
+                  disabled={!canIssue}
+                  className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3.5 py-2 text-body font-semibold text-white transition-colors hover:bg-blue-700 disabled:opacity-60"
+                >
+                  {phase.state === "busy" ? (
+                    <>
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Adding...
+                    </>
+                  ) : (
+                    `Gift ${fmtTokens(tokens)}`
                   )}
                 </button>
               </div>
