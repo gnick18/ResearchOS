@@ -343,12 +343,12 @@ export default function OpenSourceCredits() {
                 The open scientific-art communities below built the asset corpus
                 the figure composer draws on. Every icon in the library carries
                 its own per-image license; the{" "}
-                <a
+                <Link
                   href="/library"
                   className="font-medium text-brand-action underline-offset-2 hover:underline"
                 >
                   asset library
-                </a>{" "}
+                </Link>{" "}
                 page is the canonical credit home for individual images.
               </p>
               <ul className="space-y-3">

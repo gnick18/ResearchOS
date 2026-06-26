@@ -101,9 +101,9 @@ export default function DifferencesSpotlight({ report }: { report: TransparencyR
             <>
               <p className="mt-4 max-w-2xl text-meta text-foreground-muted">
                 {within.length} further comparison{within.length === 1 ? "" : "s"} differ only by a
-                last-digit amount that stays inside each method's documented tolerance, the kind of
+                last-digit amount that stays inside each method&apos;s documented tolerance, the kind of
                 rounding offset two correct implementations produce. The exact per-case numbers are in
-                each method's comparison table, and the same offsets are listed by domain below.
+                each method&apos;s comparison table, and the same offsets are listed by domain below.
               </p>
               <details className="group mt-3 rounded-lg border border-border bg-surface-sunken">
                 <summary className="flex cursor-pointer list-none items-center gap-1.5 px-4 py-3 text-meta font-medium text-foreground-muted transition hover:text-brand-action [&::-webkit-details-marker]:hidden">

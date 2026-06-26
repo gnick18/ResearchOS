@@ -65,7 +65,7 @@ import {
 function makeSqlMock(
   defaultRows: unknown[] = [],
 ): NeonQueryFunction<false, false> {
-  let nextResult: Promise<unknown[]> = Promise.resolve(defaultRows);
+  const nextResult: Promise<unknown[]> = Promise.resolve(defaultRows);
 
   const mock = vi.fn(
     (_strings: TemplateStringsArray, ..._values: unknown[]): Promise<unknown[]> => {

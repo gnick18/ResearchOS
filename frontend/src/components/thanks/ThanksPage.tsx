@@ -321,12 +321,12 @@ const OSS_GROUPS: { title: string; body: React.ReactNode }[] = [
       <>
         These open communities built the asset corpus the figure composer draws
         on. Each icon carries its own license; see{" "}
-        <a
+        <Link
           href="/library"
           className="font-semibold text-foreground underline decoration-border underline-offset-2 transition-colors hover:text-brand-action hover:decoration-brand-action"
         >
           the asset library
-        </a>{" "}
+        </Link>{" "}
         for the full per-image credits.{" "}
         <Oss name="PhyloPic" /> (CC0 / CC-BY / CC-BY-SA per image),{" "}
         <Oss name="Bioicons" /> (CC0 / CC-BY / CC-BY-SA / MIT),{" "}

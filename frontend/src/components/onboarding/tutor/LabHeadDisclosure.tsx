@@ -13,6 +13,7 @@
 // the user is never trapped. No emojis, no em-dashes, no mid-sentence colons.
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { Icon } from "@/components/icons/Icon";
 
 export interface LabHeadDisclosureProps {
@@ -60,13 +61,13 @@ export default function LabHeadDisclosure({ onConfirm, onSolo }: LabHeadDisclosu
         </p>
 
         {/* The lab-head product page (built by the Popup Unifier lane, on main). */}
-        <a
+        <Link
           href="/labs"
           className="mb-5 inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--violet,#7c4dca)] hover:underline"
         >
           What a lab account does
           <Icon name="share" className="h-3.5 w-3.5" />
-        </a>
+        </Link>
 
         <div className="flex flex-col gap-2 sm:flex-row-reverse">
           <button
