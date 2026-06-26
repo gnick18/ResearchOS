@@ -36,6 +36,7 @@ import {
   type ProfileLinks,
 } from "@/lib/account/account-profile-validation";
 import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
+import { syncDisplayNameToAccount } from "@/lib/account/profile-name-sync";
 import {
   fetchMyProfile,
   publishProfile,
@@ -257,6 +258,11 @@ export default function ProfileEditor({
         // verbatim. Never auto-creates a listing, and a failure here never rolls
         // back the account_profiles save above.
         await republishDirectoryListing(data.profile);
+        // Mirror the saved display name into the account-scoped E2E settings blob
+        // so the greeting surfaces (welcome-back splash, BeakerBot) can read it.
+        // The canonical name stays in account_profiles (saved above); this is the
+        // greeting-facing copy. Flag-guarded + best-effort, never blocks the save.
+        await syncDisplayNameToAccount(data.profile.displayName);
         onSaved?.();
       } else {
         setError(data.error ?? `Could not save (HTTP ${res.status})`);
