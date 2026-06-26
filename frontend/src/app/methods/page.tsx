@@ -1335,33 +1335,12 @@ export default function MethodsPage() {
               aria-label="Search methods"
               className="px-3 py-1.5 text-body border border-border rounded-lg w-56 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
             />
-            <button
-              onClick={() => {
-                setCreatingCategory(true);
-                // Onboarding v4 §6.4: the `methods-category-open`
-                // sub-step used to wait for this DOM event to advance.
-                // That step was retired in tour simplification pass 3
-                // 2026-06-03 (CASE 1), so there is no tour listener now.
-                // Cheap no-op dispatch when nothing is listening.
-                if (typeof window !== "undefined") {
-                  window.dispatchEvent(
-                    new CustomEvent("tour:methods-category-modal-opened"),
-                  );
-                }
-              }}
-              data-tour-target="methods-add-category"
-              className="ros-btn-neutral px-3 py-1.5 text-body"
-            >
-              + New Category
-            </button>
-            <button
-              onClick={() => setBrowsingTemplates(true)}
-              data-tour-target="methods-template-library-button"
-              className="ros-btn-neutral inline-flex items-center gap-1.5 px-3 py-1.5 text-body"
-            >
-              <TemplateLibraryIcon className="w-4 h-4" />
-              Template library
-            </button>
+            {/* UX clawback (minimalism): "+ New Category" and the duplicate
+                "Template library" button were demoted out of this header so
+                "New Method" reads as the single clear primary. Creating a
+                category — really just a free-text folder — now lives in the
+                rail's "My folders" section; Template library keeps its rail
+                item. Search stays here. */}
             <button
               onClick={() => setCreating(true)}
               data-tour-target="methods-new-method-button"
@@ -1400,29 +1379,52 @@ export default function MethodsPage() {
               </button>
             </div>
 
-            {allFolders.length > 0 && (
-              <>
-                <p className="px-1.5 mt-4 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
-                  My folders
-                </p>
-                <div className="space-y-0.5">
-                  {allFolders
-                    .slice()
-                    .sort((a, b) => a.localeCompare(b))
-                    .map((folder) =>
-                      renderRailItem(
-                        folder,
-                        "folder",
-                        folder,
-                        (ownGrouped[folder] ?? ownMethods.filter(
-                          (m) => (m.folder_path || "Uncategorized") === folder,
-                        )).length,
-                        { dropTarget: true },
-                      ),
-                    )}
-                </div>
-              </>
-            )}
+            {/* My folders / categories. The "+ New folder/category" affordance
+                lives HERE now (UX clawback): categories are just free-text
+                folders, so creating one no longer earns primary-button weight
+                in the page header. Renders even with zero folders so the
+                create affordance is always reachable. Reuses the existing
+                setCreatingCategory flow + CreateCategoryModal. */}
+            <p className="px-1.5 mt-4 mb-1.5 text-meta font-bold uppercase tracking-wider text-foreground-muted">
+              My folders
+            </p>
+            <div className="space-y-0.5">
+              {allFolders
+                .slice()
+                .sort((a, b) => a.localeCompare(b))
+                .map((folder) =>
+                  renderRailItem(
+                    folder,
+                    "folder",
+                    folder,
+                    (ownGrouped[folder] ?? ownMethods.filter(
+                      (m) => (m.folder_path || "Uncategorized") === folder,
+                    )).length,
+                    { dropTarget: true },
+                  ),
+                )}
+              <button
+                type="button"
+                onClick={() => {
+                  setCreatingCategory(true);
+                  // Onboarding v4 §6.4: the `methods-category-open` sub-step
+                  // used to wait for this DOM event to advance. That step was
+                  // retired in tour simplification pass 3 2026-06-03 (CASE 1),
+                  // so there is no tour listener now. Cheap no-op dispatch when
+                  // nothing is listening.
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(
+                      new CustomEvent("tour:methods-category-modal-opened"),
+                    );
+                  }
+                }}
+                data-tour-target="methods-add-category"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg text-body text-left text-foreground-muted hover:bg-surface-raised hover:text-foreground transition-colors"
+              >
+                <Icon name="plus" className="h-4 w-4 flex-none opacity-85" />
+                <span className="flex-1 truncate">New folder/category</span>
+              </button>
+            </div>
 
             {presentTypes.length > 0 && (
               <>
@@ -1459,6 +1461,23 @@ export default function MethodsPage() {
               <span className="text-title font-semibold text-foreground truncate">
                 {crumbLabel}
               </span>
+              {/* Removable active-folder filter chip. Shown only when a real
+                  folder/category is in focus (not the "all" or "shared"
+                  pseudo-folders); the x clears back to All methods so the
+                  filter is always visible and escapable. Matches the type
+                  chip's styling right below it. */}
+              {activeFolder !== "all" && activeFolder !== "shared" && (
+                <button
+                  type="button"
+                  onClick={() => setActiveFolder("all")}
+                  className="inline-flex items-center gap-1 text-meta text-brand-action hover:underline"
+                  aria-label={`Clear ${activeFolder} folder filter`}
+                >
+                  <Icon name="folder" className="h-3 w-3" />
+                  {activeFolder}
+                  <Icon name="close" className="h-3 w-3" />
+                </button>
+              )}
               {activeType && (
                 <button
                   type="button"
