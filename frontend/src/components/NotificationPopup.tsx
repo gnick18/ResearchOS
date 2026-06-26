@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { sharingApi } from "@/lib/local-api";
 import { useCalendarNavStore } from "@/lib/calendar/calendar-nav-store";
 import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
+import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import { useEscapeToClose } from "@/hooks/useEscapeToClose";
 import Tooltip from "./Tooltip";
 import type {
@@ -35,6 +36,10 @@ export default function NotificationPopup({
   // persisted store notification) so a PI sees them in the bell without the
   // heavy notification-record machinery. Inert for non-lab-heads (count 0).
   const { count: pendingLabRequests } = useLabPendingRequests();
+  // Pending purchase / supply approvals, surfaced as a pinned banner that routes
+  // to /approvals (which also re-enters Lab context). Lab head only, inert (0)
+  // for everyone else. Mirrors the join-requests banner below.
+  const { count: pendingApprovals } = usePendingApprovalsCount();
   const jumpTo = useCalendarNavStore((s) => s.jumpTo);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -273,6 +278,33 @@ export default function NotificationPopup({
           </div>
         )}
       </div>
+
+      {/* Pending purchase / supply approvals: a pinned banner above the
+          notification list (lab head only; routes to /approvals, which also
+          re-enters Lab context so the PI is never soft-locked out of the queue
+          while doing their own science in My-work mode). */}
+      {pendingApprovals > 0 && (
+        <button
+          type="button"
+          onClick={() => {
+            router.push("/approvals");
+            onClose();
+          }}
+          className="flex w-full items-center gap-3 border-b border-border bg-amber-50 dark:bg-amber-500/10 px-4 py-3 text-left transition-colors hover:bg-amber-100 dark:hover:bg-amber-500/20"
+        >
+          <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-red-500 px-1.5 text-meta font-bold text-white">
+            {pendingApprovals > 99 ? "99+" : pendingApprovals}
+          </span>
+          <span className="text-body text-foreground">
+            {pendingApprovals === 1
+              ? "1 approval waiting"
+              : `${pendingApprovals} approvals waiting`}
+            <span className="block text-meta text-foreground-muted">
+              Open Approvals to review and sign off
+            </span>
+          </span>
+        </button>
+      )}
 
       {/* Pending lab join-requests: a pinned banner above the notification list
           (lab head only; routes to the Members roster to approve). */}

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { sharingApi } from "@/lib/local-api";
 import { useLabPendingRequests } from "@/hooks/useLabPendingRequests";
+import { usePendingApprovalsCount } from "@/hooks/usePendingApprovalsCount";
 import NotificationPopup from "./NotificationPopup";
 import Tooltip from "./Tooltip";
 
@@ -19,7 +20,12 @@ export default function NotificationBadge({ pill = false }: NotificationBadgePro
   // Fold pending lab join-requests into the bell badge so a PI sees them without
   // opening the popup. Inert (0) for non-lab-heads.
   const { count: pendingLabRequests } = useLabPendingRequests();
-  const badgeCount = unreadCount + pendingLabRequests;
+  // Fold pending purchase / supply approvals into the same mode-independent
+  // bell. A PI doing their own science can flip the header into "My work" mode,
+  // which drops the Approvals tab from the nav, so without this the queue had no
+  // signal until they flipped back. Inert (0) for non-lab-heads.
+  const { count: pendingApprovals } = usePendingApprovalsCount();
+  const badgeCount = unreadCount + pendingLabRequests + pendingApprovals;
 
   // Load unread count on mount and periodically. Also listen for
   // "ros-notifications-changed" custom events so reminders fired locally

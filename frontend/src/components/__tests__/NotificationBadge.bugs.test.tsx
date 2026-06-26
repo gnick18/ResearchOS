@@ -43,6 +43,10 @@ vi.mock("@/hooks/useLabPendingRequests", () => ({
   useLabPendingRequests: () => ({ count: 0 }),
 }));
 
+vi.mock("@/hooks/usePendingApprovalsCount", () => ({
+  usePendingApprovalsCount: () => ({ count: 0 }),
+}));
+
 vi.mock("@/lib/calendar/calendar-nav-store", () => ({
   useCalendarNavStore: () => vi.fn(),
 }));
