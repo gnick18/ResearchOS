@@ -320,6 +320,20 @@ export async function getFollowSuggestions(
   ` as Array<{ affiliation: string | null }>;
   const viewerAffiliation = viewerRows[0]?.affiliation ?? null;
 
+  // Only suggest researchers who opted INTO the public directory (listed). The
+  // public feed (getNetworkFeed) and the public researcher search
+  // (searchPublicProfiles) both restrict to the same set, so a suggestion never
+  // surfaces someone the rest of /network would not. The "listed" gate lives on
+  // directory_profiles.unlisted (default false = listed), keyed by the Ed25519
+  // fingerprint. account_profiles is keyed by owner_key (the peppered email hash,
+  // ownerKeyForEmail), which equals directory_identities.email_hash, so the bridge
+  // from an account to its directory listing is:
+  //   account_profiles.owner_key
+  //     -> directory_identities.email_hash (carries the current fingerprint)
+  //       -> directory_profiles.fingerprint WHERE unlisted = false
+  // The two joins are INNER, so an account with no directory binding or no listed
+  // profile (never published into the directory, or opted out) is excluded, never
+  // leaking an unlisted researcher's handle + name into "People you may know".
   const rows = await sql`
     SELECT
       ap.owner_key,
@@ -327,6 +341,10 @@ export async function getFollowSuggestions(
       ap.display_name,
       ap.affiliation
     FROM account_profiles ap
+    JOIN directory_identities di ON di.email_hash = ap.owner_key
+    JOIN directory_profiles dp
+      ON dp.fingerprint = di.fingerprint
+     AND dp.unlisted = false
     WHERE ap.owner_key <> ${viewerOwnerKey}
       AND ap.owner_key NOT IN (
         SELECT followee_owner_key FROM follow_edges
