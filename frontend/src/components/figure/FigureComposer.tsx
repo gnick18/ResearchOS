@@ -1306,8 +1306,12 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
 
   return (
     <div className="flex min-h-0 flex-1 gap-4 p-4" data-testid="figure-composer">
-      {ASSET_LIBRARY_ENABLED && (
-        <FigureLeftRail
+      {/* The rail is the only door to "Add a figure" + page/layer management, so it
+          always renders. Only the icon-library section inside it stays gated, via
+          iconLibraryEnabled. Otherwise /figures becomes an unusable dead page when
+          DATAHUB/demo is on but the asset library is off (the prod default). */}
+      <FigureLeftRail
+          iconLibraryEnabled={ASSET_LIBRARY_ENABLED}
           tool={tool}
           setTool={setTool}
           textVariant={textVariant}
@@ -1339,7 +1343,6 @@ export default function FigureComposer({ pageId }: { pageId: string }) {
           onAddShape={placeShape}
           onUseTemplate={(t) => mutate((p) => applyTemplateSized(p, t, wIn, hIn), true)}
         />
-      )}
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-surface-sunken">
         {/* Contextual arrange bar: icon buttons matching the Illustrator Align panel.
             Groups (separated by thin dividers):
