@@ -7,6 +7,7 @@ import { eventsApi } from "@/lib/local-api";
 import { useAppStore } from "@/lib/store";
 import { useCurrentUser } from "@/hooks/useCurrentUser";
 import AppShell from "@/components/AppShell";
+import { Icon } from "@/components/icons";
 import CalendarFeedsButton from "@/components/CalendarFeedsButton";
 import DayDetailDrawer from "@/components/DayDetailDrawer";
 import Tooltip from "@/components/Tooltip";
@@ -39,6 +40,71 @@ const DEFAULT_COLORS = [
   "#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6",
   "#ec4899", "#06b6d4", "#84cc16", "#f97316", "#6366f1",
 ];
+
+// ── Time-off (PTO) section ────────────────────────────────────────────────────
+//
+// Safety: marking a day as PTO doesn't just tag the event — it writes the
+// event's date(s) into the user's pto_dates list, which the streak + project
+// schedule engines read (a PTO day stops counting against a streak). That's a
+// real side-effect, so it must NOT look like just another field in the plain
+// event form. We lift it into its own clearly-labeled "Mark this as time off"
+// action that stays collapsed by default; expanding it spells out exactly what
+// flipping it on does, so an ordinary event can never silently change
+// streak/schedule state. The underlying is_pto plumbing is unchanged — only how
+// it's surfaced + labeled.
+function TimeOffSection({
+  isPto,
+  setIsPto,
+}: {
+  isPto: boolean;
+  setIsPto: (v: boolean) => void;
+}) {
+  // Auto-open when the event already is PTO (e.g. reopening it in the editor),
+  // so the active side-effect is never hidden behind a collapsed row.
+  const [open, setOpen] = useState(isPto);
+
+  return (
+    <div className="border-t border-border pt-4">
+      {!open && !isPto ? (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="flex items-center gap-2 text-meta font-medium text-sky-700 dark:text-sky-300 hover:text-sky-800 dark:hover:text-sky-200"
+        >
+          <Icon name="sun" className="w-4 h-4 flex-shrink-0" />
+          Mark this as time off…
+        </button>
+      ) : (
+        <div className="rounded-lg border border-sky-200 dark:border-sky-500/30 bg-sky-50 dark:bg-sky-500/10 p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Icon name="sun" className="w-4 h-4 flex-shrink-0 text-sky-600 dark:text-sky-300" />
+            <span className="text-body font-medium text-foreground">Time off</span>
+          </div>
+          <label className="flex items-start gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isPto}
+              onChange={(e) => setIsPto(e.target.checked)}
+              className="mt-0.5 h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-400"
+            />
+            <span className="flex-1">
+              <span className="block text-body font-medium text-foreground">
+                Count this as a PTO day
+              </span>
+              {/* Spell out the side-effect plainly: this is the line that turns
+                  a silent state change into an informed choice. */}
+              <span className="block text-meta text-foreground-muted mt-0.5">
+                Affects your streaks and project schedules — this day is treated
+                like a weekend, so it won&apos;t break a streak or count as a
+                missed deadline.
+              </span>
+            </span>
+          </label>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function CalendarPage() {
   const queryClient = useQueryClient();
@@ -135,6 +201,7 @@ export default function CalendarPage() {
     if (key === "|") return;
     if (appliedDeepLinkRef.current === key) return;
     appliedDeepLinkRef.current = key;
+    let appliedValidDate = false;
     if (dateParam) {
       // Match the YYYY-MM-DD shape strictly so a stray `?date=tomorrow`
       // string can't slip into the Date constructor and produce garbage.
@@ -153,6 +220,7 @@ export default function CalendarPage() {
         ) {
           // eslint-disable-next-line react-hooks/set-state-in-effect -- deep-link handler: imperatively sets the calendar anchor when ?date=YYYY-MM-DD is present in the URL. Derived-state alternatives don't fit here because `currentDate` is also mutated by user nav (stepDate / Today button); seeding initial state from the URL once via useState lazy init wouldn't honor mid-session URL changes (back/forward).
           setCurrentDate(candidate);
+          appliedValidDate = true;
         }
       }
     }
@@ -164,6 +232,15 @@ export default function CalendarPage() {
       // setView mutates the Zustand store, not React local state — the
       // set-state-in-effect rule doesn't apply (no cascading rerender).
       setView(viewParam);
+    } else if (appliedValidDate) {
+      // Honest default: a `?date=` link with no explicit `?view=` is asking
+      // about one specific day. Landing on whatever view happened to be
+      // persisted in the user's settings (could be a month grid that buries
+      // the day, or a week the link's day isn't even in) is a surprise. Pin
+      // the predictable view that actually frames a single date — "day" — so
+      // the link goes where the visitor expects regardless of their stored
+      // default. An explicit `?view=` always wins over this.
+      setView("day");
     }
   }, [searchParams, setView]);
 
@@ -341,6 +418,22 @@ export default function CalendarPage() {
             ))}
           </div>
         </div>
+
+        {/* Interaction-grammar hint. The primary gestures here are all
+            hidden affordances (double-click a day to create, single-click
+            to peek, header-click to drill in), so a newcomer has nothing to
+            go on. One muted line — tailored to the active view — surfaces the
+            main gesture without nagging. */}
+        <p className="flex items-center gap-1.5 mb-3 text-meta text-foreground-muted">
+          <Icon name="ask" className="w-3.5 h-3.5 flex-shrink-0" />
+          <span>
+            {view === "month"
+              ? "Double-click a day to add an event, or click it to peek at what's on."
+              : view === "week"
+                ? "Click an empty time slot to add an event, or click a day name to open it."
+                : "Click an empty time slot to add an event."}
+          </span>
+        </p>
 
         {/* Active view */}
         {view === "month" && (
@@ -817,25 +910,7 @@ function EventModal({
                   className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
-              <div className="border-t border-border pt-4">
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={isPto}
-                    onChange={(e) => setIsPto(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-400"
-                  />
-                  <span className="flex-1">
-                    <span className="block text-body font-medium text-foreground">
-                      Mark as PTO day
-                    </span>
-                    <span className="block text-meta text-foreground-muted mt-0.5">
-                      This day will be treated like a weekend for streaks and
-                      project schedules.
-                    </span>
-                  </span>
-                </label>
-              </div>
+              <TimeOffSection isPto={isPto} setIsPto={setIsPto} />
             </div>
           ) : (
             <div className="space-y-4">
@@ -1171,25 +1246,7 @@ function CreateEventModal({
               className="w-full px-3 py-2 border border-border rounded-lg text-body focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <div className="border-t border-border pt-4">
-            <label className="flex items-start gap-2 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={isPto}
-                onChange={(e) => setIsPto(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-border text-sky-500 focus:ring-sky-400"
-              />
-              <span className="flex-1">
-                <span className="block text-body font-medium text-foreground">
-                  Mark as PTO day
-                </span>
-                <span className="block text-meta text-foreground-muted mt-0.5">
-                  This day will be treated like a weekend for streaks and
-                  project schedules.
-                </span>
-              </span>
-            </label>
-          </div>
+          <TimeOffSection isPto={isPto} setIsPto={setIsPto} />
         </div>
         {/* P0-1: footer stays pinned */}
         <div className="flex gap-3 justify-end px-6 py-4 border-t border-border flex-shrink-0">

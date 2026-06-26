@@ -174,21 +174,29 @@ beforeEach(() => {
 });
 
 describe("Calendar page, Mark as PTO day checkbox", () => {
-  it("renders the checkbox with the brief's label + subtext in the create modal", async () => {
+  it("keeps PTO behind its own explicit time-off action, not a plain field", async () => {
     renderPage();
     fireEvent.click(screen.getByRole("button", { name: /\+ New Event/ }));
 
-    expect(await screen.findByText("Mark as PTO day")).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        "This day will be treated like a weekend for streaks and project schedules.",
-      ),
-    ).toBeInTheDocument();
+    // Safety re-surface: the PTO checkbox is NOT sitting inline in the plain
+    // event form. It lives behind a distinct, clearly-labeled "time off"
+    // action that's collapsed by default, so an ordinary event can't trip it
+    // by accident.
+    const timeOffToggle = await screen.findByRole("button", {
+      name: /Mark this as time off/i,
+    });
+    expect(timeOffToggle).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Count this as a PTO day/)).toBeNull();
 
-    // The checkbox itself is reachable by its accessible label.
-    const checkbox = screen.getByLabelText(/Mark as PTO day/);
+    // Expanding the section reveals the checkbox plus the explicit warning
+    // that flipping it affects streaks + schedules.
+    fireEvent.click(timeOffToggle);
+    const checkbox = screen.getByLabelText(/Count this as a PTO day/);
     expect(checkbox).toHaveAttribute("type", "checkbox");
     expect(checkbox).not.toBeChecked();
+    expect(
+      screen.getByText(/Affects your streaks and project schedules/i),
+    ).toBeInTheDocument();
   });
 
   it("submitting with the box checked passes is_pto=true to eventsApi.create and syncs pto_dates", async () => {
@@ -205,8 +213,11 @@ describe("Calendar page, Mark as PTO day checkbox", () => {
     const startDateInputs = screen.getAllByDisplayValue(/\d{4}-\d{2}-\d{2}/);
     fireEvent.change(startDateInputs[0], { target: { value: "2026-06-15" } });
 
-    // Check the PTO box.
-    const checkbox = screen.getByLabelText(/Mark as PTO day/);
+    // Open the time-off section, then check the PTO box.
+    fireEvent.click(
+      screen.getByRole("button", { name: /Mark this as time off/i }),
+    );
+    const checkbox = screen.getByLabelText(/Count this as a PTO day/);
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
 
