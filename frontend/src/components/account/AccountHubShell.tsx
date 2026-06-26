@@ -29,15 +29,7 @@ import {
 import { ONBOARDING_WIZARD_ENABLED } from "@/lib/onboarding/config";
 import { LAB_SITES_ENABLED } from "@/lib/social/config";
 import { THIN_ACCOUNT_ENABLED } from "@/lib/account/thin-account-config";
-import { isDeviceKeyV2Enabled } from "@/lib/sharing/identity/device-key-v2";
-import { loadKeysAtRest } from "@/lib/sharing/identity/device-vault";
-import { getSessionIdentity } from "@/lib/sharing/identity/session-key";
-import {
-  hasCloudBackup,
-  recoverDeviceKeyFromCloud,
-} from "@/lib/sharing/identity/cloud-restore";
-import { provisionDeviceKeyForAccount } from "@/lib/sharing/identity/provision";
-import { markRecoveryConfirmed } from "@/lib/sharing/identity/recovery-confirm";
+import { useDeviceKeyProvisioning } from "@/components/settings/use-device-key-provisioning";
 
 import RecoveryKitModal from "@/components/sharing/RecoveryKitModal";
 import ProfileAvatar from "@/components/account/ProfileAvatar";
@@ -284,23 +276,26 @@ export default function AccountHubShell() {
   // Run a lab modal.
   const [runLabOpen, setRunLabOpen] = useState(false);
 
-  // Key restore / provision state (mirrors AccountHome).
-  const [showUnlock, setShowUnlock] = useState(false);
-  const [recoveryInput, setRecoveryInput] = useState("");
-  const [unlocking, setUnlocking] = useState(false);
-  const [unlockError, setUnlockError] = useState<string | null>(null);
-  const [unlocked, setUnlocked] = useState(false);
-  const [showProvision, setShowProvision] = useState(false);
-  const [provisioning, setProvisioning] = useState(false);
-  const [provisionError, setProvisionError] = useState<string | null>(
-    null,
-  );
-  const [kit, setKit] = useState<{
-    recoveryWords: string;
-    recoveryCode: string;
-    fingerprint: string;
-  } | null>(null);
-  const [keyReady, setKeyReady] = useState(false);
+  // Key restore / provision state machine (folder-free, shared with the
+  // consolidated Settings "Security & keys" panel). Lifted into the
+  // useDeviceKeyProvisioning hook; AccountHub renders identically off it.
+  const {
+    showUnlock,
+    recoveryInput,
+    setRecoveryInput,
+    unlocking,
+    unlockError,
+    unlocked,
+    onUnlock,
+    showProvision,
+    provisioning,
+    provisionError,
+    keyReady,
+    onProvision,
+    kit,
+    confirmKit,
+    dismissKit,
+  } = useDeviceKeyProvisioning();
 
   // Boot: read URL params + session info.
   useEffect(() => {
@@ -371,24 +366,6 @@ export default function AccountHubShell() {
       alive = false;
     };
   }, [currentUser]);
-
-  // Key restore / provision probe (mirrors AccountHome Phase 2).
-  useEffect(() => {
-    if (!isDeviceKeyV2Enabled()) return;
-    let alive = true;
-    void (async () => {
-      if (getSessionIdentity()) return;
-      const atRest = await loadKeysAtRest();
-      if (!alive || atRest) return;
-      const hasBackup = await hasCloudBackup();
-      if (!alive) return;
-      if (hasBackup) setShowUnlock(true);
-      else setShowProvision(true);
-    })();
-    return () => {
-      alive = false;
-    };
-  }, []);
 
   // Derive role chip tier.
   function deriveRoleChip(): "free" | "solo" | "lab_head" | "member" {
@@ -565,73 +542,10 @@ export default function AccountHubShell() {
     );
   };
 
-  // Key restore / provision handlers.
-  const onProvision = async () => {
-    setProvisionError(null);
-    setProvisioning(true);
-    await new Promise((r) => setTimeout(r, 0));
-    try {
-      const result = await provisionDeviceKeyForAccount({
-        displayName: profile?.displayName ?? displayName.trim(),
-      });
-      if (result.ok) {
-        setKit({
-          recoveryWords: result.recoveryWords,
-          recoveryCode: result.recoveryCode,
-          fingerprint: result.fingerprint,
-        });
-        setShowProvision(false);
-        setKeyReady(true);
-      } else if (result.reason === "unauthorized") {
-        setProvisionError(
-          "Your sign-in expired. Sign in again, then retry.",
-        );
-      } else if (result.reason === "publish-failed") {
-        setProvisionError(
-          "Could not publish your key. Try again in a moment.",
-        );
-      } else {
-        setProvisionError(
-          "Could not reach the server. Check your connection.",
-        );
-      }
-    } finally {
-      setProvisioning(false);
-    }
-  };
-
-  const onUnlock = async () => {
-    if (!recoveryInput.trim()) return;
-    setUnlockError(null);
-    setUnlocking(true);
-    await new Promise((r) => setTimeout(r, 0));
-    try {
-      const result = await recoverDeviceKeyFromCloud(recoveryInput.trim());
-      if (result.ok) {
-        setUnlocked(true);
-        setShowUnlock(false);
-        setRecoveryInput("");
-      } else if (result.reason === "wrong-words") {
-        setUnlockError(
-          "Those recovery words did not match. Check for typos and try again.",
-        );
-      } else if (result.reason === "no-blob") {
-        setUnlockError(
-          "There is no saved key for this account to restore.",
-        );
-      } else if (result.reason === "unauthorized") {
-        setUnlockError(
-          "Your sign-in expired. Sign in again, then retry.",
-        );
-      } else {
-        setUnlockError(
-          "Could not reach the server. Check your connection.",
-        );
-      }
-    } finally {
-      setUnlocking(false);
-    }
-  };
+  // The display name the provision step stamps on the published identity.
+  // AccountHub owns the name source (cloud profile, then the edit-draft); the
+  // hook reads no folder, so the caller supplies it.
+  const provisionDisplayName = profile?.displayName ?? displayName;
 
   const isReturning =
     Boolean(profile) || Boolean(lastConnectedFolder);
@@ -1426,7 +1340,7 @@ export default function AccountHubShell() {
             )}
             <button
               type="button"
-              onClick={() => void onProvision()}
+              onClick={() => void onProvision(provisionDisplayName)}
               disabled={provisioning}
               className="mt-3 rounded-lg bg-brand-purple px-4 py-2 text-meta font-semibold text-white disabled:opacity-60"
             >
@@ -1770,11 +1684,8 @@ export default function AccountHubShell() {
         <RecoveryKitModal
           recoveryWords={kit.recoveryWords}
           recoveryCode={kit.recoveryCode}
-          onConfirm={() => {
-            markRecoveryConfirmed(kit.fingerprint);
-            setKit(null);
-          }}
-          onClose={() => setKit(null)}
+          onConfirm={confirmKit}
+          onClose={dismissKit}
         />
       )}
 

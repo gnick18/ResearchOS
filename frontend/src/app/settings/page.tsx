@@ -89,6 +89,8 @@ import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import { SETTINGS_FOLDERLESS_ENABLED } from "@/lib/settings/settings-folderless-config";
 import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
+import { SECURITY_CONSOLIDATION_ENABLED } from "@/lib/settings/security-consolidation-config";
+import SecurityKeysPanel from "@/components/settings/SecurityKeysPanel";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -388,10 +390,19 @@ function SettingsBodyInner({
     const folderlessShowProfile =
       PROFILE_CONSOLIDATION_ENABLED &&
       (hasCloudSession === true || caps.mode === "account");
+    // P3: the folder-free device-key block (SecurityKeysPanel) so a no-folder
+    // user can still set up or unlock their E2E key. Implicitly P1 && P3 (this
+    // branch already requires SETTINGS_FOLDERLESS). The folder-scoped block
+    // (app password + user switch) is OMITTED folderless. Same signed-in gate
+    // as showProfile.
+    const folderlessShowSecurity =
+      SECURITY_CONSOLIDATION_ENABLED &&
+      (hasCloudSession === true || caps.mode === "account");
     return (
       <FolderlessSettingsBody
         canSeeBilling={folderlessCanSeeBilling}
         showProfile={folderlessShowProfile}
+        showSecurity={folderlessShowSecurity}
         disconnect={disconnect}
         onConnectFolder={() => setShowDataSetup(true)}
         showDataSetup={showDataSetup}
@@ -471,27 +482,56 @@ function SettingsBodyInner({
               <ProfileSettingsContent />
             ),
         },
-        {
-          id: "account",
-          group: "You",
-          title: "Account & security",
-          icon: "shield",
-          keywords:
-            "account user switch sign in out login logout password lock security google github unlock",
-          render: () => (
-            <>
-              <AccountSection
-                currentUser={currentUser}
-                onSwitchUser={() => setShowUserSwitch(true)}
-              />
-              <SecuritySection
-                pwExists={pwExists}
-                claimed={caps.mode !== "solo"}
-                onOpen={() => setPwOpen(true)}
-              />
-            </>
-          ),
-        },
+        // P3 (security consolidation, flag-gated): when ON, the three scattered
+        // "security" surfaces fold into ONE "Security & keys" section. The
+        // folder-free device-key block (SecurityKeysPanel) sits at the top so a
+        // no-folder user can still set up or unlock their E2E key, followed by
+        // the folder-scoped block (user switch + app password). When OFF this is
+        // byte-identical to the old "Account & security" section.
+        SECURITY_CONSOLIDATION_ENABLED
+          ? {
+              id: "security",
+              group: "You",
+              title: "Security & keys",
+              icon: "lock" as const,
+              keywords:
+                "account user switch sign in out login logout password lock security google github unlock keys encryption recovery device fingerprint provision restore",
+              render: () => (
+                <>
+                  <SecurityKeysPanel />
+                  <AccountSection
+                    currentUser={currentUser}
+                    onSwitchUser={() => setShowUserSwitch(true)}
+                  />
+                  <SecuritySection
+                    pwExists={pwExists}
+                    claimed={caps.mode !== "solo"}
+                    onOpen={() => setPwOpen(true)}
+                  />
+                </>
+              ),
+            }
+          : {
+              id: "account",
+              group: "You",
+              title: "Account & security",
+              icon: "shield" as const,
+              keywords:
+                "account user switch sign in out login logout password lock security google github unlock",
+              render: () => (
+                <>
+                  <AccountSection
+                    currentUser={currentUser}
+                    onSwitchUser={() => setShowUserSwitch(true)}
+                  />
+                  <SecuritySection
+                    pwExists={pwExists}
+                    claimed={caps.mode !== "solo"}
+                    onOpen={() => setPwOpen(true)}
+                  />
+                </>
+              ),
+            },
         // Solo-only gentle upsell. Replaces the discovery the hidden Usage and
         // billing group would have given, so a solo user still learns what a
         // free account adds and where to add it, without any locked dead pages.
@@ -1058,6 +1098,7 @@ function SavedIndicator({ saving, recentlySaved }: { saving: boolean; recentlySa
 function FolderlessSettingsBody({
   canSeeBilling,
   showProfile,
+  showSecurity,
   disconnect,
   onConnectFolder,
   showDataSetup,
@@ -1066,6 +1107,8 @@ function FolderlessSettingsBody({
   canSeeBilling: boolean;
   /** P2b: render the folder-free cloud Profile block above billing. */
   showProfile: boolean;
+  /** P3: render the folder-free Security & keys (device-key) block. */
+  showSecurity: boolean;
   disconnect: () => Promise<void>;
   onConnectFolder: () => void;
   showDataSetup: boolean;
@@ -1140,6 +1183,18 @@ function FolderlessSettingsBody({
                   the connected surface. Mounted for symmetry with the connected
                   composition. */}
               <ProfileOrcidUpMigration />
+            </div>
+          ) : null}
+
+          {/* P3: the folder-free Security & keys block. SecurityKeysPanel is
+              fully folder-free (sign-in email + the device-key provision /
+              unlock / recovery state machine), so a no-folder user can set up or
+              unlock their E2E key here. The folder-scoped controls (app
+              password, user switch) are intentionally omitted folderless.
+              Flag-gated by showSecurity. */}
+          {showSecurity ? (
+            <div className="mb-6 rounded-xl border border-border bg-surface-raised ros-seam p-6">
+              <SecurityKeysPanel />
             </div>
           ) : null}
 
