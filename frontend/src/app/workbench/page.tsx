@@ -16,7 +16,8 @@ import WorkbenchExperimentsPanel from "@/components/workbench/WorkbenchExperimen
 import WorkbenchListsPanel from "@/components/workbench/WorkbenchListsPanel";
 import WorkbenchProjectsPanel from "@/components/workbench/WorkbenchProjectsPanel";
 import WorkbenchOneOnOnePanel from "@/components/workbench/WorkbenchOneOnOnePanel";
-import WorkbenchProjectRail from "@/components/workbench/WorkbenchProjectRail";
+import WorkbenchProjectFilterPills from "@/components/workbench/WorkbenchProjectFilterPills";
+import ProjectCreateModal from "@/components/lab-overview/ProjectCreateModal";
 import { shouldShowOneOnOneTab } from "@/components/workbench/oneOnOneGate";
 import { oneOnOneTabLabel } from "@/lib/one-on-one/label";
 import { Icon } from "@/components/icons";
@@ -56,16 +57,17 @@ export default function WorkbenchPage() {
   // lets the gate work without coupling Workbench's routing to the
   // onboarding system — the planned Lists-tab redesign can route
   // however it wants and this gate keeps working.
-  // Experiments is the default landing view (workbench IA redesign, 2026-06-25):
+  // Experiments is the default landing view (workbench IA redesign, 2026-06-25).
   // 9 of 10 times a member arrives at /workbench to edit an experiment or a
-  // note, not to browse the projects grid. Projects moved out of the subtab row
-  // into the left WorkbenchProjectRail (it was always a filter over the other
-  // tabs), so the page now opens on the tab people actually want. The "projects"
-  // tab machinery is intact: the rail's "Manage projects" control sets it, and
-  // the `?tab=projects` deep-link below still lands there. The class-dashboard
-  // forced landing and the `?tab=`/`?note=` deep-links run on mount and still
-  // win over this default.
+  // note, not to browse the projects grid, so the page opens on the tab people
+  // actually want. Projects left the subtab row for a compact header control
+  // (the "Projects" + "New project" buttons in the header band below); its tab,
+  // its render branch, and the `?tab=projects` deep-link are all intact. The
+  // class-dashboard forced landing and the `?tab=`/`?note=` deep-links run on
+  // mount and still win over this default.
   const [activeTab, setActiveTab] = useState<TabType>("experiments");
+  // Create-project modal, opened from the header "New project" control.
+  const [createOpen, setCreateOpen] = useState(false);
 
   // Shared Notebooks Phase 4 (notebooks-phase4-widget sub-bot, 2026-06-02):
   // the Shared Notebook home/dashboard widget deep-links here with
@@ -340,10 +342,10 @@ export default function WorkbenchPage() {
             )}
           </button>
           )}
-          {/* Projects is no longer a peer subtab. It moved to the left
-              WorkbenchProjectRail (rail footer "Manage projects" sets
-              activeTab to "projects"), so the row slims to Experiments /
-              Notes / Lists. The "projects" tab + its render branch + the
+          {/* Projects is no longer a peer subtab. It moved to the compact
+              header control group (the "Projects" + "New project" buttons in
+              the header band, ml-auto), so this row slims to Experiments /
+              Notes / Lists. The "projects" tab, its render branch, and the
               `?tab=projects` deep-link are unchanged. */}
           {tabIsAllowed("experiments") && (
           <button
@@ -408,97 +410,120 @@ export default function WorkbenchPage() {
             </button>
           )}
           </div>
+          {/* Projects control group (ml-auto, right edge of the header band).
+              The everyday project FILTER lives in each panel's own sidebar;
+              these two are the occasional MANAGE + CREATE entry points that
+              replaced the removed Projects subtab. "Projects" carries the
+              workbench-projects-tab anchor the removed button used to host. */}
+          <div className="flex items-center gap-1 ml-auto">
+            <button
+              onClick={() => setActiveTab("projects")}
+              data-tour-target="workbench-projects-tab"
+              className={`px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 ${
+                activeTab === "projects"
+                  ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-300"
+                  : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+              }`}
+            >
+              <Icon name="folder" className="w-4 h-4" />
+              Projects
+            </button>
+            {currentUser && (
+              <button
+                onClick={() => {
+                  setCreateOpen(true);
+                  if (typeof window !== "undefined") {
+                    window.dispatchEvent(
+                      new CustomEvent("tour:home-create-modal-opened"),
+                    );
+                  }
+                }}
+                className="px-3 py-1.5 rounded-lg text-body font-medium transition-colors flex items-center gap-2 text-brand-action hover:bg-surface-sunken"
+              >
+                <Icon name="plus" className="w-4 h-4" />
+                New project
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Project rail + panel body. The rail is the left filter-column that
-            replaced the horizontal project pills (it drives the same
-            `selectedProjectIds` store). It shows on Experiments and Lists
-            (project-filterable) and on Notes (project-agnostic, so the filter
-            section is greyed with a hint, but Manage / New stay live). It is
-            hidden on the projects-management grid (the grid IS the projects
-            view), on the 1:1 tab, and on the student Assignments tab. */}
-        {(() => {
-          const showRail =
-            activeTab === "experiments" ||
-            activeTab === "lists" ||
-            activeTab === "notes";
-          const railFilterEnabled =
-            activeTab === "experiments" || activeTab === "lists";
-          return (
-            <div className="flex min-h-0 gap-4">
-              {showRail && (
-                <WorkbenchProjectRail
-                  projects={projects}
-                  projectColors={projectColors}
-                  currentUser={currentUser}
-                  filterEnabled={railFilterEnabled}
-                  onManageProjects={() => setActiveTab("projects")}
-                />
-              )}
-              <div className="min-w-0 flex-1">
-                {activeTab === "assignments" &&
-                  showStudentAssignments &&
-                  currentUser && (
-                    <ClassAssignmentsPanel currentUser={currentUser} />
-                  )}
-                {activeTab === "projects" && (
-                  <WorkbenchProjectsPanel projects={projects} />
-                )}
-                {activeTab === "notes" && (
-                  <NotesPanel
-                    initialNotebookId={initialNotebookId}
-                    initialOpen={
-                      pendingOpen &&
-                      (pendingOpen.kind === "note" ||
-                        pendingOpen.kind === "notebook")
-                        ? pendingOpen
-                        : null
-                    }
-                    onInitialOpenConsumed={consumePendingOpen}
-                    onSelectionChange={reportSelection}
-                  />
-                )}
-                {activeTab === "experiments" && (
-                  <WorkbenchExperimentsPanel
-                    projects={projects}
-                    initialOpen={
-                      pendingOpen && pendingOpen.kind === "experiment"
-                        ? pendingOpen
-                        : null
-                    }
-                    onInitialOpenConsumed={consumePendingOpen}
-                    onSelectionChange={reportSelection}
-                  />
-                )}
-                {activeTab === "lists" && (
-                  <WorkbenchListsPanel
-                    projects={projects}
-                    initialOpen={
-                      pendingOpen && pendingOpen.kind === "list"
-                        ? pendingOpen
-                        : null
-                    }
-                    onInitialOpenConsumed={consumePendingOpen}
-                    onSelectionChange={reportSelection}
-                  />
-                )}
-                {activeTab === "oneonone" && showOneOnOneTab && (
-                  <WorkbenchOneOnOnePanel
-                    currentUser={currentUser}
-                    isLabHead={isLabHead}
-                    initialOpen={
-                      pendingOpen && pendingOpen.kind === "oneonone"
-                        ? pendingOpen
-                        : null
-                    }
-                    onInitialOpenConsumed={consumePendingOpen}
-                    onSelectionChange={reportSelection}
-                  />
-                )}
-              </div>
-            </div>
-          );
-        })()}
+        {/* Project filter — hidden on Notes (project-agnostic) and on the
+            Projects browse tab (the cards ARE the projects; no filter). */}
+        {activeTab !== "notes" &&
+          activeTab !== "projects" &&
+          activeTab !== "oneonone" &&
+          activeTab !== "assignments" && (
+          <WorkbenchProjectFilterPills
+            projects={projects}
+            projectColors={projectColors}
+          />
+        )}
+
+        {activeTab === "assignments" && showStudentAssignments && currentUser && (
+          <ClassAssignmentsPanel currentUser={currentUser} />
+        )}
+        {activeTab === "projects" && (
+          <WorkbenchProjectsPanel projects={projects} />
+        )}
+        {activeTab === "notes" && (
+          <NotesPanel
+            initialNotebookId={initialNotebookId}
+            initialOpen={
+              pendingOpen &&
+              (pendingOpen.kind === "note" || pendingOpen.kind === "notebook")
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
+          />
+        )}
+        {activeTab === "experiments" && (
+          <WorkbenchExperimentsPanel
+            projects={projects}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "experiment"
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
+          />
+        )}
+        {activeTab === "lists" && (
+          <WorkbenchListsPanel
+            projects={projects}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "list" ? pendingOpen : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
+          />
+        )}
+        {activeTab === "oneonone" && showOneOnOneTab && (
+          <WorkbenchOneOnOnePanel
+            currentUser={currentUser}
+            isLabHead={isLabHead}
+            initialOpen={
+              pendingOpen && pendingOpen.kind === "oneonone"
+                ? pendingOpen
+                : null
+            }
+            onInitialOpenConsumed={consumePendingOpen}
+            onSelectionChange={reportSelection}
+          />
+        )}
+        {/* Create-project modal, opened from the header "New project" control.
+            Reuses the same modal NewProjectButton opens; the modal invalidates
+            the ["projects"] query and closes itself, so a new project appears
+            in place with no navigation. */}
+        {createOpen && currentUser && (
+          <ProjectCreateModal
+            username={currentUser}
+            onClose={() => setCreateOpen(false)}
+            onCreated={() => setCreateOpen(false)}
+          />
+        )}
       </div>
     </AppShell>
   );
