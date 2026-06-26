@@ -112,7 +112,12 @@ describe("emitFeedEvent", () => {
 
     await emitFeedEvent({ actorOwnerKey: "actor-1", kind: "lab_joined" });
 
-    expect(vi.mocked(sql).mock.calls).toHaveLength(1);
+    // ensureNetworkFeedSchema runs first (idempotent CREATE TABLEs), then the
+    // INSERT. Assert the INSERT was issued (the meaningful write) rather than an
+    // exact call count, which is brittle against the ensure step.
+    const calls = vi.mocked(sql).mock.calls;
+    const lastQuery = (calls[calls.length - 1][0] as readonly string[]).join("?");
+    expect(lastQuery).toContain("INSERT INTO feed_events");
   });
 
   it("does NOT throw when sql rejects (fire-and-forget swallow)", async () => {
@@ -156,7 +161,11 @@ describe("follow graph", () => {
 
     await followResearcher("alice", "bob");
 
-    expect(vi.mocked(sql).mock.calls).toHaveLength(1);
+    // ensure runs first; the INSERT is the last call.
+    const calls = vi.mocked(sql).mock.calls;
+    expect((calls[calls.length - 1][0] as readonly string[]).join("?")).toContain(
+      "INSERT INTO follow_edges",
+    );
   });
 
   it("followResearcher is a no-op when follower === followee (self-follow guard)", async () => {
@@ -174,7 +183,11 @@ describe("follow graph", () => {
 
     await unfollowResearcher("alice", "bob");
 
-    expect(vi.mocked(sql).mock.calls).toHaveLength(1);
+    // ensure runs first; the DELETE is the last call.
+    const calls = vi.mocked(sql).mock.calls;
+    expect((calls[calls.length - 1][0] as readonly string[]).join("?")).toContain(
+      "DELETE FROM follow_edges",
+    );
   });
 
   it("isFollowing returns true when a row exists", async () => {
