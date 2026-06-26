@@ -1747,6 +1747,16 @@ export function Providers({ children }: { children: ReactNode }) {
   // handlers.
   useEffect(() => initializeErrorHandlers(), []);
 
+  // /settings and /account already render their OWN sign-out in their header,
+  // so the global gate sign-out would be a second, duplicate control on those
+  // exact pages. Suppress it there — but ONLY there. We match exactly (not
+  // startsWith) on purpose: sub-routes like /account/lab-site do NOT render
+  // their own sign-out, so they still need the global escape hatch to avoid a
+  // soft-lock. Every other route keeps it too.
+  const pathname = usePathname();
+  const pageRendersOwnSignOut =
+    pathname === "/settings" || pathname === "/account";
+
   return (
     <ErrorBoundary>
       <FileSystemProvider>
@@ -1799,8 +1809,9 @@ export function Providers({ children }: { children: ReactNode }) {
             here above AppContent (like the other pre-login hosts) so it overlays
             every gate state and self-gates on signed-in + no-folder-connected.
             Fixes the soft-lock where the only sign-out was a footer link below
-            the fold. */}
-        <PersistentGateSignOut />
+            the fold. Suppressed on /settings + /account, which render their
+            own sign-out (see pageRendersOwnSignOut above). */}
+        {!pageRendersOwnSignOut && <PersistentGateSignOut />}
         <SceneTriggerHost />
         {/* Global host for the auto-error confirm dialog (and its
             hand-off FeedbackModal). Mounted at the providers level

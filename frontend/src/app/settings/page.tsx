@@ -31,6 +31,10 @@ import VersionBadge from "@/components/VersionBadge";
 import WhatsNewModal from "@/components/WhatsNewModal";
 import { RELEASE_NOTES } from "@/lib/release-notes";
 import { useFileSystem } from "@/lib/file-system/file-system-context";
+import {
+  extractDirectoryHandleFromDrop,
+  describeDropExtractionError,
+} from "@/lib/file-system/drop-folder";
 import { isDemoOrWikiCapture } from "@/lib/file-system/wiki-capture-mock";
 import { storePreDemoRoute } from "@/lib/file-system/pre-demo-route";
 import { useIsLabMode } from "@/hooks/useIsLabMode";
@@ -1114,6 +1118,60 @@ function FolderlessSettingsBody({
   showDataSetup: boolean;
   onCloseDataSetup: () => void;
 }) {
+  // Drag-a-folder onto the connect card, mirroring the Account hub's Folders
+  // card (AccountHubShell) so the two surfaces behave identically. The button
+  // (onConnectFolder, opens DataSetupScreen) keeps working; this just lets a
+  // dragged folder connect in place. On a successful connect `isConnected`
+  // flips and the parent re-renders the connected Settings page, so there is
+  // nothing to navigate to here — no enterApp, unlike the Account hub.
+  const { connectWithHandle, initializeFolder } = useFileSystem();
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [dropError, setDropError] = useState<string | null>(null);
+  const dragCounterRef = useRef(0);
+
+  const handleDragEnter = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!e.dataTransfer?.types?.includes("Files")) return;
+    dragCounterRef.current += 1;
+    setIsDragOver(true);
+    setDropError(null);
+  };
+  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
+  };
+  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = Math.max(0, dragCounterRef.current - 1);
+    if (dragCounterRef.current === 0) setIsDragOver(false);
+  };
+  const handleDrop = async (e: React.DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    dragCounterRef.current = 0;
+    setIsDragOver(false);
+    const items = e.dataTransfer?.items;
+    if (!items || items.length === 0) return;
+    const result = await extractDirectoryHandleFromDrop(items);
+    if (result.kind === "ok") {
+      setDropError(null);
+      const ok = await connectWithHandle(result.handle);
+      // A brand-new folder won't connect until it's initialized; fall through
+      // to initializeFolder exactly as the Account hub does.
+      if (!ok) await initializeFolder();
+      return;
+    }
+    setDropError(
+      describeDropExtractionError(
+        result.kind,
+        "message" in result ? result.message : undefined,
+      ),
+    );
+  };
+
   return (
     <div className="min-h-0 flex-1 flex flex-col bg-surface-sunken">
       <div className="flex-1 overflow-y-auto">
@@ -1139,29 +1197,66 @@ function FolderlessSettingsBody({
 
           {/* The single calm info card. Folder-scoped settings (workspace, data,
               lab, profile) need a connected folder, so we say so plainly and
-              offer the same connect screen the connected page uses. */}
-          <div className="mb-6 rounded-xl border border-border bg-surface-raised ros-seam p-6">
+              offer the same connect screen the connected page uses. A folder
+              can also be dragged straight onto this card — same dropper +
+              hover affordance as the Account hub's Folders card. */}
+          <div
+            onDragEnter={handleDragEnter}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => void handleDrop(e)}
+            className={`mb-6 rounded-xl border ros-seam p-6 transition-all ${
+              isDragOver
+                ? "border-2 border-dashed border-blue-400 bg-blue-500/15 ring-4 ring-blue-400/30"
+                : "border-border bg-surface-raised"
+            }`}
+          >
             <div className="flex items-start gap-3">
               <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-surface-sunken text-foreground-muted">
                 <Icon name="folder" className="h-4.5 w-4.5" />
               </span>
               <div className="min-w-0 flex-1">
-                <h2 className="text-title font-semibold text-foreground">
-                  Connect a data folder to configure your workspace, data, and lab settings
-                </h2>
-                <p className="text-meta text-foreground-muted mt-1 leading-relaxed">
+                {isDragOver ? (
+                  <h2 className="text-title font-semibold text-blue-700 dark:text-blue-100">
+                    Release to connect this folder
+                  </h2>
+                ) : (
+                  <h2 className="text-title font-semibold text-foreground">
+                    Connect a data folder to configure your workspace, data, and lab settings
+                  </h2>
+                )}
+                <p
+                  className={`text-meta text-foreground-muted mt-1 leading-relaxed ${isDragOver ? "invisible" : ""}`}
+                  aria-hidden={isDragOver || undefined}
+                >
                   Your account settings below work without a folder. Appearance,
                   defaults, your research folder, and lab settings live in a data
                   folder on your disk. Connect one to manage them.
                 </p>
-                <button
-                  type="button"
-                  onClick={onConnectFolder}
-                  className="ros-btn-raise mt-3 inline-flex items-center gap-2 rounded-lg bg-brand-action px-3 py-2 text-body font-semibold text-white hover:bg-brand-action/90"
+                <div
+                  className={`mt-3 flex items-center gap-3 ${isDragOver ? "invisible" : ""}`}
+                  aria-hidden={isDragOver || undefined}
                 >
-                  <Icon name="folder" className="h-4 w-4" />
-                  Connect a data folder
-                </button>
+                  <button
+                    type="button"
+                    onClick={onConnectFolder}
+                    className="ros-btn-raise inline-flex items-center gap-2 rounded-lg bg-brand-action px-3 py-2 text-body font-semibold text-white hover:bg-brand-action/90"
+                  >
+                    <Icon name="folder" className="h-4 w-4" />
+                    Connect a data folder
+                  </button>
+                  <span className="text-meta text-foreground-subtle">
+                    or drag a folder here
+                  </span>
+                </div>
+                {dropError && (
+                  <p
+                    role="alert"
+                    className="mt-2 text-meta text-red-600 dark:text-red-300"
+                  >
+                    {dropError}
+                  </p>
+                )}
               </div>
             </div>
           </div>
