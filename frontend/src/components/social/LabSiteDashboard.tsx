@@ -54,6 +54,7 @@ import LabSiteUsagePanel from "@/components/social/LabSiteUsagePanel";
 import LabSiteShell from "@/components/social/LabSiteShell";
 import { scanBlockEmbedHrefs } from "@/components/social/LabSiteBlockView";
 import { parseLabSiteBlocks } from "@/lib/social/lab-site-blocks";
+import { normalizePagePath, resolveNewPagePath } from "@/lib/social/lab-site";
 
 /** The note shown on every disabled write control in the demo walkthrough. */
 const DEMO_EDIT_NOTE = "Sample lab, editing is disabled in the demo.";
@@ -1106,6 +1107,10 @@ export default function LabSiteDashboard({
 
   // Editor state for the currently-open page (null = none open).
   const [editorPath, setEditorPath] = useState<string | null>(null);
+  // The author-chosen address for a NEW companion page (editorPath "__new__",
+  // editorIsSection false). Reset to "" whenever a new "__new__" session opens.
+  // This is what makes "New page" create a DISTINCT page instead of overwriting home.
+  const [newPagePath, setNewPagePath] = useState("");
   const [editorTitle, setEditorTitle] = useState("");
   const [editorBody, setEditorBody] = useState("");
   const [editorBusy, setEditorBusy] = useState(false);
@@ -1306,6 +1311,7 @@ export default function LabSiteDashboard({
 
   const newPage = useCallback((asBlocks = false) => {
     setEditorPath("__new__");
+    setNewPagePath("");
     setEditorTitle("");
     setEditorBody("");
     setEditorIsBlocks(asBlocks);
@@ -1368,10 +1374,30 @@ export default function LabSiteDashboard({
   // Individual stable callbacks for the publish flow steps.
   // They capture the latest editor state in their deps rather than via refs.
 
+  // Resolves the stored path the current save should write to. An existing page
+  // keeps its own path. A brand-new SECTION page is the home page (""). A
+  // brand-new companion page ("New page" / "Canvas page") derives a DISTINCT,
+  // non-home, non-duplicate path from the author's address input (or the title),
+  // so it never silently overwrites the home page. Returns an error verdict that
+  // the callers surface in editorMsg instead of saving to the wrong path.
+  const resolveSavePath = useCallback((): { ok: true; path: string } | { ok: false; error: string } => {
+    if (editorPath !== "__new__") {
+      return { ok: true, path: editorPath ?? "" };
+    }
+    // The section editor only ever authors the home page.
+    if (editorIsSection) return { ok: true, path: "" };
+    return resolveNewPagePath({
+      rawPath: newPagePath,
+      title: editorTitle,
+      existingPaths: pages.map((p) => p.path),
+    });
+  }, [editorPath, editorIsSection, newPagePath, editorTitle, pages]);
+
   const flowOnSave = useCallback(async (): Promise<string> => {
     // Step 1: save the draft. Must throw on failure (flow will stop).
-    const path =
-      editorPath === "__new__" ? "" : (editorPath ?? "");
+    const resolved = resolveSavePath();
+    if (!resolved.ok) throw new Error(resolved.error);
+    const path = resolved.path;
 
     if (editorIsBlocks) {
       // Blocks page: save via the canvas API route. Include siteOwnerKey when
@@ -1408,7 +1434,7 @@ export default function LabSiteDashboard({
     const data = (await res.json()) as { page: PageSummary };
     setEditorPath(data.page.path);
     return data.page.path;
-  }, [editorPath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp]);
+  }, [resolveSavePath, editorTitle, editorBody, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp]);
 
   const flowOnFreeze = useCallback(async () => {
     // Step 2: freeze (bake) embeds. Returns count + snapshots.
@@ -1560,6 +1586,15 @@ export default function LabSiteDashboard({
         return;
       }
 
+      // Validate the target path up front (a new companion page needs a distinct,
+      // non-home address) so a bad address is reported as such instead of being
+      // silently saved to home or surfaced as a generic publish failure.
+      const resolved = resolveSavePath();
+      if (!resolved.ok) {
+        setEditorMsg(resolved.error);
+        return;
+      }
+
       // Publish path: delegate entirely to the deploy flow (status pill + panel).
       if (then === "publish") {
         setEditorBusy(true);
@@ -1577,7 +1612,7 @@ export default function LabSiteDashboard({
       // Save-only path.
       setEditorBusy(true);
       setEditorMsg(null);
-      const path = editorPath === "__new__" ? "" : editorPath;
+      const path = resolved.path;
       try {
         if (editorIsBlocks) {
           // Blocks page save. Include siteOwnerKey for the editor-grant path.
@@ -1627,7 +1662,7 @@ export default function LabSiteDashboard({
         setEditorBusy(false);
       }
     },
-    [editorPath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp],
+    [editorPath, resolveSavePath, editorTitle, editorBody, refresh, demoReadOnly, flow, editorIsBlocks, editorBlocksJson, siteOwnerKeyProp],
   );
 
   // Reload history whenever the editor opens a saved page.
@@ -2026,9 +2061,13 @@ export default function LabSiteDashboard({
                       {/* Header bar: title + mode badge + status pill */}
                       <div className="mb-3 flex items-center gap-3">
                         <h2 className="flex-1 text-lg font-medium text-foreground">
-                          {editorPath === "__new__" || editorPath === ""
-                            ? "Edit home page"
-                            : `Edit ${pathLabel(editorPath)}`}
+                          {editorPath === "__new__"
+                            ? editorIsSection
+                              ? "Build home page"
+                              : "New page"
+                            : editorPath === ""
+                              ? "Edit home page"
+                              : `Edit ${pathLabel(editorPath)}`}
                         </h2>
                         {editorIsSection && (
                           <span className="rounded-full border border-green-200 bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-300">
@@ -2056,6 +2095,37 @@ export default function LabSiteDashboard({
                         className="mb-4 w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm text-foreground read-only:opacity-70"
                         placeholder="Welcome to the Smith Lab"
                       />
+
+                      {/* Page address: only when creating a NEW companion page. The
+                          home page has the fixed "" path and is built from its own
+                          button, so this is hidden for the section editor and for any
+                          existing page (its path is permanent). A blank address falls
+                          back to a slug derived from the title at save. */}
+                      {editorPath === "__new__" && !editorIsSection && (
+                        <>
+                          <label className="mb-1 block text-xs text-muted-foreground">
+                            Page address
+                          </label>
+                          <input
+                            type="text"
+                            value={newPagePath}
+                            onChange={(e) => setNewPagePath(e.target.value)}
+                            readOnly={demoReadOnly}
+                            className="mb-1 w-full rounded-lg border border-border bg-background px-3 py-1.5 font-mono text-sm text-foreground read-only:opacity-70"
+                            placeholder="methods"
+                          />
+                          <p className="mb-4 text-[11px] text-muted-foreground">
+                            {(() => {
+                              const preview = normalizePagePath(
+                                newPagePath.trim() || editorTitle,
+                              );
+                              return preview
+                                ? `Public address: ${siteUrl}/${preview}`
+                                : "Enter an address using letters, numbers, or dashes (or leave blank to use the title).";
+                            })()}
+                          </p>
+                        </>
+                      )}
 
                       {/* Homepage structured-section editor path (P3).
                           Used when editorIsSection is true (home page, "" path).

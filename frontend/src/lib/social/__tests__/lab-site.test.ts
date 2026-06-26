@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   normalizePagePath,
+  resolveNewPagePath,
   resolvePublicPage,
   PAGE_DEPTH_MAX,
   type ResolvableSlugRow,
@@ -41,6 +42,54 @@ describe("normalizePagePath", () => {
   it("truncates an over-long segment", () => {
     const seg = "a".repeat(120);
     expect(normalizePagePath(seg).length).toBeLessThanOrEqual(64);
+  });
+});
+
+describe("resolveNewPagePath", () => {
+  it("normalizes the author's typed address", () => {
+    expect(
+      resolveNewPagePath({ rawPath: "Methods Page!", title: "x", existingPaths: [] }),
+    ).toEqual({ ok: true, path: "methods-page" });
+  });
+
+  it("falls back to a slug derived from the title when the address is blank", () => {
+    expect(
+      resolveNewPagePath({ rawPath: "   ", title: "Our Methods", existingPaths: [] }),
+    ).toEqual({ ok: true, path: "our-methods" });
+  });
+
+  it("rejects an address that normalizes to the home page", () => {
+    // Both an empty input and an all-punctuation input collapse to "" (home),
+    // which "New page" must never create.
+    const blank = resolveNewPagePath({ rawPath: "", title: "", existingPaths: [] });
+    const punct = resolveNewPagePath({ rawPath: "!!!", title: "", existingPaths: [] });
+    expect(blank.ok).toBe(false);
+    expect(punct.ok).toBe(false);
+  });
+
+  it("rejects a duplicate of an existing page path", () => {
+    const result = resolveNewPagePath({
+      rawPath: "methods",
+      title: "Methods",
+      existingPaths: ["", "methods"],
+    });
+    expect(result.ok).toBe(false);
+  });
+
+  it("rejects a new page that would collide with the home page", () => {
+    // A typed address can never normalize to "" and pass, but guard the case
+    // where the home "" is in existingPaths and the input is blanked out.
+    const result = resolveNewPagePath({ rawPath: "", title: "  ", existingPaths: [""] });
+    expect(result.ok).toBe(false);
+  });
+
+  it("allows a distinct page to coexist with the home page", () => {
+    const result = resolveNewPagePath({
+      rawPath: "team",
+      title: "Team",
+      existingPaths: [""],
+    });
+    expect(result).toEqual({ ok: true, path: "team" });
   });
 });
 
