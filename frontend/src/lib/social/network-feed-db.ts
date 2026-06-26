@@ -125,6 +125,7 @@ export async function emitFeedEvent(args: EmitFeedEventArgs): Promise<void> {
 
   try {
     const sql = getSql();
+    await ensureNetworkFeedSchema();
     await sql`
       INSERT INTO feed_events
         (id, actor_owner_key, kind, subject_type, subject_id, subject_label, target_slug)
@@ -147,6 +148,7 @@ export async function followResearcher(
 ): Promise<void> {
   if (followerOwnerKey === followeeOwnerKey) return;
   const sql = getSql();
+  await ensureNetworkFeedSchema();
   await sql`
     INSERT INTO follow_edges (follower_owner_key, followee_owner_key)
     VALUES (${followerOwnerKey}, ${followeeOwnerKey})
@@ -159,6 +161,7 @@ export async function unfollowResearcher(
   followeeOwnerKey: string,
 ): Promise<void> {
   const sql = getSql();
+  await ensureNetworkFeedSchema();
   await sql`
     DELETE FROM follow_edges
     WHERE follower_owner_key = ${followerOwnerKey}
@@ -171,6 +174,7 @@ export async function isFollowing(
   followeeOwnerKey: string,
 ): Promise<boolean> {
   const sql = getSql();
+  await ensureNetworkFeedSchema();
   const rows = await sql`
     SELECT 1 FROM follow_edges
     WHERE follower_owner_key = ${followerOwnerKey}
@@ -182,6 +186,7 @@ export async function isFollowing(
 
 export async function listFollowing(ownerKey: string): Promise<string[]> {
   const sql = getSql();
+  await ensureNetworkFeedSchema();
   const rows = await sql`
     SELECT followee_owner_key FROM follow_edges
     WHERE follower_owner_key = ${ownerKey}
@@ -212,6 +217,7 @@ export async function getNetworkFeed(
   limit = 30,
 ): Promise<FeedEventCard[]> {
   const sql = getSql();
+  await ensureNetworkFeedSchema();
 
   const followCountRows = await sql`
     SELECT COUNT(*)::int AS cnt FROM follow_edges
@@ -305,6 +311,7 @@ export async function getFollowSuggestions(
   limit = 8,
 ): Promise<FollowSuggestion[]> {
   const sql = getSql();
+  await ensureNetworkFeedSchema();
 
   const viewerRows = await sql`
     SELECT affiliation FROM account_profiles
