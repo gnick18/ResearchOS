@@ -227,7 +227,7 @@ function NeedsYouHero() {
       icon: "annotate",
       count: mentions,
       label: mentions === 1 ? "mention" : "mentions",
-      onClick: () => router.push("/lab-notes"),
+      onClick: () => router.push("/lab-work?tab=notes"),
       tone: "border-blue-200 bg-blue-50 text-blue-800 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200",
     });
   }

@@ -695,14 +695,22 @@ function MemberPanel({
             </span>
             <Icon name="chevronRight" className="h-4 w-4 text-foreground-muted" />
           </Link>
-          <Link href="/lab-experiments" className={actionBtn} onClick={onClose}>
+          <Link
+            href="/lab-work?tab=experiments"
+            className={actionBtn}
+            onClick={onClose}
+          >
             <span className="flex items-center gap-2">
               <Icon name="vial" className="h-4 w-4 text-foreground-muted" />
               Browse lab experiments
             </span>
             <Icon name="chevronRight" className="h-4 w-4 text-foreground-muted" />
           </Link>
-          <Link href="/lab-notes" className={actionBtn} onClick={onClose}>
+          <Link
+            href="/lab-work?tab=notes"
+            className={actionBtn}
+            onClick={onClose}
+          >
             <span className="flex items-center gap-2">
               <Icon name="book" className="h-4 w-4 text-foreground-muted" />
               Browse lab notes

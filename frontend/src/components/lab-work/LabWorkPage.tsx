@@ -36,11 +36,24 @@ const TABS: { id: LabWorkTab; label: string; icon: IconName }[] = [
   { id: "mentoring", label: "Mentoring", icon: "labTree" },
 ];
 
-export default function LabWorkPage() {
+const VALID_TABS = new Set<LabWorkTab>(["experiments", "notes", "mentoring"]);
+
+/** Coerce an arbitrary `?tab=` value to a real tab id, defaulting to experiments. */
+export function resolveLabWorkTab(raw: string | null | undefined): LabWorkTab {
+  return raw && VALID_TABS.has(raw as LabWorkTab)
+    ? (raw as LabWorkTab)
+    : "experiments";
+}
+
+export default function LabWorkPage({
+  initialTab = "experiments",
+}: {
+  initialTab?: LabWorkTab;
+}) {
   const { currentUser } = useCurrentUser();
   const isLabHead = useIsLabHead(currentUser);
   const { users } = useLabData();
-  const [activeTab, setActiveTab] = useState<LabWorkTab>("experiments");
+  const [activeTab, setActiveTab] = useState<LabWorkTab>(initialTab);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
   // Browse every member's work (the PI's own included), so the whole lab lives
