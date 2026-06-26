@@ -240,15 +240,13 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
     [recentRefs, objectIndex],
   );
 
-  // BeakerSearch global object search, chunk 3. Hand the live query off to
-  // the full faceted /search via ?keywords=, then close the palette.
-  const searchEverything = useCallback(
-    (q: string) => {
-      router.push(`/search?keywords=${encodeURIComponent(q)}`);
-      setOpen(false);
-    },
-    [router],
-  );
+  // BeakerSearch global object search. The trailing "Search everything" row
+  // USED to hand the live query off to the standalone `/search` page via
+  // ?keywords=. That page is retired (it searched ONLY tasks — strictly
+  // narrower than this palette, which already shows ALL seven object kinds
+  // inline). With nowhere broader to hand off to, the row is dropped: the
+  // palette IS the full search. `onSearchEverything` is left unwired below,
+  // and CommandPalette hides the row when no handler is passed.
 
   // BeakerSearch v2 Phase 2 AI escalation (the morph). The palette STAYS open
   // and switches into Ask mode; the search body cross-fades to the
@@ -358,7 +356,6 @@ export function BeakerSearchProvider({ children }: { children: ReactNode }) {
           collectionLabel={effectiveSource.collectionLabel}
           objectIndex={objectIndex}
           onNavigateObject={navigateToObject}
-          onSearchEverything={searchEverything}
           recentEntries={recentEntries}
           onEscalate={escalateToBeakerBot}
           aiLocked={!canUseAI}

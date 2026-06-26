@@ -83,28 +83,35 @@ async function waitForAppReady(page: Page): Promise<void> {
 }
 
 /**
- * Run the Search page's empty-keyword query, which renders a card (with an
- * `<h4>` task name) for every task the current user can SEE via the canonical
- * `fetchAllTasksIncludingShared` merged-view loader. An empty keyword set
- * matches all visible tasks, making this the cleanest read-side privacy gate:
- * a leaked record would render a card; a correctly-hidden record renders none.
+ * The read-side privacy gate. Originally this ran the standalone `/search`
+ * page's empty-keyword query — a flat heading-per-task list of everything the
+ * current user could SEE. That page was retired (UX clawback, 2026-06-26), so
+ * the gate now reads the GANTT, which renders one bar per task for every type
+ * (experiment + list) via the SAME canonical `fetchAllTasksIncludingShared`
+ * merged-view loader. A leaked record would render a bar carrying its name; a
+ * correctly-hidden record renders none. Each task name is a stable text node
+ * (the bar label + its `title=`), so the assertions below switched from
+ * `getByRole("heading", { name })` to `getByText(name, { exact: true })`.
  *
- * Assumes the caller has already navigated to `/search?wikiCapture=1[...]`
- * (so the active fixture user is whatever that navigation pinned). This helper
- * does NOT re-navigate, to avoid dropping a `?fixtureUser=` override.
+ * Caller navigates to `/gantt?wikiCapture=1[...]` BEFORE this runs (so the
+ * active fixture user is whatever that navigation pinned); this helper only
+ * waits for the surface to settle, so a `?fixtureUser=` override is preserved.
+ *
+ * VERIFY-OWED: this was repointed from `/search` to `/gantt` without a local
+ * Playwright run (no browser in the relocating agent's env). The fixture tasks
+ * must fall inside the default Gantt window for the positive assertions to
+ * pass; confirm on a real run.
  */
-async function runEmptySearch(page: Page): Promise<void> {
+async function gotoTaskGate(page: Page): Promise<void> {
   await waitForAppReady(page);
-  // The search input carries data-tour-target="search-input"; submit button
-  // carries data-tour-target="search-submit". Leave keywords empty so the
-  // result set is "everything this user can see."
-  const submit = page.locator('[data-tour-target="search-submit"]');
-  await submit.waitFor({ state: "visible", timeout: 30_000 });
-  await submit.click();
-  // Results header ("N results found") renders once a search has run.
-  await expect(page.getByText(/result(s)? found/i)).toBeVisible({
-    timeout: 15_000,
-  });
+  // The Gantt renders all visible tasks on load (no submit step). Wait for the
+  // always-present chart shell (the scope toggle) so the surface has settled
+  // before the per-user presence/absence assertions run. Using the shell —
+  // not a specific task — keeps this user-agnostic (morgan's run has no
+  // ALEX_OWN_TASK to wait on).
+  await page
+    .locator('[data-testid="gantt-scope-mine"]')
+    .waitFor({ state: "visible", timeout: 30_000 });
 }
 
 test.describe("read-side sharing gate (real UI)", () => {
@@ -114,30 +121,30 @@ test.describe("read-side sharing gate (real UI)", () => {
     page,
   }) => {
     // Default fixture user is alex (`?wikiCapture=1`).
-    await page.goto("/search?wikiCapture=1", { waitUntil: "domcontentloaded" });
-    await runEmptySearch(page);
+    await page.goto("/gantt?wikiCapture=1", { waitUntil: "domcontentloaded" });
+    await gotoTaskGate(page);
 
     // Positive: a record morgan shared WITH alex must be visible.
     //   - morgan project 1 is shared (view) → morgan's project-1 tasks surface
     //   - morgan task 3 is individually shared (edit)
     await expect(
-      page.getByRole("heading", { name: MORGAN_SHARED_TASK }),
+      page.getByText(MORGAN_SHARED_TASK, { exact: true }).first(),
     ).toBeVisible({ timeout: 10_000 });
     await expect(
-      page.getByRole("heading", { name: MORGAN_SHARED_INDIVIDUAL }),
+      page.getByText(MORGAN_SHARED_INDIVIDUAL, { exact: true }).first(),
     ).toBeVisible();
 
     // Sanity: alex's own task is obviously visible (rules out an
     // empty-result false-pass).
     await expect(
-      page.getByRole("heading", { name: ALEX_OWN_TASK }),
+      page.getByText(ALEX_OWN_TASK, { exact: true }).first(),
     ).toBeVisible();
 
     // CROSS-USER LEAK GUARD: morgan's project-2 task is NOT shared with
     // alex in any form (no individual share, project 2 not shared). It must
-    // be ABSENT from alex's view. A visible card here is a real privacy leak.
+    // be ABSENT from alex's view. A visible bar here is a real privacy leak.
     await expect(
-      page.getByRole("heading", { name: MORGAN_PRIVATE_TASK }),
+      page.getByText(MORGAN_PRIVATE_TASK, { exact: true }),
     ).toHaveCount(0);
   });
 
@@ -146,20 +153,20 @@ test.describe("read-side sharing gate (real UI)", () => {
   }) => {
     // morgan has no `_shared_with_me.json`, so morgan's visible set is
     // exactly morgan's own records. None of alex's private tasks may leak in.
-    await page.goto("/search?wikiCapture=1&fixtureUser=morgan", {
+    await page.goto("/gantt?wikiCapture=1&fixtureUser=morgan", {
       waitUntil: "domcontentloaded",
     });
-    await runEmptySearch(page);
+    await gotoTaskGate(page);
 
     // Positive: morgan sees her own task (rules out empty-result false-pass).
     await expect(
-      page.getByRole("heading", { name: MORGAN_SHARED_TASK }),
+      page.getByText(MORGAN_SHARED_TASK, { exact: true }).first(),
     ).toBeVisible({ timeout: 10_000 });
 
     // CROSS-USER LEAK GUARD: alex's private task must be absent from
     // morgan's view.
     await expect(
-      page.getByRole("heading", { name: ALEX_OWN_TASK }),
+      page.getByText(ALEX_OWN_TASK, { exact: true }),
     ).toHaveCount(0);
   });
 });
@@ -172,9 +179,11 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
    * candidate `<select>` options (data-tour-target="share-dialog-user-row").
    *
    * The path mirrors what a user actually does, against the CURRENT chrome:
-   *   search → click an EXPERIMENT card the current user OWNS → open the popup's
-   *   "More actions" overflow → click Share → switch to the "In your lab" tab →
-   *   read the candidate dropdown.
+   *   Workbench Experiments tab → click an EXPERIMENT card the current user
+   *   OWNS → open the popup's "More actions" overflow → click Share → switch to
+   *   the "In your lab" tab → read the candidate dropdown. (Pre-2026-06-26 this
+   *   started from the retired /search page; the popup chrome is identical
+   *   regardless of which surface opened it.)
    *
    * Notes on why this is shaped the way it is:
    *  - The Share button (`task-popup-share-button`) only renders for owned,
@@ -198,11 +207,13 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     page: Page,
     ownExperimentName: string,
   ): Promise<string[]> {
-    await runEmptySearch(page);
+    // The Workbench Experiments panel renders each experiment in an <h3> card
+    // (ExperimentResultCard) and opens the same task popup on click.
+    await waitForAppReady(page);
     const card = page
-      .getByRole("heading", { name: ownExperimentName, level: 4 })
+      .getByRole("heading", { name: ownExperimentName, level: 3 })
       .first();
-    await card.waitFor({ state: "visible", timeout: 10_000 });
+    await card.waitFor({ state: "visible", timeout: 15_000 });
     await card.click();
 
     // Share lives in the popup header's "More actions" overflow menu, which only
@@ -260,7 +271,7 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
   test("alex's share dialog offers the live members and never the owner", async ({
     page,
   }) => {
-    await page.goto("/search?wikiCapture=1&seedSharingIdentity=1", {
+    await page.goto("/workbench?wikiCapture=1&seedSharingIdentity=1", {
       waitUntil: "domcontentloaded",
     });
     const candidates = await readShareCandidates(page, ALEX_OWN_EXPERIMENT);
@@ -290,7 +301,7 @@ test.describe("share dialog candidate dropdown (the class of bug that shipped)",
     page,
   }) => {
     await page.goto(
-      "/search?wikiCapture=1&fixtureUser=morgan&seedSharingIdentity=1",
+      "/workbench?wikiCapture=1&fixtureUser=morgan&seedSharingIdentity=1",
       { waitUntil: "domcontentloaded" },
     );
     const candidates = await readShareCandidates(page, MORGAN_OWN_EXPERIMENT);

@@ -666,9 +666,12 @@ describe("CommandPalette contextual sections", () => {
     expect(screen.getByText("pGEX-3X")).toBeTruthy();
   });
 
-  // BeakerSearch global object search, chunk 3, the trailing "Search everything"
-  // handoff to the full faceted /search.
-  it("offers a Search everything row that hands the live query to /search", () => {
+  // BeakerSearch global object search: the trailing "Search everything" row.
+  // The component still exposes this as a generic handoff prop (a reusable row
+  // that fires `onSearchEverything` with the trimmed query). Production no
+  // longer wires it — the standalone /search page was retired and the palette
+  // is the full search — but the component contract is unchanged.
+  it("offers a Search everything row that fires the handoff with the live query", () => {
     const onSearchEverything = vi.fn();
     render(
       <CommandPalette

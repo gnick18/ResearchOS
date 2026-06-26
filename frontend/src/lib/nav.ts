@@ -43,9 +43,11 @@ export const NAV_ITEMS: NavItem[] = [
   { href: "/purchases", label: "Purchases" },
   { href: "/calendar", label: "Calendar" },
   // Search is intentionally NOT a top-nav tab (nav audit, 2026-06-07). It lives
-  // in the Cmd-K BeakerSearch palette (a pill on every page), which hands off to
-  // /search?keywords= for advanced filtering + export. The /search route still
-  // works; it is just not duplicated as a nav button.
+  // in the Cmd-K BeakerSearch palette (a pill on every page), which searches all
+  // seven object kinds inline. The old standalone /search page (task-only +
+  // multi-select export) was retired (UX clawback, 2026-06-26): its export moved
+  // to the Workbench Experiments surface, and /search now redirects to
+  // /workbench for any stray bookmark.
   // Copy-alignment manager 2026-05-26: tab labeled "Links" for all
   // account types. The earlier "Lab Links" carve-out for lab accounts
   // (AppShell.tsx, /links/page.tsx, SetupWrapupStep.tsx) drifted across

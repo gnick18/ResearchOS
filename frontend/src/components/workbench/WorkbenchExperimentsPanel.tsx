@@ -20,6 +20,8 @@ import SharedFromPill from "@/components/workbench/SharedFromPill";
 import ExperimentResultCard, {
   type ExperimentCardMethod,
 } from "@/components/experiments/ExperimentResultCard";
+import ExportFormatDialog from "@/components/ExportFormatDialog";
+import { useExperimentExport } from "@/components/export/useExperimentExport";
 import type { FreshnessKind } from "@/components/experiments/FreshnessTag";
 import {
   probeTaskResults,
@@ -384,6 +386,13 @@ export default function WorkbenchExperimentsPanel({
     });
   }, [allTasks, selectedProjectIds]);
 
+  // Multi-select experiment export, relocated here from the retired `/search`
+  // page (it was the one capability `/search` had that the Cmd-K palette did
+  // not). Drives the shared ExportFormatDialog with the SAME handlers: select
+  // experiments, then zip / save-to-disk / combined-PDF. The hook owns the
+  // selection + dialog state; the universe of experiments is this panel's.
+  const exportCtl = useExperimentExport(experiments, currentUser);
+
   const blockingMap = useMemo(
     () => computeBlockingParents(allTasks, dependencies),
     [allTasks, dependencies],
@@ -721,10 +730,12 @@ export default function WorkbenchExperimentsPanel({
             : undefined
         : undefined;
 
+    const isSelected = exportCtl.selectedKeys.has(taskKey(t));
+
     return (
       <div
         key={taskKey(t)}
-        className="flex flex-col gap-2"
+        className="relative flex flex-col gap-2"
         data-tour-target={labTourTarget}
         data-testid="experiment-board-card"
         data-beaker-target={`experiment:${taskKey(t)}`}
@@ -733,6 +744,19 @@ export default function WorkbenchExperimentsPanel({
           setTileMenu({ x: e.clientX, y: e.clientY, task: t });
         }}
       >
+        {/* Select-mode checkbox overlay (export relocation). Sits above the
+            card so a tap toggles selection without opening the popup. */}
+        {exportCtl.selectMode && (
+          <span
+            className={`absolute top-2 right-2 z-10 grid place-items-center w-5 h-5 rounded border-2 transition-colors ${
+              isSelected
+                ? "bg-brand-action border-brand-action text-white"
+                : "border-border bg-surface-raised"
+            }`}
+          >
+            {isSelected && <Icon name="check" className="w-3 h-3" />}
+          </span>
+        )}
         <ExperimentResultCard
           task={{
             id: t.id,
@@ -750,7 +774,11 @@ export default function WorkbenchExperimentsPanel({
           methods={cardMethods}
           freshnessKind={fresh.kind}
           freshnessLabel={fresh.label}
-          onClick={() => setSelectedTask(t)}
+          onClick={() =>
+            exportCtl.selectMode
+              ? exportCtl.toggleSelection(t)
+              : setSelectedTask(t)
+          }
           sharedIndicator={sharedIndicator}
           compact={compact}
         />
@@ -834,6 +862,7 @@ export default function WorkbenchExperimentsPanel({
     const rowMethods = (t.method_ids ?? [])
       .map((mid) => methodLookup(t, mid))
       .filter((m): m is Method => m !== null);
+    const isSelected = exportCtl.selectedKeys.has(taskKey(t));
     return (
       <div
         key={taskKey(t)}
@@ -848,13 +877,29 @@ export default function WorkbenchExperimentsPanel({
                 : undefined
             : undefined
         }
-        onClick={() => setSelectedTask(t)}
+        onClick={() =>
+          exportCtl.selectMode
+            ? exportCtl.toggleSelection(t)
+            : setSelectedTask(t)
+        }
         onContextMenu={(e) => {
           e.preventDefault();
           setTileMenu({ x: e.clientX, y: e.clientY, task: t });
         }}
         className="group flex items-center gap-3 px-4 py-2 border-b border-border cursor-pointer hover:bg-surface-sunken transition-colors"
       >
+        {/* Select-mode checkbox (export relocation). */}
+        {exportCtl.selectMode && (
+          <span
+            className={`flex-none grid place-items-center w-4 h-4 rounded border-2 transition-colors ${
+              isSelected
+                ? "bg-brand-action border-brand-action text-white"
+                : "border-border bg-surface-raised"
+            }`}
+          >
+            {isSelected && <Icon name="check" className="w-2.5 h-2.5" />}
+          </span>
+        )}
         <span
           className={`flex-none text-meta font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${style.badge}`}
         >
@@ -1082,6 +1127,37 @@ export default function WorkbenchExperimentsPanel({
                     </button>
                   ))}
                 </span>
+                {/* Multi-select experiment export (relocated from /search). */}
+                {exportCtl.selectMode ? (
+                  <>
+                    <span className="text-meta text-foreground-muted whitespace-nowrap">
+                      {exportCtl.selectedCount} selected
+                    </span>
+                    <button
+                      type="button"
+                      onClick={exportCtl.openDialog}
+                      disabled={exportCtl.selectedCount === 0}
+                      className="ros-btn-raise px-3 py-1.5 text-meta bg-brand-action text-white rounded-lg hover:bg-brand-action/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Export selected
+                    </button>
+                    <button
+                      type="button"
+                      onClick={exportCtl.cancelSelectMode}
+                      className="px-3 py-1.5 text-meta text-foreground-muted hover:bg-surface-sunken rounded-lg"
+                    >
+                      Cancel
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={exportCtl.enterSelectMode}
+                    className="ros-btn-neutral px-3 py-1.5 text-meta text-foreground-muted"
+                  >
+                    Select
+                  </button>
+                )}
                 <button
                   onClick={handleCreateExperiment}
                   data-tour-target="workbench-new-experiment"
@@ -1227,6 +1303,20 @@ export default function WorkbenchExperimentsPanel({
       )}
 
       <TaskModal projects={projects} />
+
+      {/* Multi-select experiment export dialog (relocated from /search). Same
+          shared component + handlers: zip / save-to-disk / combined-PDF. */}
+      <ExportFormatDialog
+        isOpen={exportCtl.dialogOpen}
+        taskCount={exportCtl.selectedCount}
+        isExporting={exportCtl.exporting}
+        sizeEstimate={exportCtl.sizeEstimate}
+        progress={exportCtl.progress}
+        onClose={exportCtl.closeDialog}
+        onExport={exportCtl.exportSelected}
+        onExportToFile={exportCtl.exportSelectedToFile}
+        onExportCombined={exportCtl.exportSelectedCombined}
+      />
     </div>
   );
 }

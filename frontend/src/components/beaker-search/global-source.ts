@@ -50,8 +50,11 @@ const TYPE_WEIGHT: Record<GlobalObjectType, number> = {
  *  crowd out the others (mirrors RECENT_RESULTS_CAP). */
 export const GLOBAL_PER_TYPE_CAP = 5;
 
-/** Overall cap, at most 12 global-object results across all types at once (the
- *  long tail is the "Search everything" handoff to /search, chunk 3). */
+/** Overall cap, at most 12 global-object results across all types at once. The
+ *  palette is now the full search surface (the old "Search everything" handoff
+ *  to the retired /search page is gone), so the per-type + overall caps keep
+ *  the inline list tight; the per-type "show all of this kind" affordance picks
+ *  up any long tail. */
 export const GLOBAL_OVERALL_CAP = 12;
 
 /** Milliseconds in one week, for the recency boost. */
