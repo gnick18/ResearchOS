@@ -55,6 +55,46 @@ export function normalizePagePath(input: string | string[] | undefined): string 
   return out.join("/");
 }
 
+/** The outcome of resolving the address for a NEW (not-yet-saved) companion page. */
+export type NewPagePathResult =
+  | { ok: true; path: string }
+  | { ok: false; error: string };
+
+/**
+ * Resolves the stored path for a brand-new companion page from the author's raw
+ * address input, falling back to the title when the address is left blank. Pure
+ * so the builder's "New page" flow can be validated without a DB or browser.
+ *
+ * A new companion page must be a DISTINCT, non-home page, so this rejects:
+ *   - an input that normalizes to "" (the home page is created by its own
+ *     "Build home page" control, never by "New page"), and
+ *   - an address that collides with an existing page path (the home "" included,
+ *     though "" can never be produced here).
+ *
+ * On success the returned path is already normalized (normalizePagePath form),
+ * so callers send it straight to the upsert API.
+ */
+export function resolveNewPagePath(args: {
+  /** The raw address the author typed (may be blank to fall back to the title). */
+  rawPath: string;
+  /** The page title, used to derive an address when rawPath is blank. */
+  title: string;
+  /** Existing page paths on the site (the home "" included). */
+  existingPaths: readonly string[];
+}): NewPagePathResult {
+  const normalized = normalizePagePath(args.rawPath.trim() || args.title);
+  if (normalized.length === 0) {
+    return {
+      ok: false,
+      error: "Enter a page address using letters, numbers, or dashes.",
+    };
+  }
+  if (args.existingPaths.some((p) => p === normalized)) {
+    return { ok: false, error: "A page with that address already exists." };
+  }
+  return { ok: true, path: normalized };
+}
+
 /**
  * The minimal shape of a slug-registry row this lane needs to decide rendering.
  * Mirrors lib/social/slug-registry-db.ts SlugRow without importing the DB module
