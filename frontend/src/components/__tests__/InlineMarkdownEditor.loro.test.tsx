@@ -64,6 +64,11 @@ vi.mock("@/lib/markdown/cm-inline-reveal/inline-reveal", () => ({
   inlineRevealExtension: [],
   imageBasePathExt: () => [],
   embedPinContextExt: () => [],
+  // forgivingEmphasis is a CodeMirror extension value (used in extensions: [..]),
+  // added to the real module by 30ff8b1a6. The mount reads it, so the stub must
+  // include it or the async mount aborts before the editor binds (which read as
+  // a false anti-hang failure). Empty extension keeps the editor behavior inert.
+  forgivingEmphasis: [],
 }));
 
 // ---------------------------------------------------------------------------

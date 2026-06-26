@@ -107,6 +107,15 @@ function project(
   };
 }
 
+// A date inside the 30-day "recently done" window, computed relative to now so a
+// COMPLETE list lands in the visible bucket rather than the collapsed Earlier
+// accordion. A hardcoded past date (was "2026-05-20") drifts out of that window
+// over time and silently breaks any test seeding a complete list (a date-drift
+// time bomb that broke the parent-uncheck case once today passed 2026-06-19).
+const RECENT_DATE = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000)
+  .toISOString()
+  .slice(0, 10);
+
 function listTask(
   partial: Partial<Task> & {
     id: number;
@@ -116,9 +125,9 @@ function listTask(
   },
 ): Task {
   return {
-    start_date: "2026-05-20",
+    start_date: RECENT_DATE,
     duration_days: 1,
-    end_date: "2026-05-20",
+    end_date: RECENT_DATE,
     is_high_level: false,
     is_complete: false,
     task_type: "list",
