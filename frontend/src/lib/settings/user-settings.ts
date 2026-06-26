@@ -967,7 +967,35 @@ export async function patchUserSettings(
 ): Promise<UserSettings> {
   // Route through the serialized updater so a patch never races with another
   // concurrent write to the same user.
-  return updateUserSettings(username, () => patch);
+  const saved = await updateUserSettings(username, () => patch);
+
+  // Avatar color is a cloud user setting: when the SELF user picks a new color,
+  // mirror it into the account-scoped E2E blob so it follows the account across
+  // folders + devices (the folder settings.json + roster mirror, written above,
+  // stay so OTHER users in a shared folder still see this color). Only on a color
+  // patch, only for the signed-in user (never mirror another user's color into
+  // this account's blob), and only when account settings are on. Awaited so the
+  // write-through cache holds the new color before the Settings page invalidates
+  // the color map. Lazy-imported to keep the account layer out of this module's
+  // static graph; best-effort, never fails the settings write.
+  if (patch.color !== undefined || patch.colorSecondary !== undefined) {
+    try {
+      const { getCurrentUser } = await import(
+        "../file-system/indexeddb-store"
+      );
+      const current = await getCurrentUser();
+      if (current && current === username) {
+        const { syncUserColorToAccount } = await import(
+          "@/lib/account/account-color-sync"
+        );
+        await syncUserColorToAccount(saved.color, saved.colorSecondary);
+      }
+    } catch {
+      // Account layer unavailable: the folder copy still carries the color.
+    }
+  }
+
+  return saved;
 }
 
 // ---------------------------------------------------------------------------
