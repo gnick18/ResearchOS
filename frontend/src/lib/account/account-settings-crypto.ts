@@ -100,6 +100,18 @@ export interface AccountScopedSettings {
   beakerBotAnimations?: boolean;
   /** Tint the header with the user color vs keep it white. */
   coloredHeader?: boolean;
+  /**
+   * The user's avatar / accent color (a hex string like "#3b82f6"). Part of the
+   * user's visual identity, scoped to the account so the same person shows ONE
+   * color across every folder + device. null / absent = no account color, fall
+   * back to the folder-local value.
+   */
+  color?: string | null;
+  /**
+   * The second stop of the avatar gradient (a hex string), or null for a solid
+   * color. Mirrors `color`; account-scoped so the gradient follows the account.
+   */
+  colorSecondary?: string | null;
   /** Date display format ("MDY" | "DMY" | "YMD"). */
   dateFormat?: string;
   /** Time display format ("12h" | "24h"). */

@@ -234,6 +234,29 @@ describe("mergeAccountOverFolder (Phase 2 preferences)", () => {
     // theme is not a UserSettings field; the merge must not invent one.
     expect("theme" in merged).toBe(false);
   });
+
+  it("ELEVATES the avatar color + gradient when the account carries them", () => {
+    const f = folder("member"); // folder color defaults to "#3b82f6"
+    const merged = mergeAccountOverFolder(f, {
+      color: "#e11d48",
+      colorSecondary: "#f59e0b",
+    });
+    expect(merged.color).toBe("#e11d48");
+    expect(merged.colorSecondary).toBe("#f59e0b");
+  });
+
+  it("keeps the folder color when the account has no color (null / absent)", () => {
+    const f = folder("member");
+    // A null account color is NOT a real choice; the folder hex survives.
+    expect(mergeAccountOverFolder(f, { color: null }).color).toBe("#3b82f6");
+    expect(mergeAccountOverFolder(f, {}).color).toBe("#3b82f6");
+  });
+
+  it("lets an explicit account colorSecondary null win (solid avatar over a folder gradient)", () => {
+    const f = { ...folder("member"), colorSecondary: "#abcdef" };
+    const merged = mergeAccountOverFolder(f, { colorSecondary: null });
+    expect(merged.colorSecondary).toBeNull();
+  });
 });
 
 describe("liftFolderIntoAccount (Phase 2 preferences)", () => {
@@ -272,6 +295,27 @@ describe("liftFolderIntoAccount (Phase 2 preferences)", () => {
     const next = liftFolderIntoAccount(null, [], "member", { visibleTabs: tabs });
     tabs.push("/methods");
     expect(next.visibleTabs).toEqual(["/", "/calendar"]);
+  });
+
+  it("seeds the avatar color + gradient from the folder when the account lacks them", () => {
+    const next = liftFolderIntoAccount(null, [], "member", {
+      color: "#e11d48",
+      colorSecondary: "#f59e0b",
+    });
+    expect(next.color).toBe("#e11d48");
+    expect(next.colorSecondary).toBe("#f59e0b");
+  });
+
+  it("does NOT overwrite an existing account color from a later folder", () => {
+    const existing: AccountScopedSettings = { color: "#e11d48" };
+    const next = liftFolderIntoAccount(existing, [], "member", {
+      color: "#3b82f6",
+      colorSecondary: "#000000",
+    });
+    // The account color is the user's choice and wins; only the new
+    // colorSecondary field is seeded.
+    expect(next.color).toBe("#e11d48");
+    expect(next.colorSecondary).toBe("#000000");
   });
 });
 

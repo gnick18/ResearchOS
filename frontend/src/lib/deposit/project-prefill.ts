@@ -22,7 +22,10 @@
 
 import type { FundingAccount, Note, Project, Task } from "@/lib/types";
 import { tasksApi, notesApi, purchasesApi } from "@/lib/local-api";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import {
+  readEffectiveUserSettings,
+  readUserSettings,
+} from "@/lib/settings/user-settings";
 import { getUserMetadata } from "@/lib/file-system/user-metadata";
 import { loadChargedGrants, type ChargedGrants } from "@/lib/funding/charged-grants";
 import { resolveOwnerOrcid } from "./owner-orcid";
@@ -52,12 +55,24 @@ export interface ProjectDepositPrefill {
 }
 
 /**
- * Resolve the owner's display name: settings.json#displayName when set,
+ * Resolve the owner's display name: the account-elevated displayName when set,
  * otherwise the folder username. Never throws.
+ *
+ * For the SELF user (owner === currentUser) the account-elevated read is used so
+ * the deposit is attributed by the cloud account identity. For ANOTHER user (a
+ * shared project's owner) the folder-cached value is THEIR identity, so the
+ * folder-only read is kept. readEffectiveUserSettings fails closed to the folder
+ * value when the account-settings flag is off / offline.
  */
-async function resolveOwnerDisplayName(owner: string): Promise<string> {
+async function resolveOwnerDisplayName(
+  owner: string,
+  currentUser?: string | null,
+): Promise<string> {
   try {
-    const settings = await readUserSettings(owner);
+    const settings =
+      currentUser && owner === currentUser
+        ? await readEffectiveUserSettings(owner)
+        : await readUserSettings(owner);
     const dn = (settings.displayName ?? "").trim();
     return dn.length > 0 ? dn : owner;
   } catch {
@@ -95,7 +110,7 @@ export async function loadProjectDepositPrefill(
       // Notes are owner-scoped; list the project owner's notes so a shared
       // project's deposit can still attach the owner's notes.
       notesApi.list(),
-      resolveOwnerDisplayName(project.owner),
+      resolveOwnerDisplayName(project.owner, currentUser),
       getUserMetadata(project.owner),
       resolvePrimaryFundingAccount(project),
       loadChargedGrants(

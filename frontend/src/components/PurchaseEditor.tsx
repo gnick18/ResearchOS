@@ -52,7 +52,7 @@ import {
   attachmentKindLabel,
 } from "@/lib/purchases/attachments";
 import { buildDepartmentMailto } from "@/lib/purchases/routing";
-import { readUserSettings } from "@/lib/settings/user-settings";
+import { readEffectiveUserSettings } from "@/lib/settings/user-settings";
 
 interface PurchaseEditorProps {
   taskId: number;
@@ -361,9 +361,14 @@ export default function PurchaseEditor({
   // settings hold the routing config; it is meaningful only for a lab head who
   // turned it on. Members / non-configured labs read a disabled config and the
   // "Send to department" affordance never appears.
+  // The viewer's own settings. Read account-elevated so the department-mailto
+  // signs with the cloud account displayName ("me" below). The merge starts from
+  // the folder settings and only overrides account-scoped fields, so the
+  // folder-scoped purchaseRouting config below is unchanged. Fails closed to the
+  // folder value when the account-settings flag is off / offline.
   const { data: mySettings } = useQuery({
-    queryKey: ["user-settings", gateCurrentUser],
-    queryFn: () => readUserSettings(gateCurrentUser ?? ""),
+    queryKey: ["user-settings-effective", gateCurrentUser],
+    queryFn: () => readEffectiveUserSettings(gateCurrentUser ?? ""),
     enabled: !!gateCurrentUser,
   });
   const routingCfg = mySettings?.purchaseRouting;
