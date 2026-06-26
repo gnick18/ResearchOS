@@ -342,6 +342,50 @@ describe("getFollowSuggestions", () => {
       affiliation: "MIT",
     });
   });
+
+  it("excludes UNLISTED researchers (joins directory_profiles WHERE unlisted = false)", async () => {
+    // The directory listing gate lives in SQL (unlisted = false), so we simulate
+    // the DB honoring it: the suggestion query INNER-joins directory_profiles and
+    // filters unlisted = false, so an opted-out researcher's row never comes back.
+    // A mock that returns rows only when the query carries that filter proves the
+    // filter is present; a regression that drops the join would return the unlisted
+    // row here and fail the length assertion.
+    const queries: string[] = [];
+    const sql = vi.fn((strings: TemplateStringsArray) => {
+      const query = strings.join("?");
+      queries.push(query);
+      if (query.includes("affiliation FROM account_profiles")) {
+        return Promise.resolve([{ affiliation: "MIT" }]); // viewer affiliation
+      }
+      // The suggestions read: the DB only returns LISTED rows because the query
+      // filters unlisted = false. An unlisted researcher (bob) is filtered out by
+      // the join, so only the listed researcher (jones) is ever returned.
+      return Promise.resolve([
+        {
+          owner_key: "jones-key",
+          handle: "jones",
+          display_name: "Dr. Jones",
+          affiliation: "MIT",
+        },
+      ]);
+    }) as unknown as NeonQueryFunction<false, false>;
+    _testSetSql(sql);
+
+    const suggestions = await getFollowSuggestions("viewer-key");
+
+    // The suggestion query must join the directory listing and filter unlisted.
+    const suggestionQuery = queries.find((q) =>
+      q.includes("FROM account_profiles ap"),
+    );
+    expect(suggestionQuery).toBeDefined();
+    expect(suggestionQuery).toContain("JOIN directory_profiles");
+    expect(suggestionQuery).toContain("unlisted = false");
+
+    // Only the listed researcher is surfaced; the unlisted one is never present.
+    expect(suggestions).toHaveLength(1);
+    expect(suggestions.map((s) => s.handle)).toEqual(["jones"]);
+    expect(suggestions.map((s) => s.handle)).not.toContain("bob");
+  });
 });
 
 // ---------------------------------------------------------------------------
