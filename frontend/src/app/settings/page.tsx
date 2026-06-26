@@ -89,6 +89,8 @@ import { useAccountCapabilities } from "@/hooks/useAccountCapabilities";
 import { useHasCloudSession } from "@/components/account/AccountFirstRedirect";
 import { SETTINGS_FOLDERLESS_ENABLED } from "@/lib/settings/settings-folderless-config";
 import { PROFILE_CONSOLIDATION_ENABLED } from "@/lib/settings/profile-consolidation-config";
+import { SECURITY_CONSOLIDATION_ENABLED } from "@/lib/settings/security-consolidation-config";
+import SecurityKeysPanel from "@/components/settings/SecurityKeysPanel";
 import SettingsShell, {
   type SettingsGroupDef,
 } from "@/components/settings/SettingsShell";
@@ -471,27 +473,56 @@ function SettingsBodyInner({
               <ProfileSettingsContent />
             ),
         },
-        {
-          id: "account",
-          group: "You",
-          title: "Account & security",
-          icon: "shield",
-          keywords:
-            "account user switch sign in out login logout password lock security google github unlock",
-          render: () => (
-            <>
-              <AccountSection
-                currentUser={currentUser}
-                onSwitchUser={() => setShowUserSwitch(true)}
-              />
-              <SecuritySection
-                pwExists={pwExists}
-                claimed={caps.mode !== "solo"}
-                onOpen={() => setPwOpen(true)}
-              />
-            </>
-          ),
-        },
+        // P3 (security consolidation, flag-gated): when ON, the three scattered
+        // "security" surfaces fold into ONE "Security & keys" section. The
+        // folder-free device-key block (SecurityKeysPanel) sits at the top so a
+        // no-folder user can still set up or unlock their E2E key, followed by
+        // the folder-scoped block (user switch + app password). When OFF this is
+        // byte-identical to the old "Account & security" section.
+        SECURITY_CONSOLIDATION_ENABLED
+          ? {
+              id: "security",
+              group: "You",
+              title: "Security & keys",
+              icon: "lock" as const,
+              keywords:
+                "account user switch sign in out login logout password lock security google github unlock keys encryption recovery device fingerprint provision restore",
+              render: () => (
+                <>
+                  <SecurityKeysPanel />
+                  <AccountSection
+                    currentUser={currentUser}
+                    onSwitchUser={() => setShowUserSwitch(true)}
+                  />
+                  <SecuritySection
+                    pwExists={pwExists}
+                    claimed={caps.mode !== "solo"}
+                    onOpen={() => setPwOpen(true)}
+                  />
+                </>
+              ),
+            }
+          : {
+              id: "account",
+              group: "You",
+              title: "Account & security",
+              icon: "shield" as const,
+              keywords:
+                "account user switch sign in out login logout password lock security google github unlock",
+              render: () => (
+                <>
+                  <AccountSection
+                    currentUser={currentUser}
+                    onSwitchUser={() => setShowUserSwitch(true)}
+                  />
+                  <SecuritySection
+                    pwExists={pwExists}
+                    claimed={caps.mode !== "solo"}
+                    onOpen={() => setPwOpen(true)}
+                  />
+                </>
+              ),
+            },
         // Solo-only gentle upsell. Replaces the discovery the hidden Usage and
         // billing group would have given, so a solo user still learns what a
         // free account adds and where to add it, without any locked dead pages.
