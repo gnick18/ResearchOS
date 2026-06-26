@@ -588,6 +588,16 @@ export function ChemistryHub({
     [onOpenMolecule, handleDuplicate, handleCopyReference, handleDeleteOne],
   );
 
+  // ONE HOME PER ACTION (UX clawback). New / PubChem / Import / Literature live
+  // as full-weight launcher cards on the landing state and as rail buttons once
+  // you are working. Showing both at once double-billed every action, so we pick
+  // the home by state: the launcher is up exactly when the main pane shows it
+  // (no molecule selected, not in literature, not a dead deep-link), and the rail
+  // actions defer to it then. The instant you select a molecule or open
+  // literature the launcher is gone and the rail buttons take over.
+  const showingLauncher =
+    mainView !== "literature" && !selected && !(selectedId && !isLoading);
+
   return (
     <div
       ref={shell.containerRef}
@@ -628,26 +638,32 @@ export function ChemistryHub({
               </Tooltip>
             </div>
           </div>
-          <div className="flex flex-wrap gap-1.5 mt-2.5">
-            <RailAction
-              icon="pencil"
-              label="New"
-              onClick={onNewStructure}
-              primary
-              tutorTarget="chemistry-render-button"
-            />
-            <RailAction icon="search" label="PubChem" onClick={onSearchPubchem} />
-            <RailAction icon="download" label="Import" onClick={onImportFile} />
-            <RailAction
-              icon="book"
-              label="Literature"
-              onClick={() => {
-                setSelectedId(null);
-                setMainView("literature");
-              }}
-              active={mainView === "literature"}
-            />
-          </div>
+          {/* ONE HOME PER ACTION: the rail buttons are the home WHILE you are
+              working (a molecule or literature is open). On the landing state the
+              launcher cards in the main pane are the home, so the rail stands down
+              to keep each action at full weight in exactly one place. */}
+          {!showingLauncher ? (
+            <div className="flex flex-wrap gap-1.5 mt-2.5">
+              <RailAction
+                icon="pencil"
+                label="New"
+                onClick={onNewStructure}
+                primary
+                tutorTarget="chemistry-render-button"
+              />
+              <RailAction icon="search" label="PubChem" onClick={onSearchPubchem} />
+              <RailAction icon="download" label="Import" onClick={onImportFile} />
+              <RailAction
+                icon="book"
+                label="Literature"
+                onClick={() => {
+                  setSelectedId(null);
+                  setMainView("literature");
+                }}
+                active={mainView === "literature"}
+              />
+            </div>
+          ) : null}
         </div>
 
         {/* collection selector */}
@@ -675,104 +691,95 @@ export function ChemistryHub({
           </select>
         </div>
 
-        {/* Library filter + structure search. Both act ONLY on your own
-            molecules. Finding NEW compounds is the PubChem action above, this
-            box never reaches outside your library. The default is a plain
-            filter so it does not read like a global chemical search. */}
-        <div className="border-b border-border px-3 py-2 space-y-2">
+        {/* ONE PROGRESSIVE SEARCH FIELD (UX clawback). Used to be three stacked
+            controls (library filter, then a Search-by-structure door that swapped
+            in a Substructure/Similar sub-toggle). They are now one input with a
+            small Filter / Substructure / Similar mode chip-row inside it: type to
+            filter by default, switch the chip when you want to search by
+            structure. The chip drives the existing searchMode/structureMode state,
+            so every downstream search handler is unchanged. Every mode acts ONLY
+            on your own library; finding NEW compounds is the PubChem action above,
+            this box never reaches outside what you have. */}
+        <div className="border-b border-border px-3 py-2 space-y-1.5">
+          {/* Mode chips + sort. Filter is the calm default so the box never reads
+              like a global chemical search. */}
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1">
+              <SearchModeChip
+                active={searchMode === "text"}
+                onClick={() => setSearchMode("text")}
+              >
+                Filter
+              </SearchModeChip>
+              <SearchModeChip
+                active={searchMode === "structure" && structureMode === "substructure"}
+                icon="moleculeLinear"
+                onClick={() => {
+                  setSearchMode("structure");
+                  setStructureMode("substructure");
+                }}
+              >
+                Substructure
+              </SearchModeChip>
+              <SearchModeChip
+                active={searchMode === "structure" && structureMode === "similar"}
+                icon="moleculeLinear"
+                onClick={() => {
+                  setSearchMode("structure");
+                  setStructureMode("similar");
+                }}
+              >
+                Similar
+              </SearchModeChip>
+            </div>
+            {searchMode === "text" ? (
+              <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
+                <button
+                  type="button"
+                  onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
+                  aria-label="Toggle sort order"
+                  className="shrink-0 rounded-md border border-border px-2 py-1 text-meta font-semibold text-foreground-muted hover:text-foreground"
+                >
+                  {sort === "recent" ? "Recent" : "Name"}
+                </button>
+              </Tooltip>
+            ) : null}
+          </div>
+          {/* The one input. Filter mode is a plain text filter; the structure
+              modes take a SMILES/SMARTS string and run RDKit over your library. */}
           {searchMode === "text" ? (
-            <>
-              {/* Filter the molecules you already have */}
-              <div className="relative">
-                <Icon
-                  name="search"
-                  className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
-                />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Filter your molecules"
-                  aria-label="Filter your molecules by name, formula, or SMILES"
-                  className="w-full min-w-0 rounded-md border border-border bg-surface-raised pl-8 pr-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("structure")}
-                  className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-meta font-semibold text-brand-action hover:bg-accent-soft"
-                >
-                  <Icon name="moleculeLinear" className="h-3.5 w-3.5" />
-                  Search by structure
-                </button>
-                <Tooltip label={`Sort by ${sort === "recent" ? "name" : "recent"}`}>
-                  <button
-                    type="button"
-                    onClick={() => setSort((s) => (s === "recent" ? "name" : "recent"))}
-                    aria-label="Toggle sort order"
-                    className="shrink-0 rounded-md border border-border px-2 py-1 text-meta font-semibold text-foreground-muted hover:text-foreground"
-                  >
-                    {sort === "recent" ? "Recent" : "Name"}
-                  </button>
-                </Tooltip>
-              </div>
-            </>
-          ) : (
-            /* Structure search, still over your own library */
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <span className="text-meta font-semibold text-foreground">
-                  Search your library by structure
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setSearchMode("text")}
-                  className="inline-flex items-center gap-0.5 text-meta font-semibold text-foreground-muted hover:text-foreground"
-                >
-                  <Icon name="chevronLeft" className="h-3.5 w-3.5" />
-                  Filter
-                </button>
-              </div>
-              {/* Substructure / Similar sub-toggle */}
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setStructureMode("substructure")}
-                  className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
-                    structureMode === "substructure"
-                      ? "bg-accent-soft text-brand-action"
-                      : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-                  }`}
-                >
-                  Substructure
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setStructureMode("similar")}
-                  className={`rounded-md px-2.5 py-1 text-meta font-semibold transition-colors ${
-                    structureMode === "similar"
-                      ? "bg-accent-soft text-brand-action"
-                      : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
-                  }`}
-                >
-                  Similar
-                </button>
-              </div>
-              {/* SMILES / SMARTS input */}
+            <div className="relative">
+              <Icon
+                name="search"
+                className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-foreground-muted"
+              />
               <input
-                type="text"
-                data-testid="chem-structure-query-input"
-                value={structureQuery}
-                onChange={(e) => setStructureQuery(e.target.value)}
-                placeholder={
-                  structureMode === "substructure"
-                    ? "SMILES or SMARTS, e.g. c1ccccc1"
-                    : "SMILES query, e.g. CC(=O)O"
-                }
-                className="w-full min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body font-mono text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Filter your molecules"
+                aria-label="Filter your molecules by name, formula, or SMILES"
+                className="w-full min-w-0 rounded-md border border-border bg-surface-raised pl-8 pr-2.5 py-1.5 text-body text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
               />
             </div>
+          ) : (
+            <input
+              type="text"
+              data-testid="chem-structure-query-input"
+              value={structureQuery}
+              onChange={(e) => setStructureQuery(e.target.value)}
+              placeholder={
+                structureMode === "substructure"
+                  ? "SMILES or SMARTS, e.g. c1ccccc1"
+                  : "SMILES query, e.g. CC(=O)O"
+              }
+              aria-label={
+                structureMode === "substructure"
+                  ? "Search your library by substructure"
+                  : "Search your library for similar structures"
+              }
+              className="w-full min-w-0 rounded-md border border-border bg-surface-raised px-2.5 py-1.5 text-body font-mono text-foreground placeholder:text-foreground-muted outline-none focus:border-brand-action"
+            />
           )}
         </div>
 
@@ -1171,6 +1178,37 @@ function RailAction({
   );
 }
 
+/** One segment of the progressive search field's mode row (Filter /
+ *  Substructure / Similar). A quiet chip when idle, accent-soft when active, so
+ *  the three search concepts read as one control instead of stacked widgets. */
+function SearchModeChip({
+  active,
+  onClick,
+  icon,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  icon?: "moleculeLinear";
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-meta font-semibold transition-colors ${
+        active
+          ? "bg-accent-soft text-brand-action"
+          : "text-foreground-muted hover:text-foreground hover:bg-surface-sunken"
+      }`}
+    >
+      {icon ? <Icon name={icon} className="h-3.5 w-3.5" /> : null}
+      {children}
+    </button>
+  );
+}
+
 function MoleculeRow({
   molecule,
   projectName,
@@ -1285,6 +1323,7 @@ function Launcher({
             title="New structure"
             body="Open a blank canvas and draw a molecule."
             onClick={onNewStructure}
+            tutorTarget="chemistry-render-button"
           />
           <ActionCard
             icon="search"
@@ -1319,12 +1358,17 @@ function ActionCard({
   title,
   body,
   onClick,
+  tutorTarget,
 }: {
   icon: "pencil" | "search" | "download" | "book";
   tone: "action" | "purple" | "green";
   title: string;
   body: string;
   onClick: () => void;
+  /** Onboarding-tour anchor (lib/onboarding/tutor-target.ts). The launcher is the
+   *  "New" home on the landing state, so the tutor's chemistry anchor rides here
+   *  when the rail buttons stand down. Opt-in per call. */
+  tutorTarget?: string;
 }) {
   const toneClass =
     tone === "action"
@@ -1335,6 +1379,7 @@ function ActionCard({
   return (
     <button
       type="button"
+      {...(tutorTarget ? { "data-tutor-target": tutorTarget } : {})}
       onClick={onClick}
       className="flex gap-3 items-start text-left bg-surface-raised border border-border rounded-xl p-4 shadow-sm transition-colors cursor-pointer hover:border-brand-action"
     >
